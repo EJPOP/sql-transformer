@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--   -->
+<mapper namespace="kr.go.bai.eip.bad.fre.dao.BADFRE411Mapper">
+
+	<select id="BADFRE411QMainselect" parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE411Mapper.BADFRE411QMainselect */
+		<include refid="include.pageSelct" />
+		SELECT A.ACP_YR || '-' || DECODE(A.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || A.ACP_SRNO AS ACP_NO /* 분류번호 */
+			     ,NVL(C.RCPT_NM, CASE WHEN C.RPRT_CD = 'D10400300' THEN NVL(B.DSPTCH_INSTT_NAM, B.CNTR_ADMNSTMACH_NAM)
+                         WHEN C.RPRT_CD = 'D10400400' THEN NVL(B.AGT_NM, B.REQR_NM)
+                         WHEN C.RPRT_CD = 'E10600200' THEN B.REQR_NM
+                   END) AS REQR_NM /* 청구인명 */
+                 ,CASE WHEN C.RPRT_CD = 'D10400300' THEN C.RCPT_AD
+                       ELSE NVL(C.RCPT_AD, CASE WHEN B.AGT_NM IS NOT NULL AND B.AGT_AD IS NOT NULL THEN  B.AGT_AD || ' ' || B.AGT_DTL_AD ELSE B.AD || ' ' || B.DTL_AD END) END AS AD /* 주소 */ 
+			     ,'심사관리관' AS RANK_DPT_NM /* 국 */
+			     ,F_DPT_INFO (B.DPT_CD, '1') AS DPT_NM /* 처리과 */
+			     ,F_CODE_NM('1000043', B.JDG_REQ_DVSN_CD) AS JDG_REQ_DVSN_NM /* 청구분류명 */
+			     ,C.DOC_ID /* 문서ID */
+			     ,C.RPRT_CD /* 보고서코드 */
+			     ,C.RPRT_NM /* 보고서명 */
+		  	     ,TO_CHAR(TO_DATE(C.DLV_DT),'YYYY-MM-DD') AS DLV_DT  /* 교부일자 */
+			     ,C.DLV_CNT /* 등본 교부통수 */
+			     ,C.ACP_YR /* 접수년도 */
+			     ,C.ACP_DVSN_CD /* 접수구분 */
+			     ,C.ACP_SRNO /* 접수번호 */
+			     ,A.ACP_STEP_CD /* 접수단계 */
+			     ,A.SND_DH /* 청구일*/
+			     ,C.DLV_RMK /*교부비고 */
+			     ,C.CPS_JUD_REL_BLT /*변상판정관련소속*/
+			     ,C.CPS_JUD_REL_RANK /*변상판정관련직명*/
+			     ,C.CPS_JUD_REL_NAME /*변상판정관련성명*/
+			     ,F_USR_INFO_BY_ID(C.CHGR_ID ,'2') AS CHGR_NM		/*검열 담당자명*/
+			     , (SELECT DOC_ID FROM TBBADFRE103M D WHERE A.ACP_YR = D.ACP_YR AND A.ACP_DVSN_CD = D.ACP_DVSN_CD AND A.ACP_SRNO = D.ACP_SRNO AND D.RPRT_CD IN ('D10400100','E10600050')) AS FINAL_DOC_ID	/*최종결정서 DOC_ID*/
+	     		 , C.APV_RQS_ID
+	     		 , C.APV_STA_CD
+		         , F_CODE_NM('1000773',C.APV_STA_CD) AS APV_STA_NM    /*결재상태코드 */
+		         , C.CON_PGM_CD
+		         , F_OPEN_EDIT(C.LINK_URL) AS DOC_TYPE
+	     FROM TBBADFRE111M A,
+			     TBBADFRE012M B,
+			     TBBADFRE103M C
+		WHERE 1=1
+		   AND A.ACP_YR = B.ACP_YR
+		   AND A.ACP_DVSN_CD = B.ACP_DVSN_CD
+		   AND A.ACP_SRNO = B.ACP_SRNO
+		   AND A.ACP_YR = C.ACP_YR
+		   AND A.ACP_DVSN_CD = C.ACP_DVSN_CD
+		   AND A.ACP_SRNO = C.ACP_SRNO
+		   AND A.ACP_STEP_CD = C.ACP_STEP_CD
+		   AND A.DOC_ID = C.DOC_ID
+		<if test='acpDvsnCd == "1"'>
+		   AND A.ACP_STEP_CD = 'D1040'
+		</if>
+		<if test='acpDvsnCd == "2"'>
+		   AND A.ACP_STEP_CD = 'E1060'
+		   <if test='fnlMnuId == "EI_003_006_002_001"'>
+		   		AND B.JDG_REQ_DVSN_CD IN ('41','43','49')
+		   </if>
+		   <if test='fnlMnuId == "EI_003_006_002_002"'>
+		   		AND B.JDG_REQ_DVSN_CD IN ('42')
+		   </if>
+		</if>
+		<!-- 교부일자 -->
+		<if test='dlvDts != null and dlvDts != ""'>
+			AND TO_CHAR(TO_DATE(C.DLV_DT),'YYYYMMDD') &gt;= #{dlvDts}
+		</if>
+		<if test='dlvDte != null and dlvDte != ""'>
+			AND TO_CHAR(TO_DATE(C.DLV_DT),'YYYYMMDD') &lt;= #{dlvDte}
+		</if>
+		<if test='acpYr != null and acpYr != ""'>
+         	AND A.ACP_YR = #{acpYr}
+         </if>
+         <if test='acpDvsnCd != null and acpDvsnCd != ""'>
+         	AND A.ACP_DVSN_CD = #{acpDvsnCd}
+         </if>
+         <if test='acpSrno != null and acpSrno != ""'>
+         	AND A.ACP_SRNO = #{acpSrno}
+         </if>
+         <if test='acpStepCd != null and acpStepCd != ""'>
+         	AND A.ACP_STEP_CD = #{acpStepCd}
+         </if>
+         <if test='docId != null and docId != ""'>
+         	AND A.DOC_ID = #{docId}
+         </if>
+         <if test='reqrNm != null and reqrNm != ""'>
+         	AND B.REQR_NM LIKE '%' || #{reqrNm} || '%'
+         </if>
+         <if test='dlvYn != null and dlvYn != ""'>
+         	AND (CASE WHEN NVL(C.DLV_DT, 0) = 0 THEN 'N'
+                    ELSE 'Y' END) = #{dlvYn}
+         </if>
+         ORDER BY SND_DH DESC
+		<include refid="include.pageOrder" />
+	</select>
+
+	<update id="BADFRE411QUpdate" parameterType="paramMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE411Mapper.BADFRE411QUpdate */
+		UPDATE TBBADFRE103M
+		     SET DLV_DT = #{dlvDt}
+		          ,DLV_CNT = #{dlvCnt}
+		          ,DLV_RMK = #{dlvRmk}
+		          ,CPS_JUD_REL_BLT = #{cpsJudRelBlt}
+		          ,CPS_JUD_REL_RANK = #{cpsJudRelRank}
+		          ,CPS_JUD_REL_NAME = #{cpsJudRelName}
+		          ,RCPT_NM = #{reqrNm}
+		          ,RCPT_AD = #{ad}
+		          ,CHGR_ID = #{fnlUsrId}
+		          ,FNL_USR_ID = #{fnlUsrId}
+		          ,FNL_DEAL_DPT_CD = #{fnlDealDptCd}
+		          ,FNL_MNU_ID = #{fnlMnuId}
+		 WHERE ACP_YR = #{acpYr}
+		    AND ACP_DVSN_CD = #{acpDvsnCd}
+		    AND ACP_SRNO = #{acpSrno}
+		    AND ACP_STEP_CD = #{acpStepCd}
+		    AND DOC_ID = #{docId}
+	</update>
+		<update id="BADFRE411QUpdate2" parameterType="paramMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE411Mapper.BADFRE411QUpdate */
+		UPDATE TBBADFRE012M
+		     SET 
+		     	AD = #{ad}
+		       <if test='rprtCd == "D10400400"'>
+		          ,REQR_NM = #{reqrNm}
+		      </if>
+		       <if test='rprtCd == "D10400300" or rprtCd == "E10600200"'>
+		           ,ORG_NM = #{reqrNm}
+		      </if>
+		          ,FNL_USR_ID = #{fnlUsrId}
+		          ,FNL_DEAL_DPT_CD = #{fnlDealDptCd}
+		          ,FNL_MNU_ID = #{fnlMnuId}
+		 WHERE ACP_YR = #{acpYr}
+		    AND ACP_DVSN_CD = #{acpDvsnCd}
+		    AND ACP_SRNO = #{acpSrno}
+	</update>
+
+	<update id="BADFRE102MUpdate" parameterType="paramMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE411Mapper.BADFRE102MUpdate */
+		<![CDATA[
+		UPDATE TBBADFRE102M A
+            SET CMPT_YN = 'Y'
+            WHERE 1=1
+            AND (A.ACP_YR, A.ACP_DVSN_CD, A.ACP_SRNO) IN (
+                                                    SELECT NVL(B.MG_ACP_YR, B.ACP_YR) AS ACP_YR
+                                                   , NVL(B.MG_ACP_DVSN_CD, B.ACP_DVSN_CD) AS ACP_DVSN_CD
+                                                   , (CASE WHEN B.MG_ACP_SRNO IS NOT NULL AND B.MG_ACP_SRNO <> 0 THEN B.MG_ACP_SRNO ELSE B.ACP_SRNO END) AS ACP_SRNO
+                                                    FROM TBBADFRE012M B 
+                                                    WHERE B.ACP_YR = #{acpYr}
+                                                    AND B.ACP_DVSN_CD = #{acpDvsnCd}
+		                                            AND B.ACP_SRNO = #{acpSrno})
+
+		    AND A.ACP_STEP_CD = 'D1050'
+            AND A.ACP_MAIN_STEP_ID = '500101'
+            AND A.ACP_MAIN_STEP_SNO = '1'
+            AND A.ACP_MAIN_SEQ_W = '1'
+            AND A.ACP_MAIN_SEQ_H = '1';
+            ]]>
+	</update>
+
+	<!-- 문서함(시행문) 목록 조회 -->
+	<select id="DocumentListSelect" parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE411Mapper.DocumentListSelect */
+		SELECT *
+		 FROM (
+		           SELECT A.ACP_YR || '-' || DECODE(A.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || DECODE(A.ORG_ACP_SRNO, null, A.ACP_SRNO, A.ORG_ACP_SRNO) AS ACP_NO /* 분류번호 */
+		                   ,(SELECT DOC_ID
+		                      FROM TBBADFRE103M
+		                    WHERE ACP_YR = A.ACP_YR
+				               AND ACP_DVSN_CD = A.ACP_DVSN_CD
+				               AND ACP_SRNO = A.ACP_SRNO
+				               AND RPRT_CD = DECODE(A.ACP_DVSN_CD, '1', 'D10400300', 'E10600200')) AS DOC_ID
+				            ,DECODE(A.ACP_DVSN_CD, '1', 'D10400300', 'E10600200') AS RPRT_CD
+		                    ,NVL((SELECT RPRT_NM
+		                            FROM TBBADFRE103M
+				                   WHERE ACP_YR = A.ACP_YR
+				                      AND ACP_DVSN_CD = A.ACP_DVSN_CD
+				                      AND ACP_SRNO = A.ACP_SRNO
+				                      AND RPRT_CD = DECODE(A.ACP_DVSN_CD, '1', 'D10400300', 'E10600200')), '시행문(중앙부처)') AS RPRT_NM
+					        ,A.ACP_YR
+					        ,A.ACP_DVSN_CD
+					        ,A.ACP_SRNO
+					        ,A.MG_ACP_YR
+					        ,A.MG_ACP_DVSN_CD
+					        ,A.MG_ACP_SRNO
+					        ,A.ORG_NM AS REQR_NM
+					   <!--      ,CASE WHEN #{rprtCd} = 'D10400300' THEN A.ORG_NM
+                                  WHEN #{rprtCd} = 'D10400400' THEN A.REQR_NM
+                                  WHEN #{rprtCd} = 'E10600200' THEN A.ORG_NM
+                              END AS REQR_NM /* 청구인명 */ -->
+                            , (SELECT F_OPEN_EDIT(LINK_URL) 
+		                         FROM TBBADFRE103M
+		                        WHERE ACP_YR = A.ACP_YR
+				                  AND ACP_DVSN_CD = A.ACP_DVSN_CD
+				                  AND ACP_SRNO = A.ACP_SRNO
+				                  AND RPRT_CD = DECODE(A.ACP_DVSN_CD, '1', 'D10400300', 'E10600200')) AS DOC_TYPE
+		            FROM TBBADFRE012M A
+		           UNION
+		           SELECT A.ACP_YR || '-' || DECODE(A.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || DECODE(A.ORG_ACP_SRNO, null, A.ACP_SRNO, A.ORG_ACP_SRNO) AS ACP_NO /* 분류번호 */
+		                    ,(SELECT DOC_ID
+		                      FROM TBBADFRE103M
+		                    WHERE ACP_YR = A.ACP_YR
+				               AND ACP_DVSN_CD = A.ACP_DVSN_CD
+				               AND ACP_SRNO = A.ACP_SRNO
+				               AND RPRT_CD = 'D10400400') AS DOC_ID
+				            , 'D10400400' AS RPRT_CD
+		                    ,NVL((SELECT RPRT_NM
+		                            FROM TBBADFRE103M
+				                   WHERE ACP_YR = A.ACP_YR
+				                      AND ACP_DVSN_CD = A.ACP_DVSN_CD
+				                      AND ACP_SRNO = A.ACP_SRNO
+				                      AND RPRT_CD = 'D10400400'), '시행문(청구인)') AS RPRT_NM
+					        ,A.ACP_YR
+					        ,A.ACP_DVSN_CD
+					        ,A.ACP_SRNO
+					        ,A.MG_ACP_YR
+					        ,A.MG_ACP_DVSN_CD
+					        ,A.MG_ACP_SRNO
+					        ,A.REQR_NM AS REQR_NM /* 기관명 */
+					       <!--  ,CASE WHEN #{rprtCd} = 'D10400300' THEN A.ORG_NM
+                                    WHEN 'D10400400' = 'D10400400' THEN A.REQR_NM
+                                    WHEN #{rprtCd} = 'E10600200' THEN A.ORG_NM
+                              END AS REQR_NM /* 청구인명 */ -->
+                            ,(SELECT F_OPEN_EDIT(LINK_URL)
+		                      FROM TBBADFRE103M
+		                    WHERE ACP_YR = A.ACP_YR
+				               AND ACP_DVSN_CD = A.ACP_DVSN_CD
+				               AND ACP_SRNO = A.ACP_SRNO
+				               AND RPRT_CD = 'D10400400') AS DOC_TYPE
+		            FROM TBBADFRE012M A
+		           WHERE ACP_DVSN_CD = '1')
+		 WHERE 1=1
+	    <if test='acpYr != null and acpYr != ""'>
+           AND ACP_YR = #{acpYr}
+        </if>
+        <if test='acpDvsnCd != null and acpDvsnCd != ""'>
+           AND ACP_DVSN_CD = #{acpDvsnCd}
+        </if>
+        <if test='acpSrno != null and acpSrno != ""'>
+           AND ACP_SRNO = #{acpSrno}
+        </if>
+		ORDER BY RPRT_NM
+	</select>
+</mapper>

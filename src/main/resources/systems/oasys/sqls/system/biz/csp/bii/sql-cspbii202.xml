@@ -1,0 +1,113 @@
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd" >
+<sqlMap namespace="csp/bii/202">
+
+	<!-- 감사정보 연도 목록 조회 -->
+	<select id="CSPBII202QAudInfYeSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT /* csp.bii.service.impl.CSPBII111QServiceImpl.CSPBII111QMlgInfSelect */
+			       DISTINCT '2021' AS YE	            /* 연도 */
+			  FROM DUAL A
+			  
+			UNION ALL			
+			
+			SELECT TO_CHAR(MAX(A.YE) + 1) AS YE /* 연도 MAX + 1 */
+			  FROM TBCSPBII171M A
+			
+			ORDER BY YE			
+		]]>			 
+	</select>
+	
+	<!-- 감사정보 운영 현황판 조회 -->
+	<select id="CSPBII202QOpSituSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT COUNT(DECODE(A.AUD_INF_PRSS_STA_CD, '05', 1, NULL)) || ' 건' AS UN_ACP_CNT      /* 미접수건수 */
+			     , COUNT(DECODE(A.AUD_INF_PRSS_STA_CD, '10', 1,'13',1, NULL)) || ' 건' AS UN_TRNF_CNT     /* 미이송건수 */
+			     , COUNT(DECODE(A.AUD_INF_PRSS_STA_CD, '15', 1, NULL)) || ' 건' AS UN_TRNF_ACP_CNT /* 이송미접수 */
+			     , COUNT(CASE WHEN A.AUD_INF_PRSS_STA_CD BETWEEN '20' AND '32' THEN 1
+			                  ELSE NULL
+			             END) || ' 건'                                          AS UN_CMPT_CNT     /* 미결건수 */
+			  FROM TBCSPBII100M A
+			 WHERE A.YE = #strYe#
+		]]>		
+	</select>
+	
+	<!-- 감사정보 운영 현황판 조회2 -->
+	<select id="CSPBII202QOpSituSelect2" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT COUNT(DECODE(A.AUD_INF_PRSS_STA_CD, '05', 1, NULL)) || ' 건' AS UN_ACP_CNT      /* 미접수건수 */
+			     , COUNT(DECODE(A.AUD_INF_PRSS_STA_CD, '10', 1,'13',1, NULL)) || ' 건' AS UN_TRNF_CNT     /* 미이송건수 */
+			     , COUNT(DECODE(A.AUD_INF_PRSS_STA_CD, '15', 1, NULL)) || ' 건' AS UN_TRNF_ACP_CNT /* 이송미접수 */
+			     , COUNT(CASE WHEN A.AUD_INF_PRSS_STA_CD BETWEEN '20' AND '32' THEN 1
+			                  ELSE NULL
+			             END) || ' 건'                                          AS UN_CMPT_CNT     /* 미결건수 */
+			  FROM TBCSPBII171M A
+			 WHERE A.YE = #strYe#
+		]]>		
+	</select>		
+	
+	<!-- 특정정보 조회-->
+	<select id="CSPBII202QMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT A.SPCF_INF_CLC_NO /* 특정정보수집번호 */
+			     , A.STR_DT          /* 시작일 */
+			     , A.END_DT          /* 종료일 */
+			     , A.SPCF_AUD_SBJ    /* 특정사항명 */
+			     , A.SPV_DPT_CD
+			     , F_DPT_INFO(A.SPV_DPT_CD, '1') AS SPV_DPT_NM
+			  FROM TBCSPBII175M A
+			 WHERE #strYe# BETWEEN SUBSTR(A.STR_DT, 1, 4) AND SUBSTR(A.END_DT, 1, 4) 
+		]]>
+		ORDER BY A.SPCF_INF_CLC_NO
+	</select>	
+	
+	<!-- 특정정보 등록  -->
+	<insert id="CSPBII202EMainInsert" parameterClass="paramMap">
+		INSERT INTO TBCSPBII175M (
+		                          SPCF_INF_CLC_NO    /* 특정정보수집번호 */
+		                        , STR_DT             /* 시작일 */
+		                        , END_DT             /* 종료일 */
+		                        , SPCF_AUD_SBJ       /* 특정사항명 */
+		                        , FRT_USR_ID         /* 최초사용자ID */
+		                        , FNL_USR_ID         /* 최종사용자ID */
+		                        , FNL_DEAL_DPT_CD    /* 최종거래부서코드 */
+		                        , FNL_MNU_ID         /* 최종메뉴ID */
+		                        , FRT_REGI_DH        /* 최초등록일시 */
+		                        , FNL_MDF_DH         /* 최종수정일시 */
+		                        , SPV_DPT_CD 
+		                         ) 
+		                  VALUES ((SELECT TO_CHAR(SYSDATE, 'YYYY') || LPAD(NVL(MAX(SUBSTR(SPCF_INF_CLC_NO, 5, 2)), 0) + 1, 2, '0')
+		                             FROM TBCSPBII175M
+		                            WHERE SUBSTR(SPCF_INF_CLC_NO, 1, 4) = TO_CHAR(SYSDATE, 'YYYY'))
+		                        , #STR_DT#
+		                        , #END_DT#
+		                        , #SPCF_AUD_SBJ#
+		                        , #FRT_USR_ID#
+		                        , #FNL_USR_ID#
+		                        , #FNL_DEAL_DPT_CD#
+		                        , #FNL_MNU_ID#
+		                        , SYSDATE
+		                        , SYSDATE
+		                        , #SPV_DPT_CD#
+				                 )
+	</insert>
+	
+	<!-- 특정정보 수정 -->
+	<update id="CSPBII202EMainUpdate" parameterClass="paramMap">
+		UPDATE TBCSPBII175M                     
+		   SET STR_DT          = #STR_DT#            /* 시작일 */
+		     , END_DT          = #END_DT#            /* 종료일 */
+		     , SPCF_AUD_SBJ    = #SPCF_AUD_SBJ#      /* 특정사항명 */
+		     , SPV_DPT_CD = #SPV_DPT_CD#
+		     , FNL_USR_ID      = #FNL_USR_ID#        /* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#   /* 최종거래부서코드 */
+		     , FNL_MNU_ID      = #FNL_MNU_ID#        /* 최종메뉴ID */
+		     , FNL_MDF_DH      = SYSDATE             /* 최종수정일시 */
+		 WHERE SPCF_INF_CLC_NO = #SPCF_INF_CLC_NO#
+	</update>
+	
+	<!-- 특정정보 삭제 -->
+	<delete id="CSPBII202EMainDelete" parameterClass="paramMap">
+		DELETE TBCSPBII175M
+		 WHERE SPCF_INF_CLC_NO = #SPCF_INF_CLC_NO#   
+	</delete>
+</sqlMap>

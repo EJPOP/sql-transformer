@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/iit/036">
+	<select id="CSPIIT036EMainSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<include refid = "include.pageSelct"/>
+        <![CDATA[
+			SELECT 	
+					SUBSTR(A.MEDIA_MNG_CD,0,4) AS YR,
+					SUBSTR(A.MEDIA_MNG_CD,6) AS  MEDIA_MNG_CD,     /*미디어관리코드*/
+					SUBSTR(A.MEDIA_MNG_CD,0,4) ||'_'|| SUBSTR(A.MEDIA_MNG_CD,6) AS  MEDIA_MNG_CD_NEW,
+			 		A.MEDIA_SRNO,		/*시리얼번호*/
+					A.MEDIA_KND_CD,   	/*미디어종류코드*/
+			 		(	SELECT CD_NM 
+                		FROM    TBDCMACM013C S1
+               			WHERE   S1.CMM_CD_DVSN_CD ='1000144'
+                		AND     S1.CD <> '000000000'
+                		AND     S1.CD = (SELECT S1.DPT_CD	FROM	TBDCMACM001M S1	WHERE	S1.CNB = A.CNB)
+                	) AS DPT_NM,
+			 		(	SELECT S1.USR_NAM
+			 			FROM	TBDCMACM001M S1
+			 			WHERE	S1.CNB = A.CNB
+			 		) AS USR_NAM,	
+			 		A.CNB,			/*전산번호*/
+			 		(	SELECT S1.RAL_BLT_DIV_CD
+			 			FROM	TBDCMACM001M S1
+			 			WHERE	S1.CNB = A.CNB
+			 		) AS DPT_CD,		/*부서코드*/
+			 		A.MEDIA_STAT_CD,    /*미디어상태코드*/
+			 		A.MEDIA_REG_DT,     /*도입일*/
+			 		A.MEDIA_MNG_RMK,    /*비고*/
+			 		A.ETC_SBJ,
+			 		A.CNB AS OLD_CNB,
+			 		(	SELECT S1.USR_NAM
+			 			FROM	TBDCMACM001M S1
+			 			WHERE	S1.CNB = A.CNB
+			 		) AS OLD_USR_NAM,
+			 		(	SELECT CD_NM 
+                		FROM    TBDCMACM013C S1
+               			WHERE   S1.CMM_CD_DVSN_CD ='1000173'
+                		AND     S1.CD <> '000000000'
+                		AND     S1.CD = (SELECT S2.RANK_CD FROM TBDCMACM001M S2 WHERE S2.CNB = A.CNB )
+                	) AS RANK_NM,
+			 		A.MEDIA_SRNO AS OLD_MEDIA_SRNO,    /*이전 미디어시리얼번호*/
+			 		A.MEDIA_STAT_CD AS OLD_MEDIA_STAT_CD,    /*이전 미디어상태코드*/
+			 		A.MEDIA_CHK_DT,     /*최종점검일*/
+			 		A.DTIL_DVSN_CD,		/*용량*/
+			 		A.WAY_DVSN_CD,		/*드라이브방식*/
+			 		A.MEDIA_REG_CNT   /*차수*/
+			FROM   	TBCSPIIT036M A	/*보안매체관리테이블*/
+			WHERE	1=1
+			
+        ]]>
+        <dynamic>
+        	<isNotEmpty property="strMEDIA_KND_CD">
+        		AND	A.MEDIA_KND_CD = #strMEDIA_KND_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strMEDIA_STAT_CD">
+        		AND	A.MEDIA_STAT_CD = #strMEDIA_STAT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strMEDIA_SRNO">
+        		AND	A.MEDIA_SRNO LIKE '%' || #strMEDIA_SRNO# || '%' 
+        	</isNotEmpty>
+        	<isNotEmpty property="strDPT_CD">
+        		AND	(SELECT S1.RAL_BLT_DIV_CD	FROM	TBDCMACM001M S1	WHERE	S1.CNB = A.CNB) = #strDPT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strMEDIA_MNG_RMK">
+        		AND (A.MEDIA_MNG_RMK LIKE '%'||#strMEDIA_MNG_RMK#||'%' OR A.ETC_SBJ LIKE '%'||#strMEDIA_MNG_RMK#||'%') 
+	        </isNotEmpty>	        
+	        <isNotEmpty property="strUSER_NM">
+        		AND	(F_USR_INFO(A.CNB,'2')) LIKE '%'||#strUSER_NM#||'%'
+        	</isNotEmpty>
+        </dynamic>
+        <include refid = "include.pageOrder"/> 
+	</select>        
+	
+	
+	<!-- PC장비관리 엑셀다운 -->
+	<select id="CSPIIT036EExcelExportSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+			SELECT 	
+					(SUBSTR(A.MEDIA_MNG_CD,0,4) || '_' || SUBSTR(A.MEDIA_MNG_CD,6)) AS  MEDIA_MNG_CD,  /*PC관리코드*/
+					F_CODE_NM('1000844',A.MEDIA_KND_CD) AS MEDIA_KND_CD,   	/*매체종류코드*/
+			 		F_CODE_NM('1000845',A.MEDIA_STAT_CD) AS MEDIA_STAT_CD, 	/*매체상태코드*/
+			 		(CASE WHEN (SELECT S1.RAL_BLT_DIV_CD
+			 			FROM	TBDCMACM001M S1
+			 			WHERE	S1.CNB = A.CNB)= '880880' THEN '퇴직자' ELSE
+                        F_CODE_NM('1000144',(SELECT S1.RAL_BLT_DIV_CD
+			 			FROM	TBDCMACM001M S1
+			 			WHERE	S1.CNB = A.CNB)) END)AS DPT_NM,
+			 		F_USR_INFO(A.CNB,'2') AS USR_NAM, 	/*전산번호*/			
+			 		F_CODE_NM('1000173' , f_usr_info(a.cnb,'3')) AS RANK_NM,								
+			 		A.MEDIA_SRNO,			/*시리얼번호*/
+			 		TO_CHAR(TO_DATE(A.MEDIA_REG_DT),'YYYY-MM-DD') AS MEDIA_REG_DT,          /*도입일*/
+			 		A.MEDIA_MNG_RMK,              /*비고*/
+			 		A.CNB,
+			 		(SELECT S1.RAL_BLT_DIV_CD
+			 			FROM	TBDCMACM001M S1
+			 			WHERE	S1.CNB = A.CNB) AS DPT_CD, 	/*부서코드*/	
+					(SELECT S1.RANK_NM_2
+			 			FROM	TBDCMACM001M S1
+			 			WHERE	S1.CNB = A.CNB) AS RANK_NM2, 	/*호칭*/    
+			 		CASE WHEN SUBSTR((SELECT S1.RAL_BLT_DIV_CD
+			 			FROM	TBDCMACM001M S1
+			 			WHERE	S1.CNB = A.CNB),0,3)||'000' = (SELECT S1.RAL_BLT_DIV_CD
+			 			FROM	TBDCMACM001M S1
+			 			WHERE	S1.CNB = A.CNB) THEN F_DPT_INFO((SELECT S1.RAL_BLT_DIV_CD
+			 			FROM	TBDCMACM001M S1
+			 			WHERE	S1.CNB = A.CNB),'1')
+			 		ELSE F_DPT_INFO(SUBSTR((SELECT S1.RAL_BLT_DIV_CD
+			 			FROM	TBDCMACM001M S1
+			 			WHERE	S1.CNB = A.CNB),0,3)||'000','1') END AS H_DPT_NM,
+			 		B.USR_DFN_TXT_3,
+			 		TO_CHAR(TO_DATE(A.MEDIA_CHK_DT),'YYYY-MM-DD') AS MEDIA_CHK_DT,          /*최종점검일*/
+			 		A.DTIL_DVSN_CD,		/*용량*/
+			 		F_CODE_NM('1000960' , A.DTIL_DVSN_CD) AS DTIL_DVSN_NM,		/*용량*/
+			 		A.WAY_DVSN_CD,		/*드라이브방식*/
+			 		F_CODE_NM('1000954' , A.WAY_DVSN_CD) AS WAY_DVSN_NM,	
+			 		A.MEDIA_REG_CNT   /*차수*/
+			FROM   	TBCSPIIT036M A	/*보안매체관리테이블*/
+					,TBDCMACM013C B
+			WHERE	1=1
+			AND F_USR_INFO(A.CNB,'5') = B.CD(+)
+			AND B.CMM_CD_DVSN_CD(+) = '1000144'
+			
+        ]]>
+        <dynamic>
+        	<isNotEmpty property="strMEDIA_KND_CD">
+        		AND	A.MEDIA_KND_CD = #strMEDIA_KND_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strMEDIA_STAT_CD">
+        		AND	A.MEDIA_STAT_CD = #MEDIA_STAT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strDPT_CD">
+        		AND	(SELECT S1.RAL_BLT_DIV_CD	FROM	TBDCMACM001M S1	WHERE	S1.CNB = A.CNB) = #strDPT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strMEDIA_MNG_RMK">
+        		AND (A.MEDIA_MNG_RMK LIKE '%'||#strMEDIA_MNG_RMK#||'%' OR A.ETC_SBJ LIKE '%'||#strMEDIA_MNG_RMK#||'%') 
+	        </isNotEmpty>	             
+	        <isNotEmpty property="strUSER_NM">
+        		AND	(F_USR_INFO(A.CNB,'2')) LIKE '%'||#strUSER_NM#||'%'
+        	</isNotEmpty>
+        </dynamic>
+        ORDER BY B.USR_DFN_TXT_3 ASC
+	</select>    
+	
+	<insert id="CSPIIT036EMainInsert" parameterClass="paramMap">
+        <![CDATA[
+			INSERT INTO TBCSPIIT036M       
+			(	
+					MEDIA_MNG_CD,       /*보안매체ID     */
+					MEDIA_SRNO,         /*시리얼번호     */
+					MEDIA_KND_CD,       /*매체종류     */
+					             		/* DPT_CD, 부서코드       */
+					CNB,                /*전산번호       */    
+					MEDIA_REG_DT,       /*도입일         */  
+					MEDIA_CHK_DT,       /*최종점검일         */  
+					MEDIA_STAT_CD,       /*도입일         */
+					MEDIA_MNG_RMK,		/*비고*/
+					DTIL_DVSN_CD,		/*용량*/
+			 		WAY_DVSN_CD,		/*드라이브방식*/
+			 		MEDIA_REG_CNT,
+					FRT_USR_ID,
+					FNL_USR_ID,
+					FNL_DEAL_DPT_CD,
+					FNL_MNU_ID,
+					FRT_REGI_DH,
+					FNL_MDF_DH
+			) VALUES (
+					(SELECT #YR# || '_' || LPAD(NVL(MAX(TO_NUMBER(SUBSTR(MEDIA_MNG_CD,6,4))),0)+1,4,0) 
+    					FROM TBCSPIIT036M  
+    				WHERE SUBSTR(MEDIA_MNG_CD,0,4) = #YR# ) ,
+					#MEDIA_SRNO#, 
+					#MEDIA_KND_CD#, 
+					#CNB#, 
+					#MEDIA_REG_DT#, 
+					#MEDIA_CHK_DT#,
+					#MEDIA_STAT_CD#, 
+					#MEDIA_MNG_RMK#, 
+					#DTIL_DVSN_CD#,		
+			 		#WAY_DVSN_CD#,		
+			 		#MEDIA_REG_CNT#,
+					#FRT_USR_ID#,
+					#FNL_USR_ID#,
+					#FNL_DEAL_DPT_CD#,
+					#FNL_MNU_ID#,
+					SYSDATE,
+					SYSDATE
+					
+			)
+        ]]>
+	</insert>        
+	<update id="CSPIIT036EMainUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPIIT036M  				/*보안USB관리 테이블*/
+			SET		MEDIA_KND_CD = #MEDIA_KND_CD#, 		/*매체종류*/
+					MEDIA_SRNO   = #MEDIA_SRNO#,			/*시리얼*/
+					MEDIA_REG_DT = #MEDIA_REG_DT#,		/*도입일*/
+					MEDIA_CHK_DT = #MEDIA_CHK_DT#,		/*최종점검일*/
+					CNB = #CNB#,						/*전산번호*/
+					MEDIA_STAT_CD = #MEDIA_STAT_CD#,	/*매체상태*/
+					MEDIA_MNG_RMK = #MEDIA_MNG_RMK#,	/*비고*/
+					DTIL_DVSN_CD  = #DTIL_DVSN_CD#,		
+			 		WAY_DVSN_CD   = #WAY_DVSN_CD#,		
+			 		MEDIA_REG_CNT = #MEDIA_REG_CNT#,
+					FNL_USR_ID = #FNL_USR_ID#,
+					FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#,
+					FNL_MNU_ID = #FNL_MNU_ID#,
+					FNL_MDF_DH = SYSDATE
+		]]>
+		<dynamic>
+			<isNotEmpty property="ETC_SBJ2">
+					, ETC_SBJ = #ETC_SBJ2#||':'|| #MEDIA_SRNO# ||'/'|| F_CODE_NM('1000845', #MEDIA_STAT_CD#)||')'||CHR(13)||ETC_SBJ
+			</isNotEmpty>
+		</dynamic>
+		<![CDATA[
+			WHERE	MEDIA_MNG_CD = #YR#||'_'||#MEDIA_MNG_CD#
+		]]>
+	</update>
+	
+	<delete id="CSPIIT036EMainDelete" parameterClass="paramMap">
+		<![CDATA[
+			DELETE	FROM TBCSPIIT036M
+			WHERE	MEDIA_MNG_CD = #YR#||'_'||#MEDIA_MNG_CD#
+		]]>
+	</delete>
+	<select id="CSPIIT036EPcEqpCdSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<![CDATA[
+			SELECT	PC_EQP_CD AS CD, PC_EQP_NM AS CD_NM
+			FROM	TBCSPIIT011C
+			WHERE	USE_DVSN_CD = 'Y'
+			ORDER BY PC_EQP_CD ASC
+		]]> 
+	</select>
+	
+	<select id="CSPIIT036EKeySelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+        	SELECT	 #YR#||'_'||#MEDIA_MNG_CD#
+        	FROM	TBCSPIIT036M
+        	WHERE	MEDIA_MNG_CD =  #YR#||'_'||#MEDIA_MNG_CD#
+        ]]> 
+	</select>
+	
+	<select id="CSPIIT036EReportSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+			SELECT 	A.PC_MNG_CD,        /*PC관리코드*/
+					F_CODE_NM('1000306',A.PC_SE_CAT_CD) AS PC_SE_CAT_NM,   	/*PC용도분류코드*/
+			 		F_CODE_NM('1000307',A.PSSN_DVSN_CD) AS PSSN_DVSN_NM, 		/*소유구분코드*/
+			 		F_CODE_NM('1000305',A.PC_USE_DVSN_CD) AS PC_USE_DVSN_NM, 	/*PC사용구분코드*/
+			 		F_CODE_NM('1000144',A.DPT_CD) AS DPT_NM, /*부서코드*/	
+			 		F_USR_INFO(A.CNB,'2') AS USR_NAM, 	/*사용자*/											
+			 		F_CODE_NM('1000170',A.PC_KND_CD) AS PC_KND_NM,       	 /*PC종류코드*/
+			 		F_CODE_NM('1000148',A.PC_EQP_CD) AS PC_EQP_NM,		/*PC장비코드*/								
+			 		TO_CHAR(TO_DATE(A.ITDC_DT),'YYYY-MM-DD') AS ITDC_DT ,          /*도입일*/
+			 		TO_CHAR(TO_DATE(A.ABRG_DT),'YYYY-MM-DD') AS ABRG_DT,          /*폐기일*/
+			 		A.ETC_SBJ,              /*기타사항*/
+			 		F_CODE_NM('1000800',MNT_DVSN_CD) AS MNT_DVSN_NM,
+			 		CASE WHEN SUBSTR(A.DPT_CD,0,3)||'000' = A.DPT_CD THEN F_DPT_INFO(A.DPT_CD,'1')
+			 		ELSE F_DPT_INFO(SUBSTR(A.DPT_CD,0,3)||'000','1') END AS H_DPT_NM,
+			 		B.USR_DFN_TXT_3
+			FROM   	TBCSPIIT036M A	/*PC장비관리테이블*/
+					,TBDCMACM013C B
+			WHERE	1=1
+			AND A.DPT_CD = B.CD(+)
+			AND B.CMM_CD_DVSN_CD(+) = '1000144'
+			
+        ]]>
+        <dynamic>
+        	<isNotEmpty property="strPC_KND_CD">
+        		AND	A.PC_KND_CD = #strPC_KND_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strPC_USE_DVSN_CD">
+        		AND	A.PC_USE_DVSN_CD = #strPC_USE_DVSN_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strDPT_CD">
+        		AND	A.DPT_CD = #strDPT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strPC_EQP_CD">
+        		AND	A.PC_EQP_CD = #strPC_EQP_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strPC_MNG_CD">
+        		AND	UPPER(A.PC_MNG_CD) LIKE '%'||UPPER(#strPC_MNG_CD#)||'%'
+        	</isNotEmpty>
+        	<isNotEmpty property="strPC_SE_CAT_CD">
+        		AND	A.PC_SE_CAT_CD = #strPC_SE_CAT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strPSSN_DVSN_CD">
+        		AND	A.PSSN_DVSN_CD = #strPSSN_DVSN_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strSEARCH_NM">
+        		AND	(F_USR_INFO(A.CNB,'2') LIKE '%'||#strSEARCH_NM#||'%' OR A.CNB LIKE '%'||#strSEARCH_NM#||'%'
+        				OR A.PC_MNG_RMK LIKE '%'||#strSEARCH_NM#||'%' OR ETC_SBJ LIKE '%'||#strSEARCH_NM#||'%')
+        	</isNotEmpty>
+        	<isNotEmpty property="strMNT_DVSN_CD">
+        		AND	A.MNT_DVSN_CD = #strMNT_DVSN_CD#
+        	</isNotEmpty>
+        	
+        	ORDER BY B.USR_DFN_TXT_3 ASC
+        </dynamic>
+	</select>
+	
+	<select id="CSPIIT036ERegiDtSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<![CDATA[
+			SELECT	REGI_DT /*REGI_DT(도입일 추가 20170705 EUNOK)*/
+			FROM	TBCSPIIT011C
+			WHERE	USE_DVSN_CD = 'Y'
+			AND PC_EQP_CD = #strPcModelCd#
+		]]> 
+	</select>
+	
+	
+	
+	
+</sqlMap> 

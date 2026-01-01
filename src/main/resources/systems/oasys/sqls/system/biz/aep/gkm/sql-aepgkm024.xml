@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="aep/gkm/024">
+	<select id="AEPGKM024Emainselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT  A.SC_GRN_TG_CD              /* 점수부여대상코드 */
+		        ,A.KLD_ACTV_NM              /* 지식활동명 */
+		        ,A.KLD_ACTV_SMM_NM          /* 지식활동요약명 */
+		        ,A.EVL_CHGR_DVSN_CD         /* 평가담당자구분코드 */
+		        ,F_CODE_NM('1000589', A.EVL_CHGR_DVSN_CD) AS EVL_CHGR_DVSN_NM /* 평가담당자구분명 (대상자) */
+		        ,A.SET_DVSN_CD              /* 설정구분코드 */
+				,F_CODE_NM('1000356', A.SET_DVSN_CD) AS SET_DVSN_NM /* 점수부여대상설정명 */
+		        ,A.BSC_SC                   /* 기본점수 */
+		        ,A.MIN_SC                   /* 최소점수 */
+		        ,A.MAX_SC                   /* 최대점수 */
+		        ,A.ADD_SC                   /* 가산점수 */
+		        ,A.RFC_BND_SC               /* 반영한도점수 */
+		        ,CASE
+					WHEN A.SET_DVSN_CD = 'C'
+					THEN A.MIN_SC || '~' || A.MAX_SC
+					ELSE '-'
+				END AS EVL_SC /* 평가단평가점수 */
+				,CASE
+					WHEN A.EVL_SC_DVSN_CD = '3' 
+					THEN TO_CHAR(A.BSC_SC)		
+					WHEN A.EVL_SC_DVSN_CD = '2'
+					THEN (A.MIN_SC + A.BSC_SC) || '~' || (TO_NUMBER(A.MAX_SC) + TO_NUMBER(A.BSC_SC) + TO_NUMBER(A.ADD_SC)) 			
+					ELSE (A.MIN_SC + A.BSC_SC) 
+						 || '~' || (TO_NUMBER(A.MAX_SC) + TO_NUMBER(A.BSC_SC))
+						 || '(' || (TO_NUMBER(A.MIN_SC) + TO_NUMBER(A.BSC_SC))
+						 || '~' || (TO_NUMBER(A.MAX_SC) + TO_NUMBER(A.BSC_SC) + TO_NUMBER(A.ADD_SC)) || ')'
+				END AS SUM_SC /* 평가단평가점수+가산점수+기본점수 */
+		        ,A.USE_YN                   /* 사용여부 */
+		        ,A.EVL_SC_DVSN_CD           /* 평가점수구분코드 */
+		        ,F_CODE_NM('1000588', A.EVL_SC_DVSN_CD) AS EVL_SC_DVSN_NM /* 평가점수항목명 */
+		        ,B.SET_ID                   /* 설정ID */
+		        ,B.SET_NM                   /* 설정명 */
+		        ,NVL(C.DTM_YN, 'N') AS DTM_YN
+		        ,NVL(D.COUNT, 0) AS COUNT
+		FROM    TBAEPGKM006M AS A           /* 점수부여대상기본T */
+		        <![CDATA[
+		        ,(
+		        SELECT  A.SC_GRN_TG_CD
+		                ,SUBSTR(REPLACE(REPLACE(EXTRACT(XMLAGG(XMLELEMENT(ID, ',' || B.BOARD_ID)), '/ID').GETSTRINGVAL(), '<ID>', ''), '</ID>', ''), 2) AS SET_ID
+		                ,SUBSTR(REPLACE(REPLACE(EXTRACT(XMLAGG(XMLELEMENT(NM, ',' || B.BOARD_TITLE)), '/NM').GETSTRINGVAL(), '<NM>', ''), '</NM>', ''), 2) AS SET_NM
+		                ,'B' AS SET_DVSN_CD
+		        FROM    TBAEPGKM007L AS A           /* 점수부여대상설정내역T */
+		                ,CTT_BULLETIN_BOARD AS B    /* 포탈게시판T */
+		        WHERE   A.SET_ID = B.BOARD_ID
+		        GROUP BY A.SC_GRN_TG_CD
+		        UNION
+		        SELECT  A.SC_GRN_TG_CD
+		                ,SUBSTR(REPLACE(REPLACE(EXTRACT(XMLAGG(XMLELEMENT(ID, ',' || B.TG_CAT_ID)), '/ID').GETSTRINGVAL(), '<ID>', ''), '</ID>', ''), 2) AS SET_ID
+		                ,SUBSTR(REPLACE(REPLACE(EXTRACT(XMLAGG(XMLELEMENT(NM, ',' || B.TG_CAT_NM)), '/NM').GETSTRINGVAL(), '<NM>', ''), '</NM>', ''), 2) AS SET_NM
+		                ,'C' AS SET_DVSN_CD
+		        FROM    TBAEPGKM007L AS A           /* 점수부여대상설정내역T */
+		                ,TBAEPGKM017M AS B          /* 대상분류기본T */
+		        WHERE   A.SET_ID = B.TG_CAT_ID
+		        GROUP BY A.SC_GRN_TG_CD) AS B
+		        ]]>
+		        ,(
+		        SELECT  B.SC_GRN_TG_CD
+		                ,'Y' AS DTM_YN    /* 확정여부 */
+		        FROM    TBAEPGKM011M AS A           /* 평가기간기본T */
+		                ,TBAEPGKM012L AS B          /* 평가기간별점수부여대상내역T */
+		        WHERE   A.EVL_YR = B.EVL_YR
+		        AND     A.EVL_DVSN_CD = B.EVL_DVSN_CD
+		        GROUP BY B.SC_GRN_TG_CD) AS C
+		        ,(
+		        SELECT  SC_GRN_TG_CD
+		                ,NVL(COUNT(1), 0) AS COUNT  /* 점수부여대상별 지식평가내역 수 */
+		        FROM    TBAEPGKM016L                /* 지식평가내역T */
+		        GROUP BY SC_GRN_TG_CD) AS D
+		WHERE   A.SC_GRN_TG_CD = B.SC_GRN_TG_CD(+)
+		AND     A.SET_DVSN_CD = B.SET_DVSN_CD(+)
+		AND     A.SC_GRN_TG_CD = C.SC_GRN_TG_CD(+)
+		AND     A.SC_GRN_TG_CD = D.SC_GRN_TG_CD(+)
+		<isNotEmpty property="USE_YN" prepend="AND">
+				A.USE_YN = #USE_YN#
+		</isNotEmpty>
+		ORDER BY A.SC_GRN_TG_CD
+	</select>
+	
+	<select id="AEPGKM024Edeletecheck" parameterClass="java.util.Map" resultClass="java.lang.Integer">
+		SELECT	COUNT(1)
+		FROM	TBAEPGKM012L AS A
+		WHERE	SC_GRN_TG_CD = #SC_GRN_TG_CD#
+	</select>
+	
+	<delete id="AEPGKM024Emaindelete" parameterClass="java.util.Map">
+		DELETE FROM TBAEPGKM006M
+		WHERE SC_GRN_TG_CD = #SC_GRN_TG_CD#
+	</delete>
+	
+	<update id="AEPGKM024Emainupdate" parameterClass="java.util.Map">
+		UPDATE	TBAEPGKM006M
+		SET		KLD_ACTV_NM = #KLD_ACTV_NM#,
+				KLD_ACTV_SMM_NM = #KLD_ACTV_SMM_NM#,
+				EVL_CHGR_DVSN_CD = #EVL_CHGR_DVSN_CD#,
+				SET_DVSN_CD = #SET_DVSN_CD#,
+				BSC_SC = #BSC_SC#,
+				MIN_SC = #MIN_SC#,
+				MAX_SC = #MAX_SC#,
+				ADD_SC = #ADD_SC#,
+				RFC_BND_SC = #RFC_BND_SC#,
+				USE_YN = #USE_YN#,
+				EVL_SC_DVSN_CD = #EVL_SC_DVSN_CD#,
+				FNL_USR_ID = #FNL_USR_ID#,
+				FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#,
+				FNL_MNU_ID = #FNL_MNU_ID#,
+				FNL_MDF_DH = SYSDATE
+		WHERE	SC_GRN_TG_CD = #SC_GRN_TG_CD#
+	</update>
+	
+	<!-- 카테고리 신규 등록 전 중복체크 -->
+	<select id="AEPGKM024ECntinsert" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT TO_CHAR(COUNT(*)) AS CNT
+		  FROM TBAEPGKM006M D1
+		     , TBAEPGKM007L D2
+		 WHERE D1.SC_GRN_TG_CD = D2.SC_GRN_TG_CD
+		   AND D1.SET_DVSN_CD = 'C' /*카테고리만 체크하면 된다*/
+		    <dynamic prepend="AND">
+		         <isNotEmpty property = "arraySetId">
+		         	D2.SET_ID IN
+		         		<iterate property = "arraySetId" open="(" close=")" conjunction=",">
+		         			#arraySetId[]#
+		         		</iterate>
+		         </isNotEmpty>
+	         </dynamic>
+	</select>
+	
+	<!-- 게시판 중복체크 -->
+	<select id="AEPGKM024EBCntinsert" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT TO_CHAR(COUNT(*)) AS CNT
+		  FROM TBAEPGKM006M
+		 WHERE SET_DVSN_CD = 'B'
+		   AND EVL_CHGR_DVSN_CD = #EVL_CHGR_DVSN_CD#
+		   AND USE_YN = 'Y'
+	</select>
+	
+	<select id="AEPGKM024EPKselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	NVL(MAX(TO_NUMBER(SC_GRN_TG_CD)), '0') + 1 AS SC_GRN_TG_CD
+		FROM	TBAEPGKM006M
+	</select>
+	
+	<insert id="AEPGKM024Emaininsert" parameterClass="java.util.Map">
+		INSERT INTO TBAEPGKM006M
+				(
+				SC_GRN_TG_CD	/* 점수부여대상코드 */
+				,KLD_ACTV_NM	/* 지식활동명 */
+				,KLD_ACTV_SMM_NM	/* 지식활동요약명 */
+				,EVL_CHGR_DVSN_CD	/* 평가담당자구분코드 */
+				,SET_DVSN_CD	/* 설정구분코드 */
+				,BSC_SC	/* 기본점수 */
+				,MIN_SC	/* 최소점수 */
+				,MAX_SC	/* 최대점수 */
+				,ADD_SC	/* 가산점수 */
+				,RFC_BND_SC	/* 반영한도점수 */
+				,USE_YN	/* 사용여부 */
+				,EVL_SC_DVSN_CD	/* 평가점수구분코드 */
+				,FRT_USR_ID	/* 최초사용자ID */
+				,FNL_USR_ID	/* 최종사용자ID */
+				,FNL_DEAL_DPT_CD	/* 최종거래부서코드 */
+				,FNL_MNU_ID	/* 최종메뉴ID */
+				,FRT_REGI_DH	/* 최초등록일시 */
+				,FNL_MDF_DH	/* 최종수정일시 */
+				)
+		VALUES	(
+				#SC_GRN_TG_CD#,
+				#KLD_ACTV_NM#,
+				#KLD_ACTV_SMM_NM#,
+				#EVL_CHGR_DVSN_CD#,
+				#SET_DVSN_CD#,
+				#BSC_SC#,
+				#MIN_SC#,
+				#MAX_SC#,
+				#ADD_SC#,
+				#RFC_BND_SC#,
+				#USE_YN#,
+				#EVL_SC_DVSN_CD#,
+				#FRT_USR_ID#,
+				#FNL_USR_ID#,
+				#FNL_DEAL_DPT_CD#,
+				#FNL_MNU_ID#,
+				SYSDATE,
+				SYSDATE
+				)
+	</insert>
+	
+	<delete id="AEPGKM024E007Ldelete" parameterClass="java.util.Map">
+		DELETE FROM TBAEPGKM007L
+		WHERE SC_GRN_TG_CD = #SC_GRN_TG_CD#
+	</delete>
+	
+	<insert id="AEPGKM024E007Linsert" parameterClass="java.util.Map">
+		INSERT INTO TBAEPGKM007L
+		(SC_GRN_TG_CD, SET_ID, FRT_USR_ID, FNL_USR_ID, FNL_DEAL_DPT_CD, FNL_MNU_ID, FRT_REGI_DH, FNL_MDF_DH)
+		VALUES
+		(#SC_GRN_TG_CD#, #SET_ID#, #FNL_USR_ID#, #FNL_USR_ID#, #FNL_DEAL_DPT_CD#, #FNL_MNU_ID#, SYSDATE, SYSDATE)
+	</insert>
+	
+	<select id="AEPGKM024Pmainselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	<!-- A.SKIN_ID, -->
+				<!-- A.SKIN_NAME, -->
+				<!-- B.TPL_ID, -->
+				<!-- B.TEMPLATE_NAME, -->
+				C.BOARD_ID,
+				C.BOARD_TITLE,
+				C.BOARD_SUB_TITLE,
+				C.USE_YN
+		FROM	CTT_BOARD_SKIN AS A,
+				CTT_BOARD_TPL AS B,
+				CTT_BULLETIN_BOARD AS C
+		WHERE	1=1
+		AND		A.SKIN_ID = B.SKIN_ID
+		AND		A.SKIN_ID = C.SKIN_ID
+		AND		C.CAFE_ID IS NULL
+		AND		A.SKIN_ID IN ('5', '10')
+		<isNotEmpty property="BOARD_TITLE" prepend="AND">
+				C.BOARD_TITLE LIKE '%' || #BOARD_TITLE# || '%'
+		</isNotEmpty>
+		<isNotEmpty property="USE_YN" prepend="AND">
+				C.USE_YN = #USE_YN#
+		</isNotEmpty>
+		GROUP BY C.BOARD_ID, C.BOARD_TITLE, C.USE_YN, C.BOARD_SUB_TITLE
+		<!-- ORDER BY SKIN_ID, -->
+				 <!-- TPL_ID -->
+	</select>
+</sqlMap>
+

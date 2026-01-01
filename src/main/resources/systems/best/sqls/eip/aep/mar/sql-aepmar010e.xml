@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.mar.dao.AEPMAR010EMapper">
+    
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap">
+       /* kr.go.bai.eip.aep.mar.dao.AEPMAR010EMapper.selectMainList */
+        <include refid="include.pageSelct" />
+		            SELECT 
+						       A.GRN_YR
+						     , A.GRN_SRNO
+						     , DECODE(A.DOC_MNG_DPT_NM, '','감사원',A.DOC_MNG_DPT_NM) AS DOC_MNG_DPT_NM
+						     , TO_CHAR(TO_DATE(A.DOC_CRE_STR_DY) , 'YYYY-MM-DD') || '~' || TO_CHAR(TO_DATE(A.DOC_CRE_END_DY) , 'YYYY-MM-DD') AS DOC_CRE_DY 
+						     , ( SELECT AGGR_CONCAT(B.DOC_KND_NM, ', ')
+						           FROM TBAEPMAR003D B 
+						          WHERE A.GRN_YR = B.GRN_YR
+						            AND A.GRN_SRNO = B.GRN_SRNO
+						       ) AS DOC_KND_NM
+						       , TO_CHAR(TO_DATE(A.GRN_PRD_STR_DY) , 'YYYY-MM-DD') ||'~' || TO_CHAR(TO_DATE(A.GRN_PRD_END_DY) , 'YYYY-MM-DD') AS GRN_PRD_DY
+						     , ( SELECT AGGR_CONCAT('('||F_DPT_INFO(F_USR_INFO_BY_ID(C.USR_ID, '5'),'1')||')'||C.USR_NM, ', ')
+						           FROM TBAEPMAR004D C
+						          WHERE A.GRN_YR = C.GRN_YR
+						            AND A.GRN_SRNO = C.GRN_SRNO
+						       ) AS TARGET_USR
+						       , TO_CHAR(TO_DATE(A.GRN_DH), 'YYYY-MM-DD') AS GRN_DH
+						  FROM TBAEPMAR002M A
+						 WHERE 1=1
+						 <if test=" acpDhs != null and acpDhs != '' 
+						        or acpDhe != null and  acpDhe != '' ">
+						   	AND TO_DATE(A.GRN_DH) BETWEEN #{acpDhs} AND #{acpDhe}
+						 </if>
+						   AND EXISTS (SELECT 1
+						                 FROM TBAEPMAR004D
+						                WHERE 1=1
+						                  AND GRN_YR   = A.GRN_YR
+						                  AND GRN_SRNO = A.GRN_SRNO
+					                  <if test=" usrNm != null and usrNm != ''" >
+					                  	  AND USR_NM   = #{usrNm}
+					                  </if>
+						                  )
+		                  ORDER BY GRN_SRNO DESC
+        <include refid="include.pageOrder" />
+    </select>
+    
+    <select id="selectMainDList" parameterType="paramMap" resultType="egovMap">
+       /* kr.go.bai.eip.aep.mar.dao.AEPMAR010EMapper.selectMainList */
+		SELECT DT.*, 
+				 COUNT(1) OVER() AS TOT_CNT
+	 		FROM(   	            
+		            SELECT DISTINCT
+						        A.GRN_YR
+						      , A.GRN_SRNO
+						      , A.AUD_YR
+						      , A.AUD_NO
+						      , A.AUD_STEP_CD
+						      , A.RPRT_DVSN_CD
+						      , A.READ_DOC_ID
+						      , F_MNG_KND_AUDYRNO(B.AUD_YR, B.AUD_NO, B.AUD_KND_CD, '-')
+						                                             AS AUD_YR_NO  /* 분류번호 */
+						      , B.AUD_SBJ_NM                                       /* 감사사항명 */
+						      , F_CODE_NM('1000786', A.RPRT_DVSN_CD) AS AUD_DOC_NM /* 보고서구분명 */
+						      , C.RPRT_NM || ' (열람용)'             AS RPRT_NM    /* 보고서명 */
+						      , F_OPEN_EDIT(A.LNK_URL)               AS DOC_TYPE     /* 편집기구분 */ 
+						      , B.AUD_KND_CD                                        /* 감사종류코드 */
+						   FROM TBAEPMAR005M A
+						  INNER JOIN TBBADDED001M B ON B.AUD_YR = A.AUD_YR
+						                           AND B.AUD_NO = A.AUD_NO
+						  INNER JOIN (SELECT AA.AUD_YR
+						                   , AA.AUD_NO
+						                   , AA.AUD_STEP_CD
+						                   , AA.DOC_ID
+						                   , AA.RPRT_CD
+						                   , AA.RPRT_NM
+									    FROM TBBADDED103M AA
+									   UNION ALL 
+									  SELECT BB.AUD_YR
+									       , BB.AUD_NO
+									       , 'NO'
+									       , BB.DOC_ID
+									       , DECODE(BB.DOC_TYP_CD, 'AD-AR-002', 'A10300100', 'AD-AR-003', 'A10600200', 'AD-AR-001', 'A10500200')   AS RPRT_CD /* 감사실시계획서, 감사보고서, 실지감사 종료보고서 'A10300100','A10500200','A10600200' */
+									       , CC.FILE_NAME    AS RPRT_NM
+									    FROM TBBADDED021M BB  
+									   INNER JOIN ECM_FILE_LIST_VIEW2 CC ON CC.DOC_ID = BB.DOC_ID) C
+									                ON C.AUD_YR = A.AUD_YR
+									               AND C.AUD_NO = A.AUD_NO
+									               AND C.AUD_STEP_CD = A.AUD_STEP_CD
+									               AND C.DOC_ID = A.READ_DOC_ID
+						  WHERE 1=1
+						    AND A.GRN_YR   = #{grnYr}
+						    AND A.GRN_SRNO = #{grnSrno}
+						  ORDER BY GRN_SRNO DESC
+			  ) DT
+    </select>
+    
+    <select id="AEPMAR010EExcelExportSelect" parameterType="paramMap" resultType="egovMap">
+       /* kr.go.bai.eip.aep.mar.dao.AEPMAR010EMapper.AEPMAR010EExcelExportSelect */
+            SELECT 
+			       A.GRN_YR
+			     , A.GRN_SRNO
+			     , A.DOC_MNG_DPT_NM
+			     , TO_CHAR(TO_DATE(A.DOC_CRE_STR_DY) , 'YYYY-MM-DD') || '~' || TO_CHAR(TO_DATE(A.DOC_CRE_END_DY) , 'YYYY-MM-DD') AS DOC_CRE_DY 
+			     , ( SELECT AGGR_CONCAT(B.DOC_KND_NM, ', ')
+			           FROM TBAEPMAR003D B 
+			          WHERE A.GRN_YR = B.GRN_YR
+			            AND A.GRN_SRNO = B.GRN_SRNO
+			       ) AS DOC_KND_NM
+			       , TO_CHAR(TO_DATE(A.GRN_PRD_STR_DY) , 'YYYY-MM-DD') ||'~' || TO_CHAR(TO_DATE(A.GRN_PRD_END_DY) , 'YYYY-MM-DD') AS GRN_PRD_DY
+			     , ( SELECT AGGR_CONCAT('('||F_DPT_INFO(F_USR_INFO_BY_ID(C.USR_ID, '5'),'1')||')'||C.USR_NM, ', ')
+			           FROM TBAEPMAR004D C
+			          WHERE A.GRN_YR = C.GRN_YR
+			            AND A.GRN_SRNO = C.GRN_SRNO
+			       ) AS TARGET_USR
+			       , TO_CHAR(TO_DATE(A.GRN_DH), 'YYYY-MM-DD') AS GRN_DH
+			  FROM TBAEPMAR002M A
+			 WHERE 1=1
+			 <if test=" acpDhs != null and acpDhs != '' 
+			        or acpDhe != null and  acpDhe != '' ">
+			   	AND TO_DATE(A.GRN_DH) BETWEEN #{acpDhs} AND #{acpDhe}
+			 </if>
+			   AND EXISTS (SELECT 1
+			                 FROM TBAEPMAR004D
+			                WHERE 1=1
+			                  AND GRN_YR   = A.GRN_YR
+			                  AND GRN_SRNO = A.GRN_SRNO
+		                  <if test=" usrNm != null and usrNm != ''" >
+		                  	  AND USR_NM   = #{usrNm}
+		                  </if>
+			                  )
+    </select>
+	
+</mapper> 

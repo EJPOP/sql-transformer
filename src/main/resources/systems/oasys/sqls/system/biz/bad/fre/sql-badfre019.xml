@@ -1,0 +1,2263 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<!-- 감사사무처리부관리(자동)  -->
+<sqlMap namespace="bad/fre/019">
+	
+	<!-- 재심의심사청구 조회-->
+	<select id="BADFRE019EMainselect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+        
+SELECT TT.*
+, F_ORG_INFO(TT.ORG_CD, '1') AS ORG_NM	/*기관명*/
+, CASE WHEN TRIM(TT.DCS_DVSN_CD) IS NULL THEN ''
+       ELSE F_CODE_NM ('1000046', TT.DCS_DVSN_CD) || '-' || TT.DCS_YR || '-' || TT.DCS_NO 
+  END AS DCS_SBJ_NO		/*결정(사항)번호*/	
+  , (CASE WHEN TT.MG_DPT_CD IS NULL THEN '' ELSE 'Y' END) AS MG_YN
+    /*처분요구사항제목내용*/
+    , (SELECT TIT_TXT FROM TBBADEAR001M WHERE 1 = 1
+        AND AUD_YR = TT.AUD_YR
+        AND AUD_NO = TT.AUD_NO
+        AND DSP_RQ_SNO = TT.DSP_RQ_SNO
+        AND ROWNUM = 1
+      ) AS TIT_TXT
+
+    , CASE WHEN TRIM(TT.AD) IS NULL OR TRIM(TT.AD) = '' OR TRIM(TT.AD) = ' ' THEN '(청구인 주소)'
+      ELSE '('|| TRIM(TT.ZCD) ||') '|| TRIM(TT.AD) ||' '|| NVL(TRIM(TT.DTL_AD), ' ')
+      END AS HWP_AD		/*한글문서 출력 주소*/
+    
+    , TT.ACP_YR || '-' || DECODE(TT.ACP_DVSN_CD,'1','심사','2','재심의','3','재심판정') || '-' || TT.ACP_SRNO || ' ' || TT.TIT_NM AS HWP_NO_TIT /* 한글문서 감사사무처리부번호, 제목 */ 
+    
+    , CASE
+         WHEN TT.HNDL_CHGR_TNB_3 IS NULL OR TT.HNDL_CHGR_TNB_3 = '' OR TT.HNDL_CHGR_TNB_3 = ' ' THEN '(담당자 전화번호)'
+         ELSE TT.HNDL_CHGR_TNB_1 || '-' || TT.HNDL_CHGR_TNB_2 || '-' || TT.HNDL_CHGR_TNB_3
+       END AS HWP_TNB /* 한글문서 담당자 전화번호 */
+      
+    , F_USR_INFO_BY_ID(TT.FNL_USR_ID, '2') AS FNL_USR_NM		/*최종사용자명*/
+  
+FROM (SELECT T.* ,
+               ROW_NUMBER() OVER(
+                 ORDER BY ACP_YR DESC, ACP_SRNO DESC ) AS NUM
+          FROM (SELECT DT.* ,
+                       COUNT(1) OVER() AS TOT_CNT
+                  FROM (
+
+        
+		   SELECT A.ACP_YR		/*접수년도*/
+				, A.ACP_DVSN_CD	/*접수구분코드*/
+				, A.ACP_SRNO	/*접수일련번호*/
+				, A.DPT_CD		/*부서코드*/
+				, A.MG_ACP_YR	/*병합접수년도*/
+				, A.MG_ACP_DVSN_CD	/*병합접수구분코드*/
+				, A.MG_ACP_SRNO	/*병합접수년도*/
+				, A.MG_DPT_CD   /*병합부서코드*/
+				, CASE WHEN A.ACP_YR >= '2016'
+				           THEN A.ACP_YR || '-' || DECODE(A.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || A.ACP_SRNO 
+				       ELSE A.ACP_YR || '-' || A.ACP_DVSN_CD || '-' || A.ACP_SRNO 
+				   END                                                             AS ACP_NO /*접수번호 - 번호체계 변경 2015.12.08 yyh*/ 
+				, A.ACP_DT		/*접수일*/
+				, A.REQ_DT		/*청구일*/
+				, A.TIT_NM		/*제목명*/
+				, A.RPT_DT		/*보고일자*/
+				, A.HNDL_DDLN_DT	/*처리기한*/
+				, CASE WHEN (C.ENF_DT IS NULL AND B.SBCN_DT IS  NULL)
+		        			THEN  TO_DATE(SYSDATE) - TO_DATE(A.ACP_DT) || '일'
+		        	   ELSE 
+		        	 		CASE WHEN  TRIM(B.SBCN_DT) IS NOT NULL
+		        	 			 	THEN TO_DATE(B.SBCN_DT) - TO_DATE(A.ACP_DT)	 || '일'
+		        	 			 ELSE 
+			        	 			 TO_DATE(C.ENF_DT) - TO_DATE(A.ACP_DT) || '일'
+		        	 		END	 		
+		          END AS HNDL_DT /*처리기간*/
+				, A.JDG_REQ_DVSN_CD	/*심사청구구분코드*/
+				, TO_CHAR(A.REL_AM,'999,999,999,999') AS REL_AM /*관련금액*/
+				, TO_CHAR(A.DFNT_CNT) AS DFNT_CNT	/*관련자수*/
+				, A.ORG_CD								/*기관코드*/
+				, A.REQR_NM	/*청구인*/
+				, A.AGT_NM	/*대리인명*/
+				, A.PSN_CRP_DVSN_CD	/*개인법인구분코드*/
+				, A.ISU_TXT	/*쟁점내용*/
+				, A.HNDL_CHGR_NM	/*처리담당자*/
+				, A.AUD_YR			/*감사년도*/
+				, A.AUD_NO			/*감사번호*/
+				, A.DSP_RQ_SNO		/*처분요구순번*/
+				, A.FNL_USR_ID		/*최종사용자id*/
+				, A.HNDL_STT_TXT	/*처리상황내용*/
+				, A.OW_HNDL_RMK		/*사무처리비고*/
+				, TO_CHAR(A.FNL_MDF_DH,'YYYY-MM-DD')AS FNL_MDF_DH		/*최종수정일자*/
+				, A.BAI_DSP_DIV_CD	/*감사원처분과코드*/
+				, A.BAI_DSP_YN		/*감사원처분여부*/
+				, B.CMT_CHF_CMTR_NM	/*위원회주심위원*/
+				, B.JDG_RVW_HNDL_DVSN_CD	/*심사심의처리구분*/
+				, B.VT_KND_CD		/*의결종류코드*/
+				, B.DOC_ID	/*첨부파일*/
+				, DECODE(NVL(B.DOC_ID,''),'','','파일보기') AS FILE_NAME  /*파일명*/
+				, B.SBCN_NO || '(' || B.SBCN_NBC || '회)' AS SBCN_NO			/*부의번호*/
+				, B.SBCN_NBC		/*부의횟수*/
+				, B.SBCN_DT			/*부의일*/
+				, TO_DATE(TRIM(B.SBCN_DT)) - TO_DATE(TRIM(A.ACP_DT)) || '일' AS SBCN_HNDL_DT /*부의처리기간*/
+				, B.DCS_DT			/*결정일*/
+				, B.DCS_SBJ			/*결정사항*/
+				, B.DCS_NO
+				, B.AMIT_AM /*용인금액*/
+				, B.DCS_YR			/*결정년도*/
+				, B.DCS_DVSN_CD		/*결정구분코드*/
+				, DECODE(B.DCS_DVSN_CD,'1','감심','2','감재심','3','감재판','') AS DCS_DVSN_NM	/*결정구분*/	
+				, B.DVCHF_APV_DT	/*과장결재일*/
+				, TO_DATE(TRIM(B.DVCHF_APV_DT)) - TO_DATE(TRIM(A.ACP_DT)) || '일' AS DVCHF_HNDL_DT /*과장처리기간*/
+				, B.DDG_APV_DT		/*심의관결재일*/
+				, TO_DATE(TRIM(B.DDG_APV_DT)) - TO_DATE(TRIM(A.ACP_DT)) || '일' AS DDG_HNDL_DT /*심의관처리기간*/
+				, B.BRUCHF_APV_DT	/*국장결재일*/
+				, TO_DATE(TRIM(B.BRUCHF_APV_DT)) - TO_DATE(TRIM(A.ACP_DT)) || '일' AS BRUCHF_HNDL_DT /*국장처리기간*/
+				, B.OW_PSD_APV_DT	/*사무총장결재일*/
+				, TO_DATE(TRIM(B.OW_PSD_APV_DT)) - TO_DATE(TRIM(A.ACP_DT)) || '일' AS OW_PSD_HNDL_DT /*사무총장처리기간*/
+				, B.LEDG_APV_DT		/*원장결재일*/
+				, TO_DATE(TRIM(B.LEDG_APV_DT)) - TO_DATE(TRIM(A.ACP_DT)) || '일' AS LEDG_HNDL_DT /*원장처리기간*/
+				, B.CMTR_APV_DT		/*위원결재일*/
+				, TO_DATE(TRIM(B.CMTR_APV_DT)) - TO_DATE(TRIM(A.ACP_DT)) || '일' AS CMTR_HNDL_DT /*위원처리기간*/
+				, B.RMK_SBJ				/*비고*/
+				, C.ENF_DT			/*시행일*/
+				, TO_DATE(TRIM(C.ENF_DT)) - TO_DATE(TRIM(A.ACP_DT)) || '일' AS ENF_HNDL_DT /*시행처리기간*/
+				, C.ENFM_DT			/*집행일*/
+				, C.ENFM_TXT		/*집행내용*/
+				, C.LWS_INST_DT		/*소송제기일*/
+				, C.JUDG_DT			/*판결일*/
+				, C.JUDG_TXT		/*판결내용*/
+				, C.DF_DT			/*보류일*/
+				, C.RLS_DT			/*해제일*/
+				, C.UN_HNDL_RSN		/*미처리사유*/
+				, C.HNDL_PLN_TXT	/*처리계획내용*/
+				, C.ODOC_NO			/*공문서번호*/
+			    , A.ACP_NO_SMS_SEN_YN
+			    , A.WRTANS_SEN_YN
+			    , A.ZCD             /* 우편번호추가 - 2016.02.26 yyh */
+                , A.AD
+                , A.DTL_AD
+                , A.HNDL_CHGR_TNB_1
+                , A.HNDL_CHGR_TNB_2
+                , A.HNDL_CHGR_TNB_3
+                , A.CVPT_SEN_ACP_NO /* 민원발송접수번호 */
+                
+                ,NVL(C.LWS_YO,'N') AS LWS_YO /* 소송유무 - 2015.05.26 yyh */
+                ,C.FRTRL_CT_NM               /* 1심법원명 - 2015.05.26 yyh */
+                ,C.FRTRL_EVT_NO_TXT          /* 1심사건번호 - 2015.05.26 yyh */
+                ,C.FNL_RSLT_TXT              /* 종국결과 - 2015.05.26 yyh */
+		  FROM TBBADFRE012M A
+		     , TBBADFRE012D B
+		     , TBBADFRE013D C
+		 WHERE 1=1
+		   AND A.ACP_YR 		= B.ACP_YR(+)
+		   AND A.ACP_DVSN_CD 	= B.ACP_DVSN_CD(+)
+		   AND A.ACP_SRNO 		= B.ACP_SRNO(+)
+		   AND A.DPT_CD			= B.DPT_CD(+)
+		   AND A.ACP_YR 		= C.ACP_YR(+)
+		   AND A.ACP_DVSN_CD 	= C.ACP_DVSN_CD(+)
+		   AND A.ACP_SRNO 		= C.ACP_SRNO(+)
+		   AND A.DPT_CD			= C.DPT_CD(+)
+		   AND A.DPT_CD         IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#S_CNB#, #strDptAuth#, '', #strUpSpvBrdvCd#)))
+		]]>
+		
+
+			
+		
+		<!-- 완결여부 -->
+		<isNotEmpty property="strReqDvsn">
+			<isEqual property="strReqDvsn" compareValue="1"> 
+				AND (A.JDG_REQ_DVSN_CD IS NOT NULL AND A.JDG_REQ_DVSN_CD NOT IN ('40', '41', '42', '43', '49') )
+			</isEqual>
+			<isEqual property="strReqDvsn" compareValue="2"> 
+				AND (A.JDG_REQ_DVSN_CD IS NOT NULL AND A.JDG_REQ_DVSN_CD IN ('40', '41', '42', '43', '49') )
+			</isEqual>
+		</isNotEmpty>
+		<!-- 접수연도 -->
+		<isNotEmpty property="strAcpYr">	 
+			AND A.ACP_YR = #strAcpYr# 
+		</isNotEmpty>
+		<!-- 접수구분코드 -->
+		<isNotEmpty property="strAcpDvsnCd">	 
+			AND A.ACP_DVSN_CD = #strAcpDvsnCd# 
+		</isNotEmpty>
+		<!-- 접수일련번호 -->
+		<isNotEmpty property="strAcpSrno">	
+			AND A.ACP_SRNO = #strAcpSrno#
+		</isNotEmpty>
+		<!-- 관련기관 -->
+		<isNotEmpty property="strRltnOrgCd">	 	
+			AND A.ORG_CD	= #strRltnOrgCd#
+		</isNotEmpty>
+		<!-- 시행년도 -->
+		<isNotEmpty property="strEnfDt">	 	
+			AND SUBSTR(C.ENF_DT,0,4) = #strEnfDt#
+		</isNotEmpty>
+		
+		<!-- 접수일자 -->
+		<isNotEmpty property="strAcpDt">	 
+			AND A.ACP_DT = #strAcpDt# 
+		</isNotEmpty>
+		<!-- 처리일자(처리기한일) -->
+		<isNotEmpty property="strHndlDDlnDt">	 
+			AND A.HNDL_DDLN_DT =	#strHndlDDlnDt# 
+		</isNotEmpty>
+		<!-- 관리국가 -->
+		<isNotEmpty property="strJdgDpt">
+			AND A.DPT_CD  = #strJdgDpt#
+		</isNotEmpty>
+		<!-- 완결여부 -->
+		<isNotEmpty property="strCpltYn">	
+			<isEqual property="strCpltYn" compareValue="1"> 
+				AND (C.ENF_DT IS NULL AND B.SBCN_DT IS  NULL)
+			</isEqual>
+			<isEqual property="strCpltYn" compareValue="2"> 
+				AND (C.ENF_DT IS NOT NULL OR B.SBCN_DT IS NOT NULL)
+			</isEqual>
+		</isNotEmpty>
+		
+		<!-- 의결종류 -->
+		<isNotEmpty property="strVtKndCd">
+			<isNotEqual property="strVtKndCd" compareValue="0">
+				AND B.VT_KND_CD = #strVtKndCd#
+			</isNotEqual>
+			<isEqual property="strVtKndCd" compareValue="0"> 
+				AND B.VT_KND_CD IN ('1','2','3','4','5')
+			</isEqual>
+		</isNotEmpty>
+		
+		<!-- 청구인 -->
+		<isNotEmpty property="strReqr">	 	
+			AND A.REQR_NM LIKE '%' || #strReqr# || '%'
+		</isNotEmpty>
+		<!-- 검색어 -->
+		<isNotEmpty property="strSchTxt">	 
+			AND (A.HNDL_CHGR_NM LIKE '%' || #strSchTxt# || '%' OR A.TIT_NM LIKE '%' || #strSchTxt# || '%'
+					OR A.ISU_TXT LIKE '%' || #strSchTxt# || '%'  OR B.DCS_SBJ LIKE '%' || #strSchTxt# || '%' 
+					OR C.JUDG_TXT LIKE '%' || #strSchTxt# || '%'
+					
+					/* 추가 - 2015.05.26 yyh */
+					OR C.FRTRL_CT_NM      LIKE '%' || #strSchTxt# || '%'
+					OR C.FRTRL_EVT_NO_TXT LIKE '%' || #strSchTxt# || '%'
+					OR C.FNL_RSLT_TXT     LIKE '%' || #strSchTxt# || '%'
+			    )
+		</isNotEmpty>
+		
+		<!-- 처리과정 -->
+		<isNotEmpty property="strHndlCrs">
+			<isEqual property="strHndlCrs" compareValue="1">
+				AND B.DVCHF_APV_DT 	IS NOT NULL
+			</isEqual>	
+			
+			<isEqual property="strHndlCrs" compareValue="3"> 
+				AND B.BRUCHF_APV_DT IS NOT NULL
+			</isEqual>
+			
+			<isEqual property="strHndlCrs" compareValue="4"> 
+				AND B.OW_PSD_APV_DT IS NOT NULL
+			</isEqual>
+			
+			<isEqual property="strHndlCrs" compareValue="5"> 
+				AND B.LEDG_APV_DT 	IS NOT NULL
+			</isEqual>
+			
+			<isEqual property="strHndlCrs" compareValue="6"> 
+				AND B.CMTR_APV_DT 	IS NOT NULL
+			</isEqual>
+			
+			<isEqual property="strHndlCrs" compareValue="7"> 
+				AND B.SBCN_DT 		IS NOT NULL
+			</isEqual>
+			
+			<isEqual property="strHndlCrs" compareValue="8"> 
+				AND C.ENF_DT 		IS NOT NULL
+			</isEqual>
+		</isNotEmpty>
+		
+		
+        <![CDATA[       
+			) DT
+			 ORDER BY ACP_YR DESC, ACP_SRNO DESC  ) T ) TT
+			 WHERE NUM BETWEEN (((#currPage#- 1) * #strPagingCnt#) + 1) AND (#currPage# * #strPagingCnt#)   
+        ]]>
+	</select>
+	
+	
+	<!--재심의심사청구 상세조회-->
+	<select id="BADFRE019EDtlselect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[	
+                SELECT T1.ACP_YR			/*접수년도*/
+                     , T1.ACP_DVSN_CD		/*접수구분코드*/
+                     , T1.ACP_SRNO			/*접수일련번호*/
+                     , T1.ACP_DT			/*접수일*/
+                     , T1.REQ_DT			/*청구일*/
+                     , T1.TIT_NM			/*제목명*/
+                     , T1.DPT_CD			/*부서코드*/
+                     , F_DPT_INFO(T1.DPT_CD, '1') AS DPT_NM /*부서코드*/
+                     , T1.RPT_DT			/*보고일*/
+                     , T1.HNDL_DDLN_DT		/*처리기한일*/
+                     , CASE WHEN (T3.ENF_DT IS NULL AND T2.SBCN_DT IS  NULL)
+		        			THEN  TO_DATE(SYSDATE) - TO_DATE(T1.ACP_DT) || '일'
+		        	   ELSE 
+		        	 		CASE WHEN  TRIM(T2.SBCN_DT) IS NOT NULL
+		        	 			 	THEN TO_DATE(T2.SBCN_DT) - TO_DATE(T1.ACP_DT)	 || '일'
+		        	 			 ELSE 
+			        	 			 TO_DATE(T3.ENF_DT) - TO_DATE(T1.ACP_DT) || '일'
+		        	 		END	 		
+		          	   END AS ELP_DT /*경과일수*/
+                     , T1.JDG_REQ_DVSN_CD	/*심사청구구분코드*/
+					 , F_CODE_NM('1000043', T1.JDG_REQ_DVSN_CD) AS JDG_REQ_DVSN_NM 
+                     , T1.REL_AM			/*관련금액*/
+                     , T1.DFNT_CNT			/*관계자수*/
+                     , T1.ORG_CD 			/*기관코드*/
+					 , F_ORG_INFO(T1.ORG_CD, '1') AS ORG_NM					   
+                     , T1.REQR_NM			/*청구인명*/
+                     , T1.AGT_NM 			/*대리인명*/
+                     , T1.PSN_CRP_DVSN_CD	/*개인법인구분코드*/
+                     , F_CODE_NM ('1000436', T1.PSN_CRP_DVSN_CD) AS PSN_CRP_DVSN /*개인법인구분*/
+                     , T1.EIN			/*청구인주민등록번호*/
+                     , T1.ISU_TXT			/*쟁점내용*/
+                     , T1.HNDL_CHGR_NM		/*처리담당자*/
+                     , T1.AUD_YR			/*감사년도*/
+                     , T1.AUD_NO			/*감사번호*/
+                     , (SELECT AUD_GRN_NO
+                          FROM TBBADDED001M
+                         WHERE AUD_YR = T1.AUD_YR
+                           AND AUD_NO = T1.AUD_NO) AS AUD_GRN_NO
+                     , T1.DSP_RQ_SNO		/*처분요구순번*/
+                     , F_DPT_INFO(T1.BAI_DSP_DIV_CD, '1') AS BAI_DSP_DIV_NM
+                     , T1.BAI_DSP_YN		/*원처분여부*/	
+                     , (SELECT S1.ENF_DT                                                                                         
+                          FROM TBBADEAR002D S1                                                                                 
+                         WHERE S1.AUD_YR 		= T1.AUD_YR                                                                       
+                           AND S1.AUD_NO  		= T1.AUD_NO                                                                        
+                           AND S1.DSP_RQ_SNO 	= T1.DSP_RQ_SNO                                                                       
+                        ) AS DSP_RQ_ENF_DT
+                     ,(SELECT F_CODE_NM('1000002', S1.DSP_RQ_KND_CD)                                                                                    
+                         FROM TBBADEAR001M S1
+                        WHERE S1.AUD_YR		= T1.AUD_YR                                                                       
+                          AND S1.AUD_NO  	= T1.AUD_NO                                                                        
+                          AND S1.DSP_RQ_SNO = T1.DSP_RQ_SNO
+                       ) AS DSP_RQ_KND_NM	/*처분요구종류*/
+                     ,(SELECT S1.TIT_TXT                                                                                        
+                         FROM TBBADEAR001M S1                                                                                 
+                        WHERE S1.AUD_YR 		= T1.AUD_YR                                                                       
+                          AND S1.AUD_NO  		= T1.AUD_NO                                                                        
+                          AND S1.DSP_RQ_SNO 	= T1.DSP_RQ_SNO                                                                       
+                        ) AS DSP_RQ_TIT_NM
+                     , T1.ZCD				/*우편번호*/
+                     , T1.AD				/*주소*/
+                     , T1.DTL_AD			/*상세주소*/
+                     , T1.HP_TNB_1			/*핸드폰번호1*/
+                     , T1.HP_TNB_2			/*핸드폰번호2*/
+                     , T1.HP_TNB_3			/*핸드폰번호3*/
+                     , T1.TNB_1				/*전화번호1*/	
+                     , T1.TNB_2				/*전화번호2*/
+                     , T1.TNB_3				/*전화번호3*/
+                     , T1.HNDL_CHGR_TNB_1	/*처리담당자전화번호1*/	
+                     , T1.HNDL_CHGR_TNB_2	/*처리담당자전화번호2*/
+                     , T1.HNDL_CHGR_TNB_3	/*처리담당자전화번호3*/
+                     , T1.BAI_DSP_DIV_CD	/*원처분과코드*/
+                     , F_DPT_INFO(T1.BAI_DSP_DIV_CD, '1') as BAI_DSP_DIV_NM /*원처분과*/
+                     , T2.CMT_CHF_CMTR_NM	/*위원회주심위원명*/
+                     , T2.JDG_RVW_HNDL_DVSN_CD	/*심사심의처리구분코드*/
+                     , T2.VT_KND_CD			/*의결종류코드*/ 
+                     , F_CODE_NM ('1000045', T2.VT_KND_CD) AS VT_KND /*의결종류*/                        
+                     , T2.SBCN_NO			/*부의번호*/
+                     , T2.SBCN_NBC			/*부의횟수*/
+                     , T2.SBCN_DT			/*부의일*/
+                     , TO_DATE(TRIM(T2.SBCN_DT)) - TO_DATE(TRIM(T1.ACP_DT)) || '일' AS SBCN_HNDL_DT /*부의처리기간*/
+                     , T2.DCS_DT			/*결정일*/
+                     , T2.DCS_SBJ			/*결정사항*/
+                     , T2.AMIT_AM			/*용인금액*/
+                     , T2.DCS_YR			/*결정년도*/
+                     , T2.DCS_DVSN_CD		/*결정구분코드*/
+                     , T2.DCS_NO			/*결정번호*/
+                     , T2.DOC_ID			/*파일조회*/                                                   
+                     , T2.DVCHF_APV_DT		/*과장결재일*/
+                     , TO_DATE(TRIM(T2.DVCHF_APV_DT)) - TO_DATE(TRIM(T1.ACP_DT)) || '일' AS DVCHF_HNDL_DT /*과장처리기간*/
+                     , T2.DDG_APV_DT		/*심의관결재일*/
+                     , TO_DATE(TRIM(T2.DDG_APV_DT)) - TO_DATE(TRIM(T1.ACP_DT)) || '일' AS DDG_HNDL_DT /*심의관처리기간*/
+                     , T2.BRUCHF_APV_DT		/*국장결재일*/
+                     , TO_DATE(TRIM(T2.BRUCHF_APV_DT)) - TO_DATE(TRIM(T1.ACP_DT)) || '일' AS BRUCHF_HNDL_DT /*국장처리기간*/
+                     , T2.OW_PSD_APV_DT		/*사무총장결재일*/
+                     , TO_DATE(TRIM(T2.OW_PSD_APV_DT)) - TO_DATE(TRIM(T1.ACP_DT)) || '일' AS OW_PSD_HNDL_DT /*사무총장처리기간*/
+                     , T2.LEDG_APV_DT		/*원장결재일*/
+                     , TO_DATE(TRIM(T2.LEDG_APV_DT)) - TO_DATE(TRIM(T1.ACP_DT)) || '일' AS LEDG_HNDL_DT /*원장처리기간*/
+                     , T2.CMTR_APV_DT		/*위원결재일*/
+                     , TO_DATE(TRIM(T2.CMTR_APV_DT)) - TO_DATE(TRIM(T1.ACP_DT)) || '일' AS CMTR_HNDL_DT /*위원처리기간*/
+                     , T2.RMK_SBJ				/*비고*/
+                     , T3.ENF_DT			/*시행일*/
+                     , TO_DATE(TRIM(T3.ENF_DT)) - TO_DATE(TRIM(T1.ACP_DT)) || '일' AS ENF_HNDL_DT /*시행처리기간*/
+                     , T3.ENFM_DT			/*집행일*/
+                     , T3.ENFM_TXT			/*집행내용*/
+                     , T3.LWS_INST_DT		/*소송제기일*/
+                     , T3.JUDG_DT			/*판결일*/
+                     , T3.JUDG_TXT			/*판결내용*/
+                     , T3.DF_DT				/*보류일*/
+                     , T3.RLS_DT			/*해제일*/
+                     , T3.UN_HNDL_RSN		/*미처리사유*/
+                     , T1.EXTN_RSN			/*연장사유*/
+                     , T3.HNDL_PLN_TXT		/*처리계획내용*/
+                     , T3.ODOC_NO			/*공문서번호*/
+                     , T1.CVPT_SEN_ACP_NO   /* 민원발송접수번호 */
+                     
+                     , DECODE(T1.ACP_NO_SMS_SEN_YN,'Y','발송','미발송') AS ACP_NO_SMS_SEN_YN
+			    	 , T1.WRTANS_SEN_YN
+			    	 , T1.STTC_CNT
+			    	 
+                     , NVL2(T2.DCS_YR, T2.DCS_YR||'-'||T2.DCS_DVSN_CD||'-'||T2.DCS_NO, '') AS TMP_NO1
+                     , NVL2(T2.SBCN_NO, T2.SBCN_NO||'-'||T2.SBCN_NBC||'-'||T2.SBCN_DT, '') AS TMP_NO2
+                     
+                     , T2.DCS_DOC_NOC
+                     
+                     , NVL(T3.LWS_YO,'N')              AS LWS_YO    /* 소송유무 - 2015.05.26 yyh */
+                     , DECODE(T3.LWS_YO,'Y','유','무') AS LWS_YO_NM  /* 소송유무명 - 2015.05.26 yyh */
+                     , T3.FRTRL_CT_NM                               /* 1심법원명 - 2015.05.26 yyh */
+                     , T3.FRTRL_EVT_NO_TXT                          /* 1심사건번호 - 2015.05.26 yyh */
+                     , T3.FNL_RSLT_TXT                              /* 종국결과 - 2015.05.26 yyh */
+                     ,(SELECT CASE WHEN AUD_YR >= '2016' 
+			                            THEN F_CODE_NM('1000739',SUBSTR(AUD_KND_CD,3,1)) 
+			                       ELSE '' 
+			                   END
+                         FROM TBBADDED001M                                                                              
+                        WHERE AUD_YR 		= T1.AUD_YR                                                                       
+                          AND AUD_NO  		= T1.AUD_NO) AS AUD_YR_NO_KND_NM   
+                          
+                     ,(SELECT CASE WHEN NVL(COUNT(B.ACP_YR),0) + NVL(COUNT(C.ACP_YR),0) > 0 THEN 'Y' ELSE'N' END 
+			             FROM TBBADFRE012M A
+                         LEFT OUTER JOIN TBBADFRE103M B ON (    B.ACP_YR      = A.ACP_YR
+                                                            AND B.ACP_DVSN_CD = A.ACP_DVSN_CD
+                                                            AND B.ACP_SRNO    = A.ACP_SRNO)
+                         LEFT OUTER JOIN TBBADFRE102M C ON (    C.ACP_YR      = A.ACP_YR
+                                                            AND C.ACP_DVSN_CD = A.ACP_DVSN_CD
+                                                            AND C.ACP_SRNO    = A.ACP_SRNO)
+                        WHERE A.ACP_YR      = T1.ACP_YR 
+                          AND A.ACP_DVSN_CD = T1.ACP_DVSN_CD
+                          AND A.ACP_SRNO    = T1.ACP_SRNO)               AS ELCT_PRCS_YN    /* 전자감사 프로세스 여부 추가 - 2017.08.31 yyh*/                     
+                  FROM  TBBADFRE012M T1                                                                                   
+                     ,  TBBADFRE012D T2                                                                                   
+                     ,  TBBADFRE013D T3                                                                                   
+                 WHERE  1=1                                                                                                   
+                   AND  T1.ACP_YR         = T2.ACP_YR(+)                                                                     
+                   AND  T1.ACP_DVSN_CD    = T2.ACP_DVSN_CD(+)                                                                  
+                   AND  T1.ACP_SRNO       = T2.ACP_SRNO(+)      
+                   AND  T1.DPT_CD		  = T2.DPT_CD(+)                                                                  
+                   AND  T1.ACP_YR         = T3.ACP_YR(+)                                                                     
+                   AND  T1.ACP_DVSN_CD    = T3.ACP_DVSN_CD(+)                                                                  
+                   AND  T1.ACP_SRNO       = T3.ACP_SRNO(+)
+                   AND  T1.DPT_CD		  = T3.DPT_CD(+)  
+		 ]]>
+                   AND  T1.ACP_YR         = #strAcpYr#
+                   AND  T1.ACP_DVSN_CD    = #strAcpDvsnCd#
+                   AND  T1.ACP_SRNO       = #strAcpSrno#
+                   AND  T1.DPT_CD		  = #strDptCd#   
+		
+ 	</select>
+ 	
+ 	
+ 	<!-- 재심의심사청구 검색 조회-->
+	<select id="BADFRE019ESchselect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+				SELECT T1.ACP_YR                     AS ACP_YR 				/*접수년도(OK)*/
+                     , T1.ACP_DVSN_CD                AS ACP_DVSN_CD        	/*접수구분코드*/  
+                     , T1.ACP_SRNO  				 AS ACP_SRNO            /*접수일련번호*/  
+                     , T1.DPT_CD					 AS DPT_CD  			/*부서코드*/
+                     , F_DPT_INFO(T1.DPT_CD,'1')     AS DPT_NM              /*부서명*/
+					 , T1.ACP_DT                     AS ACP_DT             	/*접수일자(OK)*/
+					 , T2.DOC_ID											/*DOC_ID*/
+                     , DECODE(NVL(T2.DOC_ID,''),'','','파일보기') AS FILE_NAME  /*파일명*/
+				 	 , T1.JDG_REQ_DVSN_CD            AS JDG_REQ_DVSN_CD    	/*심사청구구분코드*/
+				 	 , F_CODE_NM ('1000043', T1.JDG_REQ_DVSN_CD) AS JDG_REQ_DVSN_NM /*심사청구구분*/
+				 	 , CASE WHEN T1.ACP_YR >= '2016' 
+				 	             THEN T1.ACP_YR || '-' || DECODE(T1.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || T1.ACP_SRNO
+				 	        ELSE 
+				 	                  T1.ACP_YR || '-' || T1.ACP_DVSN_CD || '-' || T1.ACP_SRNO
+				 	    END                          AS ACP_NO /*접수번호*/
+					 , T1.REQR_NM                    AS REQR_NM            	/*청구인명*/   
+                     , T1.ORG_CD                     AS ORG_CD             	/*기관코드*/
+                     , F_ORG_INFO(T1.ORG_CD, '1') 	 AS ORG_NM				/*기관*/
+                     , T1.PSN_CRP_DVSN_CD            AS PSN_CRP_DVSN_CD    	/*개인법인구분코드*/   
+                     , F_CODE_NM ('1000436', T1.PSN_CRP_DVSN_CD) AS PSN_CRP_DVSN_NM /*개인법인구분*/  
+                     , T1.AGT_NM                     AS AGT_NM             	/*대리인명*/ 
+                     , T1.ISU_TXT                    AS ISU_TXT            	/*쟁점내용*/ 
+                     , T2.SBCN_NBC  				 AS SBCN_NBC           /*부의횟수*/   
+                     , T2.SBCN_NO || '(' || T2.SBCN_NBC || '회)' AS SBCN_NO	/*부의번호(회수)*/
+                     , T1.HNDL_DDLN_DT               AS HNDL_DDLN_DT        /*처리기한일*/
+                     , CASE WHEN (T3.ENF_DT IS NULL AND T2.SBCN_DT IS  NULL)
+	        					THEN  TO_DATE(SYSDATE) - TO_DATE(T1.ACP_DT) || '일'
+	        	   			ELSE 
+			        	 		CASE WHEN  TRIM(T2.SBCN_DT) IS NOT NULL
+			        	 			 	THEN TO_DATE(T2.SBCN_DT) - TO_DATE(T1.ACP_DT)	 || '일'
+			        	 			 ELSE 
+				        	 			 TO_DATE(T3.ENF_DT) - TO_DATE(T1.ACP_DT) || '일'
+			        	 		END	 		
+	          			END AS HNDL_DT /*처리기간*/
+                     , T2.DVCHF_APV_DT               AS DVCHF_APV_DT       /*과장결재일*/
+                     , TO_DATE(TRIM(T2.DVCHF_APV_DT)) - TO_DATE(TRIM(T1.ACP_DT)) || '일' AS DVCHF_HNDL_DT /*과장처리기간*/
+                     , T2.DDG_APV_DT                 AS DDG_APV_DT       	/*심의관결재일*/
+                     , TO_DATE(TRIM(T2.DDG_APV_DT)) - TO_DATE(TRIM(T1.ACP_DT)) || '일' AS DDG_HNDL_DT /*심의관처리기간*/
+                     , T2.BRUCHF_APV_DT              AS BRUCHF_APV_DT      /*국장결재일*/ 
+                     , TO_DATE(TRIM(T2.BRUCHF_APV_DT)) - TO_DATE(TRIM(T1.ACP_DT)) || '일' AS BRUCHF_HNDL_DT /*국장처리기간*/
+                     , T2.OW_PSD_APV_DT              AS OW_PSD_APV_DT      /*사무총장결재일*/ 
+                     , TO_DATE(TRIM(T2.OW_PSD_APV_DT)) - TO_DATE(TRIM(T1.ACP_DT)) || '일' AS OW_PSD_HNDL_DT /*사무총장처리기간*/
+                     , T2.LEDG_APV_DT                AS LEDG_APV_DT        /*원장결재일*/
+                     , TO_DATE(TRIM(T2.LEDG_APV_DT)) - TO_DATE(TRIM(T1.ACP_DT)) || '일' AS LEDG_HNDL_DT /*원장처리기간*/
+                     , T2.CMTR_APV_DT                AS CMTR_APV_DT        /*위원결재일*/
+                     , TO_DATE(TRIM(T2.CMTR_APV_DT)) - TO_DATE(TRIM(T1.ACP_DT)) || '일' AS CMTR_HNDL_DT /*위원처리기간*/
+                     , T2.SBCN_DT                    AS SBCN_DT            /*부의일*/  
+                     , TO_DATE(TRIM(T2.SBCN_DT)) - TO_DATE(TRIM(T1.ACP_DT)) || '일' AS SBCN_HNDL_DT /*부의처리기간*/
+                     , T3.ENF_DT                     AS ENF_DT             /*시행일*/
+                     , TO_DATE(TRIM(T3.ENF_DT)) - TO_DATE(TRIM(T1.ACP_DT)) || '일' AS ENF_HNDL_DT /*시행처리기간*/
+                     , T2.CMT_CHF_CMTR_NM            AS CMT_CHF_CMTR_NM    /*위원회주심위원명*/ 
+                     , T1.HNDL_CHGR_NM              AS HNDL_CHGR_NM      /*처리담당자명 */ 
+                     , T2.VT_KND_CD                  AS VT_KND_CD          /*의결종류코드*/
+                     , F_CODE_NM('1000045', T2.VT_KND_CD) AS VT_KND_NM	   /*의결종류*/
+                     , T2.AMIT_AM   				 AS AMIT_AM            /*용인금액*/   
+                     , T3.ENFM_DT                    AS ENFM_DT            /*집행일*/ 
+                     , T3.ENFM_TXT                   AS ENFM_TXT           /*집행내용*/ 
+                     , T3.LWS_INST_DT        		 AS LWS_INST_DT	   	   /*소송제기일*/
+                     , T3.JUDG_DT                    AS JUDG_DT            /*판결일*/ 
+                     , T3.JUDG_TXT                   AS JUDG_TXT           /*판결내용*/
+                     , T3.DF_DT                      AS DF_DT              /*보류일*/
+                     , T3.RLS_DT                     AS RLS_DT             /*해제일*/
+                     , T3.UN_HNDL_RSN                AS UN_HNDL_RSN        /*미처리사유*/  
+                     , T3.HNDL_PLN_TXT               AS HNDL_PLN_TXT       /*처리계획내용*/  
+                     , T2.DCS_YR                     AS DCS_YR             /*결정년도*/ 
+                     , T2.DCS_DVSN_CD                AS DCS_DVSN_CD        /*결정구분코드*/      
+                     , T2.DCS_NO                     AS DCS_NO             /*결정번호*/  
+                     , CASE WHEN TRIM(T2.DCS_DVSN_CD) IS NULL 
+       							THEN '' 
+	        	 		   	ELSE F_CODE_NM ('1000046', T2.DCS_DVSN_CD) || '-' || T2.DCS_YR || '-' || T2.DCS_NO 
+	        		   	END AS DCS_SBJ_NO	/*결정사항번호*/
+                     , T2.DCS_SBJ                    AS DCS_SBJ            /*결정사항*/ 
+                     , (SELECT TIT_TXT       
+                          FROM TBBADEAR001M
+                         WHERE AUD_YR 		= T1.AUD_YR                              
+                           AND AUD_NO  		= T1.AUD_NO                               
+                           AND DSP_RQ_SNO 	= T1.DSP_RQ_SNO                              
+                        ) AS T2P_TIT_TXT      /*관련 처분요구*/         
+                     , T1.TIT_NM                     AS TIT_NM             /*제목명(청구내용)*/      
+                   	 , T2.RMK_SBJ                        AS RMK_SBJ        /*비고*/
+                     , T1.REQ_DT                     AS REQ_DT             /*청구일자*/        
+                     , T1.RPT_DT                     AS RPT_DT             /*보고일자*/
+                     , T1.REL_AM      			  	 AS REL_AM             /*관련금액*/  	 
+                     , T1.DFNT_CNT	 			  	 AS DFNT_CNT           /*관계자수*/
+                     , T1.AUD_YR                     AS AUD_YR             /*감사년도*/ 
+                     , T1.AUD_NO                     AS AUD_NO             /*감사번호*/  
+                     , T1.DSP_RQ_SNO     			 AS DSP_RQ_SNO         /*처분요구순번*/     
+                     , T1.FNL_USR_ID             	 AS FNL_USR_ID     	   /*최종사용자ID*/   
+                     , T1.FNL_MDF_DH                 AS FNL_MDF_DH         /*최종수정일자*/  
+                     , T2.JDG_RVW_HNDL_DVSN_CD       AS JDG_RVW_HNDL_DVSN_CD /*심사심의처리구분코드*/            
+                     , T2.DCS_DT                     AS DCS_DT             /*결정일*/ 
+                     , T3.ODOC_NO                    AS ODOC_NO            /*공문서번호*/    
+                     
+                     , NVL(T3.LWS_YO,'N')             AS LWS_YO             /* 소송유무 - 2015.05.26 yyh */
+                     , DECODE(T3.LWS_YO,'Y','유','무') AS LWS_YO_NM          /* 소송유무명 - 2015.05.26 yyh */
+                     , T3.FRTRL_CT_NM                 AS FRTRL_CT_NM        /* 1심법원명 - 2015.05.26 yyh */
+                     , T3.FRTRL_EVT_NO_TXT            AS FRTRL_EVT_NO_TXT   /* 1심사건번호 - 2015.05.26 yyh */
+                     , T3.FNL_RSLT_TXT                AS FNL_RSLT_TXT       /* 종국결과 - 2015.05.26 yyh */
+                                     
+                  FROM TBBADFRE012M T1 
+                     , TBBADFRE012D T2 
+                     , TBBADFRE013D T3 
+                 WHERE 1=1                 
+                   AND T1.ACP_YR    	= T2.ACP_YR(+)                            
+                   AND T1.ACP_DVSN_CD 	= T2.ACP_DVSN_CD(+)                         
+                   AND T1.ACP_SRNO    	= T2.ACP_SRNO(+)    
+                   AND T1.DPT_CD		= T2.DPT_CD(+)                           
+                   AND T1.ACP_YR    	= T3.ACP_YR(+)                            
+                   AND T1.ACP_DVSN_CD 	= T3.ACP_DVSN_CD(+)                         
+                   AND T1.ACP_SRNO    	= T3.ACP_SRNO(+) 
+                   AND T1.DPT_CD		= T3.DPT_CD(+) 
+        
+        ]]>
+        		<!-- 접수구분*********************************************************************************************** -->
+				<!-- 접수연도 -->
+				<isNotEmpty property="strAcpYr">	 
+				   AND T1.ACP_YR = #strAcpYr# 
+				</isNotEmpty>
+				<!-- 접수구분코드 -->
+				<isNotEmpty property="strAcpDvsnCd">	 
+				   AND T1.ACP_DVSN_CD = #strAcpDvsnCd# 
+				</isNotEmpty>
+				<!-- 접수일련번호 -->
+				<isNotEmpty property="strAcpSrno">	
+				   AND T1.ACP_SRNO = #strAcpSrno#
+				</isNotEmpty>
+				<!-- 접수부서 -->        
+        		<isNotEmpty property="strDptCd">	
+        		   AND T1.DPT_CD = #strDptCd#
+        		</isNotEmpty>
+        		<!-- 접수구분 *********************************************************************************************** -->
+        		
+        		
+        		<!-- 청구구분 *********************************************************************************************** -->
+        		<!-- 청구구분::청구분류(전체(''),심사(0),국세(1),지방세(2),산재(31),기타(32),재심의(4)) -->  
+        		<isNotEmpty property="strJdgReqDvsnCd">
+        		
+        			<isEqual property="strJdgReqDvsnCd" compareValue="10">
+						AND  T1.JDG_REQ_DVSN_CD LIKE '1%'
+					</isEqual>
+        		
+        			<isEqual property="strJdgReqDvsnCd" compareValue="20">
+						AND  T1.JDG_REQ_DVSN_CD LIKE '2%'
+					</isEqual>
+        		
+        			<isEqual property="strJdgReqDvsnCd" compareValue="30">
+						AND  T1.JDG_REQ_DVSN_CD LIKE '3%'
+					</isEqual>
+
+        			<isEqual property="strJdgReqDvsnCd" compareValue="40">
+						AND  T1.JDG_REQ_DVSN_CD LIKE '4%'
+					</isEqual>
+        		
+					<isNotEqual property="strJdgReqDvsnCd" compareValue="10">
+						<isNotEqual property="strJdgReqDvsnCd" compareValue="20">
+							<isNotEqual property="strJdgReqDvsnCd" compareValue="30">
+								<isNotEqual property="strJdgReqDvsnCd" compareValue="40">
+									AND  T1.JDG_REQ_DVSN_CD = #strJdgReqDvsnCd#
+								</isNotEqual>
+							</isNotEqual>
+						</isNotEqual>					
+					</isNotEqual>        			
+        			
+        		</isNotEmpty>
+        		<!-- 청구구분::청구인(성명) --> 
+        		<isNotEmpty property="strReqr">
+        		   AND  T1.REQR_NM LIKE '%' || #strReqr# || '%'
+        		</isNotEmpty>
+        		<!-- 청구구분::청구내용 --> 
+        		<isNotEmpty property="strTitNm">
+        		   AND  T1.TIT_NM LIKE '%' || #strTitNm# || '%'
+        		</isNotEmpty>
+        		<!-- 청구구분::관련기관 --> 
+        		<isNotEmpty property="strOrgCd">
+        		   AND T1.ORG_CD = #strOrgCd# 	
+        		</isNotEmpty>
+        		<!-- 청구구분 *********************************************************************************************** -->
+        		
+        		
+        		<!-- 처리구분 *********************************************************************************************** -->
+        		<!-- 처리구분::주심위원 -->
+        		<isNotEmpty property="strCmtChfCmtrNm">
+        		   AND  T2.CMT_CHF_CMTR_NM LIKE '%' || #strCmtChfCmtrNm# || '%'
+        		</isNotEmpty>
+        		<!-- 처리구분::처리담당 -->
+        		<isNotEmpty property="strHndlChgr">
+        		   AND  T1.HNDL_CHGR_NM LIKE '%' || #strHndlChgr# || '%'	
+        		</isNotEmpty>
+        		<!-- 처리구분::결정구분 -->
+        		<isNotEmpty property="strDcsDvsnCd">
+        		   AND  T2.DCS_DVSN_CD = #strDcsDvsnCd#
+        		</isNotEmpty>
+        		<!-- 처리구분::결정년도 -->
+        		<isNotEmpty property="strDcsYr">
+        		   AND  T2.DCS_YR = #strDcsYr#
+        		</isNotEmpty>
+        		<!-- 처리구분::결정번호 -->
+        		<isNotEmpty property="strDcsNo">
+        		   AND  T2.DCS_NO = #strDcsNo#
+        		</isNotEmpty>
+        		<!-- 처리구분 *********************************************************************************************** -->
+        		
+        		
+        		<!-- 처리과정 *********************************************************************************************** -->
+        		<!-- '1'=과장,'2'=심의,'3'=국장,'4'=총장,'5'=원장,'6'=위원,'7'=부의,'8'=시행-->
+				<isNotEmpty property="strHndlCrs">
+					<isEqual property="strHndlCrs" compareValue="1">
+						AND T2.DVCHF_APV_DT  IS NOT NULL
+					</isEqual>	
+					
+					<isEqual property="strHndlCrs" compareValue="3"> 
+						AND T2.BRUCHF_APV_DT IS NOT NULL
+					</isEqual>
+					
+					<isEqual property="strHndlCrs" compareValue="4"> 
+						AND T2.OW_PSD_APV_DT IS NOT NULL
+					</isEqual>
+					
+					<isEqual property="strHndlCrs" compareValue="5"> 
+						AND T2.LEDG_APV_DT 	IS NOT NULL
+					</isEqual>
+					
+					<isEqual property="strHndlCrs" compareValue="6"> 
+						AND T2.CMTR_APV_DT 	IS NOT NULL
+					</isEqual>
+					
+					<isEqual property="strHndlCrs" compareValue="7"> 
+						AND T2.SBCN_DT 		IS NOT NULL
+					</isEqual>
+					
+					<isEqual property="strHndlCrs" compareValue="8"> 
+						AND T3.ENF_DT 		IS NOT NULL
+					</isEqual>
+				</isNotEmpty>
+				<!-- 처리과정 *********************************************************************************************** -->
+				
+				
+				<!-- 특이사항 *********************************************************************************************** -->
+				<!-- 1=소송사항,2=보류사항,3=보류해제사항,4=집행사항,5=처분요구관련사항 -->
+				<isNotEmpty property="strUnique">
+					<isEqual property="strUnique" compareValue="1"> 
+						/* 주석처리 - 2015.05.26 yyh
+						AND  T3.LWS_INST_DT IS NOT NULL */
+						
+						AND NVL(T3.LWS_YO,'N') = 'Y'
+					</isEqual>	
+					<isEqual property="strUnique" compareValue="2"> 
+						AND  T3.DF_DT  IS NOT NULL
+					</isEqual>	
+					<isEqual property="strUnique" compareValue="3"> 
+						AND  T3.RLS_DT IS NOT NULL
+					</isEqual>	
+					<isEqual property="strUnique" compareValue="4"> 
+						AND  T3.ENFM_DT IS NOT NULL 
+					</isEqual>	
+					<isEqual property="strUnique" compareValue="5"> 
+						AND  T1.AUD_YR IS NOT NULL 
+					</isEqual>	
+				</isNotEmpty>
+				
+				<!-- 특이사항 *********************************************************************************************** -->
+				
+				
+				<!-- 검색어 *********************************************************************************************** -->
+				<isNotEmpty property="strSchTxt">
+				 	AND (  T1.AGT_NM     LIKE '%' || #strSchTxt# || '%' OR 	T1.HNDL_CHGR_NM 	LIKE '%' || #strSchTxt# || '%' 
+				 		OR T1.TIT_NM     LIKE '%' || #strSchTxt# || '%' OR 	T2.DCS_SBJ    		LIKE '%' || #strSchTxt# || '%' 
+						OR T3.JUDG_TXT   LIKE '%' || #strSchTxt# || '%' OR 	T1.ISU_TXT  		LIKE '%' || #strSchTxt# || '%'	
+						OR T1.REQR_NM    LIKE '%' || #strSchTxt# || '%' 
+						
+						/* 추가 - 2015.05.26 yyh*/
+						OR T3.FRTRL_CT_NM       LIKE '%' || #strSchTxt# || '%' 
+					    OR T3.FRTRL_EVT_NO_TXT  LIKE '%' || #strSchTxt# || '%'
+					    OR T3.FNL_RSLT_TXT      LIKE '%' || #strSchTxt# || '%' 
+						)
+				</isNotEmpty>
+				<!-- 검색어 *********************************************************************************************** -->
+        		
+        		
+        		<!-- 완결구분 *********************************************************************************************** -->
+        		<!-- [strCpltYn] 1=미결, 2=완결 -->
+        		<!-- [strPeriod] 1=30일이상, 2=60일이상, 3=6개월이상, 4=1년이상 -->
+        		<isNotEmpty property="strCpltYn">	
+        			<!-- 미결 -->
+					<isEqual property="strCpltYn" compareValue="1"> 
+						AND (T3.ENF_DT IS NULL AND T2.SBCN_DT IS  NULL)
+						
+						<isNotEmpty property="strPeriod">	
+							<isEqual property="strPeriod" compareValue="1"> 
+								<![CDATA[
+									AND TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD')) - TO_DATE(T1.ACP_DT,'YYYYMMDD') >= 30
+								]]>
+							</isEqual>
+							<isEqual property="strPeriod" compareValue="2"> 
+								<![CDATA[
+									AND TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD')) - TO_DATE(T1.ACP_DT,'YYYYMMDD') >= 60
+								]]>
+							</isEqual>
+							<isEqual property="strPeriod" compareValue="3"> 
+								<![CDATA[
+									AND TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD'))  >= ADD_MONTHS(TO_DATE(T1.ACP_DT),6)
+								]]>
+							</isEqual>
+							<isEqual property="strPeriod" compareValue="4"> 
+								<![CDATA[
+									AND TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD'))  >= ADD_MONTHS(TO_DATE(T1.ACP_DT),12)
+								]]>
+							</isEqual>
+						</isNotEmpty>
+						
+					</isEqual>
+					
+					<!-- 완결 -->
+					<isEqual property="strCpltYn" compareValue="2"> 
+						AND (T3.ENF_DT IS NOT NULL OR T2.SBCN_DT IS NOT NULL)
+						<isNotEmpty property="strPeriod">	
+							<isEqual property="strPeriod" compareValue="1"> 
+								<![CDATA[
+									AND TO_DATE(NVL(T2.SBCN_DT,T3.ENF_DT)) - TO_DATE(T1.ACP_DT,'YYYYMMDD') >= 30
+								]]>
+							</isEqual>
+							<isEqual property="strPeriod" compareValue="2"> 
+								<![CDATA[
+									AND TO_DATE(NVL(T2.SBCN_DT,T3.ENF_DT)) - TO_DATE(T1.ACP_DT,'YYYYMMDD') >= 60
+								]]>
+							</isEqual>
+							<isEqual property="strPeriod" compareValue="3"> 
+								<![CDATA[
+									AND TO_DATE(NVL(T2.SBCN_DT,T3.ENF_DT))  >= ADD_MONTHS(TO_DATE(T1.ACP_DT),6)
+								]]>
+							</isEqual>
+							<isEqual property="strPeriod" compareValue="4"> 
+								<![CDATA[
+									AND TO_DATE(NVL(T2.SBCN_DT,T3.ENF_DT))  >= ADD_MONTHS(TO_DATE(T1.ACP_DT),12)
+								]]>
+							</isEqual>
+						</isNotEmpty>
+					</isEqual>
+				</isNotEmpty>
+        		<!-- 완결구분 *********************************************************************************************** -->
+        		
+        		
+        		<!-- 일자구분 *********************************************************************************************** -->
+        		<!-- 일자구분1 -->
+        		<!-- 1=접수일자,2=시행일자,3=집행일자,4=소송일자,5=판결일자 -->
+        		<isNotEmpty property="strDyDvsn1">	
+        			<isEqual property="strDyDvsn1" compareValue="1">
+        				<isNotEmpty property="strStartDt1">
+      <![CDATA[ 			AND  T1.ACP_DT  >=  #strStartDt1#	]]>
+        				</isNotEmpty>
+        				<isNotEmpty property="strEndDt1">
+      <![CDATA[  			AND  T1.ACP_DT  <=  #strEndDt1#		]]>
+        				</isNotEmpty>
+        			</isEqual>
+        			<isEqual property="strDyDvsn1" compareValue="2">
+              			<isNotEmpty property="strStartDt1">
+      <![CDATA[ 			AND  T3.ENF_DT  >=  #strStartDt1#	]]>
+        				</isNotEmpty>
+        				<isNotEmpty property="strEndDt1">
+      <![CDATA[  			AND  T3.ENF_DT  <=  #strEndDt1#		]]>
+        				</isNotEmpty>  			
+        			</isEqual>
+        			<isEqual property="strDyDvsn1" compareValue="3">
+        				<isNotEmpty property="strStartDt1">
+      <![CDATA[ 			AND  T3.ENFM_DT  >=  #strStartDt1#	]]>
+        				</isNotEmpty>
+        				<isNotEmpty property="strEndDt1">
+      <![CDATA[  			AND  T3.ENFM_DT  <=  #strEndDt1#		]]>
+        				</isNotEmpty> 
+        			</isEqual>
+        			<isEqual property="strDyDvsn1" compareValue="4">
+        				<isNotEmpty property="strStartDt1">
+      <![CDATA[ 			AND  T3.LWS_INST_DT  >=  #strStartDt1#	]]>
+        				</isNotEmpty>
+        				<isNotEmpty property="strEndDt1">
+      <![CDATA[  			AND  T3.LWS_INST_DT  <=  #strEndDt1#		]]>
+        				</isNotEmpty> 
+        			</isEqual>
+        			<isEqual property="strDyDvsn1" compareValue="5">
+        				<isNotEmpty property="strStartDt1">
+      <![CDATA[ 			AND  T3.JUDG_DT  >=  #strStartDt1#	]]>
+        				</isNotEmpty>
+        				<isNotEmpty property="strEndDt1">
+      <![CDATA[  			AND  T3.JUDG_DT  <=  #strEndDt1#		]]>
+        				</isNotEmpty> 
+        			</isEqual>
+        		</isNotEmpty>
+        		
+        		<!-- 일자구분2 -->
+        		<!-- 1=접수일자,2=시행일자,3=집행일자,4=소송일자,5=판결일자 -->
+        		<isNotEmpty property="strDyDvsn2">	
+        			<isEqual property="strDyDvsn2" compareValue="1">
+        				<isNotEmpty property="strStartDt2">
+      <![CDATA[ 			AND  T1.ACP_DT  >=  #strStartDt2#	]]>
+        				</isNotEmpty>
+        				<isNotEmpty property="strEndDt2">
+      <![CDATA[  			AND  T1.ACP_DT  <=  #strEndDt2#		]]>
+        				</isNotEmpty>
+        			</isEqual>
+        			<isEqual property="strDyDvsn2" compareValue="2">
+              			<isNotEmpty property="strStartDt2">
+      <![CDATA[ 			AND  T3.ENF_DT  >=  #strStartDt2#	]]>
+        				</isNotEmpty>
+        				<isNotEmpty property="strEndDt2">
+      <![CDATA[  			AND  T3.ENF_DT  <=  #strEndDt2#		]]>
+        				</isNotEmpty>  			
+        			</isEqual>
+        			<isEqual property="strDyDvsn2" compareValue="3">
+        				<isNotEmpty property="strStartDt2">
+      <![CDATA[ 			AND  T3.ENFM_DT  >=  #strStartDt2#	]]>
+        				</isNotEmpty>
+        				<isNotEmpty property="strEndDt2">
+      <![CDATA[  			AND  T3.ENFM_DT  <=  #strEndDt2#		]]>
+        				</isNotEmpty> 
+        			</isEqual>
+        			<isEqual property="strDyDvsn2" compareValue="4">
+        				<isNotEmpty property="strStartDt2">
+      <![CDATA[ 			AND  T3.LWS_INST_DT  >=  #strStartDt2#	]]>
+        				</isNotEmpty>
+        				<isNotEmpty property="strEndDt2">
+      <![CDATA[  			AND  T3.LWS_INST_DT  <=  #strEndDt2#		]]>
+        				</isNotEmpty> 
+        			</isEqual>
+        			<isEqual property="strDyDvsn2" compareValue="5">
+        				<isNotEmpty property="strStartDt2">
+      <![CDATA[ 			AND  T3.JUDG_DT  >=  #strStartDt2#	]]>
+        				</isNotEmpty>
+        				<isNotEmpty property="strEndDt2">
+      <![CDATA[  			AND  T3.JUDG_DT  <=  #strEndDt2#		]]>
+        				</isNotEmpty> 
+        			</isEqual>
+        		</isNotEmpty>
+        		
+        		 ORDER BY T1.ACP_YR DESC, T1.ACP_SRNO DESC
+    </select>
+	<select id="BADFRE019EPopselect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+				SELECT T1.ACP_YR                     AS ACP_YR 				/*접수년도(OK)*/
+                     , T1.ACP_DVSN_CD                AS ACP_DVSN_CD        	/*접수구분코드*/  
+                     , T1.ACP_SRNO  				 AS ACP_SRNO            /*접수일련번호*/  
+                     , T1.DPT_CD					 AS DPT_CD  			/*부서코드*/
+					 , T1.ACP_DT                     AS ACP_DT             	/*접수일자(OK)*/
+					 , T2.DOC_ID											/*DOC_ID*/
+					 
+					 /* , T4.FILE_NAME					 AS FILE_NAME	 */
+					 
+					 /*첨부파일*/
+					 , (SELECT FILE_NAME
+					 FROM ECM_FILE_LIST_VIEW2
+					 WHERE DOC_ID = T2.DOC_ID
+					 AND ROWNUM = 1
+					 ) AS FILE_NAME
+					 
+					 
+				 	 , T1.JDG_REQ_DVSN_CD            AS JDG_REQ_DVSN_CD    	/*심사청구구분코드*/
+				 	 , F_CODE_NM ('1000043', T1.JDG_REQ_DVSN_CD) AS JDG_REQ_DVSN_NM /*심사청구구분*/
+				 	 , T1.ACP_YR || '-' || T1.ACP_DVSN_CD || '-' || T1.ACP_SRNO AS ACP_NO /*접수번호*/
+					 , T1.REQR_NM                    AS REQR_NM            	/*청구인명*/   
+                     , T1.ORG_CD                     AS ORG_CD             	/*기관코드*/
+                     , F_ORG_INFO(T1.ORG_CD, '1') 	 AS ORG_NM				/*기관*/
+                     , T1.PSN_CRP_DVSN_CD            AS PSN_CRP_DVSN_CD    	/*개인법인구분코드*/   
+                     , F_CODE_NM ('1000436', T1.PSN_CRP_DVSN_CD) AS PSN_CRP_DVSN_NM /*개인법인구분*/  
+                     , T1.AGT_NM                     AS AGT_NM             	/*대리인명*/ 
+                     , T1.ISU_TXT                    AS ISU_TXT            	/*쟁점내용*/ 
+                     , T2.SBCN_NBC  				 AS SBCN_NBC           /*부의횟수*/   
+                     , T2.SBCN_NO || '(' || T2.SBCN_NBC || '회)' AS SBCN_NO	/*부의번호(회수)*/
+                     , T1.HNDL_DDLN_DT               AS HNDL_DDLN_DT        /*처리기한일*/
+                     , CASE WHEN (T3.ENF_DT IS NULL AND T2.SBCN_DT IS  NULL)
+	        					THEN  TO_DATE(SYSDATE) - TO_DATE(T1.ACP_DT) || '일'
+	        	   			ELSE 
+			        	 		CASE WHEN  TRIM(T2.SBCN_DT) IS NOT NULL
+			        	 			 	THEN TO_DATE(T2.SBCN_DT) - TO_DATE(T1.ACP_DT)	 || '일'
+			        	 			 ELSE 
+				        	 			 TO_DATE(T3.ENF_DT) - TO_DATE(T1.ACP_DT) || '일'
+			        	 		END	 		
+	          			END AS HNDL_DT /*처리기간*/
+                     , T2.DVCHF_APV_DT               AS DVCHF_APV_DT       /*과장결재일*/
+                     , TO_DATE(TRIM(T2.DVCHF_APV_DT)) - TO_DATE(TRIM(T1.ACP_DT)) || '일' AS DVCHF_HNDL_DT /*과장처리기간*/
+                     , T2.DDG_APV_DT                 AS DDG_APV_DT       	/*심의관결재일*/
+                     , TO_DATE(TRIM(T2.DDG_APV_DT)) - TO_DATE(TRIM(T1.ACP_DT)) || '일' AS DDG_HNDL_DT /*심의관처리기간*/
+                     , T2.BRUCHF_APV_DT              AS BRUCHF_APV_DT      /*국장결재일*/ 
+                     , TO_DATE(TRIM(T2.BRUCHF_APV_DT)) - TO_DATE(TRIM(T1.ACP_DT)) || '일' AS BRUCHF_HNDL_DT /*국장처리기간*/
+                     , T2.OW_PSD_APV_DT              AS OW_PSD_APV_DT      /*사무총장결재일*/ 
+                     , TO_DATE(TRIM(T2.OW_PSD_APV_DT)) - TO_DATE(TRIM(T1.ACP_DT)) || '일' AS OW_PSD_HNDL_DT /*사무총장처리기간*/
+                     , T2.LEDG_APV_DT                AS LEDG_APV_DT        /*원장결재일*/
+                     , TO_DATE(TRIM(T2.LEDG_APV_DT)) - TO_DATE(TRIM(T1.ACP_DT)) || '일' AS LEDG_HNDL_DT /*원장처리기간*/
+                     , T2.CMTR_APV_DT                AS CMTR_APV_DT        /*위원결재일*/
+                     , TO_DATE(TRIM(T2.CMTR_APV_DT)) - TO_DATE(TRIM(T1.ACP_DT)) || '일' AS CMTR_HNDL_DT /*위원처리기간*/
+                     , T2.SBCN_DT                    AS SBCN_DT            /*부의일*/  
+                     , TO_DATE(TRIM(T2.SBCN_DT)) - TO_DATE(TRIM(T1.ACP_DT)) || '일' AS SBCN_HNDL_DT /*부의처리기간*/
+                     , T3.ENF_DT                     AS ENF_DT             /*시행일*/
+                     , TO_DATE(TRIM(T3.ENF_DT)) - TO_DATE(TRIM(T1.ACP_DT)) || '일' AS ENF_HNDL_DT /*시행처리기간*/
+                     , T2.CMT_CHF_CMTR_NM            AS CMT_CHF_CMTR_NM    /*위원회주심위원명*/ 
+                     , T1.HNDL_CHGR_NM              AS HNDL_CHGR_NM      /*처리담당자명 */ 
+                     , T2.VT_KND_CD                  AS VT_KND_CD          /*의결종류코드*/
+                     , F_CODE_NM('1000045', T2.VT_KND_CD) AS VT_KND_NM	   /*의결종류*/
+                     , T2.AMIT_AM   				 AS AMIT_AM            /*용인금액*/   
+                     , T3.ENFM_DT                    AS ENFM_DT            /*집행일*/ 
+                     , T3.ENFM_TXT                   AS ENFM_TXT           /*집행내용*/ 
+                     , T3.LWS_INST_DT        		 AS LWS_INST_DT	   	   /*소송제기일*/
+                     , T3.JUDG_DT                    AS JUDG_DT            /*판결일*/ 
+                     , T3.JUDG_TXT                   AS JUDG_TXT           /*판결내용*/
+                     , T3.DF_DT                      AS DF_DT              /*보류일*/
+                     , T3.RLS_DT                     AS RLS_DT             /*해제일*/
+                     , T3.UN_HNDL_RSN                AS UN_HNDL_RSN        /*미처리사유*/  
+                     , T3.HNDL_PLN_TXT               AS HNDL_PLN_TXT       /*처리계획내용*/  
+                     , T2.DCS_YR                     AS DCS_YR             /*결정년도*/ 
+                     , T2.DCS_DVSN_CD                AS DCS_DVSN_CD        /*결정구분코드*/      
+                     , T2.DCS_NO                     AS DCS_NO             /*결정번호*/  
+                     , CASE WHEN TRIM(T2.DCS_DVSN_CD) IS NULL 
+       							THEN '' 
+	        	 		   	ELSE F_CODE_NM ('1000046', T2.DCS_DVSN_CD) || '-' || T2.DCS_YR || '-' || T2.DCS_NO 
+	        		   	END AS DCS_SBJ_NO	/*결정사항번호*/
+                     , T2.DCS_SBJ                    AS DCS_SBJ            /*결정사항*/ 
+                     , (SELECT TIT_TXT       
+                          FROM TBBADEAR001M
+                         WHERE AUD_YR 		= T1.AUD_YR                              
+                           AND AUD_NO  		= T1.AUD_NO                               
+                           AND DSP_RQ_SNO 	= T1.DSP_RQ_SNO                              
+                        ) AS T2P_TIT_TXT      /*관련 처분요구*/         
+                     , T1.TIT_NM                     AS TIT_NM             /*제목명(청구내용)*/      
+                   	 , T2.RMK_SBJ                        AS RMK_SBJ                /*비고*/
+                     , T1.REQ_DT                     AS REQ_DT             /*청구일자*/        
+                     , T1.RPT_DT                     AS RPT_DT             /*보고일자*/
+                     , T1.REL_AM      			  	 AS REL_AM             /*관련금액*/  	 
+                     , T1.DFNT_CNT	 			  	 AS DFNT_CNT           /*관계자수*/
+                     , T1.AUD_YR                     AS AUD_YR             /*감사년도*/ 
+                     , T1.AUD_NO                     AS AUD_NO             /*감사번호*/  
+                     , T1.DSP_RQ_SNO     			 AS DSP_RQ_SNO         /*처분요구순번*/     
+                     , T1.FNL_USR_ID             	 AS FNL_USR_ID     	   /*최종사용자ID*/   
+                     , T1.FNL_MDF_DH                 AS FNL_MDF_DH         /*최종수정일자*/  
+                     , T2.JDG_RVW_HNDL_DVSN_CD       AS JDG_RVW_HNDL_DVSN_CD /*심사심의처리구분코드*/            
+                     , T2.DCS_DT                     AS DCS_DT             /*결정일*/ 
+                     , T3.ODOC_NO                    AS ODOC_NO            /*공문서번호*/  
+                     
+                     , NVL(T3.LWS_YO,'N')            AS LWS_YO             /* 소송유무 - 2015.05.26 yyh */
+                     , T3.FRTRL_CT_NM                AS FRTRL_CT_NM        /* 1심법원명 - 2015.05.26 yyh */
+                     , T3.FRTRL_EVT_NO_TXT           AS FRTRL_EVT_NO_TXT   /* 1심사건번호 - 2015.05.26 yyh */
+                     , T3.FNL_RSLT_TXT               AS FNL_RSLT_TXT       /* 종국결과 - 2015.05.26 yyh */
+                     
+                  FROM TBBADFRE012M T1 
+                     , TBBADFRE012D T2 
+                     , TBBADFRE013D T3 
+                 WHERE 1=1                 
+                   AND T1.ACP_YR    	= T2.ACP_YR(+)                            
+                   AND T1.ACP_DVSN_CD 	= T2.ACP_DVSN_CD(+)                         
+                   AND T1.ACP_SRNO    	= T2.ACP_SRNO(+)    
+                   AND T1.DPT_CD		= T2.DPT_CD(+)                           
+                   AND T1.ACP_YR    	= T3.ACP_YR(+)                            
+                   AND T1.ACP_DVSN_CD 	= T3.ACP_DVSN_CD(+)                         
+                   AND T1.ACP_SRNO    	= T3.ACP_SRNO(+) 
+                   AND T1.DPT_CD		= T3.DPT_CD(+) 
+                   AND T1.ACP_YR    	= #ACP_YR#
+                   AND T1.ACP_DVSN_CD 	= #ACP_DVSN_CD#
+                   AND T1.ACP_SRNO    	= #ACP_SRNO#
+                   AND T1.DPT_CD    	= #DPT_CD#
+        		 ORDER BY T1.ACP_DT DESC
+        ]]>
+    </select>
+    
+    <!--재심의심사청구 병합내역조회-->
+	<select id="BADFRE019EMgselect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[	
+             SELECT T1.ACP_YR
+             	  , T1.ACP_DVSN_CD
+             	  , T1.ACP_SRNO
+             	  , T1.DPT_CD
+                  , CASE WHEN T1.ACP_YR >= '2016'
+                              THEN T1.ACP_YR ||'-'|| DECODE(T1.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') ||'-'|| T1.ACP_SRNO 
+                         ELSE T1.ACP_YR ||'-'|| T1.ACP_DVSN_CD ||'-'|| T1.ACP_SRNO 
+                     END                                                               AS ACP_NO /*접수번호 - 번호체계 변경 2015.12.08 yyh*/
+			      , T1.ACP_DT				/*접수일자*/
+			      , T1.HNDL_DDLN_DT 		/*처리기한일*/
+			      , T1.REQR_NM				/*청구인명*/
+			      , T1.TIT_NM 				/*청구내용*/
+			      , T2.TIT_TXT 				/*처분요구사항제목내용*/
+			      , T1.HNDL_CHGR_NM  	 	/*처리담당자*/
+               FROM TBBADFRE012M T1
+			      , TBBADEAR001M T2                                                                              
+			  WHERE 1=1
+			    AND T1.AUD_YR 		= T2.AUD_YR(+)
+			    AND T1.AUD_NO 		= T2.AUD_NO(+)
+			    AND T1.DSP_RQ_SNO 	= T2.DSP_RQ_SNO(+)                                                                     
+
+		 ]]>
+			    AND T1.MG_ACP_YR 		= #strMgAcpYr# 
+			    AND T1.MG_ACP_DVSN_CD 	= #strMgAcpDvsnCd#
+			    AND T1.MG_ACP_SRNO 		= #strMgAcpSrno#
+			    AND T1.MG_DPT_CD		= #strMgDptCd#
+		
+        	  ORDER BY T1.ACP_YR DESC, T1.ACP_SRNO DESC
+ 	</select>
+ 	
+ 	
+        
+ 	<!--재심의심사청구 접수일련번호 조회-->
+	<select id="BADFRE019EAcpSrnoselect" parameterClass="paramMap" resultClass="String">
+		<![CDATA[	
+			SELECT NVL(MAX(ACP_SRNO),0) + 1
+			  FROM TBBADFRE012M
+			 WHERE ACP_YR 		= #ACP_YR#
+			   AND ACP_DVSN_CD  = #ACP_DVSN_CD# /* 접수구분코드 추가 - 2015.12.21 yyh  */
+		]]>
+	</select>
+ 	
+	<!--심사심의접수기본insert - 심사청구 -->
+	<insert id="BADFRE001EJdgRvwAcpBscinsert" parameterClass="paramMap">
+		INSERT 
+		  INTO TBBADFRE012M
+		     ( ACP_YR           /*접수년도*/
+			 , ACP_DVSN_CD      /*접수구분코드*/  
+			 , ACP_SRNO         /*접수일련번호*/
+			 , DPT_CD			/*부서코드*/
+			 , ACP_DT           /*접수일*/
+			 , REQ_DT           /*청구일*/
+		     , TIT_NM           /*제목명*/   
+			 , RPT_DT    		/*보고일*/
+			 , HNDL_DDLN_DT 	/*처리기한일*/
+			 , JDG_REQ_DVSN_CD	/*심사청구구분코드*/
+			 , JDG_REQ_DVSN_SRNO /*심사청구구분일련번호*/
+			 , REL_AM			/*관련금액*/             
+			 , DFNT_CNT     	/*관계자수*/   
+			 , ORG_CD           /*기관코드*/
+			 , ORG_NM           /*기관명*/
+			 , REQR_NM       	/*청구인명*/
+			 , AGT_NM         	/*대리인명*/   
+			 , PSN_CRP_DVSN_CD  /*개인법인구분코드*/   
+			 , EIN   		/*청구인주민등록번호*/
+			 , ISU_TXT          /*쟁점내용*/
+			 , HNDL_CHGR_NM     /*처리담당자*/
+			 , AUD_YR         	/*감사년도*/   
+			 , AUD_NO          	/*감사번호*/   
+			 , DSP_RQ_SNO       /*처분요구순번*/
+			 , BAI_DSP_DIV_CD	/*감사원처분과코드*/
+			 , BAI_DSP_YN		/*감사원처분여부*/
+			 , ZCD				/*우편번호*/
+			 , AD				/*주소*/
+			 , DTL_AD			/*상세주소*/
+			 , TNB_1			/*전화번호1*/
+			 , TNB_2			/*전화번호2*/
+			 , TNB_3			/*전화번호3*/
+			 , HP_TNB_1			/*핸드폰전화번호1*/
+			 , HP_TNB_2			/*핸드폰전화번호2*/
+			 , HP_TNB_3			/*핸드폰전화번호3*/
+			 , HNDL_CHGR_TNB_1	/*처리담당자전화번호1*/
+			 , HNDL_CHGR_TNB_2	/*처리담당자전화번호2*/
+			 , HNDL_CHGR_TNB_3	/*처리담당자전화번호3*/
+			 , FRT_USR_ID		/*최초사용자ID*/
+			 , FNL_USR_ID		/*최종사용자ID*/
+			 , FNL_DEAL_DPT_CD	/*최종거래부서코드*/
+			 , FNL_MNU_ID		/*최종메뉴ID*/
+			 , FRT_REGI_DH		/*최초등록일시*/
+			 , FNL_MDF_DH		/*최종수정일시*/
+			 , CVPT_SEN_ACP_NO  /* 민원발송접수번호 */
+			 , WRTANS_SEN_YN    /* 부본발송여부 */
+			 , STTC_CNT         /* 통계건수 */
+			   )
+		VALUES 
+		     ( #ACP_YR#               
+			 , #ACP_DVSN_CD#   
+			 , #ACP_SRNO# 
+			 , #DPT_CD#           
+			 , #ACP_DT#
+			 , #REQ_DT#
+			 , #TIT_NM#
+			 , #RPT_DT#
+			 , #HNDL_DDLN_DT#
+			 , #JDG_REQ_DVSN_CD#
+			 , (SELECT NVL(MAX(JDG_REQ_DVSN_SRNO),0) + #STTC_CNT#
+			      FROM TBBADFRE012M
+			     WHERE ACP_YR 		= TO_CHAR(SYSDATE,'YYYY')
+			       AND ACP_DVSN_CD 	= #ACP_DVSN_CD#
+			       AND DPT_CD 		= #DPT_CD# 
+			       AND JDG_REQ_DVSN_CD LIKE SUBSTR(#JDG_REQ_DVSN_CD#,0,1) || '%'
+			    )
+			 , #REL_AM#
+			 , #DFNT_CNT#
+			 , #ORG_CD#
+			 , #ORG_NM#
+			 , #REQR_NM#
+			 , #AGT_NM#
+			 , #PSN_CRP_DVSN_CD#
+			 , #EIN#
+			 , #ISU_TXT#
+			 , #HNDL_CHGR_NM#
+			 , #AUD_YR#
+		     , #AUD_NO#
+			 , #DSP_RQ_SNO#
+			 , #BAI_DSP_DIV_CD#
+			 , #BAI_DSP_YN#
+			 , #ZCD#
+			 , #AD#
+			 , #DTL_AD#
+			 , #TNB_1#
+			 , #TNB_2#
+			 , #TNB_3#
+			 , #HP_TNB_1#
+			 , #HP_TNB_2#
+			 , #HP_TNB_3#
+			 , #HNDL_CHGR_TNB_1#
+			 , #HNDL_CHGR_TNB_2#
+			 , #HNDL_CHGR_TNB_3#
+			 , #FRT_USR_ID#
+			 , #FNL_USR_ID#
+			 , #FNL_DEAL_DPT_CD#
+			 , #FNL_MNU_ID#
+			 , SYSDATE
+			 , SYSDATE
+			 , #CVPT_SEN_ACP_NO#
+			 , #WRTANS_SEN_YN#
+			 , #STTC_CNT#
+		       )
+	</insert>
+	
+	
+	<!--심사심의접수기본insert - 재심의 -->
+	<insert id="BADFRE001EJdgRvwAcpBsc2insert" parameterClass="paramMap">
+		INSERT 
+		  INTO TBBADFRE012M
+		     ( ACP_YR           /*접수년도*/
+			 , ACP_DVSN_CD      /*접수구분코드*/  
+			 , ACP_SRNO         /*접수일련번호*/
+			 , DPT_CD			/*부서코드*/
+			 , ACP_DT           /*접수일*/
+			 , REQ_DT           /*청구일*/
+		     , TIT_NM           /*제목명*/   
+			 , RPT_DT    		/*보고일*/
+			 , HNDL_DDLN_DT 	/*처리기한일*/
+			 , JDG_REQ_DVSN_CD	/*심사청구구분코드*/
+			 , JDG_REQ_DVSN_SRNO /*심사청구구분일련번호*/
+			 , REL_AM			/*관련금액*/             
+			 , DFNT_CNT     	/*관계자수*/   
+			 , ORG_CD           /*기관코드*/
+			 , ORG_NM           /*기관명*/
+			 , REQR_NM       	/*청구인명*/
+			 , AGT_NM         	/*대리인명*/   
+			 , PSN_CRP_DVSN_CD  /*개인법인구분코드*/   
+			 , EIN   		/*청구인주민등록번호*/
+			 , ISU_TXT          /*쟁점내용*/
+			 , HNDL_CHGR_NM     /*처리담당자*/
+			 , AUD_YR         	/*감사년도*/   
+			 , AUD_NO          	/*감사번호*/   
+			 , DSP_RQ_SNO       /*처분요구순번*/
+			 , BAI_DSP_DIV_CD	/*감사원처분과코드*/
+			 , BAI_DSP_YN		/*감사원처분여부*/
+			 , ZCD				/*우편번호*/
+			 , AD				/*주소*/
+			 , DTL_AD			/*상세주소*/
+			 , TNB_1			/*전화번호1*/
+			 , TNB_2			/*전화번호2*/
+			 , TNB_3			/*전화번호3*/
+			 , HP_TNB_1			/*핸드폰전화번호1*/
+			 , HP_TNB_2			/*핸드폰전화번호2*/
+			 , HP_TNB_3			/*핸드폰전화번호3*/
+			 , HNDL_CHGR_TNB_1	/*처리담당자전화번호1*/
+			 , HNDL_CHGR_TNB_2	/*처리담당자전화번호2*/
+			 , HNDL_CHGR_TNB_3	/*처리담당자전화번호3*/
+			 , FRT_USR_ID		/*최초사용자ID*/
+			 , FNL_USR_ID		/*최종사용자ID*/
+			 , FNL_DEAL_DPT_CD	/*최종거래부서코드*/
+			 , FNL_MNU_ID		/*최종메뉴ID*/
+			 , FRT_REGI_DH		/*최초등록일시*/
+			 , FNL_MDF_DH		/*최종수정일시*/
+			 , CVPT_SEN_ACP_NO  /* 민원발송접수번호 */
+			 , WRTANS_SEN_YN    /* 부본발송여부 */
+			 , STTC_CNT         /* 통계건수 */
+			   )
+		VALUES 
+		     ( #ACP_YR#               
+			 , #ACP_DVSN_CD#   
+			 , #ACP_SRNO# 
+			 , #DPT_CD#           
+			 , #ACP_DT#
+			 , #REQ_DT#
+			 , #TIT_NM#
+			 , #RPT_DT#
+			 , #HNDL_DDLN_DT#
+			 , #JDG_REQ_DVSN_CD#
+			 , (SELECT NVL(MAX(JDG_REQ_DVSN_SRNO),0) + #STTC_CNT#
+			      FROM TBBADFRE012M
+			     WHERE ACP_YR 		= TO_CHAR(SYSDATE,'YYYY')
+			       AND ACP_DVSN_CD 	= #ACP_DVSN_CD#
+			       AND DPT_CD 		= #DPT_CD# 
+			    )
+			 , #REL_AM#
+			 , #DFNT_CNT#
+			 , #ORG_CD#
+			 , #ORG_NM#
+			 , #REQR_NM#
+			 , #AGT_NM#
+			 , #PSN_CRP_DVSN_CD#
+			 , #EIN#
+			 , #ISU_TXT#
+			 , #HNDL_CHGR_NM#
+			 , #AUD_YR#
+		     , #AUD_NO#
+			 , #DSP_RQ_SNO#
+			 , #BAI_DSP_DIV_CD#
+			 , #BAI_DSP_YN#
+			 , #ZCD#
+			 , #AD#
+			 , #DTL_AD#
+			 , #TNB_1#
+			 , #TNB_2#
+			 , #TNB_3#
+			 , #HP_TNB_1#
+			 , #HP_TNB_2#
+			 , #HP_TNB_3#
+			 , #HNDL_CHGR_TNB_1#
+			 , #HNDL_CHGR_TNB_2#
+			 , #HNDL_CHGR_TNB_3#
+			 , #FRT_USR_ID#
+			 , #FNL_USR_ID#
+			 , #FNL_DEAL_DPT_CD#
+			 , #FNL_MNU_ID#
+			 , SYSDATE
+			 , SYSDATE
+			 , #CVPT_SEN_ACP_NO#
+			 , #WRTANS_SEN_YN#
+			 , #STTC_CNT#
+		       )
+	</insert>
+	
+	<!--심사심의결재상세insert-->
+	<insert id="BADFRE001EJdgRvwApvDtlinsert" parameterClass="paramMap">
+		INSERT
+		  INTO TBBADFRE012D 
+		     ( ACP_YR           	/*접수년도*/
+			 , ACP_DVSN_CD      	/*접수구분코드*/  
+			 , ACP_SRNO         	/*접수일련번호*/	
+			 , DPT_CD				/*부서코드*/ 
+			 , CMT_CHF_CMTR_NM    	/*위원회주심위원명*/  
+			 , JDG_RVW_HNDL_DVSN_CD /*심사심의처리구분코드*/
+			 , VT_KND_CD         	/*의결종류코드*/
+			 , SBCN_NO           	/*부의번호*/  	
+			 , SBCN_NBC         	/*부의횟수*/  	
+			 , SBCN_DT         		/*부의일*/	
+			 , DCS_DT         		/*결정일*/	
+			 , DCS_SBJ         		/*결정사항*/	
+			 , AMIT_AM          	/*용인금액*/  	
+			 , DCS_YR         		/*결정년도*/  	
+			 , DCS_DVSN_CD         	/*결정구분코드*/		
+			 , DCS_NO           	/*결정번호*/		
+			 , DVCHF_APV_DT  		/*과장결재일*/	
+			 , DDG_APV_DT  			/*심의관결재일*/  	
+			 , BRUCHF_APV_DT  		/*국장결재일*/  	
+			 , OW_PSD_APV_DT  		/*사무총장결재일*/	
+			 , LEDG_APV_DT  		/*원장결재일*/	
+			 , CMTR_APV_DT  		/*위원결재일*/		
+			 , RMK_SBJ           		/*비고*/ 
+			 , FRT_USR_ID			/*최초사용자ID*/
+			 , FNL_USR_ID			/*최종사용자ID*/
+			 , FNL_DEAL_DPT_CD		/*최종거래부서코드*/
+			 , FNL_MNU_ID			/*최종메뉴ID*/
+			 , FRT_REGI_DH			/*최초등록일시*/
+			 , FNL_MDF_DH			/*최종수정일시*/
+			   )    
+		VALUES 
+		     ( #ACP_YR#              
+			 , #ACP_DVSN_CD#              
+			 , #ACP_SRNO#
+			 , #DPT_CD#
+			 , #CMT_CHF_CMTR_NM#                  
+			 , #JDG_RVW_HNDL_DVSN_CD#
+		     , #VT_KND_CD#              
+			 , #SBCN_NO#              
+			 , #SBCN_NBC#                  
+			 , #SBCN_DT#
+			 , #DCS_DT#
+			 , #DCS_SBJ#              
+			 , #AMIT_AM#              
+			 , #DCS_YR#
+			 , #DCS_DVSN_CD#                  
+			 , #DCS_NO#
+			 , #DVCHF_APV_DT#              
+			 , #DDG_APV_DT#              
+			 , #BRUCHF_APV_DT#                  
+			 , #OW_PSD_APV_DT#                  
+			 , #LEDG_APV_DT#
+		     , #CMTR_APV_DT#              
+			 , #RMK_SBJ#              
+			 , #FRT_USR_ID#
+			 , #FNL_USR_ID#
+			 , #FNL_DEAL_DPT_CD#
+			 , #FNL_MNU_ID#
+			 , SYSDATE
+			 , SYSDATE
+		       )  
+	</insert>
+		 
+		 
+	<!--심사심의처리상세insert-->
+	<insert id="BADFRE001EJdgRvwHndlinsert" parameterClass="paramMap">
+		INSERT
+		  INTO TBBADFRE013D 
+			 ( ACP_YR           /*접수년도*/
+			 , ACP_DVSN_CD      /*접수구분코드*/  
+			 , ACP_SRNO         /*접수일련번호*/	
+			 , DPT_CD			/*부서코드*/          
+			 , ENF_DT           /*시행일*/	
+			 , ENFM_DT          /*집행일*/	
+			 , ENFM_TXT         /*집행내용*/	
+			 , LWS_INST_DT  	/*소송제기일*/	
+			 , JUDG_DT          /*판결일*/	
+			 , JUDG_TXT         /*판결내용*/ 	
+			 , DF_DT            /*보류일*/ 	
+			 , RLS_DT           /*해제일*/	
+			 , UN_HNDL_RSN      /*미처리사유*/	
+			 , HNDL_PLN_TXT     /*처리계획내용*/	
+			 , ODOC_NO         	/*공문서번호*/	
+			 
+			 , LWS_YO           /* 소송유무 - 2015.05.26 yyh */
+			 , FRTRL_CT_NM      /* 1심법원명 - 2015.05.26 yyh */
+			 , FRTRL_EVT_NO_TXT /* 1심사건번호 - 2015.05.26 yyh */
+			 , FNL_RSLT_TXT     /* 종국결과 - 2015.05.26 yyh */
+			 
+			 , FRT_USR_ID		/*최초사용자ID*/
+			 , FNL_USR_ID		/*최종사용자ID*/
+			 , FNL_DEAL_DPT_CD	/*최종거래부서코드*/
+			 , FNL_MNU_ID		/*최종메뉴ID*/
+			 , FRT_REGI_DH		/*최초등록일시*/
+			 , FNL_MDF_DH		/*최종수정일시*/
+			   )
+		VALUES 
+			 ( #ACP_YR#         
+			 , #ACP_DVSN_CD#                      
+			 , #ACP_SRNO#
+			 , #DPT_CD#
+			 , #ENF_DT#
+			 , #ENFM_DT#
+			 , #ENFM_TXT#
+			 , #LWS_INST_DT#
+			 , #JUDG_DT#
+			 , #JUDG_TXT#
+			 , #DF_DT#
+			 , #RLS_DT#
+			 , #UN_HNDL_RSN#                      
+			 , #HNDL_PLN_TXT#                   
+			 , #ODOC_NO#
+			 
+			 , #LWS_YO#
+			 , #FRTRL_CT_NM#
+			 , #FRTRL_EVT_NO_TXT#
+			 , #FNL_RSLT_TXT#
+			 
+			 , #FRT_USR_ID#
+			 , #FNL_USR_ID#
+			 , #FNL_DEAL_DPT_CD#
+			 , #FNL_MNU_ID#
+			 , SYSDATE
+			 , SYSDATE
+			   )      
+	</insert>		 
+	
+	<!-- 관리국과(심사과) 조회-->
+	<select id="BADFRE019EJdgDptselect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT DPT_CD AS CD
+			     , DPT_NM AS CD_NM 
+			  FROM TBDCMACM002M   
+			 WHERE DPT_CD IN ('170300','170320','170330')
+			   AND USE_YN = 'Y'
+			 ORDER BY DPT_CD ASC
+	
+			]]>
+			
+	</select>	
+	
+	<!-- 심사과 사용자 조회
+	170300 : 심사1담당관
+	170320 : 심사2담당관
+	170330 : 심사3담당관
+	-->
+	<select id="BADFRE019EJdgDptUsrselect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT DPT_CD
+			     , USR_NAM
+			     , TNB
+			  FROM TBDCMACM001M   
+			 WHERE 1=1
+			 AND DPT_CD IN ('170300','170320','170330')
+			]]>
+			 ORDER BY USR_NAM ASC
+	
+			
+	</select>	
+		
+	
+	<update id="BADFRE019EAtchFileupdate" parameterClass="paramMap">
+	<![CDATA[ 	
+		UPDATE TBBADFRE012D
+		   SET FNL_MDF_DH      	= SYSDATE	/*최종수정일시*/	
+	]]>
+		<isNotNull prepend="," property="DOC_ID">	       
+	       	   DOC_ID		= #DOC_ID#	/*문서ID*/
+		</isNotNull>		
+		<isNotNull prepend="," property="DOC_TYP_CD">	       
+	       	   DOC_TYP_CD	= #DOC_TYP_CD#	/*문서유형코드*/
+		</isNotNull>		
+		<isNotNull prepend="," property="FNL_USR_ID">	       
+	       	   FNL_USR_ID		= #FNL_USR_ID#	/*최종사용자ID*/
+		</isNotNull>		
+		<isNotNull prepend="," property="FNL_DEAL_DPT_CD">	       
+	       	   FNL_DEAL_DPT_CD	= #FNL_DEAL_DPT_CD#	/*최종거래부서코드*/
+		</isNotNull>		
+		<isNotNull prepend="," property="FNL_MNU_ID">	       
+	       	   FNL_MNU_ID		= #FNL_MNU_ID#	/*최종메뉴ID*/
+		</isNotNull>		
+		 WHERE ACP_YR 		= #ACP_YR#
+		   AND ACP_DVSN_CD 	= #ACP_DVSN_CD#
+		   AND ACP_SRNO		= #ACP_SRNO#
+		   AND DPT_CD		= #DPT_CD#
+	</update>	
+	
+	<!--심사심의접수기본 update -->
+	<update id="BADFRE001EJdgRvwAcpBscupdate" parameterClass="paramMap">
+	<![CDATA[ 	
+		UPDATE TBBADFRE012M
+   		   SET FNL_MDF_DH      	= SYSDATE				/*최종수정일시*/
+	]]>
+	
+		<isNotNull prepend="," property="MG_ACP_YR">	       
+	       	   MG_ACP_YR        	= #MG_ACP_YR#
+		</isNotNull>		
+		<isNotNull prepend="," property="MG_ACP_DVSN_CD">	       
+	       	   MG_ACP_DVSN_CD       = #MG_ACP_DVSN_CD#
+		</isNotNull>		
+		<isNotNull prepend="," property="MG_ACP_SRNO">	       
+	       	   MG_ACP_SRNO          = #MG_ACP_SRNO#
+		</isNotNull>
+		<isNotNull prepend="," property="MG_DPT_CD">	       
+	       	   MG_DPT_CD          = #MG_DPT_CD#
+		</isNotNull>
+		<isNotNull prepend="," property="DPT_CD">	       
+	       	   DPT_CD          		= #DPT_CD#
+		</isNotNull>
+		<isNotNull prepend="," property="CVPT_SEN_ACP_NO">	       
+	       	   CVPT_SEN_ACP_NO      = #CVPT_SEN_ACP_NO#
+		</isNotNull>
+		<isNotNull prepend="," property="ACP_DT">	       
+	       	   ACP_DT        		= #ACP_DT#
+		</isNotNull>		
+		<isNotNull prepend="," property="REQ_DT">	       
+	       	   REQ_DT         		= #REQ_DT#
+		</isNotNull>		
+		<isNotNull prepend="," property="TIT_NM">	       
+	       	   TIT_NM           	= #TIT_NM#
+		</isNotNull>		
+		<isNotNull prepend="," property="RPT_DT">	       
+	       	   RPT_DT      			= #RPT_DT#
+		</isNotNull>		
+		<isNotNull prepend="," property="HNDL_DDLN_DT">	       
+	       	   HNDL_DDLN_DT  		= #HNDL_DDLN_DT#
+		</isNotNull>		
+		<isNotNull prepend="," property="JDG_REQ_DVSN_CD">	       
+	       	   JDG_REQ_DVSN_CD  	= #JDG_REQ_DVSN_CD#
+		</isNotNull>		
+		<isNotNull prepend="," property="REL_AM">	       
+	       	   REL_AM          		= #REL_AM#
+		</isNotNull>		
+		<isNotNull prepend="," property="DFNT_CNT">	       
+	       	   DFNT_CNT     		= #DFNT_CNT#
+		</isNotNull>		
+		<isNotNull prepend="," property="ORG_CD">	       
+	       	   ORG_CD           	= #ORG_CD#
+		</isNotNull>		
+		<isNotNull prepend="," property="ORG_NM">	       
+	       	   ORG_NM           	= #ORG_NM#
+		</isNotNull>		
+		<isNotNull prepend="," property="REQR_NM">	       
+	       	   REQR_NM       		= #REQR_NM#
+		</isNotNull>		
+		<isNotNull prepend="," property="AGT_NM">	       
+	       	   AGT_NM         		= #AGT_NM#
+		</isNotNull>		
+		<isNotNull prepend="," property="PSN_CRP_DVSN_CD">	       
+	       	   PSN_CRP_DVSN_CD  	= #PSN_CRP_DVSN_CD#
+		</isNotNull>		
+		<isNotNull prepend="," property="EIN">	       
+	       	   EIN   			= #EIN#
+		</isNotNull>		
+		<isNotNull prepend="," property="ISU_TXT">	       
+	       	   ISU_TXT          	= #ISU_TXT#
+		</isNotNull>		
+		<isNotNull prepend="," property="HNDL_CHGR_NM">	       
+	       	   HNDL_CHGR_NM     	= #HNDL_CHGR_NM#
+		</isNotNull>		
+		<isNotNull prepend="," property="AUD_YR">	       
+	       	   AUD_YR         		= #AUD_YR#
+		</isNotNull>		
+		<isNotNull prepend="," property="AUD_NO">	       
+	       	   AUD_NO          		= #AUD_NO#
+		</isNotNull>		
+		<isNotNull prepend="," property="DSP_RQ_SNO">	       
+	       	   DSP_RQ_SNO       	= #DSP_RQ_SNO#
+		</isNotNull>		
+		<isNotNull prepend="," property="ZCD">	       
+	       	   ZCD					= #ZCD#
+		</isNotNull>		
+		<isNotNull prepend="," property="AD">	       
+	       	   AD					= #AD#
+		</isNotNull>		
+		<isNotNull prepend="," property="DTL_AD">	       
+	       	   DTL_AD				= #DTL_AD#
+		</isNotNull>		
+		<isNotNull prepend="," property="HP_TNB_1">	       
+	       	   HP_TNB_1				= #HP_TNB_1#
+		</isNotNull>		
+		<isNotNull prepend="," property="HP_TNB_2">	       
+	       	   HP_TNB_2				= #HP_TNB_2#
+		</isNotNull>		
+		<isNotNull prepend="," property="HP_TNB_3">	       
+	       	   HP_TNB_3				= #HP_TNB_3#
+		</isNotNull>		
+		<isNotNull prepend="," property="TNB_1">	       
+	       	   TNB_1				= #TNB_1#
+		</isNotNull>		
+		<isNotNull prepend="," property="TNB_2">	       
+	       	   TNB_2				= #TNB_2#
+		</isNotNull>	
+		<isNotNull prepend="," property="TNB_3">	       
+	       	   TNB_3				= #TNB_3#
+		</isNotNull>	
+		<isNotNull prepend="," property="HNDL_CHGR_TNB_1">	       
+	       	   HNDL_CHGR_TNB_1				= #HNDL_CHGR_TNB_1#
+		</isNotNull>		
+		<isNotNull prepend="," property="HNDL_CHGR_TNB_2">	       
+	       	   HNDL_CHGR_TNB_2				= #HNDL_CHGR_TNB_2#
+		</isNotNull>	
+		<isNotNull prepend="," property="HNDL_CHGR_TNB_3">	       
+	       	   HNDL_CHGR_TNB_3				= #HNDL_CHGR_TNB_3#
+		</isNotNull>	
+		<isNotNull prepend="," property="BAI_DSP_DIV_CD">	       
+	       	   BAI_DSP_DIV_CD		= #BAI_DSP_DIV_CD#
+		</isNotNull>	
+		<isNotNull prepend="," property="BAI_DSP_YN">	       
+	       	   BAI_DSP_YN		= #BAI_DSP_YN#
+		</isNotNull>	
+		<isNotNull prepend="," property="EXTN_RSN">	       
+	       	   EXTN_RSN		= #EXTN_RSN#
+		</isNotNull>	
+		<isNotNull prepend="," property="FNL_USR_ID">	       
+	       	   FNL_USR_ID   		= #FNL_USR_ID#
+		</isNotNull>	
+		<isNotNull prepend="," property="FNL_DEAL_DPT_CD">	       
+	       	   FNL_DEAL_DPT_CD		= #FNL_DEAL_DPT_CD#
+		</isNotNull>	
+		<isNotNull prepend="," property="FNL_MNU_ID">	       
+	       	   FNL_MNU_ID			= #FNL_MNU_ID#
+		</isNotNull>	
+		
+		<isNotNull prepend="," property="WRTANS_SEN_YN">	       
+	       	   WRTANS_SEN_YN			= #WRTANS_SEN_YN#
+		</isNotNull>
+		<isNotNull prepend="," property="STTC_CNT">	       
+	       	   STTC_CNT			= #STTC_CNT#
+		</isNotNull>
+		 WHERE ACP_YR 		= #ACP_YR#
+		   AND ACP_DVSN_CD 	= #ACP_DVSN_CD#
+		   AND ACP_SRNO		= #ACP_SRNO#
+		   AND DPT_CD		= #DPT_CD#
+	</update>	
+	
+	<!--심사심의결재상세 update -->
+	<update id="BADFRE001EJdgRvwApvDtlupdate" parameterClass="paramMap">
+	<![CDATA[ 	
+		UPDATE TBBADFRE012D
+   		   SET FNL_MDF_DH      	= SYSDATE				/*최종수정일시*/
+	]]>
+		<isNotNull prepend="," property="CMT_CHF_CMTR_NM">	       
+	       	   CMT_CHF_CMTR_NM   	= #CMT_CHF_CMTR_NM#			/*위원회주심위원명*/
+		</isNotNull>		
+		<isNotNull prepend="," property="JDG_RVW_HNDL_DVSN_CD">	       
+	       	   JDG_RVW_HNDL_DVSN_CD = #JDG_RVW_HNDL_DVSN_CD#	/*심사심의처리구분코드*/
+		</isNotNull>		
+		<isNotNull prepend="," property="VT_KND_CD">	       
+	       	   VT_KND_CD        	= #VT_KND_CD#               /*의결종류코드*/
+		</isNotNull>		
+		<isNotNull prepend="," property="SBCN_NO">	       
+	       	   SBCN_NO          	= #SBCN_NO#         		/*부의번호*/
+		</isNotNull>		
+		<isNotNull prepend="," property="SBCN_NBC">	       
+	       	   SBCN_NBC        		= #SBCN_NBC#         		/*부의횟수*/
+		</isNotNull>		
+		<isNotNull prepend="," property="SBCN_DT">	       
+	       	   SBCN_DT        		= #SBCN_DT#         		/*부의일*/
+		</isNotNull>		
+		<isNotNull prepend="," property="DCS_DT">	       
+	       	   DCS_DT        		= #DCS_DT#         			/*결정일*/
+		</isNotNull>		
+		<isNotNull prepend="," property="DCS_SBJ">	       
+	       	   DCS_SBJ        		= #DCS_SBJ#         		/*결정사항*/
+		</isNotNull>		
+		<isNotNull prepend="," property="AMIT_AM">	       
+	       	   AMIT_AM         		= #AMIT_AM#         		/*용인금액*/
+		</isNotNull>		
+		<isNotNull prepend="," property="DCS_YR">	       
+	       	   DCS_YR        		= #DCS_YR#         			/*결정년도*/
+		</isNotNull>		
+		<isNotNull prepend="," property="DCS_DVSN_CD">	       
+	       	   DCS_DVSN_CD        	= #DCS_DVSN_CD#         	/*결정구분코드*/
+		</isNotNull>		
+		<isNotNull prepend="," property="DCS_NO">	       
+	       	   DCS_NO		     	= #DCS_NO#         			/*결정번호*/
+		</isNotNull>		
+		<isNotNull prepend="," property="DCS_DOC_NOC">	       
+	       	   DCS_DOC_NOC		= #DCS_DOC_NOC#
+		</isNotNull>	
+		<isNotNull prepend="," property="DVCHF_APV_DT">	       
+	       	   DVCHF_APV_DT 		= #DVCHF_APV_DT#        	/*과장결재일*/
+		</isNotNull>		
+		<isNotNull prepend="," property="DDG_APV_DT">	       
+	       	   DDG_APV_DT 			= #DDG_APV_DT#         		/*심의관결재일*/
+		</isNotNull>		
+		<isNotNull prepend="," property="BRUCHF_APV_DT">	       
+	       	   BRUCHF_APV_DT 		= #BRUCHF_APV_DT#       	/*국장결재일*/
+		</isNotNull>		
+		<isNotNull prepend="," property="OW_PSD_APV_DT">	       
+	       	   OW_PSD_APV_DT 		= #OW_PSD_APV_DT#       	/*사무총장결재일*/
+		</isNotNull>		
+		<isNotNull prepend="," property="LEDG_APV_DT">	       
+	       	   LEDG_APV_DT 			= #LEDG_APV_DT#         	/*원장결재일*/
+		</isNotNull>		
+		<isNotNull prepend="," property="CMTR_APV_DT">	       
+	       	   CMTR_APV_DT 			= #CMTR_APV_DT#         	/*위원결재일*/
+		</isNotNull>
+		<isNotNull prepend="," property="RMK_SBJ">	       
+	       	   RMK_SBJ          		= #RMK_SBJ#         			/*비고*/
+		</isNotNull>		
+		<isNotNull prepend="," property="DOC_ID">	       
+	       	   DOC_ID     			= #DOC_ID#         			/*문서ID*/
+		</isNotNull>		
+		<isNotNull prepend="," property="DOC_TYP_CD">	       
+	       	   DOC_TYP_CD			= #DOC_TYP_CD#				/*문서유형코드*/
+		</isNotNull>		
+		<isNotNull prepend="," property="FNL_USR_ID">	       
+	       	   FNL_USR_ID   		= #FNL_USR_ID#				/*최종사용자ID*/
+		</isNotNull>	
+		<isNotNull prepend="," property="FNL_DEAL_DPT_CD">	       
+	       	   FNL_DEAL_DPT_CD		= #FNL_DEAL_DPT_CD#			/*최종거래부서코드*/
+		</isNotNull>	
+		<isNotNull prepend="," property="FNL_MNU_ID">	       
+	       	   FNL_MNU_ID			= #FNL_MNU_ID#				/*최종메뉴ID*/
+		</isNotNull>
+		 WHERE ACP_YR 		= #ACP_YR#
+		   AND ACP_DVSN_CD 	= #ACP_DVSN_CD#
+		   AND ACP_SRNO		= #ACP_SRNO#
+		   AND DPT_CD		= #DPT_CD#
+	</update>
+	
+	<!--심사심의처리상세 update -->
+	<update id="BADFRE001EJdgRvwHndlupdate" parameterClass="paramMap">
+	<![CDATA[  	
+		UPDATE TBBADFRE013D
+   		   SET FNL_MDF_DH      	= SYSDATE				/*최종수정일시*/
+	]]>
+		<isNotNull prepend="," property="ENF_DT">	
+				ENF_DT          	= #ENF_DT#
+		</isNotNull>
+		<isNotNull prepend="," property="ENFM_DT">
+				ENFM_DT          	= #ENFM_DT#
+		</isNotNull>	
+		<isNotNull prepend="," property="ENFM_TXT">
+				ENFM_TXT          	= #ENFM_TXT#
+		</isNotNull>	
+		<isNotNull prepend="," property="LWS_INST_DT">
+				LWS_INST_DT          	= #LWS_INST_DT#
+		</isNotNull>	
+		<isNotNull prepend="," property="JUDG_DT">
+				JUDG_DT          	= #JUDG_DT#
+		</isNotNull>	
+		<isNotNull prepend="," property="JUDG_TXT">
+				JUDG_TXT          	= #JUDG_TXT#
+		</isNotNull>	
+	
+		<isNotNull prepend="," property="DF_DT">	       
+	       	   DF_DT          	= #DF_DT#       	/*보류일*/
+		</isNotNull>		
+		<isNotNull prepend="," property="RLS_DT">	       
+	       	   RLS_DT         	= #RLS_DT#      	/*해제일*/
+		</isNotNull>		
+		<isNotNull prepend="," property="UN_HNDL_RSN">	       
+	       	   UN_HNDL_RSN    	= #UN_HNDL_RSN# 	/*미처리사유*/
+		</isNotNull>		
+		<isNotNull prepend="," property="HNDL_PLN_TXT">	       
+	       	   HNDL_PLN_TXT   	= #HNDL_PLN_TXT#    /*처리계획내용*/
+		</isNotNull>		
+		<isNotNull prepend="," property="ODOC_NO">	       
+	       	   ODOC_NO        	= #ODOC_NO#         /*공문서번호*/
+		</isNotNull>
+		
+	
+		<isNotNull prepend="," property="LWS_YO">	       
+	       	   LWS_YO        	= #LWS_YO#            /* 소송유무 - 2015.05.26 yyh */
+		</isNotNull>
+		
+		<isNotNull prepend="," property="FRTRL_CT_NM">	       
+	       	   FRTRL_CT_NM      = #FRTRL_CT_NM#       /* 1심법원명 - 2015.05.26 yyh */
+		</isNotNull>
+		
+		<isNotNull prepend="," property="FRTRL_EVT_NO_TXT">	       
+	       	   FRTRL_EVT_NO_TXT = #FRTRL_EVT_NO_TXT#  /* 1심사건번호 - 2015.05.26 yyh */
+		</isNotNull>
+		
+		<isNotNull prepend="," property="FNL_RSLT_TXT">	       
+	       	   FNL_RSLT_TXT     = #FNL_RSLT_TXT#      /* 종국결과 - 2015.05.26 yyh */
+		</isNotNull>
+		
+			
+		<isNotNull prepend="," property="FNL_USR_ID">	       
+	       	   FNL_USR_ID   		= #FNL_USR_ID#				/*최종사용자ID*/
+		</isNotNull>	
+		<isNotNull prepend="," property="FNL_DEAL_DPT_CD">	       
+	       	   FNL_DEAL_DPT_CD		= #FNL_DEAL_DPT_CD#			/*최종거래부서코드*/
+		</isNotNull>	
+		<isNotNull prepend="," property="FNL_MNU_ID">	       
+	       	   FNL_MNU_ID			= #FNL_MNU_ID#				/*최종메뉴ID*/
+		</isNotNull>	
+		
+		 WHERE ACP_YR 		= #ACP_YR#
+		   AND ACP_DVSN_CD 	= #ACP_DVSN_CD#
+		   AND ACP_SRNO		= #ACP_SRNO#
+		   AND DPT_CD		= #DPT_CD#
+		   
+	</update>
+
+	
+	
+	<!--심사심의접수기본 delete-->
+	<delete id="BADFRE001EJdgRvwAcpBscdelete" parameterClass="paramMap">
+		DELETE
+		  FROM TBBADFRE012M
+		 WHERE ACP_YR 		= #ACP_YR#
+		   AND ACP_DVSN_CD 	= #ACP_DVSN_CD#
+		   AND ACP_SRNO		= #ACP_SRNO#
+		   AND DPT_CD		= #DPT_CD#
+	</delete>
+	
+	<!--심사심의결재상세 delete -->
+	<delete id="BADFRE001EJdgRvwApvDtldelete" parameterClass="paramMap">
+		DELETE
+		  FROM TBBADFRE012D
+		 WHERE ACP_YR 		= #ACP_YR#
+		   AND ACP_DVSN_CD 	= #ACP_DVSN_CD#
+		   AND ACP_SRNO		= #ACP_SRNO#
+		   AND DPT_CD		= #DPT_CD#
+	</delete>
+	
+	<!--심사심의처리상세 delete -->
+	<delete id="BADFRE001EJdgRvwHndldelete" parameterClass="paramMap">
+		DELETE
+		  FROM TBBADFRE013D
+		 WHERE ACP_YR 		= #ACP_YR#
+		   AND ACP_DVSN_CD 	= #ACP_DVSN_CD#
+		   AND ACP_SRNO		= #ACP_SRNO#
+		   AND DPT_CD		= #DPT_CD#
+	</delete>	
+	
+	
+	
+	<!--심사심의결재상세 update 심사청구관리 목록에서의 update-->
+	<update id="BADFRE001EJdgRvwApvDtlListupdate" parameterClass="paramMap">
+	<![CDATA[ 	
+		UPDATE TBBADFRE012D
+   		   SET FNL_MDF_DH      	= SYSDATE				/*최종수정일시*/
+	]]>
+		<isNotNull prepend="," property="CMT_CHF_CMTR_NM">	       
+	       	   CMT_CHF_CMTR_NM   	= #CMT_CHF_CMTR_NM#			/*위원회주심위원명*/
+		</isNotNull>		
+		<isNotNull prepend="," property="JDG_RVW_HNDL_DVSN_CD">	       
+	       	   JDG_RVW_HNDL_DVSN_CD = #JDG_RVW_HNDL_DVSN_CD#	/*심사심의처리구분코드*/
+		</isNotNull>		
+		<isNotNull prepend="," property="VT_KND_CD">	       
+	       	   VT_KND_CD        	= #VT_KND_CD#               /*의결종류코드*/
+		</isNotNull>		
+		<isNotNull prepend="," property="SBCN_DT">	       
+	       	   SBCN_DT        		= #SBCN_DT#         		/*부의일*/
+		</isNotNull>		
+		<isNotNull prepend="," property="DCS_DT">	       
+	       	   DCS_DT        		= #DCS_DT#         			/*결정일*/
+		</isNotNull>		
+		<isNotNull prepend="," property="DCS_SBJ">	       
+	       	   DCS_SBJ        		= #DCS_SBJ#         		/*결정사항*/
+		</isNotNull>		
+		<isNotNull prepend="," property="AMIT_AM">	       
+	       	   AMIT_AM         		= #AMIT_AM#         		/*용인금액*/
+		</isNotNull>		
+		<isNotNull prepend="," property="DCS_YR">	       
+	       	   DCS_YR        		= #DCS_YR#         			/*결정년도*/
+		</isNotNull>		
+		<isNotNull prepend="," property="DCS_DVSN_CD">	       
+	       	   DCS_DVSN_CD        	= #DCS_DVSN_CD#         	/*결정구분코드*/
+		</isNotNull>		
+		<isNotNull prepend="," property="DCS_NO">	       
+	       	   DCS_NO		     	= #DCS_NO#         			/*결정번호*/
+		</isNotNull>		
+		<isNotNull prepend="," property="DVCHF_APV_DT">	       
+	       	   DVCHF_APV_DT 		= #DVCHF_APV_DT#        	/*과장결재일*/
+		</isNotNull>		
+		<isNotNull prepend="," property="DDG_APV_DT">	       
+	       	   DDG_APV_DT 			= #DDG_APV_DT#         		/*심의관결재일*/
+		</isNotNull>		
+		<isNotNull prepend="," property="BRUCHF_APV_DT">	       
+	       	   BRUCHF_APV_DT 		= #BRUCHF_APV_DT#       	/*국장결재일*/
+		</isNotNull>		
+		<isNotNull prepend="," property="OW_PSD_APV_DT">	       
+	       	   OW_PSD_APV_DT 		= #OW_PSD_APV_DT#       	/*사무총장결재일*/
+		</isNotNull>		
+		<isNotNull prepend="," property="LEDG_APV_DT">	       
+	       	   LEDG_APV_DT 			= #LEDG_APV_DT#         	/*원장결재일*/
+		</isNotNull>		
+		<isNotNull prepend="," property="CMTR_APV_DT">	       
+	       	   CMTR_APV_DT 			= #CMTR_APV_DT#         	/*위원결재일*/
+		</isNotNull>
+		<isNotNull prepend="," property="RMK_SBJ">	       
+	       	   RMK_SBJ          		= #RMK_SBJ#         			/*비고*/
+		</isNotNull>		
+		<isNotNull prepend="," property="DOC_ID">	       
+	       	   DOC_ID     			= #DOC_ID#         			/*문서ID*/
+		</isNotNull>		
+		<isNotNull prepend="," property="DOC_TYP_CD">	       
+	       	   DOC_TYP_CD			= #DOC_TYP_CD#				/*문서유형코드*/
+		</isNotNull>		
+		<isNotNull prepend="," property="FNL_USR_ID">	       
+	       	   FNL_USR_ID   		= #FNL_USR_ID#				/*최종사용자ID*/
+		</isNotNull>	
+		<isNotNull prepend="," property="FNL_DEAL_DPT_CD">	       
+	       	   FNL_DEAL_DPT_CD		= #FNL_DEAL_DPT_CD#			/*최종거래부서코드*/
+		</isNotNull>	
+		<isNotNull prepend="," property="FNL_MNU_ID">	       
+	       	   FNL_MNU_ID			= #FNL_MNU_ID#				/*최종메뉴ID*/
+		</isNotNull>
+		 WHERE ACP_YR 		= #ACP_YR#
+		   AND ACP_DVSN_CD 	= #ACP_DVSN_CD#
+		   AND ACP_SRNO		= #ACP_SRNO#
+		   AND DPT_CD		= #DPT_CD#
+	</update>
+
+
+ 	<!--재심의심사청구 접수일 조회-->
+	<select id="BADFRE019EAcpDtselect" parameterClass="paramMap" resultClass="String">
+		<![CDATA[	
+			SELECT ACP_DT 
+			  FROM TBBADFRE012M
+			 WHERE 1=1 
+		]]>
+		<isNotEmpty property="strAcpYr">	
+			   AND ACP_YR = #strAcpYr# 
+		</isNotEmpty>
+		<isNotEmpty property="strAcpDvsnCd">	
+			   AND ACP_YR = #strAcpDvsnCd# 
+		</isNotEmpty>
+		<isNotEmpty property="strAcpSrno">	
+			   AND ACP_YR = #strAcpSrno# 
+		</isNotEmpty>
+	</select>
+	
+	<!--재심의심사청구 주소출력 조회-->
+	<select id="BADFRE019EAdselect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[	
+			SELECT ZCD                    AS ZCD		/*우편번호*/
+			     , TRIM(AD)               AS AD			/*주소*/
+			     , NVL(TRIM(DTL_AD), ' ') AS DTL_AD		/*상세주소*/
+			     , NVL(TRIM(REQR_NM),' ') AS REQR_NM 	/*청구인명*/
+			  FROM TBBADFRE012M
+			 WHERE 1=1 
+			 AND (AD <> ''
+				  OR AD <> ' '
+				  OR AD IS NOT NULL)
+		]]>
+		<isNotEmpty property="strAcpYr">	
+			   AND ACP_YR = #strAcpYr# 
+		</isNotEmpty>
+		<isNotEmpty property="strAcpDvsnCd">	
+			   AND ACP_DVSN_CD = #strAcpDvsnCd# 
+		</isNotEmpty>
+		<isNotEmpty property="strDptCd">	
+			   AND DPT_CD = #strDptCd# 
+		</isNotEmpty>
+
+		<isNotEmpty property="srnoArr">
+			<iterate property="srnoArr" prepend="AND" open="(" close=")" conjunction="OR">
+				ACP_SRNO = #srnoArr[]#
+			</iterate>
+		</isNotEmpty>
+	</select>
+	
+	
+	<!--심사심의 병합취소 update -->
+	<update id="BADFRE001EJdgRvwMgCnlupdate" parameterClass="paramMap">
+	<![CDATA[  	
+		UPDATE TBBADFRE012M
+   		   SET FNL_MDF_DH      	= SYSDATE				/*최종수정일시*/
+			 , MG_ACP_YR        = ''
+			 , MG_ACP_DVSN_CD   = ''
+			 , MG_ACP_SRNO      = ''
+			 , MG_DPT_CD		= ''
+	]]>
+		<isNotNull prepend="," property="FNL_USR_ID">	       
+	       	   FNL_USR_ID   		= #FNL_USR_ID#				/*최종사용자ID*/
+		</isNotNull>	
+		<isNotNull prepend="," property="FNL_DEAL_DPT_CD">	       
+	       	   FNL_DEAL_DPT_CD		= #FNL_DEAL_DPT_CD#			/*최종거래부서코드*/
+		</isNotNull>	
+		<isNotNull prepend="," property="FNL_MNU_ID">	       
+	       	   FNL_MNU_ID			= #FNL_MNU_ID#				/*최종메뉴ID*/
+		</isNotNull>
+		 
+		 WHERE ACP_YR 		= #ACP_YR#
+		   AND ACP_DVSN_CD 	= #ACP_DVSN_CD#
+		   AND ACP_SRNO		= #ACP_SRNO#
+		   AND DPT_CD		= #DPT_CD#
+	</update>	
+	
+	
+	<!--재심의심사청구 SMS 조회-->
+	<select id="BADFRE019ESmsselect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[	
+			SELECT ACP_YR		/*접수년도*/
+			     , ACP_DVSN_CD  /*접수구분코드*/
+			     , DECODE(ACP_DVSN_CD,'1','심사','2','재심의','3','재심판정') AS ACP_DVSN_NM	/*접수구분*/
+			     , ACP_SRNO	 	/*접수일련번호*/
+			     , REQR_NM 		/*청구인명*/
+			     , HP_TNB_1 || '-' || HP_TNB_2 || '-' || HP_TNB_3 AS CALL_TO
+			     , CASE WHEN HNDL_CHGR_TNB_1 IS NULL OR HNDL_CHGR_TNB_2 IS NULL OR HNDL_CHGR_TNB_3 IS NULL THEN '02-2011-2114'
+			       ELSE HNDL_CHGR_TNB_1 || '-' || HNDL_CHGR_TNB_2 || '-' || HNDL_CHGR_TNB_3
+			       END AS CALL_FROM
+			     , ACP_YR || '-' || DECODE(ACP_DVSN_CD,'1','심사','2','재심의','3','재심판정') || '-' || ACP_SRNO AS ACP_NO /*접수번호*/
+			     , CVPT_SEN_ACP_NO
+			  FROM TBBADFRE012M
+			 WHERE 1=1 
+		]]>
+		<isNotEmpty property="strAcpYr">	
+			   AND ACP_YR = #strAcpYr# 
+		</isNotEmpty>
+		<isNotEmpty property="strAcpDvsnCd">	
+			   AND ACP_DVSN_CD = #strAcpDvsnCd# 
+		</isNotEmpty>
+		<isNotEmpty property="strAcpSrno">	
+			   AND ACP_SRNO = #strAcpSrno# 
+		</isNotEmpty>
+		<isNotEmpty property="strDptCd">	
+			   AND DPT_CD = #strDptCd# 
+		</isNotEmpty>
+	</select>
+	
+	<!--심사심의접수기본 sms data update -->
+	<update id="BADFRE019EJdgRvwSmsupdate" parameterClass="paramMap">
+	<![CDATA[ 	
+		UPDATE TBBADFRE012M
+   		   SET FNL_MDF_DH      		  = SYSDATE				/*최종수정일시*/
+   		     , ACP_NO_SMS_SEN_YN      = 'Y'
+   		     , ACP_NO_SMS_SEN_DH      = SYSDATE
+   		     , DPT_CD				  = #DPT_CD#
+	]]>
+		<isNotNull prepend="," property="CVPT_SEN_ACP_NO">	       
+	       	   CVPT_SEN_ACP_NO      = #CVPT_SEN_ACP_NO#			/*민원발송접수번호*/
+		</isNotNull>
+		<isNotNull prepend="," property="FNL_USR_ID">	       
+	       	   FNL_USR_ID   		= #FNL_USR_ID#				/*최종사용자ID*/
+		</isNotNull>	
+		<isNotNull prepend="," property="FNL_DEAL_DPT_CD">	       
+	       	   FNL_DEAL_DPT_CD		= #FNL_DEAL_DPT_CD#			/*최종거래부서코드*/
+		</isNotNull>	
+		<isNotNull prepend="," property="FNL_MNU_ID">	       
+	       	   FNL_MNU_ID			= #FNL_MNU_ID#				/*최종메뉴ID*/
+		</isNotNull>
+		
+		 WHERE 1=1
+		   AND ACP_YR 		= #ACP_YR# 
+		   AND ACP_DVSN_CD 	= #ACP_DVSN_CD# 
+		   AND ACP_SRNO 	= #ACP_SRNO# 
+		   AND DPT_CD 		= #DPT_CD# 
+	</update>
+	
+	<!--MMS CONT_SEQ 조회-->
+	<select id="BADFRE019EMmsselect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[	
+			SELECT MMS_CONTENTS_INFO_SEQ.NEXTVAL AS MAX_CNT FROM DUAL 
+		]]>
+	</select>
+	
+	<!--MMS 정보 insert -->
+	<insert id="BADFRE019EMmsinsert" parameterClass="paramMap">
+		INSERT 
+		  INTO MMS_CONTENTS_INFO 
+		     ( CONT_SEQ
+		     , FILE_CNT
+		     , BUILD_YN
+		     , MMS_BODY
+		     , MMS_SUBJECT
+		     ) 
+		VALUES 
+		     ( #MAX_CNT#
+		     , 1
+		     , 'N'
+		     , #SMS_TXT#
+		     , '재심의 심사청구 접수'
+			  )  
+	</insert>	
+	
+	
+	<!--SMS 전송 insert -->
+	<insert id="BADFRE019ESmsinsert" parameterClass="paramMap">
+		INSERT 
+		  INTO MSG_DATA 
+		     ( MSG_SEQ	/*메시지의 고유번호*/
+		     , CUR_STATE /*상태 값(발송요청:0, 전송 중:1, 전송:2, 결과수신:3)*/
+		     , REQ_DATE /*즉시전송 및 예약 일시*/
+		     , CALL_TO /*수신번호*/
+		     , CALL_FROM /*발신번호*/
+		     , MSG_TYPE /*메시지의 TYPE(4: SMS 전송 ,5: URL 전송 ,6: MMS전송)*/
+		     , CONT_SEQ /* MMS 메시지 테이블과 연결되는 키 */
+		     ) 
+		VALUES 
+		     ( MSG_DATA_SEQ.NEXTVAL
+		     , 0	
+		     , SYSDATE
+		     , REPLACE(#CALL_TO# ,'-','')
+		     , REPLACE(#CALL_FROM# ,'-','')
+		     , 6
+		     , #MAX_CNT#)  
+	</insert>	
+		   
+		   
+	<select id="BADFRE019EchkCvptSenAcpNo" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[	
+			SELECT COUNT(1) AS CHK_CNT
+			  FROM TBBADFRE012M
+			 WHERE 1=1 
+			   AND CVPT_SEN_ACP_NO = #CVPT_SEN_ACP_NO#
+		]]>
+	</select>
+	
+	
+	<select id="BADFRE019EDptList" resultClass="resultMap">
+	<![CDATA[
+		SELECT DPT_CD
+		      ,DPT_NM
+		      ,HIRK_DPT_CD
+		  FROM TBDCMACM002M
+		 WHERE 1=1
+		   AND USE_YN = 'Y'
+	]]>
+	</select>
+	
+	<select id="BADFRE019ENewDptList" resultClass="resultMap">
+	<![CDATA[
+		SELECT DPT_CD
+		      ,DPT_NM
+		      ,HIRK_DPT_CD
+		  FROM TBDCMACM002M
+		 WHERE 1=1
+		   AND HIRK_DPT_CD = '170000'
+		   AND USE_YN = 'Y'
+	]]>
+	</select>
+	
+	
+	<select id="BADFRE019ETempleat1select" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[	
+			SELECT D1.ACP_YR
+			     , CASE WHEN F_CODE_NM('1000045', D2.VT_KND_CD) LIKE '인용%' THEN '인용'
+			            ELSE F_CODE_NM('1000045', D2.VT_KND_CD) END AS VT_KND_NM
+			     , CASE WHEN F_CODE_NM('1000045', D2.VT_KND_CD) LIKE '인용%' THEN '('||REPLACE(F_CODE_NM('1000045', D2.VT_KND_CD), '인용-', '')||')'
+			            ELSE '' END AS VT_KND_NM_SUB
+			     , D1.ACP_SRNO
+			     , REPLACE(D1.REQR_NM,'(주)','㈜') AS REQR_NM
+			     , NVL(D1.ORG_NM, F_ORG_INFO(D1.ORG_CD, '1')) AS ORG_NM
+			     , D1.ACP_YR||'-'||CASE WHEN D1.JDG_REQ_DVSN_CD IS NOT NULL AND D1.JDG_REQ_DVSN_CD IN ('40', '41', '42', '43', '49') THEN '재심'
+			                            ELSE DECODE(SUBSTR(D1.JDG_REQ_DVSN_CD, 1, 1), '1', '국', '2', '지', '3', '기') END ||' '||D1.JDG_REQ_DVSN_SRNO AS AFTER_NO
+			     , DECODE(D1.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') AS ACP_DVSN_CD_NM
+			  FROM TBBADFRE012M D1
+			     , TBBADFRE012D D2
+			 WHERE 1 = 1
+			   AND D1.ACP_YR      = D2.ACP_YR
+			   AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+			   AND D1.ACP_SRNO    = D2.ACP_SRNO
+			   AND D1.DPT_CD      = D2.DPT_CD
+		]]>
+		
+		<isNotEmpty property="tmpKey">
+			<iterate property="tmpKey" prepend="AND" open="(" close=")" conjunction="OR">
+				D1.ACP_YR||D1.ACP_DVSN_CD||D1.ACP_SRNO||D1.DPT_CD = #tmpKey[]#
+			</iterate>
+		</isNotEmpty>
+	</select>
+	
+	<!-- 부서 과 리스트 조회 -->
+	<select id="BADFRE019EAllDeptSectSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+			SELECT DPT_CD, DPT_NM
+			  FROM TBDCMACM002M
+			 WHERE 1=1
+			   AND USE_YN = 'Y'		
+        ]]>
+	</select>
+
+	<!-- 담당자 리스트 조회 -->
+	<select id="BADFRE019EAllChgrSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+			SELECT USR_ID, USR_NAM
+			  FROM TBDCMACM001M
+			 WHERE 1 = 1
+			 AND DPT_CD IN ('170300','170320','170330')
+        ]]>
+	</select>
+
+
+	<!-- 주심위원 리스트 조회 -->
+	<select id="BADFRE019EChiefCommissionersList" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+			SELECT CNB, USR_ID, USR_NAM
+			  FROM TBDCMACM001M
+			 WHERE PST_CD ='0010600'
+			   AND WOK_DVSN_CD = 'AAA'
+        ]]>
+	</select>
+
+	<insert id="BADFRE019ESENDREQ001Insert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO	EH_JDG_REQ_001
+					(	IF_SEQ
+						,IF_TYPE
+						,ACP_YR
+						,ACP_DVSN_CD
+						,ACP_SRNO
+						,DPT_CD
+						,ACP_DT
+						,CVPT_SEN_ACP_NO
+						,HNDL_CHGR_NM
+						,REQR_NM
+						,PRSS_STT
+						,HNDL_CHGR_TNB_1
+						,HNDL_CHGR_TNB_2
+						,HNDL_CHGR_TNB_3
+						,ORG_CD2
+						,ORG_NM
+						,AD
+						,DTL_AD
+						,TIT_NM
+						,DPT_NM
+						,FRT_USR_ID
+					)
+			VALUES	(	#IF_SEQ#
+						,'SND'
+						,#ACP_YR#
+						,#ACP_DVSN_CD#
+						,#ACP_SRNO#
+						,#DPT_CD#
+						,#ACP_DT#
+						,#CVPT_SEN_ACP_NO#
+						,#HNDL_CHGR_NM#
+						,#REQR_NM#
+						,#PRSS_STT#
+						,#HNDL_CHGR_TNB_1#
+						,#HNDL_CHGR_TNB_2#
+						,#HNDL_CHGR_TNB_3#
+						,#ORG_CD2#
+						,#ORG_NM#
+						,#AD#
+						,#DTL_AD#
+						,#TIT_NM#
+						,#DPT_NM#
+						,#FRT_USR_ID#
+					)
+		]]>
+	</insert>
+	
+	
+	<update id="BADFRE001EChngDptCd1" parameterClass="paramMap">
+		UPDATE TBBADFRE012M
+		   SET DPT_CD       = #CHNG_DPT_CD#
+		      ,FNL_MNU_ID   = 'DPT|' || DPT_CD 	
+		      ,FNL_MDF_DH   = SYSDATE
+		 WHERE ACP_YR 		= #ACP_YR#
+		   AND ACP_DVSN_CD 	= #ACP_DVSN_CD#
+		   AND ACP_SRNO		= #ACP_SRNO#
+		   AND DPT_CD		= #DPT_CD#
+	</update>	
+		
+	<update id="BADFRE001EChngDptCd2" parameterClass="paramMap">
+		UPDATE TBBADFRE012D
+		   SET DPT_CD       = #CHNG_DPT_CD#
+		      ,FNL_MNU_ID   = 'DPT|' || DPT_CD 	
+		      ,FNL_MDF_DH   = SYSDATE
+		 WHERE ACP_YR 		= #ACP_YR#
+		   AND ACP_DVSN_CD 	= #ACP_DVSN_CD#
+		   AND ACP_SRNO		= #ACP_SRNO#
+		   AND DPT_CD		= #DPT_CD#
+	</update>		
+	
+	<update id="BADFRE001EChngDptCd3" parameterClass="paramMap">
+		UPDATE TBBADFRE013D
+		   SET DPT_CD       = #CHNG_DPT_CD#
+		      ,FNL_MNU_ID   = 'DPT|' || DPT_CD 	
+		      ,FNL_MDF_DH   = SYSDATE
+		 WHERE ACP_YR 		= #ACP_YR#
+		   AND ACP_DVSN_CD 	= #ACP_DVSN_CD#
+		   AND ACP_SRNO		= #ACP_SRNO#
+		   AND DPT_CD		= #DPT_CD#
+	</update>	
+				
+</sqlMap> 

@@ -1,0 +1,76 @@
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd" >
+<sqlMap namespace="csp/bii/715">
+	
+	<!-- 감사정보 접수 목록 조회 -->
+	<select id="CSPBII715EMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT /* csp.bii.service.impl.CSPBII715EServiceImpl.CSPBII715EMainSelect */
+			       A.YE || '-' || A.SRNO               AS INF_NO      /* 정보번호 */
+			     , A.SMT_DT                                           /* 제출일 */
+			     , CASE WHEN SUBSTR(F_CODE_NM('1000097', A.INF_DVSN_CD), 1, 2) is not null THEN '(' || SUBSTR(F_CODE_NM('1000097', A.INF_DVSN_CD), 1, 2) || ')' || A.TIT_TXT
+			            ELSE A.TIT_TXT
+			             END AS TIT_TXT     /* 제목내용 */
+			     , (SELECT B.USR_NAM
+			          FROM TBDCMACM001M B
+			         WHERE B.CNB = A.PRSR_CNB)         AS PRSR_NAM    /* 제출자성명 */
+			     , F_CODE_NM('1000097', A.INF_DVSN_CD) AS INF_DVSN_NM /* 정보구분명 */
+			     , F_CODE_NM('1000040', A.SRC_DVSN_CD) AS SRC_DVSN_NM /* 출처구분명 */
+			     , A.AUD_INF_PRSS_STA_CD                              /* 감사정보진행상태코드 */
+			     , A.YE
+			     , A.SRNO
+			     , A.SBM_DT
+			     , A.BLE_CHGR_CNB 
+			     , F_USR_INFO(A.BLE_CHGR_CNB,'2') AS BLE_CHGR_NAM
+			     , (SELECT F_CODE_NM('1000852',GEN_ADMN_DVSN_CD)
+			     	FROM	TBDCMACM001M  S1
+			     	WHERE	A.PRSR_CNB = S1.CNB 
+			     	)
+			      AS GEN_ADMN_DVSN_NM
+			      ,TO_CHAR(TO_DATE(ACP_DT),'YYYY-MM-DD') AS ACP_DT
+			      ,TO_CHAR(TO_DATE(DTB_DT),'YYYY-MM-DD') AS DTB_DT
+			  FROM TBCSPBII170M A
+			 WHERE 1=1
+		]]>
+			<isEqual property="strSTAT_CD" compareValue="1">
+				AND A.AUD_INF_PRSS_STA_CD = '05' /* 감사정보진행상태코드[05:제출완료] */
+			</isEqual>
+			<isEqual property="strSTAT_CD" compareValue="2">
+				AND A.AUD_INF_PRSS_STA_CD = '10' /* 감사정보진행상태코드[05:제출완료] */
+			</isEqual>
+			<isNotEmpty property="strGEN_ADMN_DVSN_CD">
+				AND a.PRSR_CNB IN (SELECT S1.CNB FROM TBDCMACM001M S1 WHERE S1.GEN_ADMN_DVSN_CD = #strGEN_ADMN_DVSN_CD#) 
+			</isNotEmpty>
+		<![CDATA[
+			ORDER BY A.YE
+			       , A.SRNO
+		]]>
+	</select>	
+	
+	<!-- 감사정보진행상태코드 조회 -->
+	<select id="CSPBII715EPrssStaCdSelect" parameterClass="paramMap" resultClass="String">
+		<![CDATA[
+			SELECT /* csp.bii.service.impl.CSPBII715EServiceImpl.CSPBII715EPrssStaCdSelect */
+			       A.AUD_INF_PRSS_STA_CD /* 감사정보진행상태코드 */
+			  FROM TBCSPBII170M A
+			 WHERE A.YE   = #YE#
+			   AND A.SRNO = #SRNO#
+		]]>
+	</select>	
+	
+	<!-- 감사정보기본 테이블 진행상태코드 업데이트   -->
+	<update id="CSPBII715EMainUpdate" parameterClass="paramMap">
+		/* csp.bii.service.impl.CSPBII113QServiceImpl.CSPBII715EMainUpdate */
+		UPDATE TBCSPBII170M                       
+		   SET ACP_DT              = CASE WHEN AUD_INF_PRSS_STA_CD = '05' THEN TO_CHAR(SYSDATE, 'YYYYMMDD') ELSE ACP_DT END/* 접수일 */
+		   	, ACP_DH = CASE WHEN AUD_INF_PRSS_STA_CD = '05' THEN TO_CHAR(SYSDATE, 'HH24') ELSE ACP_DH END
+		     , AUD_INF_PRSS_STA_CD = CASE WHEN #BLE_CHGR_CNB# IS NULL THEN'10' ELSE '13' END        /* 감사정보진행상태코드[10:제출접수] */		     
+		     , FNL_USR_ID          = #FNL_USR_ID#                 /* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD     = #FNL_DEAL_DPT_CD#            /* 최종거래부서코드 */
+		     , FNL_MNU_ID          = #FNL_MNU_ID#                 /* 최종메뉴ID */
+		     , FNL_MDF_DH          = SYSDATE                      /* 최종수정일시 */
+		     , BLE_CHGR_CNB = #BLE_CHGR_CNB#
+		     , DTB_DT = CASE WHEN #BLE_CHGR_CNB# IS NULL THEN NULL ELSE TO_CHAR(SYSDATE,'YYYYMMDD') END  
+		 WHERE YE   = #YE#
+		   AND SRNO = #SRNO#		   
+	</update>	
+</sqlMap>

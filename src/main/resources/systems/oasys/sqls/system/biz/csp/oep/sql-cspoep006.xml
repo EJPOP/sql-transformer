@@ -1,0 +1,356 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/oep/006">
+
+	<!-- 비상소집 select -->
+    <select id="CSPOEP006EMainSelect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+                  SELECT D1.CLMETG_SRNO                        AS CLMETG_SRNO     /* 소집일련번호 */
+                        ,D1.APOLS_DT                           AS APOLS_DT        /* 응소일 */
+                        ,D1.OFOD_HM                            AS OFOD_HM         /* 발령시분 */
+                        ,D1.APOLS_HM                           AS APOLS_HM        /* 응소시분 */
+                        ,D1.CLSNG_HM                           AS CLSNG_HM        /* 마감시분 */
+                        ,D1.CLMETG_TIT_TXT                     AS CLMETG_TIT_TXT  /* 소집제목 */
+                        ,(SELECT CASE WHEN COUNT(1) > 0 THEN ''
+                                      ELSE '소집대상자 생성'
+                                  END 
+                            FROM TBCSPOEP003L
+                           WHERE CLMETG_SRNO = D1.CLMETG_SRNO) AS CLMETG_TG_MAKE
+                        ,(SELECT COUNT(1)  
+                            FROM TBCSPOEP003L
+                           WHERE CLMETG_SRNO = D1.CLMETG_SRNO) AS CLMETG_TG_CNT                          
+                    FROM TBCSPOEP002M D1
+                   ORDER BY D1.CLMETG_SRNO DESC
+        ]]>
+    </select>
+    
+	<!-- 비상소집 insert -->
+	<insert id="CSPOEP006EMainInsert" parameterClass="paramMap">
+			INSERT INTO TBCSPOEP002M
+			 (
+               CLMETG_SRNO        /* 소집일련번호 */
+              ,APOLS_DT           /* 응소일 */
+              ,OFOD_HM            /* 발령시분 */
+              ,APOLS_HM           /* 응소시분 */
+              ,CLSNG_HM           /* 마감시분 */
+              ,CLMETG_TIT_TXT     /* 소집제목 */
+			  ,FRT_USR_ID         /* 최초사용자ID */
+			  ,FNL_USR_ID         /* 최종사용자ID */
+			  ,FNL_DEAL_DPT_CD    /* 최종거래부서코드 */
+			  ,FNL_MNU_ID         /* 최종메뉴ID */
+			  ,FRT_REGI_DH        /* 최초등록일시 */
+			  ,FNL_MDF_DH         /* 최종수정일시 */
+			 ) 
+			 VALUES
+			 (
+               (SELECT NVL(MAX(CLMETG_SRNO),0) + 1
+                  FROM TBCSPOEP002M)
+              ,#APOLS_DT#
+              ,#OFOD_HM#
+              ,#APOLS_HM#
+              ,#CLSNG_HM#
+              ,#CLMETG_TIT_TXT#
+			  ,#FRT_USR_ID#
+			  ,#FNL_USR_ID#
+			  ,#FNL_DEAL_DPT_CD#
+			  ,#FNL_MNU_ID#
+			  ,SYSDATE
+			  ,SYSDATE				 
+			 ) 
+	</insert>    
+	 
+	<!--비상소집 update-->
+	<update id="CSPOEP006EMainUpdate" parameterClass="paramMap">
+	        UPDATE TBCSPOEP002M
+	           SET  
+                   APOLS_DT          = #APOLS_DT#            /* 응소일 */
+                  ,OFOD_HM           = #OFOD_HM#             /* 발령시분 */
+                  ,APOLS_HM          = #APOLS_HM#            /* 응소시분 */
+                  ,CLSNG_HM          = #CLSNG_HM#            /* 마감시분 */
+                  ,CLMETG_TIT_TXT    = #CLMETG_TIT_TXT#      /* 소집제목 */
+				  ,FNL_USR_ID        = #FNL_USR_ID#          /* 최종사용자ID */
+				  ,FNL_DEAL_DPT_CD   = #FNL_DEAL_DPT_CD#     /* 최종거래부서코드 */
+				  ,FNL_MNU_ID        = #FNL_MNU_ID#          /* 최종메뉴ID */
+				  ,FNL_MDF_DH        = SYSDATE               /* 최종수정일시 */
+             WHERE 1=1
+               AND CLMETG_SRNO       = #CLMETG_SRNO#
+	</update>	
+	
+	<!--비상소집 delete -->
+	<update id="CSPOEP006EMainDelete" parameterClass="paramMap">
+	        DELETE 
+	          FROM TBCSPOEP002M
+             WHERE 1=1
+               AND CLMETG_SRNO = #CLMETG_SRNO#
+	</update>	
+	
+		
+	<!-- 소집대상자 생성 insert -->
+	<insert id="CSPOEP006EClmetgTgMakeInsert" parameterClass="paramMap">
+		<![CDATA[
+		DECLARE
+			BEGIN			
+			  FOR CS IN ( 
+			  
+                SELECT  #CLMETG_SRNO#        AS CLMETG_SRNO
+                      , CNB                  AS CNB
+                      , DPT_CD               AS DPT_CD
+                      , RANK_CD              AS RANK_CD
+                      , VAC_YN               AS VAC_YN
+					  , #FRT_USR_ID#         AS FRT_USR_ID
+					  , #FNL_USR_ID#         AS FNL_USR_ID
+					  , #FNL_DEAL_DPT_CD#    AS FNL_DEAL_DPT_CD
+					  , #FNL_MNU_ID#         AS FNL_MNU_ID
+                  FROM TBDCMACM001M
+                 WHERE SUBSTR(DPT_CD,0,1) < '7' 
+                   AND USR_DVSN_CD = '1' 
+                   AND CNB < '5' 
+                   AND WOK_DVSN_CD IN ('AAA','BAB')
+                   AND RQS_STA_CD = '3'
+                 ORDER BY RANK_CD, DPT_CD
+                  
+				)
+				
+				LOOP 	
+				    INSERT INTO TBCSPOEP003L
+				    (
+							   CLMETG_SRNO
+							 , CNB
+							 , DPT_CD
+							 , RANK_CD
+							 , VAC_YN
+							 , FRT_USR_ID
+							 , FNL_USR_ID
+							 , FNL_DEAL_DPT_CD
+							 , FNL_MNU_ID
+							 , FRT_REGI_DH
+							 , FNL_MDF_DH
+							 , AGENT_DVSN_CD
+					) VALUES (
+							   CS.CLMETG_SRNO
+							 , CS.CNB
+							 , CS.DPT_CD
+							 , CS.RANK_CD
+							 , CS.VAC_YN
+							 , CS.FRT_USR_ID
+							 , CS.FNL_USR_ID
+							 , CS.FNL_DEAL_DPT_CD
+							 , CS.FNL_MNU_ID
+							 , SYSDATE
+							 , SYSDATE	
+							 , '1'
+					);
+				
+			END LOOP;
+		END;
+		]]>     					
+	</insert>
+
+	<!-- 휴가여부 현행화 update -->
+	<insert id="CSPOEP006EReSetHolidayUpdate" parameterClass="paramMap">
+		<![CDATA[
+                   UPDATE TBCSPOEP003L D1
+                      SET D1.VAC_YN = (SELECT VAC_YN
+                                         FROM TBDCMACM001M
+                                        WHERE CNB = D1.CNB)
+                    WHERE D1.CLMETG_SRNO = #CLMETG_SRNO#
+		]]>     					
+	</insert>
+	
+	<!-- 소집대상자 select -->
+    <select id="CSPOEP006EClmetgTgSelect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+                  SELECT D1.CLMETG_SRNO                                AS CLMETG_SRNO        /* 소집일련번호 */
+                        ,F_DPT_INFO(D1.DPT_CD,'1')                     AS DPT_NM             /* 부서명 */
+                        ,F_CODE_NM('1000173',D1.RANK_CD)               AS RANK_NM            /* 직급명 */
+                        ,D1.CNB                                        AS CNB                /* 전산번호 */
+                        ,D3.USR_NAM                                    AS CNB_NM             /* 성명 */
+                        ,D1.VAC_YN                                     AS VAC_YN             /* 휴가여부 */                        
+                        ,TO_CHAR(D1.APOLS_DH,'yyyymmddhh24miss')       AS APOLS_DH           /* 응소일시 */
+                        ,D1.NO_APOLS_DVSN_CD                           AS NO_APOLS_DVSN_CD   /* 미응소구분코드 */
+                        ,F_CODE_NM('1000757',D1.NO_APOLS_DVSN_CD)      AS NO_APOLS_DVSN_NM   /* 미응소구분코드명 */
+                        ,D1.IP_AD                                      AS IP_AD              /* IP 주소*/
+                        ,D1.RMK_TXT                                    AS RMK_TXT            /* 비고 */ 
+                        ,D2.APOLS_DT || D2.OFOD_HM  || '00'            AS APOLS_STR_HM       /* 응소시작시간 */
+                        ,D2.APOLS_DT || D2.CLSNG_HM || '00'            AS APOLS_END_HM       /* 응소종료시간 */
+                        ,D1.AGENT_DVSN_CD                              AS AGENT_DVSN_CD      /* 요원구분코드 */
+                    FROM TBCSPOEP003L D1
+                        ,TBCSPOEP002M D2
+                        ,TBDCMACM001M D3
+                        ,TBDCMACM002M D4                        
+                   WHERE D1.CLMETG_SRNO  = D2.CLMETG_SRNO
+                     AND D1.CNB          = D3.CNB(+)
+                     AND D3.DPT_CD       = D4.DPT_CD(+)                     
+                     AND D1.CLMETG_SRNO  = #strClmetgSrno#
+                     AND D1.DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #dptAuth#, '', #strDptCd1#)))
+		]]>          
+		                     
+		<isNotEmpty property="strDptCd2">	 
+			         AND D1.DPT_CD = #strDptCd2#
+		</isNotEmpty>
+		   
+        <![CDATA[		                  
+                   ORDER BY D4.DPT_SNO
+                           ,D3.RAL_BLT_DIV_CD
+                           ,NVL(D3.INN_RANK_CD,'50') ASC 
+                           ,D3.RANK_SRT_SEQ_NM
+                           ,D3.CRNT_RANK_APM_DT
+                           ,D3.SRT_KY_NO
+                           ,D3.CRNT_DPT_APM_DT
+                           ,D3.EIN
+		]]>               
+    </select>
+    	
+	<!-- 소집대상자 비고 update -->
+	<update id="CSPOEP006EClmetgTgUpdate" parameterClass="paramMap">
+	        UPDATE TBCSPOEP003L
+	           SET 
+	               AGENT_DVSN_CD     = #AGENT_DVSN_CD#      /* 요원구분 */ 
+	              ,NO_APOLS_DVSN_CD  = #NO_APOLS_DVSN_CD#   /* 미응소구분 */ 
+                  ,RMK_TXT           = #RMK_TXT#            /* 비고내용 */
+				  ,FNL_USR_ID        = #FNL_USR_ID#         /* 최종사용자ID */
+				  ,FNL_DEAL_DPT_CD   = #FNL_DEAL_DPT_CD#    /* 최종거래부서코드 */
+				  ,FNL_MNU_ID        = #FNL_MNU_ID#         /* 최종메뉴ID */
+				  ,FNL_MDF_DH        = SYSDATE              /* 최종수정일시 */
+             WHERE 1=1
+               AND CLMETG_SRNO       = #CLMETG_SRNO#
+               AND CNB               = #CNB#
+	</update>
+	
+	<!-- 소집대상자 응소시간 update -->
+	<update id="CSPOEP006EClmetgTgApolsDhUpdate" parameterClass="paramMap">
+	        UPDATE TBCSPOEP003L
+	           SET  
+                   APOLS_DH          = #APOLS_DH#           /* 응소일시 */
+				  ,FNL_USR_ID        = #FNL_USR_ID#         /* 최종사용자ID */
+				  ,FNL_DEAL_DPT_CD   = #FNL_DEAL_DPT_CD#    /* 최종거래부서코드 */
+				  ,FNL_MNU_ID        = #FNL_MNU_ID#         /* 최종메뉴ID */
+				  ,FNL_MDF_DH        = SYSDATE              /* 최종수정일시 */
+             WHERE 1=1
+               AND CLMETG_SRNO       = #CLMETG_SRNO#
+               AND CNB               = #CNB#
+	</update>
+		
+	<!--소집대상자 delete -->
+	<update id="CSPOEP006EClmetgTgDelete" parameterClass="paramMap">
+	        DELETE 
+	          FROM TBCSPOEP003L
+             WHERE 1=1
+               AND CLMETG_SRNO = #CLMETG_SRNO#
+	</update>
+	
+	
+	<!-- 소집대상자 엑셀 select -->
+    <select id="CSPOEP006EClmetgTgExcelSelect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+                  SELECT D1.CLMETG_SRNO                                AS CLMETG_SRNO        /* 소집일련번호 */
+                        ,F_DPT_INFO(D1.DPT_CD,'1')                     AS DPT_NM             /* 부서명 */
+                        ,F_CODE_NM('1000173',D1.RANK_CD)               AS RANK_NM            /* 직급명 */
+                        ,D1.CNB                                        AS CNB                /* 전산번호 */
+                        ,D3.USR_NAM                                    AS CNB_NM             /* 성명 */
+                        ,D1.VAC_YN                                     AS VAC_YN             /* 휴가여부 */                        
+                        ,TO_CHAR(D1.APOLS_DH,'yyyy.mm.dd hh24:mi:ss')  AS APOLS_DH_FOR_EXCEL /* 응소일시(엑셀표시용) */
+                        ,D1.NO_APOLS_DVSN_CD                           AS NO_APOLS_DVSN_CD   /* 미응소구분코드 */
+                        ,F_CODE_NM('1000757',D1.NO_APOLS_DVSN_CD)      AS NO_APOLS_DVSN_NM   /* 미응소구분코드명 */
+                        ,D1.IP_AD                                      AS IP_AD              /* IP 주소*/
+                        ,D1.RMK_TXT                                    AS RMK_TXT            /* 비고 */ 
+                        ,D2.APOLS_DT || D2.OFOD_HM  || '00'            AS APOLS_STR_HM       /* 응소시작시간 */
+                        ,D2.APOLS_DT || D2.CLSNG_HM || '00'            AS APOLS_END_HM       /* 응소종료시간 */
+                        ,D1.AGENT_DVSN_CD                              AS AGENT_DVSN_CD      /* 요원구분코드 */
+                        ,F_CODE_NM('1001033',D1.AGENT_DVSN_CD)         AS AGENT_DVSN_NM      /* 요원구분코드명 */
+                    FROM TBCSPOEP003L D1
+                        ,TBCSPOEP002M D2
+                        ,TBDCMACM001M D3
+                        ,TBDCMACM002M D4                        
+                   WHERE D1.CLMETG_SRNO  = D2.CLMETG_SRNO
+                     AND D1.CNB          = D3.CNB(+)
+                     AND D3.DPT_CD       = D4.DPT_CD(+)                     
+                     AND D1.CLMETG_SRNO  = #strClmetgSrno#
+                     AND D1.DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #dptAuth#, '', #strDptCd1#)))
+		]]>          
+		                     
+		<isNotEmpty property="strDptCd2">	 
+			         AND D1.DPT_CD = #strDptCd2#
+		</isNotEmpty>
+		   
+        <![CDATA[		                  
+                   ORDER BY D4.DPT_SNO
+                           ,D3.RAL_BLT_DIV_CD
+                           ,NVL(D3.INN_RANK_CD,'50') ASC 
+                           ,D3.RANK_SRT_SEQ_NM
+                           ,D3.CRNT_RANK_APM_DT
+                           ,D3.SRT_KY_NO
+                           ,D3.CRNT_DPT_APM_DT
+                           ,D3.EIN
+		]]>               
+    </select>
+    	
+	<!-- 국별 엑셀 select -->
+    <select id="CSPOEP006EUpperDptExcelSelect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			   SELECT T1.DPT_CD        AS DPT_CD
+			         ,T2.DPT_NM        AS DPT_NM
+			         ,T2.DPT_SNO       AS SORT
+			         ,T1.TOT_CNT       AS TOT_CNT
+			         ,T1.CNT1          AS CNT1
+			         ,T1.CNT2          AS CNT2
+			         ,T1.CNT3          AS CNT3
+			         ,T1.CNT4          AS CNT4                           
+			         ,T1.CNT5          AS CNT5
+					 ,T1.CNT6          AS CNT6 
+					 ,T1.TOT_CNT - (T1.CNT1 + T1.CNT2 + T1.CNT3 + T1.CNT4 + T1.CNT5 + T1.CNT6) AS CNT7
+					 ,T1.TOT_CNT - (T1.CNT1 + T1.CNT2 + T1.CNT3 + T1.CNT4 + T1.CNT5) AS CNT8
+			      FROM (
+						SELECT SUBSTR(D1.DPT_CD,0,3) || '000'                             AS DPT_CD
+						      ,COUNT(D1.CNB)                                              AS TOT_CNT
+						      ,SUM(CASE WHEN D1.APOLS_DH IS NULL AND D1.NO_APOLS_DVSN_CD = '1' THEN 1 ELSE 0 END) AS CNT1
+						      ,SUM(CASE WHEN D1.APOLS_DH IS NULL AND D1.NO_APOLS_DVSN_CD = '2' THEN 1 ELSE 0 END) AS CNT2 
+						      ,SUM(CASE WHEN D1.APOLS_DH IS NULL AND D1.NO_APOLS_DVSN_CD = '3' THEN 1 ELSE 0 END) AS CNT3
+						      ,SUM(CASE WHEN D1.APOLS_DH IS NULL AND D1.NO_APOLS_DVSN_CD = '5' THEN 1 ELSE 0 END) AS CNT4
+						      ,SUM(CASE WHEN D1.APOLS_DH IS NULL AND D1.NO_APOLS_DVSN_CD = '4' THEN 1 ELSE 0 END) AS CNT5
+						      ,SUM(CASE WHEN D1.APOLS_DH IS NOT NULL                           THEN 1 ELSE 0 END) AS CNT6      
+						  FROM TBCSPOEP003L D1
+						 WHERE D1.CLMETG_SRNO = #strClmetgSrno#
+						 GROUP BY SUBSTR(D1.DPT_CD,0,3) || '000' 
+			         ) T1
+			         ,TBDCMACM002M T2
+			       WHERE T1.DPT_CD = T2.DPT_CD
+			       ORDER BY T2.DPT_SNO        
+		]]>               
+    </select>
+    
+	<!-- 과별 엑셀 select -->
+    <select id="CSPOEP006EDptExcelSelect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			   SELECT T1.DPT_CD        AS DPT_CD
+			         ,T2.DPT_NM        AS DPT_NM
+			         ,T2.DPT_SNO       AS SORT
+			         ,T1.TOT_CNT       AS TOT_CNT
+			         ,T1.CNT1          AS CNT1
+			         ,T1.CNT2          AS CNT2
+			         ,T1.CNT3          AS CNT3
+			         ,T1.CNT4          AS CNT4                           
+			         ,T1.CNT5          AS CNT5   
+			         ,T1.CNT6          AS CNT6
+			         ,T1.TOT_CNT - (T1.CNT1 + T1.CNT2 + T1.CNT3 + T1.CNT4 + T1.CNT5 + T1.CNT6) AS CNT7
+					 ,T1.TOT_CNT - (T1.CNT1 + T1.CNT2 + T1.CNT3 + T1.CNT4 + T1.CNT5) AS CNT8			                    
+			      FROM (
+						SELECT D1.DPT_CD                                                  AS DPT_CD
+						      ,COUNT(D1.CNB)                                              AS TOT_CNT
+						      ,SUM(CASE WHEN D1.APOLS_DH IS NULL AND D1.NO_APOLS_DVSN_CD = '1' THEN 1 ELSE 0 END) AS CNT1
+						      ,SUM(CASE WHEN D1.APOLS_DH IS NULL AND D1.NO_APOLS_DVSN_CD = '2' THEN 1 ELSE 0 END) AS CNT2 
+						      ,SUM(CASE WHEN D1.APOLS_DH IS NULL AND D1.NO_APOLS_DVSN_CD = '3' THEN 1 ELSE 0 END) AS CNT3
+						      ,SUM(CASE WHEN D1.APOLS_DH IS NULL AND D1.NO_APOLS_DVSN_CD = '5' THEN 1 ELSE 0 END) AS CNT4
+						      ,SUM(CASE WHEN D1.APOLS_DH IS NULL AND D1.NO_APOLS_DVSN_CD = '4' THEN 1 ELSE 0 END) AS CNT5
+						      ,SUM(CASE WHEN D1.APOLS_DH IS NOT NULL                           THEN 1 ELSE 0 END) AS CNT6      
+						  FROM TBCSPOEP003L D1
+						 WHERE D1.CLMETG_SRNO = #strClmetgSrno#
+						 GROUP BY D1.DPT_CD
+			         ) T1
+			         ,TBDCMACM002M T2
+			       WHERE T1.DPT_CD = T2.DPT_CD
+			       ORDER BY T2.DPT_SNO        
+		]]>               
+    </select>    
+</sqlMap> 

@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">   
+<mapper namespace="kr.go.bai.eip.user.login.service.impl.LoginOasysMapper">
+
+	
+	<select id="getUser" parameterType="HashMap" resultType="HashMap">
+  	/* kr.go.bai.eip.user.login.service.impl.LoginOasysMapper.getUser */
+		<![CDATA[
+	SELECT U.CNB
+	     , U.USR_ID  USER_ID
+	     , U.USR_NAM USER_NM
+	     , U.RANK_CD
+	     , C.CD_NM  RANK_NM 
+	     , U.PST_CD
+	     , F_CODE_NM('1000176',U.PST_CD)  AS PST_NM  
+	     , U.EIN
+	     , U.DPT_CD   
+	     , D.DPT_NM
+	     , U.TNB 
+	     , U.EML_AD 
+	     , U.BAI_USR_YN  
+	     , U.ORG_CD
+	     , U.ZCD
+	     , U.AD
+	     , U.DTL_AD   
+	     , U.OCP_CD
+	     , U.DNV_INF
+	     , U.ESN PASSWORD  
+	     , U.TMP_YN 
+	     , U.FNL_CHG_DT
+	     , U.CHG_APT_DT
+	     , U.LOGIN_WAY_CD
+	     , F_DPT_INFO( D.DPT_CD, '6' ) AS GCC_ORG_CD 
+	     , (SELECT NVL(MAX(LOGIN_DATE),TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI')) FROM PTL_LOG WHERE ACTION_TYPE='LOGIN' AND USER_ID = U.USR_ID) AS LAST_LOGIN
+	     , NVL(U.INN_RANK_CD,'60') AS  INN_RANK_CD
+	     , U.SUB_DPT_CD
+	     , F_DPT_INFO(U.SUB_DPT_CD,'1') AS  SUB_DPT_NM
+	     , NVL(U.SUB_INN_RANK_CD,NVL(U.INN_RANK_CD,'60')) AS SUB_INN_RANK_CD
+	     , F_DPT_INFO(U.DPT_CD,'1')||'/'||F_CODE_NM('1000161',NVL(U.INN_RANK_CD,'60')) AS DPT_RANK_NM
+	     , F_DPT_INFO(U.SUB_DPT_CD,'1')||'/'||F_CODE_NM('1000161',NVL(U.SUB_INN_RANK_CD,NVL(U.INN_RANK_CD,'60'))) AS SUB_DPT_RANK_NM
+	     , (SELECT USR_DFN_TXT_1 FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD ='1000000' AND CD = '1') AS aPopYn
+	     , NVL(ASBM_RCPT_TG_YN,'N') AS ASBM_RCPT_TG_YN
+	     , ONR_PST_NM
+	  FROM TBDCMACM001M U        
+	     , (
+	        SELECT CMM_CD_DVSN_CD, CD, CD_NM
+	          FROM TBDCMACM013C
+	         WHERE CMM_CD_DVSN_CD = '1000173'
+	       ) C
+	     , TBDCMACM002M D   
+	 WHERE U.DPT_CD = D.DPT_CD(+)   
+	   AND U.USR_ID = #{user_id}
+	   AND U.RANK_CD = C.CD(+)
+	   AND U.RQS_STA_CD = '3'
+	   AND NVL(U.DPT_CD,'T00000') != '880880'  
+		]]>
+	</select>	
+	
+	<insert id="insertLog" parameterType="Map">
+	  	/* kr.go.bai.eip.user.login.service.impl.LoginOasysMapper.insertLog */
+		insert into
+			PTL_LOG
+			("LOGIN_DATE", "SESSION_ID", "CNB", "USER_ID", "USER_IP", "LOGIN_TYPE", "ACTION_TYPE" ) values
+		(sysdate, #{session_id}, #{cnb}, #{user_id}, #{user_ip}, #{login_type}, #{action_type})
+	</insert>	
+	
+		<select id="apolsCheck" parameterType="HashMap" resultType="HashMap">
+  	/* kr.go.bai.eip.user.login.service.impl.LoginOasysMapper.apolsCheck */
+		<![CDATA[
+		SELECT		T1.CLMETG_SRNO
+					,T2.CNB
+					,T1.CLMETG_TIT_TXT
+					,TO_CHAR(SYSDATE,'YYYY.MM.DD HH24:MI') AS APOLS_DH
+					,SYSDATE APOLS_DH2
+			from 	TBCSPOEP002M T1
+			        ,TBCSPOEP003L T2
+			WHERE 	APOLS_DT = TO_CHAR(SYSDATE,'YYYYMMDD') 
+			AND 	TO_CHAR(SYSDATE,'HH24MI') BETWEEN OFOD_HM AND APOLS_HM
+			AND     T1.CLMETG_SRNO = T2.CLMETG_SRNO 
+			AND 	T2.CNB = #{CNB} 
+			AND		T2.APOLS_DH IS NULL
+		]]>
+	</select>	
+		<update id="apolsUpdate" parameterType="HashMap">
+	  	/* kr.go.bai.eip.user.login.service.impl.LoginOasysMapper.apolsUpdate */
+	<![CDATA[
+		UPDATE	TBCSPOEP003L
+		SET		APOLS_DH = #{APOLS_DH2}
+				,IP_AD = #{userIp}
+		WHERE	CLMETG_SRNO = #{CLMETG_SRNO}
+		AND		CNB = #{CNB}
+	]]>
+	</update>	
+	
+	<select id="getAsbmYn" parameterType="HashMap" resultType="String">
+  	/* kr.go.bai.eip.user.login.service.impl.LoginOasysMapper.getAsbmYn */
+		<![CDATA[
+		SELECT	NVL(ASBM_RCPT_TG_YN,'N') AS ASBM_RCPT_TG_YN
+		FROM	TBDCMACM002M
+		WHERE	DPT_CD = #{dptCd}
+		]]>
+	</select>	
+		<select id="authMaster" resultType="String">
+  	/* kr.go.bai.eip.user.login.service.impl.LoginOasysMapper.authMaster */
+		<![CDATA[
+		select auth_id
+		     , name
+		     , description
+		     , cre_dt
+		  from ptl_auth_master
+		]]>
+	</select>	
+		<select id="roleMaster" resultType="String">
+  	/* kr.go.bai.eip.user.login.service.impl.LoginOasysMapper.roleMaster */
+		<![CDATA[
+		select role_id
+		     , super_role
+		     , name
+		     , description
+		     , cre_dt
+		  from ptl_role_master
+		]]>
+	</select>	
+		<select id="roleAuth" resultType="String">
+  	/* kr.go.bai.eip.user.login.service.impl.LoginOasysMapper.roleAuth */
+		<![CDATA[
+		select role_id
+		     , auth_id
+		     , cre_dt
+		  from ptl_role_auth
+		]]>
+	</select>	
+</mapper>

@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/dcp/511">
+ 	
+ 	
+ 	<select id="CSPDCP511QSysDateSelect" resultClass="resultMap">
+ 	<![CDATA[
+ 	SELECT TO_CHAR(SYSDATE, 'YYYYMMDD') AS ENDDT,
+    	   '20220101' AS STARTDT
+  	FROM DUAL
+ 	]]>
+ 	</select>
+ 	
+ 	
+ 	<select id="CSPDCP511QMainSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<![CDATA[
+			SELECT	D1.REQ_DVSN_CD
+					,D1.CVPT_KND_CD
+			      	,F_CODE_NM('1000047', D1.CVPT_KND_CD) AS CVPT_KND_NM
+			      	,TO_CHAR(D1.ACP_DH, 'YYYY-MM-DD') AS ACP_DH
+			      	,D1.CVPT_ACP_NO
+			      	,D1.ACP_YR
+			      	,D1.ACP_YR||'-민원-'||D1.RM_CVPT_ACP_NO AS ACP_YR_NO
+			      	,F_CODE_NM('1000754', D3.CVPT_HNDL_DVSN_CD) AS CVPT_HNDL_DVSN_NM
+			      	,F_CODE_NM('1000051', D3.T_CVPT_HNDL_DVSN_CD) AS T_CVPT_HNDL_DVSN_NM
+			      	,CASE WHEN (	SELECT COUNT(*)
+			      					FROM TBCSPDCP105L S1
+			      					WHERE S1.REQ_DVSN_CD = D1.REQ_DVSN_CD
+			      					AND S1.ACP_YR = D1.ACP_YR
+			      					AND S1.CVPT_ACP_NO = D1.CVPT_ACP_NO
+			      				) > 0 THEN D1.TIT_NM||'(합건 : '||D1.RM_CVPT_ACP_NO||', '||(	SELECT	AGGR_CONCAT( S3.RM_CVPT_ACP_NO, ', ')||' )'
+			      																			FROM	TBCSPDCP105L S2, TBCSPDCP101M S3
+			      																			WHERE	D1.REQ_DVSN_CD = S2.REQ_DVSN_CD
+			      																			AND		D1.ACP_YR = S2.ACP_YR
+			      																			AND		D1.CVPT_ACP_NO = S2.CVPT_ACP_NO
+			      																			AND		S2.SUC_REQ_DVSN_CD = S3.REQ_DVSN_CD
+			      																			AND		S2.SUC_ACP_YR = S3.ACP_YR
+			      																			AND		S2.SUC_CVPT_ACP_NO = S3.CVPT_ACP_NO)
+			      		ELSE D1.TIT_NM END AS TIT_NM
+			      	,DECODE(D1.REQR_KND_CD,'1',D1.CVPTR_NM,'2',D1.RPST_PEN_NM,'3',D1.RPST_PEN_NM,'4',D1.CVPTR_NM) AS CVPTR_NM
+			      	,D4.FNL_HNDL_DH
+			      	,F_CODE_NM('1000361',D1.CVPT_HNDL_STA_CD) AS CVPT_HNDL_STA_NM
+			      	,(	SELECT	TO_DATE(TO_CHAR(D1.ACP_DH, 'YYYYMMDD'), 'YYYYMMDD') + NVL( S1.USR_DFN_TXT_2, 30) 
+                    	FROM	TBDCMACM013C S1
+                    	WHERE	S1.CMM_CD_DVSN_CD = '1000051'
+                    	AND		S1.CD != '000000000'
+                    	AND     S1.CD  = D3.CVPT_HNDL_DVSN_CD) AS HNDL_LIMIT__DT
+                  	,D3.SRNO
+                  	,D3.CVPT_HNDL_DVSN_CD
+			  FROM TBCSPDCP101M D1
+			      ,TBCSPDCP102M D2
+			      ,TBCSPDCP205L D3
+			      ,TBCSPDCP201M D4
+			 WHERE 1=1
+			   AND D1.REQ_DVSN_CD = '1'
+			   AND D1.REQ_DVSN_CD = D2.REQ_DVSN_CD
+			   AND D1.CVPT_ACP_NO = D2.CVPT_ACP_NO
+			   AND D1.ACP_YR      = D2.ACP_YR
+			   AND D1.REQ_DVSN_CD = D3.REQ_DVSN_CD
+			   AND D1.CVPT_ACP_NO = D3.CVPT_ACP_NO
+			   AND D1.ACP_YR      = D3.ACP_YR
+			   AND D1.REQ_DVSN_CD = D4.REQ_DVSN_CD
+			   AND D1.CVPT_ACP_NO = D4.CVPT_ACP_NO
+			   AND D1.ACP_YR      = D4.ACP_YR
+			   AND D1.CVPT_HNDL_STA_CD IN ('50','60')
+			   AND (D3.REQ_DVSN_CD, D3.CVPT_ACP_NO, D3.ACP_YR, D3.SRNO ) IN (	SELECT	Z.REQ_DVSN_CD, Z.CVPT_ACP_NO, Z.ACP_YR, MIN(Z.SRNO)
+			   																	FROM	TBCSPDCP205L Z
+			   																	WHERE	D1.REQ_DVSN_CD = Z.REQ_DVSN_CD
+			   																	AND		D1.CVPT_ACP_NO = Z.CVPT_ACP_NO
+			   																	AND		D1.ACP_YR = Z.ACP_YR
+			   																	GROUP BY Z.REQ_DVSN_CD, Z.CVPT_ACP_NO, Z.ACP_YR
+			   																)
+			   AND ( D3.CVPT_HNDL_DVSN_CD = '60' OR T_CVPT_HNDL_DVSN_CD = '14' )
+			   AND (D1.REQ_DVSN_CD, D1.ACP_YR, D1.CVPT_ACP_NO) NOT IN (
+	   														SELECT	SUC_REQ_DVSN_CD,SUC_ACP_YR,SUC_CVPT_ACP_NO
+	   														FROM	TBCSPDCP105L
+	   														)
+			   
+		]]>
+		  <dynamic>
+		  <isNotEqual property="strUSR_ID" compareValue="haahaasch">
+		  		AND D4.HNDL_DPT_CD = #strDPT_CD#
+   			   AND D4.HNDL_CHGR_ID = #strUSR_ID#
+		  </isNotEqual>
+		  	<isNotEmpty property="TIT_NM">
+		  		<isEqual property="SEARCH_CD" compareValue="1">
+		  			AND D1.TIT_NM LIKE '%'||#TIT_NM#||'%'
+		  		</isEqual>
+		  		<isEqual property="SEARCH_CD" compareValue="2">
+		  			AND D2.CVPT_SBT LIKE '%'||#TIT_NM#||'%'
+		  		</isEqual>
+		  	</isNotEmpty>
+		  	
+			<isNotEmpty property="ACP_DH_START">
+			   AND TO_CHAR(D1.ACP_DH, 'YYYYMMDD') BETWEEN #ACP_DH_START# AND #ACP_DH_END#
+			</isNotEmpty>
+		  	
+		  	<isNotEmpty property="strCVPT_KND_CD">
+			   AND D1.CVPT_KND_CD IN (SELECT 	SUBSTR(CODE,INSTR(CODE,',',1,LEVEL)+1,INSTR(CODE,',',1,LEVEL+1)-INSTR(CODE,',',1,LEVEL) -1) merge_col
+					                    FROM 	DUAL A
+					                    CROSS JOIN(SELECT ','|| #strCVPT_KND_CD# ||',' AS CODE FROM DUAL) B
+					                    CONNECT BY LEVEL&lt;=LENGTH(CODE)-LENGTH(REPLACE(CODE,','))-1 )
+			</isNotEmpty>
+			
+			<!-- <isNotEmpty property="strCVPT_HNDL_DVSN_CD">
+			   AND D3.CVPT_HNDL_DVSN_CD IN (SELECT 	SUBSTR(CODE,INSTR(CODE,',',1,LEVEL)+1,INSTR(CODE,',',1,LEVEL+1)-INSTR(CODE,',',1,LEVEL) -1) merge_col
+						                      FROM 	DUAL A
+						                      CROSS JOIN(SELECT ','|| #strCVPT_HNDL_DVSN_CD# ||',' AS CODE FROM DUAL) B
+						                      CONNECT BY LEVEL&lt;=LENGTH(CODE)-LENGTH(REPLACE(CODE,','))-1 )
+			
+			</isNotEmpty> -->
+			
+			<isNotEmpty property="RM_CVPT_ACP_NO">
+				AND D1.RM_CVPT_ACP_NO      = LPAD(#RM_CVPT_ACP_NO#, 5, 0)
+			</isNotEmpty>
+		  	
+		  	<isNotEmpty property="CVPTR_NM">
+		  		AND D1.CVPTR_NM LIKE '%'||#CVPTR_NM#||'%'
+		  	</isNotEmpty>
+		  </dynamic>	   
+			   AND D1.ACP_YR           = NVL(#ACP_YR#, D1.ACP_YR)
+			   AND D1.CVPT_HNDL_STA_CD = NVL(#CVPT_HNDL_STA_CD#, D1.CVPT_HNDL_STA_CD)
+			ORDER BY D1.ACP_YR DESC
+			       , D1.RM_CVPT_ACP_NO DESC
+			
+			   
+		
+	</select>
+	
+	
+	<select id="CSPDCP511QMainCount" resultClass="resultMap">
+		SELECT COUNT(1) AS TOTCNT
+		      ,SUM(CASE WHEN D1.CVPT_HNDL_STA_CD = '50' THEN 1 ELSE 0 END ) AS NOTCM
+		      ,SUM(CASE WHEN D1.CVPT_HNDL_STA_CD = '60' THEN 1 ELSE 0 END ) AS CM
+		  FROM TBCSPDCP101M D1
+		      ,TBCSPDCP102M D2
+		      ,TBCSPDCP205L D3
+		      ,TBCSPDCP201M D4
+		 WHERE 1=1
+		   AND D1.REQ_DVSN_CD = D2.REQ_DVSN_CD(+)
+		   AND D1.CVPT_ACP_NO = D2.CVPT_ACP_NO(+)
+		   AND D1.ACP_YR      = D2.ACP_YR(+)
+		   AND D1.REQ_DVSN_CD = D3.REQ_DVSN_CD(+)
+		   AND D1.CVPT_ACP_NO = D3.CVPT_ACP_NO(+)
+		   AND D1.ACP_YR      = D3.ACP_YR(+)
+		   AND D1.REQ_DVSN_CD = D4.REQ_DVSN_CD(+)
+		   AND D1.CVPT_ACP_NO = D4.CVPT_ACP_NO(+)
+		   AND D1.ACP_YR      = D4.ACP_YR(+)
+		   AND D1.CVPT_HNDL_STA_CD IN ('50', '60')
+		   AND D1.REQ_DVSN_CD = 1
+		   AND D3.SRNO = 1
+		   AND D3.CVPT_HNDL_DVSN_CD IN ('10', '20', '50', '60')
+	</select>
+	
+</sqlMap> 

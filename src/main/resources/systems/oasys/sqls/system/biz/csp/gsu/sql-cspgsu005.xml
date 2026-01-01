@@ -1,0 +1,802 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/gsu/005">
+ 
+ 	<select id="CSPGSU005EMainSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<![CDATA[
+			SELECT	DECODE(A.PRPS_ACP_NO,NULL,'',PRPS_YE||'-'||A.PRPS_ACP_NO) AS PRPS_ACP_NO	/*접수번호*/
+					,A.PRPS_TIT_NM		/*제안제목*/
+					,F_USR_INFO(A.PRPS_PEN_CNB,'2') AS PRPS_PEN_NAM	/*제안자명*/
+					,A.PRPS_PEN_CNB		/*제안자전산번호*/
+					,A.ACP_DT			/*접수일자*/
+					,A.EXAM_DPT_CD		/*검토부서코드*/
+					,F_DPT_INFO(A.EXAM_DPT_CD,'1') AS EXAM_DPT_NM
+					,A.PRPS_STA_CD		/*제안상태코드*/
+					,A.PRPS_YE			/*제안연도*/
+					,A.PRPS_SLN			/*제안연번*/
+					,A.APV_DOC_NO
+					,(SELECT 	Z.DOC_ID	
+						FROM	TBCSPGSU004M Z
+						WHERE	Z.PRPS_YE = A.PRPS_YE
+						AND		Z.PRPS_SLN = A.PRPS_SLN
+						AND		Z.PRPS_ATT_FL_DVSN_CD = '1') AS DOC_ID	/*첨부파일 문서*/
+					,F_DPT_INFO(A.PRPS_DPT_CD,'1') AS PRPS_DPT_CD
+					,A.RET_TXT
+					,A.EXAM_DT
+			FROM	TBCSPGSU001M A		/*도서자료기본*/
+			WHERE	1=1
+		]]>
+		<dynamic>
+			<isEmpty property="strPRPS_STA_CD">
+				AND A.PRPS_STA_CD  &gt;= 'B' 
+			</isEmpty>
+			<isNotEmpty property="strPRPS_STA_CD">
+				AND A.PRPS_STA_CD = #strPRPS_STA_CD#
+			</isNotEmpty>
+			<isNotEmpty property="strACP_DTS">
+				AND	(A.ACP_DT &gt;= #strACP_DTS# OR A.ACP_DT IS NULL)
+			</isNotEmpty>
+			<isNotEmpty property="strACP_DTE">
+				AND	(A.ACP_DT &lt;= #strACP_DTE# OR A.ACP_DT IS NULL)
+			</isNotEmpty>
+			<isNotEmpty property="strPRPS_PEN_CNB">
+				AND	A.PRPS_PEN_CNB = #strPRPS_PEN_CNB#
+			</isNotEmpty>
+			<isNotEmpty property="strPRPS_TIT_NM">
+				AND	A.PRPS_TIT_NM LIKE '%'||#strPRPS_TIT_NM#||'%'
+			</isNotEmpty>
+		</dynamic>
+		<![CDATA[
+			ORDER BY  TO_NUMBER(A.PRPS_YE) DESC , TO_NUMBER(A.PRPS_ACP_NO) DESC
+		]]>
+	</select>
+	
+	<select id="CSPGSU005EExcelSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<![CDATA[
+			SELECT	DECODE(A.PRPS_ACP_NO,NULL,'',PRPS_YE||'-'||A.PRPS_ACP_NO) AS PRPS_ACP_NO	/*접수번호*/
+					,TO_CHAR(TO_DATE(A.ACP_DT), 'YYYY-MM-DD') AS ACP_DT			/*접수일자*/
+					,A.PRPS_TIT_NM		/*제안제목*/
+					,F_USR_INFO(A.PRPS_PEN_CNB,'2') AS PRPS_PEN_NAM	/*제안자명*/
+					,F_DPT_INFO(A.PRPS_DPT_CD, '1') AS PRPS_DPT_NM
+					,F_DPT_INFO(A.EXAM_DPT_CD,'1') AS EXAM_DPT_NM
+					,CASE WHEN A.PRPS_STA_CD IN ('M','N','O') THEN TO_CHAR(A.FNL_MDF_DH, 'YYYY-MM-DD')
+            			  ELSE '' END AS FNL_MDF_DH
+            	    ,F_CODE_NM('1000075', A.PRPS_STA_CD) AS PRPS_STA_NM
+			FROM	TBCSPGSU001M A		/*도서자료기본*/
+			WHERE	1=1
+		]]>
+		<dynamic>
+			<isEmpty property="strPRPS_STA_CD">
+				AND A.PRPS_STA_CD  &gt;= 'B' 
+			</isEmpty>
+			<isNotEmpty property="strPRPS_STA_CD">
+				AND A.PRPS_STA_CD = #strPRPS_STA_CD#
+			</isNotEmpty>
+			<isNotEmpty property="strACP_DTS">
+				AND	(A.ACP_DT &gt;= #strACP_DTS# OR A.ACP_DT IS NULL)
+			</isNotEmpty>
+			<isNotEmpty property="strACP_DTE">
+				AND	(A.ACP_DT &lt;= #strACP_DTE# OR A.ACP_DT IS NULL)
+			</isNotEmpty>
+			<isNotEmpty property="strPRPS_PEN_CNB">
+				AND	A.PRPS_PEN_CNB = #strPRPS_PEN_CNB#
+			</isNotEmpty>
+			<isNotEmpty property="strPRPS_TIT_NM">
+				AND	A.PRPS_TIT_NM LIKE '%'||#strPRPS_TIT_NM#||'%'
+			</isNotEmpty>
+		</dynamic>
+		<![CDATA[
+			ORDER BY  TO_NUMBER(A.PRPS_YE) DESC , TO_NUMBER(A.PRPS_ACP_NO) DESC
+		]]>
+	</select>
+	
+	<update id="CSPGSU005EAcceptUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPGSU001M
+			SET		ACP_DT = TO_CHAR(SYSDATE,'YYYYMMDD')	/*제출일자*/
+					,PRPS_STA_CD = 'C'		/*진행상태 = C : 접수*/
+					,PRPS_ACP_NO = (SELECT	TO_CHAR(NVL(MAX(TO_NUMBER(PRPS_ACP_NO))+1,1)) AS PRPS_ACP_NO
+									FROM	TBCSPGSU001M 
+									WHERE	PRPS_YE = #PRPS_YE#
+									)
+					,FNL_USR_ID = #FNL_USR_ID#	/*최종사용자ID*/
+					,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#	/*최종부서*/
+					,FNL_MNU_ID = #FNL_MNU_ID#		/*최종메뉴*/
+					,FNL_MDF_DH = SYSDATE			/*최종수정일시*/
+			WHERE	PRPS_YE = #PRPS_YE#
+			AND		PRPS_SLN = #PRPS_SLN#
+		]]>
+	</update>
+	
+	<update id="CSPGSU005EActCancleUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPGSU001M
+			SET		PRPS_STA_CD = 'Q'		/*진행상태*/
+					,FNL_USR_ID = #FNL_USR_ID#	/*최종사용자ID*/
+					,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#	/*최종부서*/
+					,FNL_MNU_ID = #FNL_MNU_ID#		/*최종메뉴*/
+					,FNL_MDF_DH = SYSDATE			/*최종수정일시*/
+					,RET_TXT = #RET_TXT#
+			WHERE	PRPS_YE = #PRPS_YE#
+			AND		PRPS_SLN = #PRPS_SLN#
+		]]>
+	</update>
+	
+	<update id="CSPGSU005EExamUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPGSU001M
+			SET		PRPS_STA_CD = 'G'		/*진행상태*/
+					,EXAM_DPT_CD = #EXAM_DPT_CD#
+					,FNL_USR_ID = #FNL_USR_ID#	/*최종사용자ID*/
+					,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#	/*최종부서*/
+					,FNL_MNU_ID = #FNL_MNU_ID#		/*최종메뉴*/
+					,FNL_MDF_DH = SYSDATE			/*최종수정일시*/
+			WHERE	PRPS_YE = #PRPS_YE#
+			AND		PRPS_SLN = #PRPS_SLN#
+		]]>
+	</update>
+	
+	<update id="CSPGSU005EExamCancleUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPGSU001M
+			SET		PRPS_STA_CD = 'F'		/*진행상태*/
+					,EXAM_DPT_CD = NULL
+					,FNL_USR_ID = #FNL_USR_ID#	/*최종사용자ID*/
+					,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#	/*최종부서*/
+					,FNL_MNU_ID = #FNL_MNU_ID#		/*최종메뉴*/
+					,FNL_MDF_DH = SYSDATE			/*최종수정일시*/
+					,EXAM_TXT = NULL
+					,EXAM_PEN_CNB = NULL
+					,EXAM_RSLT_CD = NULL
+					,EXAM_DT= NULL
+					,EXAM_APV_DOC_NO = NULL
+			WHERE	PRPS_YE = #PRPS_YE#
+			AND		PRPS_SLN = #PRPS_SLN#
+		]]>
+	</update>
+	
+	<select id="CSPGSU006EMainSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<![CDATA[
+			SELECT	DECODE(A.PRPS_ACP_NO,NULL,'',A.PRPS_YE||'-'||A.PRPS_ACP_NO) AS PRPS_ACP_NO	/*접수번호*/
+					,A.ACP_DT			/*접수일자*/
+					,A.SMT_DT			/*제출일자*/
+					,A.PRPS_TIT_NM		/*제안제목*/
+					,F_USR_INFO(A.PRPS_PEN_CNB,'2')	AS PRPS_PEN_NAM /*제안자명*/
+					,A.PRPS_PEN_CNB		/*제안자전산번호*/
+					,B.JNT_PRPS_PEN_NAM	/*공동제안자*/
+					,F_CODE_NM('1000075',A.PRPS_STA_CD) AS PRPS_STA_NM	/*진행단계*/
+					,A.PRPS_STA_CD		/*제안상태코드*/
+					,A.CUR_SYE_TXT		/*현행제도내용*/
+					,A.PRB_TXT			/*문제점내용*/
+					,A.IMP_ATV_TXT		/*개선대안내용*/
+					,A.IMP_EFCT_TXT		/*개선효과내용*/
+					,(SELECT 	Z.DOC_ID	
+						FROM	TBCSPGSU004M Z
+						WHERE	Z.PRPS_YE = A.PRPS_YE
+						AND		Z.PRPS_SLN = A.PRPS_SLN
+						AND		Z.PRPS_ATT_FL_DVSN_CD = '1') AS DOC_ID	/*첨부파일 문서*/
+					,F_DPT_INFO(A.EXAM_DPT_CD,'1') AS EXAM_DPT_NM		/*검토부서*/
+					,A.EXAM_DPT_CD		/*검토부서코드*/
+					,A.EXAM_DT			/*검토일자*/
+					,A.EXEC_APT_DT		/*실시예정일자*/
+					,F_USR_INFO(A.EXAM_PEN_CNB,'2') AS EXAM_PEN_NAM		/*검토자*/
+					,A.EXAM_TXT			/*검토의견*/
+					,F_CODE_NM('1000077',A.EXAM_RSLT_CD) AS EXAM_RSLT_NM
+					,(SELECT 	Z.DOC_ID	
+						FROM	TBCSPGSU004M Z
+						WHERE	Z.PRPS_YE = A.PRPS_YE
+						AND		Z.PRPS_SLN = A.PRPS_SLN
+						AND		Z.PRPS_ATT_FL_DVSN_CD = '2') AS EXAM_DOC_ID	/*검토첨부파일 문서*/
+					,DECODE(A.PRPS_STA_CD,'N','Y','M','N','') AS PRPS_STA_YN	/*채택여부*/
+					,A.JDG_DT			/*위원회일자*/
+					,A.RK_CD			/*제안등급*/
+					,A.PRPS_ASC			/*제안평점*/
+					,A.CNTR_PRPS_RCMD_DVSN_CD	/*중앙제안추천여부*/
+					,A.PRPS_YE			/*제안연도*/
+					,A.PRPS_SLN			/*제안연번*/
+					,A.APV_DOC_NO
+					,DECODE(APV_DOC_NO,NULL,'','접수결재정보'||chr(13)||chr(10)||F_GET_APV_OPIN(A.APV_DOC_NO)) AS APV_OPIN
+					,A.RET_TXT
+			FROM	TBCSPGSU001M A /*도서자료기본*/
+					, (	SELECT 	PRPS_YE, PRPS_SLN, AGGR_CONCAT(F_USR_INFO (A.PRPS_PEN_CNB,'2'),'/') AS JNT_PRPS_PEN_NAM 
+						FROM 	TBCSPGSU002L A WHERE 1=1
+					    AND 	A.PRPS_YE = #strPRPS_YE#
+					    AND 	A.PRPS_SLN = #strPRPS_SLN#
+					    AND		A.SNO <> 1
+					    GROUP BY PRPS_YE, PRPS_SLN) B
+			WHERE 	1=1
+		    AND 	A.PRPS_YE = #strPRPS_YE#
+		    AND 	A.PRPS_SLN = #strPRPS_SLN#
+		    AND	 	A.PRPS_YE = B.PRPS_YE(+)
+		    AND 	A.PRPS_SLN = B.PRPS_SLN(+)
+		]]>
+	</select>
+	
+	<update id="CSPGSU006EResultUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPGSU001M
+			SET		PRPS_STA_CD = DECODE(#PRPS_STA_YN#,'Y','N','N','M')		/*진행상태*/
+					,RK_CD = #RK_CD#
+					,PRPS_ASC = #PRPS_ASC#
+					,CNTR_PRPS_RCMD_DVSN_CD = DECODE(#CNTR_PRPS_RCMD_DVSN_CD#,'','N',#CNTR_PRPS_RCMD_DVSN_CD#)
+					,JDG_DT = #JDG_DT#
+					,CHOS_YE = DECODE(#PRPS_STA_YN#,'Y',TO_CHAR(SYSDATE,'YYYY'),'')
+					,FNL_USR_ID = #FNL_USR_ID#	/*최종사용자ID*/
+					,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#	/*최종부서*/
+					,FNL_MNU_ID = #FNL_MNU_ID#		/*최종메뉴*/
+					,FNL_MDF_DH = SYSDATE			/*최종수정일시*/
+			WHERE	PRPS_YE = #PRPS_YE#
+			AND		PRPS_SLN = #PRPS_SLN#
+		]]>
+	</update>
+	
+	<update id="CSPGSU005EApvSave" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPGSU001M
+			SET		PRPS_STA_CD = 'F'		/*진행상태*/
+			WHERE	APV_DOC_NO = #APV_DOC_NO#
+		]]>
+	</update>
+	
+	<update id="CSPGSU005EApvRetSave" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPGSU001M
+			SET		PRPS_STA_CD = 'E'		/*진행상태*/
+			WHERE	APV_DOC_NO = #APV_DOC_NO#
+		]]>
+	</update>
+	
+	<update id="CSPGSU005EExamApvSave" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPGSU001M
+			SET		PRPS_STA_CD = 'D'		/*진행상태*/
+					,APV_DOC_NO = #APV_DOC_NO#
+			WHERE	PRPS_YE = #PRPS_YE#
+			AND		PRPS_SLN = #PRPS_SLN#
+		]]>
+	</update>
+	
+	
+	<select id="CSPGSU005PApvMainSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<![CDATA[
+			SELECT	DECODE(A.PRPS_ACP_NO,NULL,'',A.PRPS_YE||'-'||A.PRPS_ACP_NO) AS PRPS_ACP_NO	/*접수번호*/
+					,A.ACP_DT			/*접수일자*/
+					,A.SMT_DT			/*제출일자*/
+					,A.PRPS_TIT_NM		/*제안제목*/
+					,F_USR_INFO(A.PRPS_PEN_CNB,'2')	AS PRPS_PEN_NAM /*제안자명*/
+					,A.PRPS_PEN_CNB		/*제안자전산번호*/
+					,B.JNT_PRPS_PEN_NAM	/*공동제안자*/
+					,F_CODE_NM('1000075',A.PRPS_STA_CD) AS PRPS_STA_NM	/*진행단계*/
+					,A.PRPS_STA_CD		/*제안상태코드*/
+					,A.CUR_SYE_TXT		/*현행제도내용*/
+					,A.PRB_TXT			/*문제점내용*/
+					,A.IMP_ATV_TXT		/*개선대안내용*/
+					,A.IMP_EFCT_TXT		/*개선효과내용*/
+					,(SELECT 	Z.DOC_ID	
+						FROM	TBCSPGSU004M Z
+						WHERE	Z.PRPS_YE = A.PRPS_YE
+						AND		Z.PRPS_SLN = A.PRPS_SLN
+						AND		Z.PRPS_ATT_FL_DVSN_CD = '1') AS DOC_ID	/*첨부파일 문서*/
+					,F_DPT_INFO(A.EXAM_DPT_CD,'1') AS EXAM_DPT_NM		/*검토부서*/
+					,A.EXAM_DPT_CD		/*검토부서코드*/
+					,A.EXAM_DT			/*검토일자*/
+					,F_USR_INFO(A.EXAM_PEN_CNB,'2') AS EXAM_PEN_NAM		/*검토자*/
+					,A.EXAM_TXT			/*검토의견*/
+					,F_CODE_NM('1000077',A.EXAM_RSLT_CD) AS EXAM_RSLT_NM
+					,(SELECT 	Z.DOC_ID	
+						FROM	TBCSPGSU004M Z
+						WHERE	Z.PRPS_YE = A.PRPS_YE
+						AND		Z.PRPS_SLN = A.PRPS_SLN
+						AND		Z.PRPS_ATT_FL_DVSN_CD = '2') AS EXAM_DOC_ID	/*검토첨부파일 문서*/
+					,DECODE(A.PRPS_STA_CD,'N','Y','M','N','') AS PRPS_STA_YN	/*채택여부*/
+					,A.JDG_DT			/*위원회일자*/
+					,A.RK_CD			/*제안등급*/
+					,A.PRPS_ASC			/*제안평점*/
+					,A.CNTR_PRPS_RCMD_DVSN_CD	/*중앙제안추천여부*/
+					,A.PRPS_YE			/*제안연도*/
+					,A.PRPS_SLN			/*제안연번*/
+			FROM	TBCSPGSU001M A /*도서자료기본*/
+					, (	SELECT 	PRPS_YE, PRPS_SLN, AGGR_CONCAT(F_USR_INFO (A.PRPS_PEN_CNB,'2'),'/') AS JNT_PRPS_PEN_NAM 
+						FROM 	TBCSPGSU002L A WHERE 1=1
+						AND		A.SNO <> 1
+					    GROUP BY PRPS_YE, PRPS_SLN) B
+			WHERE 	1=1
+		]]>
+		<dynamic>
+			<isNotEmpty property="strPRPS_YE">
+				AND 	A.PRPS_YE = #strPRPS_YE#
+		    AND 	A.PRPS_SLN = #strPRPS_SLN#
+			</isNotEmpty>
+			<isNotEmpty property="strDOC_NO">
+				AND A.APV_DOC_NO = #strDOC_NO#
+			</isNotEmpty>
+		</dynamic>
+		 <![CDATA[   
+		    AND	 	A.PRPS_YE = B.PRPS_YE(+)
+		    AND 	A.PRPS_SLN = B.PRPS_SLN(+);
+		]]>
+	</select>
+	
+	<update id="CSPGSU005EApvCancleUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPGSU001M
+			SET		PRPS_STA_CD = 'C'		/*진행상태*/
+					,APV_DOC_NO = ''
+					,FNL_MDF_DH = SYSDATE			/*최종수정일시*/
+			WHERE	APV_DOC_NO = #APV_DOC_NO#
+		]]>
+	</update>
+	
+	<delete id="CSPGSU005EApvDDelete" parameterClass="paramMap">
+		<![CDATA[
+			DELETE	
+			FROM	TBDCMACM023L
+			WHERE	APV_DOC_NO = #APV_DOC_NO#
+		]]>
+	</delete>
+	
+	<delete id="CSPGSU005EApvMDelete" parameterClass="paramMap">
+		<![CDATA[
+			DELETE	
+			FROM	TBDCMACM022L
+			WHERE	APV_DOC_NO = #APV_DOC_NO#
+		]]>
+	</delete>
+	
+	<select id="CSPGSU005EReportSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<![CDATA[
+			SELECT	DECODE(A.PRPS_ACP_NO,NULL,'',PRPS_YE||'-'||A.PRPS_ACP_NO) AS PRPS_ACP_NO	/*접수번호*/
+					,A.PRPS_TIT_NM		/*제안제목*/
+					,F_USR_INFO(A.PRPS_PEN_CNB,'2') AS PRPS_PEN_NAM	/*제안자명*/
+					,TO_CHAR(TO_DATE(A.ACP_DT),'YYYY-MM-DD') AS ACP_DT			/*접수일자*/
+					,F_CODE_NM('1000075', A.PRPS_STA_CD) AS PRPS_STA_NM		/*제안상태코드*/
+					,F_DPT_INFO(A.EXAM_DPT_CD,'1') AS EXAM_DPT_NM
+			FROM	TBCSPGSU001M A		/*도서자료기본*/
+			WHERE	1=1
+		]]>
+		<dynamic>
+			<isEmpty property="strPRPS_STA_CD">
+				AND A.PRPS_STA_CD  &gt;= 'B' 
+			</isEmpty>
+			<isNotEmpty property="strPRPS_STA_CD">
+				AND A.PRPS_STA_CD = #strPRPS_STA_CD#
+			</isNotEmpty>
+			<isNotEmpty property="strACP_DTS">
+				AND	(A.ACP_DT &gt;= #strACP_DTS# OR A.ACP_DT IS NULL)
+			</isNotEmpty>
+			<isNotEmpty property="strACP_DTE">
+				AND	(A.ACP_DT &lt;= #strACP_DTE# OR A.ACP_DT IS NULL)
+			</isNotEmpty>
+			<isNotEmpty property="strPRPS_PEN_CNB">
+				AND	A.PRPS_PEN_CNB = #strPRPS_PEN_CNB#
+			</isNotEmpty>
+			<isNotEmpty property="strPRPS_TIT_NM">
+				AND	A.PRPS_TIT_NM LIKE '%'||#strPRPS_TIT_NM#||'%'
+			</isNotEmpty>
+		</dynamic>
+		<![CDATA[
+			ORDER BY  TO_NUMBER(A.PRPS_YE) DESC , TO_NUMBER(A.PRPS_ACP_NO) DESC
+		]]>
+	</select>
+	
+	<select id="CSPGSU006EReportSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<![CDATA[
+			SELECT	DECODE(A.PRPS_ACP_NO,NULL,'',A.PRPS_YE||'-'||A.PRPS_ACP_NO) AS PRPS_ACP_NO	/*접수번호*/
+					,TO_CHAR(TO_DATE(A.ACP_DT),'YYYY-MM-DD') AS ACP_DT			/*접수일자*/
+					,TO_CHAR(TO_DATE(A.SMT_DT),'YYYY-MM-DD') AS SMT_DT			/*제출일자*/
+					,A.PRPS_TIT_NM		/*제안제목*/
+					,F_USR_INFO(A.PRPS_PEN_CNB,'2')	AS PRPS_PEN_NAM /*제안자명*/
+					,B.JNT_PRPS_PEN_NAM	/*공동제안자*/
+					,F_CODE_NM('1000075',A.PRPS_STA_CD) AS PRPS_STA_NM	/*진행단계*/
+					,A.CUR_SYE_TXT		/*현행제도내용*/
+					,A.PRB_TXT			/*문제점내용*/
+					,A.IMP_ATV_TXT		/*개선대안내용*/
+					,A.IMP_EFCT_TXT		/*개선효과내용*/
+					,F_DPT_INFO(A.EXAM_DPT_CD,'1') AS EXAM_DPT_NM		/*검토부서*/
+					,TO_CHAR(TO_DATE(A.EXAM_DT),'YYYY-MM-DD') AS EXAM_DT			/*검토일자*/
+					,F_USR_INFO(A.EXAM_PEN_CNB,'2') AS EXAM_PEN_NAM		/*검토자*/
+					,A.EXAM_TXT			/*검토의견*/
+					,F_CODE_NM('1000077',A.EXAM_RSLT_CD) AS EXAM_RSLT_NM
+					,DECODE(A.PRPS_STA_CD,'M','종료(불채택)','N','종료(채택)','') AS PRPS_STA_YN	/*채택여부*/
+					,TO_CHAR(TO_DATE(A.JDG_DT),'YYYY-MM-DD') AS JDG_DT			/*위원회일자*/
+					,F_CODE_NM('1000076',A.RK_CD) AS RK_NM
+					,A.PRPS_ASC			/*제안평점*/
+					,F_CODE_NM('1000286',A.CNTR_PRPS_RCMD_DVSN_CD) AS CNTR_PRPS_RCMD_DVSN_NM	/*중앙제안추천여부*/
+			FROM	TBCSPGSU001M A /*도서자료기본*/
+					, (	SELECT 	PRPS_YE, PRPS_SLN, AGGR_CONCAT(F_USR_INFO (A.PRPS_PEN_CNB,'2'),'/') AS JNT_PRPS_PEN_NAM 
+						FROM 	TBCSPGSU002L A WHERE 1=1
+					    AND 	A.PRPS_YE = #strPRPS_YE#
+					    AND 	A.PRPS_SLN = #strPRPS_SLN#
+					    AND		A.SNO <> 1
+					    GROUP BY PRPS_YE, PRPS_SLN) B
+			WHERE 	1=1
+		    AND 	A.PRPS_YE = #strPRPS_YE#
+		    AND 	A.PRPS_SLN = #strPRPS_SLN#
+		    AND	 	A.PRPS_YE = B.PRPS_YE(+)
+		    AND 	A.PRPS_SLN = B.PRPS_SLN(+)
+		]]>
+	</select>
+	
+	
+	<update id="CSPGSU005ERvwMainUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPGSU001M
+			SET		RVW_PRPS_YE = #RVW_PRPS_YE#
+					,RVW_PRPS_SLN = #RVW_PRPS_SLN#
+					,PRPS_STA_CD = 'O'
+					,FNL_USR_ID = #FNL_USR_ID#	/*최종사용자ID*/
+					,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#	/*최종부서*/
+					,FNL_MNU_ID = #FNL_MNU_ID#		/*최종메뉴*/
+					,FNL_MDF_DH = SYSDATE		
+			WHERE	PRPS_YE = #PRPS_YE#
+		    AND 	PRPS_SLN = #PRPS_SLN#
+		]]>
+	</update>
+	
+	<insert id="CSPGSU005ERvwMainInsert" parameterClass="paramMap">
+		INSERT INTO	TBCSPGSU001M
+				(	PRPS_YE
+					,PRPS_SLN
+					,PRPS_PEN_CNB
+					,SMT_DT
+					,PRPS_ACP_NO
+					,ACP_DT
+					,PRPS_TIT_NM
+					,CUR_SYE_TXT
+					,PRB_TXT
+					,IMP_ATV_TXT
+					,IMP_EFCT_TXT
+					,PRPS_STA_CD
+					,FRT_USR_ID
+					,FNL_USR_ID
+					,FNL_DEAL_DPT_CD
+					,FNL_MNU_ID
+					,FRT_REGI_DH
+					,FNL_MDF_DH
+				)
+		SELECT	#RVW_PRPS_YE#
+				,#RVW_PRPS_SLN#
+				,PRPS_PEN_CNB
+				,SMT_DT
+				,(	SELECT	TO_CHAR(NVL(MAX(TO_NUMBER(PRPS_ACP_NO))+1,1)) AS PRPS_ACP_NO
+					FROM	TBCSPGSU001M 
+					WHERE	PRPS_YE = #RVW_PRPS_YE#
+				)
+				,TO_CHAR(SYSDATE,'YYYYMMDD')
+				,PRPS_TIT_NM
+				,CUR_SYE_TXT
+				,PRB_TXT
+				,IMP_ATV_TXT
+				,IMP_EFCT_TXT
+				,'C'
+				,F_USR_INFO(PRPS_PEN_CNB,'1')
+				,F_USR_INFO(PRPS_PEN_CNB,'1')
+				,F_USR_INFO(PRPS_PEN_CNB,'5')
+				,#FNL_MNU_ID#
+				,SYSDATE
+				,SYSDATE
+		FROM	TBCSPGSU001M
+		WHERE	PRPS_YE = #PRPS_YE#
+		AND		PRPS_SLN = #PRPS_SLN#
+	</insert>
+	
+	<insert id="CSPGSU005ERvwSubInsert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO	TBCSPGSU002L
+					(	PRPS_YE
+						,PRPS_SLN
+						,PRPS_PEN_CNB
+						,SNO
+						,CTB_RTE
+						,FRT_USR_ID
+						,FNL_USR_ID
+						,FNL_DEAL_DPT_CD
+						,FNL_MNU_ID
+						,FRT_REGI_DH
+						,FNL_MDF_DH
+					)
+			SELECT	#RVW_PRPS_YE#
+					,#RVW_PRPS_SLN#
+					,PRPS_PEN_CNB
+					,SNO
+					,CTB_RTE
+					,F_USR_INFO(PRPS_PEN_CNB,'1')
+					,F_USR_INFO(PRPS_PEN_CNB,'1')
+					,F_USR_INFO(PRPS_PEN_CNB,'5')
+					,#FNL_MNU_ID#
+					,SYSDATE
+					,SYSDATE
+			FROM	TBCSPGSU002L
+			WHERE	PRPS_YE = #PRPS_YE#
+			AND		PRPS_SLN = #PRPS_SLN#
+		]]>
+	</insert>
+	
+	<insert id="CSPGSU005ERvwFileInsert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO TBCSPGSU004M
+					(
+						PRPS_YE				/*제안연도*/
+						,PRPS_SLN			/*제안연번*/
+						,PRPS_ATT_FL_DVSN_CD	/*제안천부파일구분코드*/
+						,DOC_ID				/*첨부파일문서ID*/
+						,DOC_TYP_CD			/*문서유형코드*/
+						,FRT_USR_ID			/*최초사용자ID*/
+						,FNL_USR_ID			/*최종사용자ID*/
+						,FNL_DEAL_DPT_CD	/*최종거래부서코드*/
+						,FNL_MNU_ID			/*최종메뉴ID*/
+						,FRT_REGI_DH		/*최초등록일시*/
+						,FNL_MDF_DH			/*최종수정일시*/
+					)
+				VALUES	(
+							#RVW_PRPS_YE#			/*제안연도*/
+							,#RVW_PRPS_SLN#			/*제안연번*/
+							,'1'				/*제안천부파일구분코드*/
+							,#RVW_DOC_ID#			/*첨부파일문서ID*/
+							,''					/*문서유형코드*/
+							,F_USR_INFO(#S_CNB#,'1')		/*최초사용자ID*/
+							,#FNL_USR_ID#		/*최종사용자ID*/
+							,#FNL_DEAL_DPT_CD#	/*최종거래부서코드*/
+							,#FNL_MNU_ID#		/*최종메뉴ID*/
+							,SYSDATE			/*최초등록일시*/
+							,SYSDATE			/*최종수정일시*/
+						)
+		]]>
+	</insert>
+	
+	<update id="CSPGSU005ETrnfMainUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPGSU001M
+			SET		PRPS_STA_CD = 'P'
+					,FNL_USR_ID = #FNL_USR_ID#	/*최종사용자ID*/
+					,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#	/*최종부서*/
+					,FNL_MNU_ID = #FNL_MNU_ID#		/*최종메뉴*/
+					,FNL_MDF_DH = SYSDATE		
+			WHERE	PRPS_YE = #PRPS_YE#
+		    AND 	PRPS_SLN = #PRPS_SLN#
+		]]>
+	</update>
+	
+	
+	<!-- <insert id="CSPGSU005EIIT002TrnfMainInsert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO	TBCSPIIT002M
+					(	COPUT_BRD_DVSN_CD
+					    ,MTRL_RQS_SNO
+						,MTRL_RQS_DVSN_CD
+						,RQS_DT
+						,RQR_CNB
+						,RQS_TIT_NM
+						,RQS_TXT
+						,OPEN_YN
+						,PRPS_YE
+						,PRPS_SLN
+						,FRT_USR_ID
+						,FNL_USR_ID
+						,FNL_DEAL_DPT_CD
+						,FNL_MNU_ID
+						,FRT_REGI_DH
+						,FNL_MDF_DH
+						,RQS_DPT_CD
+						,DGE1_MNU_DVSN_CD
+						,WORK_YE
+						,WORK_SNO
+					)
+			SELECT	'01'
+			        ,#MTRL_RQS_SNO#
+					,'07'
+					,TO_CHAR(SYSDATE,'YYYYMMDD')
+					,PRPS_PEN_CNB
+					,PRPS_TIT_NM
+					,'제안에서 이송된 자료입니다. 제목을 클릭하면 상세내역을 조회하실 수 있습니다.'
+					,'N'
+					,PRPS_YE
+					,PRPS_SLN
+					,F_USR_INFO(PRPS_PEN_CNB,'1')
+					,F_USR_INFO(PRPS_PEN_CNB,'1')
+					,F_USR_INFO(PRPS_PEN_CNB,'5')
+					,#FNL_MNU_ID#
+					,SYSDATE
+					,SYSDATE
+					,F_USR_INFO(PRPS_PEN_CNB,'5')
+					,'99'
+					,#WORK_YE#
+					,#WORK_SNO#
+			FROM	TBCSPGSU001M
+			WHERE	PRPS_YE = #PRPS_YE#
+		    AND 	PRPS_SLN = #PRPS_SLN#
+		]]>
+	</insert> -->
+	
+	<insert id="CSPGSU005EIIT002TrnfMainInsert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO	TBCSPIIT100M
+					(	CSR_BRD_DVSN_CD 
+					    ,CSR_MTRL_RQS_SNO 
+					    ,CSR_MNG_DVSN_CD 
+					    ,CSR_MNG_TSK_DVSN_CD 
+						,CSR_RQS_DVSN_CD 
+						,CSR_RQS_YR
+						,CSR_RQS_DT
+						,CSR_RQR_CNB
+						,CSR_RQS_TIT
+						,CSR_RQS_TXT
+						,CSR_RQS_OPEN_YN
+						,CSR_PRPS_YR
+						,CSR_PRPS_SLN
+						,CSR_RQS_DPT_CD
+						,CSR_REL_TSK_DVSN_CD
+						,CSR_HNDL_YR
+						,CSR_HNDL_WRK_SNO
+						,CSR_PRSS_STA_CD
+						,CSR_STSFDG_OPRTN_YN
+						,FRT_USR_ID
+						,FNL_USR_ID
+						,FNL_DEAL_DPT_CD
+						,FNL_MNU_ID
+						,FRT_REGI_DH
+						,FNL_MDF_DH
+					)
+			SELECT	'01'
+			        ,#MTRL_RQS_SNO#
+			        ,'01' 
+					,'0101' 
+					,'0101'
+					,TO_CHAR(SYSDATE,'YYYY')
+					,TO_CHAR(SYSDATE,'YYYYMMDD')
+					,PRPS_PEN_CNB
+					,'[제안이송]'||PRPS_TIT_NM
+					,'제안에서 이송된 자료입니다. 제목을 클릭하면 상세내역을 조회하실 수 있습니다.'
+					,'N'
+					,PRPS_YE
+					,PRPS_SLN
+					,F_USR_INFO(PRPS_PEN_CNB,'5')
+					,'99'
+					,TO_CHAR(SYSDATE,'YYYY')
+					,(SELECT TO_CHAR(NVL(MAX(TO_NUMBER(CSR_HNDL_WRK_SNO)),0)+1) 
+					    FROM TBCSPIIT100M 
+					   WHERE CSR_HNDL_YR = TO_CHAR(SYSDATE,'YYYY'))
+					,'02'
+					,'N'
+					,F_USR_INFO(PRPS_PEN_CNB,'1')
+					,F_USR_INFO(PRPS_PEN_CNB,'1')
+					,F_USR_INFO(PRPS_PEN_CNB,'5')
+					,#FNL_MNU_ID#
+					,SYSDATE
+					,SYSDATE
+			FROM	TBCSPGSU001M
+			WHERE	PRPS_YE = #PRPS_YE#
+		    AND 	PRPS_SLN = #PRPS_SLN#
+		]]>
+	</insert>
+	
+	<insert id="CSPGSU005EIIT002TrnfFileInsert" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBCSPIIT009M
+        	(       COPUT_BRD_DVSN_CD,
+        			MTRL_RQS_SNO,			/*자료요청순번*/
+        			MTRL_RQS_ATT_FL_DVSN_CD,		/*자료요청첨부파일구분코드*/
+        			DOC_ID,			
+        			FRT_USR_ID,
+        			FNL_USR_ID,
+        			FNL_DEAL_DPT_CD,
+        			FNL_MNU_ID,
+        			FRT_REGI_DH,
+        			FNL_MDF_DH
+        	) VALUES (
+        	        '01',
+	        		#MTRL_RQS_SNO#,
+	        		'3',
+	        		#TRNF_DOC_ID#,
+	        		F_USR_INFO(#S_CNB#,'1'),
+	        		#FNL_USR_ID#,
+	        		#FNL_DEAL_DPT_CD#,
+	        		#FNL_MNU_ID#,
+	        		SYSDATE,
+	        		SYSDATE
+        	)
+        ]]>
+	</insert>
+	
+	<select id="CSPGSU001EexamCancleCheckSelect" parameterClass="paramMap"
+		resultClass="Integer">
+		<![CDATA[
+			SELECT	COUNT(*)	/*진행상태*/
+			FROM	TBCSPGSU001M
+			WHERE	PRPS_YE = #PRPS_YE#
+			AND		PRPS_SLN = #PRPS_SLN#
+			AND		PRPS_STA_CD IN ('G','H')
+		]]>
+	</select>
+	
+	<insert id="CSPGSU005EMsg206Insert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO
+			TBDCMACM026L
+			(
+			  MSG_SNO
+			, TSK_CAT_CD
+			, FUNC_CAT_CD
+			, SEND_ID
+	        , MSG_TP_YN
+	  
+	        , MSG_TXT_2
+	        , RCNT_CNT
+	        , RCNT_HIS
+	        , MSG_REGI_DH
+	
+			, FRT_USR_ID
+			, FNL_USR_ID
+			, FNL_DEAL_DPT_CD
+			, FNL_MNU_ID
+			, FRT_REGI_DH
+			,
+			FNL_MDF_DH
+	
+			)
+			VALUES
+			(
+			  (SELECT NVL(MAX(MSG_SNO),0)+1 FROM TBDCMACM026L)
+			, 'SP'
+			, 'SU'
+			, #FNL_USR_ID#
+	        , '0'
+	     
+	        , #RET_TXT#
+	        , 1
+	        , (SELECT PRPS_PEN_CNB FROM TBCSPGSU001M WHERE PRPS_YE = #PRPS_YE# AND PRPS_SLN = #PRPS_SLN#)
+	        , SYSDATE
+	        
+	        
+			, #FNL_USR_ID#
+			, #FNL_USR_ID#
+			, #FNL_DEAL_DPT_CD#
+			, #FNL_MNU_ID#
+			, SYSDATE
+			, SYSDATE
+	
+			);
+			
+		]]>
+	</insert>
+	
+	
+	<update id="CSPGSU005EExamDocIdUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPGSU004M
+			SET		DOC_ID =  #EXAM_DOC_ID#		/*진행상태*/					
+					,FNL_USR_ID = #FNL_USR_ID#	/*최종사용자ID*/
+					,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#	/*최종부서*/
+					,FNL_MNU_ID = #FNL_MNU_ID#		/*최종메뉴*/
+					,FNL_MDF_DH = SYSDATE			/*최종수정일시*/					
+			WHERE	PRPS_YE = #PRPS_YE#
+			AND		PRPS_SLN = #PRPS_SLN#
+			AND 	PRPS_ATT_FL_DVSN_CD = '2'
+		]]>
+	</update>
+	
+	
+	<update id="CSPGSU005EMainUpdate" parameterClass="paramMap">
+		UPDATE	TBCSPGSU001M
+		SET		PRPS_TIT_NM = #PRPS_TIT_NM#			/*제안제목명*/
+				,CUR_SYE_TXT = #CUR_SYE_TXT#		/*현행제도내용*/
+				,PRB_TXT = #PRB_TXT#				/*문제점내용*/
+				,IMP_ATV_TXT = #IMP_ATV_TXT#		/*개선대안내용*/
+				,IMP_EFCT_TXT = #IMP_EFCT_TXT#		/*개선효과내용*/
+				,FNL_USR_ID = #FNL_USR_ID#
+				,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+				,FNL_MNU_ID = #FNL_MNU_ID#
+				,FNL_MDF_DH = SYSDATE
+				,PRPS_PEN_CNB = #PRPS_PEN_CNB#
+		WHERE	PRPS_YE = #PRPS_YE#
+		AND		PRPS_SLN = #PRPS_SLN#
+	</update>
+	
+</sqlMap> 

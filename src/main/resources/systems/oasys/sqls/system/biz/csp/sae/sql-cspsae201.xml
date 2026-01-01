@@ -1,0 +1,2765 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/sae/201">
+
+	<resultMap class="java.util.HashMap" id="hwpDocMap">
+		<result property="YR" column="YR" jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="CRS_CD" column="CRS_CD" jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="CRS_CDN" column="CRS_CDN" jdbcType="NUMBER" javaType="java.lang.String"/>
+		<result property="TXT" column="TXT" jdbcType="CLOB" javaType="java.lang.String"/>
+	</resultMap>
+
+	<!-- 수료처리탭 목록조회 -->
+	<select id="CSPSAE201ETaneList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT D.YR
+			     , B.EDU_CAT_NM
+			     , C.CRS_NM
+			     , D.CRS_CD
+			     , D.CRS_CDN
+			     , D.SNO
+			     , D.TANE_ID
+			     , D.BTDT
+			     , D.NAM
+			     , (SELECT ORG_NM FROM TBDCMACM015M WHERE ORG_CD = D.ORG_CD) AS ORG_NM
+			     , D.DPT_NM
+			     , D.RANK_NM
+			     , D.OW_RM_TNB
+			     , D.HPN
+			     , D.EML_AD
+			     , D.FIN_YN
+			     , D.UN_FIN_RSN
+			     , CASE WHEN D.ORG_CD IS NULL THEN 'N'
+			         ELSE 'Y'
+			         END AS WRITE_YN
+			     , D.FIN_TIME	 	/*수료시간*/ 
+			     , D.EVAL_RESULT 	/*평가결과*/
+			  FROM TBCSPSAE102C B
+			     , TBCSPSAE103C C
+			     , TBCSPSAE301D D
+			WHERE 1=1
+			  AND C.EDU_DVSN_CD = B.EDU_DVSN_CD
+			  AND C.EDU_CAT_CD  = B.EDU_CAT_CD
+			  AND D.CRS_CD		= C.CRS_CD
+			  AND D.YR			= #strYR_CD#
+			  AND D.CRS_CD		= #strEDU_CRS_CD#
+			  AND D.CRS_CDN		= #strCRS_CDN#
+		 ORDER BY D.SNO, D.TANE_ID
+        ]]>
+	</select>
+	
+	<select id="CSPSAE201ETaneListForSendH" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			WITH DATA AS (
+			  SELECT A.APC_DT
+			       , A.EDU_EXS
+			       , A.DMT_EXS
+			       , A.BRKF_FDEX
+			       , A.LUNCH_FDEX
+			       , A.DINR_FDEX
+			  FROM TBCSPSAE113B A
+			  WHERE A.APC_DT = (SELECT NVL(MAX(B.APC_DT), (SELECT MAX(APC_DT) FROM TBCSPSAE113B WHERE CRS_CD = '000' AND APC_DT < (SELECT EDU_STR_DT FROM TBCSPSAE201D WHERE YR = #strYR_CD# AND CRS_CD = #strEDU_CRS_CD# AND CRS_CDN = #strCRS_CDN#))) AS APC_DT
+								  FROM TBCSPSAE201D A
+								     , TBCSPSAE113B B
+								  WHERE B.APC_DT < A.EDU_STR_DT
+								    AND A.CRS_CD = B.CRS_CD /* 150520  교육과정이 전체가 아니면 그 교육과정에 대한 금액을 들고가도록 변경 */
+								   	AND A.YR			= #strYR_CD#
+						  			AND A.CRS_CD		= #strEDU_CRS_CD#
+								  	AND A.CRS_CDN		= #strCRS_CDN#
+				  				)			
+			  AND A.CRS_CD =  NVL((SELECT A.CRS_CD
+								  FROM TBCSPSAE201D A
+								     , TBCSPSAE113B B
+								  WHERE B.APC_DT < A.EDU_STR_DT
+								    AND A.CRS_CD = B.CRS_CD /* 150520  교육과정이 전체가 아니면 그 교육과정에 대한 금액을 들고가도록 변경 */
+								   	AND A.YR			= #strYR_CD#
+						  			AND A.CRS_CD		= #strEDU_CRS_CD#
+								  	AND A.CRS_CDN		= #strCRS_CDN#
+								  	GROUP BY A.CRS_CD
+				  				),'000')	
+			)
+						SELECT '' AS FLAG		/* 상태값 */
+						     , A.YR				/* 년도 */
+						     , A.CRS_CD			/* 과정코드 */
+						     , A.CRS_CDN		/* 과정기수 */
+						     , A.SNO			/* 교번 */
+						     , A.TANE_ID		/* 교육생ID */
+						     , A.NAM			/* 성명 */
+						     , A.BTDT			/* 생일 */
+						     , SUBSTR(REPLACE(A.HPN, '-', ''), 0, 3) || '-' || SUBSTR(REPLACE(A.HPN, '-', ''), 4, 4) || '-' || SUBSTR(REPLACE(A.HPN, '-', ''), 8, 4) AS HPN
+						     , A.NPL_BLT_NM				/* 기관명 */
+						     , NVL((SELECT EDU_EXS FROM TBCSPSAE113B WHERE CRS_CD = A.CRS_CD AND APC_DT < B.EDU_STR_DT), 
+						           (SELECT EDU_EXS FROM DATA )) AS STD_EDU_EXS			/* 교육비 */
+						     , NVL((SELECT DMT_EXS FROM TBCSPSAE113B WHERE CRS_CD = A.CRS_CD AND APC_DT < B.EDU_STR_DT), 
+						           (SELECT DMT_EXS FROM DATA )) AS STD_DMT_EXS			/* 기숙사비 */ 
+						     , NVL((SELECT BRKF_FDEX FROM TBCSPSAE113B WHERE CRS_CD = A.CRS_CD AND APC_DT < B.EDU_STR_DT), 
+						           (SELECT BRKF_FDEX FROM DATA )) AS STD_BRKF_FDEX		/* 아침식비 */
+						     , NVL((SELECT LUNCH_FDEX FROM TBCSPSAE113B WHERE CRS_CD = A.CRS_CD AND APC_DT < B.EDU_STR_DT), 
+						           (SELECT LUNCH_FDEX FROM DATA )) AS STD_LUNCH_FDEX 	/* 점심식비 */
+						     , NVL((SELECT DINR_FDEX FROM TBCSPSAE113B WHERE CRS_CD = A.CRS_CD AND APC_DT < B.EDU_STR_DT), 
+						           (SELECT DINR_FDEX FROM DATA )) AS STD_DINR_FDEX		/* 저녁식비 */
+						  FROM TBCSPSAE301D A
+						     , TBCSPSAE201D B
+						WHERE 1=1
+						  AND B.YR			= A.YR
+						  AND B.CRS_CD		= A.CRS_CD
+						  AND B.CRS_CDN		= A.CRS_CDN
+						  AND A.YR			= #strYR_CD#
+			  			  AND A.CRS_CD		= #strEDU_CRS_CD#
+			  			  AND A.CRS_CDN		= #strCRS_CDN#
+		 ORDER BY A.YR, A.CRS_CD, A.CRS_CDN, A.NAM
+        ]]>
+	</select>
+
+	<select id="CSPSAE201EFinYnListForSendH" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT A.YR				/* 년도 */
+			     , A.CRS_CD			/* 과정코드 */
+			     , A.CRS_CDN		/* 과정기수 */
+			     , A.TANE_ID		/* 교육생ID */
+			     , A.FIN_YN			/* 수료여부 */
+			     , A.FIN_TIME		/* 수료시간 */
+			  FROM TBCSPSAE301D A
+			WHERE 1=1
+			  AND A.YR			= #strYR_CD#
+  			  AND A.CRS_CD		= #strEDU_CRS_CD#
+  			  AND A.CRS_CDN		= #strCRS_CDN#
+		    ORDER BY A.YR, A.CRS_CD, A.CRS_CDN
+        ]]>
+	</select>
+
+	<select id="CSPSAE201EReportData1" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+        	SELECT A.YR
+        	     , A.CRS_CDN
+        	     , A.CRS_NM
+        	     , A.SNO
+        	     , A.NAM
+        	     , A.ORG_NM
+        	     , A.RANK_NM
+        	     , A.OW_RM_TNB
+        	     , A.HPN
+        	     , A.EML_AD
+        	 FROM (
+					SELECT D.YR
+					     , D.CRS_CDN
+					     , C.CRS_CD
+					     , C.CRS_NM
+					     , D.NAM
+					     , (SELECT ORG_NM FROM TBDCMACM015M WHERE ORG_CD = D.ORG_CD) AS ORG_NM
+					     , D.RANK_NM
+					     , D.OW_RM_TNB
+					     , SUBSTR(D.HPN, 0, 3) || '-' ||SUBSTR(D.HPN, 4, 4) || '-' || SUBSTR(D.HPN, 8, 4)AS HPN
+					     , D.EML_AD
+					     , D.SNO
+					     , D.TANE_ID
+					  FROM TBCSPSAE103C C
+					     , TBCSPSAE301D D
+					WHERE 1=1
+					  AND D.CRS_CD		= C.CRS_CD
+					  AND D.YR			= #strYR_CD#
+					  AND D.CRS_CD		= #strEDU_CRS_CD#
+					  AND D.CRS_CDN		= #strCRS_CDN#
+			     ORDER BY D.SNO
+			     ) A
+			ORDER BY A.SNO, A.TANE_ID
+        ]]>
+	</select>
+
+	<delete id="CSPSAE201EDeleteTane" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE301D
+			 WHERE YR = #YR#
+			   AND CRS_CD = #CRS_CD#
+			   AND CRS_CDN = #CRS_CDN#
+			   AND TANE_ID = #TANE_ID#
+		]]>  
+	</delete>
+	
+	<delete id="CSPSAE201EDeleteTane2" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE401D /* CSPSAE201EDeleteTane2 */
+			 WHERE YR		 	   = #YR#
+			   AND CRS_CD		   = #CRS_CD#
+			   AND CRS_CDN		   = #CRS_CDN#
+			   AND TANE_ID		   = #TANE_ID#
+		]]>  
+	</delete>
+
+	<update id="CSPSAE201ESaveTane" parameterClass="paramMap">
+			UPDATE TBCSPSAE301D	/*CSPSAE201ESaveTane*/
+			   SET  FIN_YN			 = #FIN_YN#
+ 				  , UN_FIN_RSN       = #UN_FIN_RSN#
+			      , FNL_USR_ID 	  	 = #FNL_USR_ID#
+			      , FNL_DEAL_DPT_CD  = #FNL_DEAL_DPT_CD#
+			      , FNL_MNU_ID 		 = #FNL_MNU_ID#
+			      , FNL_MDF_DH 		 = SYSDATE
+			      , FIN_TIME 		 = #FIN_TIME#
+			      , EVAL_RESULT		 = #EVAL_RESULT#
+			 WHERE 1=1
+			   AND YR 		= #YR#
+			   AND CRS_CD 	= #CRS_CD#
+			   AND CRS_CDN 	= #CRS_CDN#
+			   AND TANE_ID 	= #TANE_ID# 
+	</update>
+
+	<select id="CSPSAE201ECbbSvTitList" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT SV_TIT_NM
+			     , SV_TIT_CD
+			  FROM TBCSPSAE121C
+			 WHERE USE_YN = 'Y'
+		]]>
+	</select>
+	
+	<select id="CSPSAE201ESelectSvDt" parameterClass="paramMap" resultClass="String">
+		<![CDATA[
+			SELECT DECODE(A.SV_DT, NULL, A.EDU_END_DT, A.SV_DT) AS SV_DT
+			  FROM TBCSPSAE201D A
+			 WHERE A.YR = #strYR_CD#
+			   AND A.CRS_CD = #strEDU_CRS_CD#
+			   AND A.CRS_CDN = #strCRS_CDN#
+		]]>
+	</select>
+
+	<select id="CSPSAE201ESelectSvList" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT #strYR_CD# AS YR,
+			       #strEDU_CRS_CD# AS CRS_CD,
+			       #strCRS_CDN# AS CRS_CDN,
+			       B.SV_QEST_NO,
+			       B.SV_TIT_CD,
+			       B.SUB_QEST_NO,
+			       B.SV_QEST_TXT,
+			       B.QEST_DVSN_CD,
+			       B.SV_CLU_NO,
+			       B.SV_CLU_TXT,
+			       NVL((SELECT RP_CNT
+			          FROM TBCSPSAE302D
+			         WHERE YR = A.YR
+			           AND CRS_CD = A.CRS_CD
+			           AND CRS_CDN = A.CRS_CDN
+			           AND SV_QEST_NO = A.SV_QEST_NO
+			           AND SV_CLU_NO = B.SV_CLU_NO), 0) AS RP_CNT,
+			       A.RP_TXT,
+			       A.SV_DT
+			  FROM (
+					 SELECT A.YR,
+					        A.CRS_CD,
+					        A.CRS_CDN,
+					        A.SV_TIT_CD,
+					        A.SV_QEST_NO,
+					        A.SV_CLU_NO,
+					        A.RP_CNT,
+					        A.RP_TXT,
+					        B.SV_DT
+					   FROM TBCSPSAE302D A
+					      , TBCSPSAE201D B
+					  WHERE B.YR = A.YR
+					    AND B.CRS_CD = A.CRS_CD
+					    AND B.CRS_CDN = A.CRS_CDN
+						AND A.YR = #strYR_CD#
+			  			AND A.CRS_CD = #strEDU_CRS_CD#
+			  			AND A.CRS_CDN = #strCRS_CDN#
+			  			AND B.SV_DT = #SV_DT#
+				     ) A
+				   , ( SELECT C.SV_TIT_CD,
+						       C.SUB_QEST_NO,
+						       C.SV_QEST_NO,
+						       C.SV_QEST_TXT,
+						       C.QEST_DVSN_CD,
+						       D.SV_CLU_NO,
+						       D.SV_CLU_TXT
+						  FROM TBCSPSAE122C C
+						     , TBCSPSAE123C D
+						 WHERE D.SV_TIT_CD = C.SV_TIT_CD
+						   AND D.SV_QEST_NO = C.SV_QEST_NO
+						   AND C.SV_TIT_CD = (SELECT MAX(A.SV_TIT_CD) AS SV_TIT_CD
+											   FROM TBCSPSAE302D A
+											      , TBCSPSAE201D B
+											  WHERE B.YR = A.YR
+											    AND B.CRS_CD = A.CRS_CD
+											    AND B.CRS_CDN = A.CRS_CDN
+												AND A.YR = #strYR_CD#
+									  			AND A.CRS_CD = #strEDU_CRS_CD#
+									  			AND A.CRS_CDN = #strCRS_CDN#
+									  			AND B.SV_DT = #SV_DT#)
+				      ) B
+				  WHERE A.SV_TIT_CD(+) = B.SV_TIT_CD
+				    AND A.SV_QEST_NO(+) = B.SV_QEST_NO
+				    AND A.SV_CLU_NO(+) = B.SV_CLU_NO
+				    AND B.SV_CLU_NO IS NOT NULL
+				 ORDER BY B.SV_QEST_NO, B.SV_CLU_NO
+		]]>
+	</select>
+	
+	<select id="CSPSAE201ESvContentInfo" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT #strYR_CD# AS YR
+			     , #strEDU_CRS_CD# AS CRS_CD
+			     , #strCRS_CDN# AS CRS_CDN
+			     , B.SV_QEST_NO
+			     , A.SV_TIT_CD
+			     , B.SUB_QEST_NO
+			     , B.SV_QEST_TXT
+			     , B.QEST_DVSN_CD
+			     , C.SV_CLU_NO
+			     , C.SV_CLU_TXT
+			     , 0 AS RP_CNT
+			  FROM TBCSPSAE121C A
+			     , TBCSPSAE122C B
+			     , TBCSPSAE123C C
+			 WHERE 1=1
+			   AND B.SV_TIT_CD = A.SV_TIT_CD
+			   AND C.SV_TIT_CD = B.SV_TIT_CD
+			   AND C.SV_QEST_NO = B.SV_QEST_NO
+			   AND A.SV_TIT_CD = #strSvTit#
+			 ORDER BY B.SV_QEST_NO, C.SV_CLU_NO
+		]]>
+	</select>
+	
+	<insert id="CSPSAE201EInsertSv" parameterClass="paramMap">
+        <![CDATA[
+ 			INSERT INTO TBCSPSAE302D 
+ 				( 	YR
+				  , CRS_CD
+				  , CRS_CDN
+				  , SV_QEST_NO
+				  , SV_CLU_NO
+				  , SV_TIT_CD
+				  , RP_CNT
+				  , RP_TXT
+ 				  , FRT_USR_ID
+ 				  , FNL_USR_ID
+ 				  , FNL_DEAL_DPT_CD
+ 				  , FNL_MNU_ID
+ 				  , FRT_REGI_DH
+ 				  , FNL_MDF_DH)
+        	VALUES( #YR#
+				  , #CRS_CD#
+				  , #CRS_CDN#
+				  , #SV_QEST_NO#
+				  , #SV_CLU_NO#
+				  , #SV_TIT_CD#
+				  , #RP_CNT#
+				  , #RP_TXT#
+ 				  , #FNL_USR_ID#
+ 				  , #FNL_USR_ID#
+ 				  , #FNL_DEAL_DPT_CD#
+ 				  , #FNL_MNU_ID#
+ 				  , SYSDATE
+ 				  , SYSDATE)
+        ]]>
+	</insert>
+
+	<update id="CSPSAE201EUpdateSv" parameterClass="paramMap">
+			UPDATE TBCSPSAE302D
+			   SET RP_CNT = #RP_CNT#
+ 				 , RP_TXT = #RP_TXT#
+			     , FNL_USR_ID 	  	= #FNL_USR_ID#
+			     , FNL_DEAL_DPT_CD  = #FNL_DEAL_DPT_CD#
+			     , FNL_MNU_ID 		= #FNL_MNU_ID#
+			     , FNL_MDF_DH 		= SYSDATE
+			 WHERE 1=1
+			   AND YR = #YR#
+			   AND CRS_CD = #CRS_CD#
+			   AND CRS_CDN = #CRS_CDN#
+			   AND SV_QEST_NO = #SV_QEST_NO#
+			   AND SV_CLU_NO = #SV_CLU_NO#
+			   AND SV_TIT_CD = #SV_TIT_CD#
+	</update>
+	
+	<delete id="CSPSAE201EDeleteSv" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE302D
+			 WHERE YR = #strYR_CD#
+			   AND CRS_CD = #strEDU_CRS_CD#
+			   AND CRS_CDN = #strCRS_CDN#
+		]]>
+	</delete>
+	
+	<delete id="CSPSAE201EDeleteSv1" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE303D
+			 WHERE YR = #strYR_CD#
+			   AND CRS_CD = #strEDU_CRS_CD#
+			   AND CRS_CDN = #strCRS_CDN#
+		]]>
+	</delete>
+
+	<select id="CSPSAE201ESelectPfsrSv" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT A.YR /* CSPSAE201ESelectPfsrSv */
+			     , A.CRS_CD
+			     , A.CRS_CDN
+			     , A.PFSR_ID
+			     , A.PFSR_DVSN_CD
+			     , A.PFSR_DVSN_NM
+			     , A.NAM
+			     , A.SUBJ_CD
+			     , A.SUBJ_NM
+			     , A.SV_DVSN_CD
+			     , A.SV_DVSN_NM
+			     , B.EDU_STFT_TXT_1
+			     , DECODE(C.TOT_STFT, 0, 0, ROUND(B.EDU_STFT_TXT_1 / C.TOT_STFT  * 100, 0)) AS EDU_STFT_RATIO_1
+			     , B.EDU_STFT_TXT_2
+			     , DECODE(C.TOT_STFT, 0, 0, ROUND(B.EDU_STFT_TXT_2 / C.TOT_STFT  * 100, 0)) AS EDU_STFT_RATIO_2
+			     , B.EDU_STFT_TXT_3
+			     , DECODE(C.TOT_STFT, 0, 0, ROUND(B.EDU_STFT_TXT_3 / C.TOT_STFT  * 100, 0)) AS EDU_STFT_RATIO_3
+			     , B.EDU_STFT_TXT_4
+			     , DECODE(C.TOT_STFT, 0, 0, ROUND(B.EDU_STFT_TXT_4 / C.TOT_STFT  * 100, 0)) AS EDU_STFT_RATIO_4
+			     , B.EDU_STFT_TXT_5
+			     , DECODE(C.TOT_STFT, 0, 0, ROUND(B.EDU_STFT_TXT_5 / C.TOT_STFT  * 100, 0)) AS EDU_STFT_RATIO_5
+			     , D.TOT_SCORE
+			  FROM (SELECT DISTINCT B.YR
+							     , B.CRS_CD
+							     , B.CRS_CDN
+							     , E.PFSR_ID
+							     , E.PFSR_DVSN_CD
+							     , (SELECT CD_NM FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1000312' AND CD = E.PFSR_DVSN_CD) AS PFSR_DVSN_NM
+							     , E.NAM
+							     , B.SUBJ_CD
+							     , D.SUBJ_NM
+							     , C.CD AS SV_DVSN_CD
+							     , (SELECT CD_NM FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1000317' AND CD = C.CD) AS SV_DVSN_NM
+							  FROM TBCSPSAE304D A
+							     , TBCSPSAE101D B
+							     , (SELECT CD FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1000317' AND CD != '000000000') AS C
+							     , TBCSPSAE101M D
+							     , TBCSPSAE109M E
+							 WHERE 1=1
+							   AND B.YR = A.YR(+)
+							   AND B.CRS_CD = A.CRS_CD(+)
+							   AND B.CRS_CDN = A.CRS_CDN(+)
+							   AND D.SUBJ_CD = B.SUBJ_CD
+							   AND E.PFSR_ID = B.PFSR_ID
+							   AND B.YR = #strYR_CD#
+							   AND B.CRS_CD = #strEDU_CRS_CD#
+							   AND B.CRS_CDN =  #strCRS_CDN#
+							   AND D.BSC_OP_SUBJ_YN != 'Y'
+							ORDER BY E.PFSR_DVSN_CD, B.SUBJ_CD, C.CD
+							) A
+				    , TBCSPSAE304D B
+				    , ( SELECT EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5 AS TOT_STFT
+						     , SUBJ_CD
+						     , SV_DVSN_CD
+						  FROM TBCSPSAE304D 
+				         WHERE YR = #strYR_CD#
+				           AND CRS_CD = #strEDU_CRS_CD#
+				           AND CRS_CDN =  #strCRS_CDN#
+				      ) C
+				    , (
+					    SELECT ROUND(SUM((DECODE((EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5),
+					    				0, 0, ROUND(EDU_STFT_TXT_1 / (EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5)  * 100, 0))*1)
+	 								   + (DECODE((EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5),
+	 								    0, 0, ROUND(EDU_STFT_TXT_2 / (EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5)  * 100, 0))*0.8)
+									   + (DECODE((EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5),
+									    0, 0, ROUND(EDU_STFT_TXT_3 / (EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5)  * 100, 0))*0.6)
+									   + (DECODE((EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5),
+									    0, 0, ROUND(EDU_STFT_TXT_4 / (EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5)  * 100, 0))*0.4)
+									   + (DECODE((EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5),
+									    0, 0, ROUND(EDU_STFT_TXT_5 / (EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5)  * 100, 0))*0.2))/3, 0) AS TOT_SCORE
+							  , SUBJ_CD
+				          FROM TBCSPSAE304D
+				         WHERE YR = #strYR_CD#
+				           AND CRS_CD = #strEDU_CRS_CD#
+				           AND CRS_CDN = #strCRS_CDN#
+				        GROUP BY SUBJ_CD
+				      ) D
+			  WHERE 1=1
+			    AND A.YR = B.YR(+)
+			    AND A.CRS_CD = B.CRS_CD(+)
+			    AND A.CRS_CDN = B.CRS_CDN(+)
+			    AND A.SUBJ_CD = B.SUBJ_CD(+)
+			    AND A.SV_DVSN_CD = B.SV_DVSN_CD(+)
+			    AND C.SUBJ_CD(+) = B.SUBJ_CD
+			    AND C.SV_DVSN_CD(+) = B.SV_DVSN_CD
+			    AND D.SUBJ_CD(+) = B.SUBJ_CD
+			  ORDER BY A.PFSR_DVSN_CD, A.CRS_CDN, A.NAM, A.SUBJ_CD, A.SV_DVSN_CD
+		]]>
+	</select>
+
+	<select id="CSPSAE201EExistPfsrSv" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT DECODE(NVL(MAX(YR), 0), 0, 'N', 'Y') AS EXIST_YN
+			  FROM TBCSPSAE304D
+			 WHERE 1=1
+			   AND YR 			= #YR#
+			   AND CRS_CD 		= #CRS_CD#
+			   AND CRS_CDN 		= #CRS_CDN#
+			   AND SUBJ_CD 		= #SUBJ_CD#
+			   AND PFSR_ID 		= #PFSR_ID#
+			   AND SV_DVSN_CD 	= #SV_DVSN_CD#
+        ]]>
+	</select>
+
+	<insert id="CSPSAE201EInsertPfsrSv" parameterClass="paramMap">
+        <![CDATA[
+ 			INSERT INTO TBCSPSAE304D 
+ 				( 	YR
+				  , CRS_CD
+				  , CRS_CDN
+				  , SUBJ_CD
+				  , PFSR_ID
+				  , SV_DVSN_CD
+				  , EDU_STFT_TXT_1
+				  , EDU_STFT_TXT_2
+				  , EDU_STFT_TXT_3
+				  , EDU_STFT_TXT_4
+				  , EDU_STFT_TXT_5
+ 				  , FRT_USR_ID
+ 				  , FNL_USR_ID
+ 				  , FNL_DEAL_DPT_CD
+ 				  , FNL_MNU_ID
+ 				  , FRT_REGI_DH
+ 				  , FNL_MDF_DH)
+        	VALUES( #YR#
+ 				  , #CRS_CD#
+ 				  , #CRS_CDN#
+ 				  , #SUBJ_CD#
+ 				  , #PFSR_ID#
+ 				  , #SV_DVSN_CD#
+ 				  , NVL(#EDU_STFT_TXT_1#, 0)
+ 				  , NVL(#EDU_STFT_TXT_2#, 0)
+ 				  , NVL(#EDU_STFT_TXT_3#, 0)
+ 				  , NVL(#EDU_STFT_TXT_4#, 0)
+ 				  , NVL(#EDU_STFT_TXT_5#, 0)
+ 				  , #FNL_USR_ID#
+ 				  , #FNL_USR_ID#
+ 				  , #FNL_DEAL_DPT_CD#
+ 				  , #FNL_MNU_ID#
+ 				  , SYSDATE
+ 				  , SYSDATE)
+        ]]>
+	</insert>
+
+	<update id="CSPSAE201EUpdatePfsrSv" parameterClass="paramMap">
+			UPDATE TBCSPSAE304D
+			   SET EDU_STFT_TXT_1 = NVL(#EDU_STFT_TXT_1#, 0)
+ 				 , EDU_STFT_TXT_2 = NVL(#EDU_STFT_TXT_2#, 0)
+ 				 , EDU_STFT_TXT_3 = NVL(#EDU_STFT_TXT_3#, 0)
+ 				 , EDU_STFT_TXT_4 = NVL(#EDU_STFT_TXT_4#, 0)
+ 				 , EDU_STFT_TXT_5 = NVL(#EDU_STFT_TXT_5#, 0)
+			     , FNL_USR_ID 	  	= #FNL_USR_ID#
+			     , FNL_DEAL_DPT_CD  = #FNL_DEAL_DPT_CD#
+			     , FNL_MNU_ID 		= #FNL_MNU_ID#
+			     , FNL_MDF_DH 		= SYSDATE
+			 WHERE 1=1
+			   AND YR 		= #YR#
+			   AND CRS_CD 	= #CRS_CD#
+			   AND CRS_CDN 	= #CRS_CDN#
+			   AND SUBJ_CD 	= #SUBJ_CD#
+			   AND PFSR_ID 	= #PFSR_ID#
+			   AND SV_DVSN_CD = #SV_DVSN_CD#
+	</update>
+	
+	<select id="CSPSAE201ESelectPfsrFeeList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+        /* 강사료 조회 */
+			SELECT A.YR				/* 년도 */
+			     , A.CRS_CD			/* 교육과정코드 */
+			     , A.CRS_CDN		/* 기수 */
+			     , D.PFSR_DVSN_CD	/* 강사구분코드 */
+			     , (SELECT CD_NM FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1000312' AND CD = D.PFSR_DVSN_CD) AS PFSR_DVSN_NM	/* 강사구분명 */
+			     , A.SUBJ_CD		/* 과목코드 */
+			     , C.SUBJ_NM		/* 과목명 */
+			     , A.PFSR_ID		/* 강사아이디 */
+			     , D.PFSR_BLT_NM || '-' || D.NAM AS NAM											/* 강사명 */
+			     , MAX(E.ASG_SNO) AS LCT_TIME													/* 강의시간 */
+			     , NVL(B.BSC_PFSR_FEE, (1*F.BSC_PFSR_FEE)) AS BSC_PFSR_FEE						/* 기본강사료 */
+			     , NVL(B.EXCS_PFSR_FEE, (MAX(E.ASG_SNO)-1)*F.EXCS_PFSR_FEE) AS EXCS_PFSR_FEE	/* 초과강사료 */
+			     , NVL(B.BSC_PFSR_FEE, (1*F.BSC_PFSR_FEE))
+			       + NVL(B.EXCS_PFSR_FEE, (MAX(E.ASG_SNO)-1)*F.EXCS_PFSR_FEE) AS AB				/* 강사료(기본+초과) */
+			     , NVL(B.TREP, 0) AS TREP														/* 교통비 */
+			     , NVL(B.BSC_PFSR_FEE, (1*F.BSC_PFSR_FEE))
+			       + NVL(B.EXCS_PFSR_FEE, (MAX(E.ASG_SNO)-1)*F.EXCS_PFSR_FEE)
+			       + NVL(B.TREP, 0) AS ABC														/* 강사료(기본+초과+교통) */
+			     , NVL(B.TAX_RTE, 0) AS TAX_RTE													/* 세율 */
+			     , (NVL(B.BSC_PFSR_FEE, (1*F.BSC_PFSR_FEE))
+			        + NVL(B.EXCS_PFSR_FEE, (MAX(E.ASG_SNO)-1)*F.EXCS_PFSR_FEE)
+			        + NVL(B.TREP, 0)) * NVL(B.TAX_RTE, 0) AS EE									/* 세액(기본+초과+교통)*세율 */
+			     , NVL(B.PMT_AMT, 
+					(NVL(B.BSC_PFSR_FEE, (1*F.BSC_PFSR_FEE))
+			       + NVL(B.EXCS_PFSR_FEE, (MAX(E.ASG_SNO)-1)*F.EXCS_PFSR_FEE)
+			       + NVL(B.TREP, 0))-((NVL(B.BSC_PFSR_FEE, (1*F.BSC_PFSR_FEE))
+			        + NVL(B.EXCS_PFSR_FEE, (MAX(E.ASG_SNO)-1)*F.EXCS_PFSR_FEE)
+			        + NVL(B.TREP, 0)) * NVL(B.TAX_RTE, 0))) AS PMT_AMT							/* 강사료 */
+			     , NVL(B.DEPTS_BNK_NM, D.DEPTS_BNK_NM) AS DEPTS_BNK_NM							/* 은행명 */
+			     , D.EAN
+			     , NVL(B.PMT_YN, 'N') AS PMT_YN													/* 지급여부 */
+			  FROM TBCSPSAE101D A
+			     , TBCSPSAE305D B
+			     , TBCSPSAE101M C
+			     , TBCSPSAE109M D
+			     , TBCSPSAE202D E
+			     , (SELECT PFSR_RK_CD
+					     , BSC_PFSR_FEE
+					     , EXCS_PFSR_FEE
+					     , APC_DT
+					  FROM TBCSPSAE112B) F
+			WHERE 1=1
+			  AND A.YR 			= B.YR(+)
+			  AND A.CRS_CD 		= B.CRS_CD(+)
+			  AND A.CRS_CDN 	= B.CRS_CDN(+)
+			  AND A.SUBJ_CD 	= B.SUBJ_CD(+)
+			  AND A.PFSR_ID 	= B.PFSR_ID(+)
+			  AND C.SUBJ_CD 	= A.SUBJ_CD
+			  AND D.PFSR_ID 	= A.PFSR_ID
+			  AND E.YR 			= A.YR
+			  AND E.CRS_CD		= A.CRS_CD
+			  AND E.CRS_CDN		= A.CRS_CDN
+			  AND E.SUBJ_CD		= A.SUBJ_CD
+			  AND E.PFSR_ID		= A.PFSR_ID
+			  AND F.PFSR_RK_CD  = D.PFSR_RK_CD
+			  AND F.APC_DT = (SELECT MAX(APC_DT) AS APC_DT
+			                    FROM TBCSPSAE112B
+					           WHERE APC_DT <= E.LCT_DT)
+			  AND C.BSC_OP_SUBJ_YN != 'Y'
+			  AND A.YR = #strYR_CD#
+			  AND A.CRS_CD = #strEDU_CRS_CD#
+			  AND A.CRS_CDN = #strCRS_CDN#
+			GROUP BY A.YR, A.CRS_CD, A.CRS_CDN, D.PFSR_DVSN_CD, A.SUBJ_CD, 
+					 C.SUBJ_NM, A.PFSR_ID, D.PFSR_BLT_NM, D.NAM, B.BSC_PFSR_FEE,
+					 B.EXCS_PFSR_FEE, B.TREP, B.TAX_RTE, B.PMT_AMT, B.DEPTS_BNK_NM,
+					 D.DEPTS_BNK_NM, D.EAN, B.PMT_YN, F.PFSR_RK_CD, F.BSC_PFSR_FEE,
+					 A.LCT_TM_HM, A.JON_TM_HM, A.ETC_TM_HM, F.BSC_PFSR_FEE, F.EXCS_PFSR_FEE
+			ORDER BY PFSR_DVSN_CD, SUBJ_CD, NAM
+        ]]>
+	</select>
+	
+	<select id="CSPSAE201EPfsrFeeReport" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT A.YR
+			     , G.CRS_NM
+			     , A.CRS_CDN
+			     , (SELECT CD_NM FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1000312' AND CD = D.PFSR_DVSN_CD) AS PFSR_DVSN_NM
+			     , C.SUBJ_NM
+			     , D.PFSR_BLT_NM || '-' || D.NAM AS NAM
+			     , MAX(E.ASG_SNO) AS LCT_TIME
+			     , NVL(B.BSC_PFSR_FEE, (1*F.BSC_PFSR_FEE)) AS BSC_PFSR_FEE
+			     , NVL(B.EXCS_PFSR_FEE, (MAX(E.ASG_SNO)-1)*F.EXCS_PFSR_FEE) AS EXCS_PFSR_FEE
+			     , NVL(B.BSC_PFSR_FEE, (1*F.BSC_PFSR_FEE))
+			       + NVL(B.EXCS_PFSR_FEE, (MAX(E.ASG_SNO)-1)*F.EXCS_PFSR_FEE) AS AB
+			     , NVL(B.TREP, 0) AS TREP
+			     , NVL(B.BSC_PFSR_FEE, (1*F.BSC_PFSR_FEE))
+			       + NVL(B.EXCS_PFSR_FEE, (MAX(E.ASG_SNO)-1)*F.EXCS_PFSR_FEE)
+			       + NVL(B.TREP, 0) AS ABC
+			     , NVL(B.TAX_RTE, 0) AS TAX_RTE
+			     , (NVL(B.BSC_PFSR_FEE, (1*F.BSC_PFSR_FEE))
+			        + NVL(B.EXCS_PFSR_FEE, (MAX(E.ASG_SNO)-1)*F.EXCS_PFSR_FEE)
+			        + NVL(B.TREP, 0)) * NVL(B.TAX_RTE, 0) AS EE
+			     , NVL(B.PMT_AMT, 
+					(NVL(B.BSC_PFSR_FEE, (1*F.BSC_PFSR_FEE))
+			       + NVL(B.EXCS_PFSR_FEE, (MAX(E.ASG_SNO)-1)*F.EXCS_PFSR_FEE)
+			       + NVL(B.TREP, 0))-((NVL(B.BSC_PFSR_FEE, (1*F.BSC_PFSR_FEE))
+			        + NVL(B.EXCS_PFSR_FEE, (MAX(E.ASG_SNO)-1)*F.EXCS_PFSR_FEE)
+			        + NVL(B.TREP, 0)) * NVL(B.TAX_RTE, 0))) AS PMT_AMT
+			     , NVL(B.DEPTS_BNK_NM, D.DEPTS_BNK_NM || ' ' || D.EAN) AS DEPTS_BNK_NM
+			  FROM TBCSPSAE101D A
+			     , TBCSPSAE305D B
+			     , TBCSPSAE101M C
+			     , TBCSPSAE109M D
+			     , TBCSPSAE202D E
+			     , (SELECT PFSR_RK_CD
+					     , BSC_PFSR_FEE
+					     , EXCS_PFSR_FEE
+					     , APC_DT
+					  FROM TBCSPSAE112B) F
+			    , TBCSPSAE103C G
+			WHERE 1=1
+			  AND A.YR 			= B.YR(+)
+			  AND A.CRS_CD 		= B.CRS_CD(+)
+			  AND A.CRS_CDN 	= B.CRS_CDN(+)
+			  AND A.SUBJ_CD 	= B.SUBJ_CD(+)
+			  AND A.PFSR_ID 	= B.PFSR_ID(+)
+			  AND C.SUBJ_CD 	= A.SUBJ_CD
+			  AND D.PFSR_ID 	= A.PFSR_ID
+			  AND E.YR 			= A.YR
+			  AND E.CRS_CD		= A.CRS_CD
+			  AND E.CRS_CDN		= A.CRS_CDN
+			  AND E.SUBJ_CD		= A.SUBJ_CD
+			  AND E.PFSR_ID		= A.PFSR_ID
+			  AND F.PFSR_RK_CD  = D.PFSR_RK_CD
+			  AND G.CRS_CD		= A.CRS_CD
+			  AND F.APC_DT = (SELECT MAX(APC_DT) AS APC_DT
+			                    FROM TBCSPSAE112B
+					           WHERE APC_DT <= E.LCT_DT)
+			  AND C.BSC_OP_SUBJ_YN != 'Y'
+			  AND A.YR = #strYR_CD#
+			  AND A.CRS_CD = #strEDU_CRS_CD#
+			  AND A.CRS_CDN = #strCRS_CDN#
+			  AND B.PMT_YN = 'Y'
+			GROUP BY A.YR, G.CRS_NM, A.CRS_CDN, D.PFSR_DVSN_CD,
+					 C.SUBJ_NM, D.PFSR_BLT_NM, D.NAM, B.BSC_PFSR_FEE,
+					 B.EXCS_PFSR_FEE, B.TREP, B.TAX_RTE, B.PMT_AMT, B.DEPTS_BNK_NM,
+					 D.DEPTS_BNK_NM, D.EAN, B.PMT_YN, F.PFSR_RK_CD, F.BSC_PFSR_FEE,
+					 A.LCT_TM_HM, A.JON_TM_HM, A.ETC_TM_HM, F.BSC_PFSR_FEE, F.EXCS_PFSR_FEE
+			ORDER BY PFSR_DVSN_CD, NAM
+        ]]>
+	</select>
+
+	<select id="CSPSAE201EExistPfsrFee" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT DECODE(NVL(MAX(YR), 0), 0, 'N', 'Y') AS EXIST_YN
+			  FROM TBCSPSAE305D
+			 WHERE YR = #YR#
+			   AND CRS_CD = #CRS_CD#
+			   AND CRS_CDN = #CRS_CDN#
+			   AND SUBJ_CD = #SUBJ_CD#
+        ]]>
+	</select>
+
+	<insert id="CSPSAE201EInsertPfsrFee" parameterClass="paramMap">
+        <![CDATA[
+ 			INSERT INTO TBCSPSAE305D 
+ 				( 	YR
+				  , CRS_CD
+				  , CRS_CDN
+				  , SUBJ_CD
+				  , PFSR_ID
+				  , BSC_PFSR_FEE
+				  , EXCS_PFSR_FEE
+				  , TREP
+				  , TAX_RTE
+				  , PMT_AMT
+				  , DEPTS_BNK_NM
+				  , PMT_YN
+ 				  , FRT_USR_ID
+ 				  , FNL_USR_ID
+ 				  , FNL_DEAL_DPT_CD
+ 				  , FNL_MNU_ID
+ 				  , FRT_REGI_DH
+ 				  , FNL_MDF_DH)
+        	VALUES( #YR#
+ 				  , #CRS_CD#
+ 				  , #CRS_CDN#
+ 				  , #SUBJ_CD#
+ 				  , #PFSR_ID#
+				  , #BSC_PFSR_FEE#
+				  , #EXCS_PFSR_FEE#
+				  , #TREP#
+				  , #TAX_RTE#
+				  , #PMT_AMT#
+				  , #DEPTS_BNK_NM#
+				  , #PMT_YN#
+ 				  , #FNL_USR_ID#
+ 				  , #FNL_USR_ID#
+ 				  , #FNL_DEAL_DPT_CD#
+ 				  , #FNL_MNU_ID#
+ 				  , SYSDATE
+ 				  , SYSDATE)
+        ]]>
+	</insert>
+
+	<update id="CSPSAE201EUpdatePfsrFee" parameterClass="paramMap">
+			UPDATE TBCSPSAE305D
+			   SET BSC_PFSR_FEE		= #BSC_PFSR_FEE#
+				 , EXCS_PFSR_FEE	= #EXCS_PFSR_FEE#
+				 , TREP				= #TREP#
+				 , TAX_RTE			= #TAX_RTE#
+				 , PMT_AMT			= #PMT_AMT#
+				 , DEPTS_BNK_NM		= #DEPTS_BNK_NM#
+				 , PMT_YN			= #PMT_YN#
+			     , FNL_USR_ID 	  	= #FNL_USR_ID#
+			     , FNL_DEAL_DPT_CD  = #FNL_DEAL_DPT_CD#
+			     , FNL_MNU_ID 		= #FNL_MNU_ID#
+			     , FNL_MDF_DH 		= SYSDATE
+			 WHERE YR = #YR#
+			   AND CRS_CD = #CRS_CD#
+			   AND CRS_CDN = #CRS_CDN#
+			   AND SUBJ_CD = #SUBJ_CD#
+	</update>
+
+	<delete id="CSPSAE201EDeletePfsrFee" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE305D
+			 WHERE YR = #YR#
+			   AND CRS_CD = #CRS_CD#
+			   AND CRS_CDN = #CRS_CDN#
+			   AND SUBJ_CD = #SUBJ_CD#
+		]]>  
+	</delete>
+
+	<select id="CSPSAE202PSelectInitInfo" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT E.YR
+			     , A.EDU_DVSN_NM
+			     , B.EDU_CAT_NM
+			     , C.CRS_NM
+			     , C.CRS_CD
+			     , SUBSTR(E.EDU_STR_DT, 0, 4) || '.' || SUBSTR(E.EDU_STR_DT, 5, 2) || '.' || SUBSTR(E.EDU_STR_DT, 7, 2) || ' ~ ' || SUBSTR(E.EDU_END_DT, 0, 4) || '.' || SUBSTR(E.EDU_END_DT, 5, 2) || '.' || SUBSTR(E.EDU_END_DT, 7, 2) AS EDU_DATE
+			     , E.CRS_CDN
+			     , 1 AS SEX_CD
+			     , 'N' AS DMT_UE_YN
+			     , 'N' AS SNDY_LODG_YN
+			     , 'N' AS BUS_UE_YN
+			     , '00' AS WRK_PRD_TXT1
+			     , '00' AS WRK_PRD_TXT2
+			  FROM TBCSPSAE101C A
+			     , TBCSPSAE102C B
+			     , TBCSPSAE103C C
+			     , TBCSPSAE201D E
+			WHERE 1=1
+			  AND B.EDU_DVSN_CD = A.EDU_DVSN_CD
+			  AND C.EDU_DVSN_CD = B.EDU_DVSN_CD
+			  AND C.EDU_CAT_CD  = B.EDU_CAT_CD
+			  AND E.CRS_CD		= C.CRS_CD
+			  AND E.YR			= #strYR#
+			  AND E.CRS_CD		= #strEDU_CRS_CD#
+			  AND E.CRS_CDN		= #strCRS_CDN#
+        ]]>
+	</select>
+	
+	<select id="CSPSAE202PSelectMain" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT D.YR
+			     , A.EDU_DVSN_NM
+			     , B.EDU_CAT_NM
+			     , C.CRS_NM
+			     , D.CRS_CD
+			     , D.CRS_CDN
+			     , D.NAM
+			     , D.TANE_ID
+			     , D.BTDT
+			     , D.SEX_CD
+			     , SUBSTR(E.EDU_STR_DT, 0, 4) || '.' || SUBSTR(E.EDU_STR_DT, 5, 2) || '.' || SUBSTR(E.EDU_STR_DT, 7, 2) || ' ~ ' || SUBSTR (E.EDU_END_DT, 0, 4) || '.' || SUBSTR(E.EDU_END_DT, 5, 2) || '.' || SUBSTR(E.EDU_END_DT, 7, 2) AS EDU_DATE
+			     , D.NPL_BLT_NM
+			     , D.ORG_DVSN_CD
+			     , D.ORG_CD
+			     , (SELECT ORG_NM FROM TBDCMACM015M WHERE ORG_CD = D.ORG_CD) AS ORG_NM
+			     , D.DPT_NM
+			     , D.PST_NM
+			     , D.RANK_NM
+			     , SUBSTR(D.WRK_PRD_TXT, 0, 2) AS WRK_PRD_TXT1
+			     , SUBSTR(D.WRK_PRD_TXT, 3, 2) AS WRK_PRD_TXT2
+			     , D.EML_AD
+			     , D.OW_RM_TNB
+			     , TRIM(REPLACE(D.HPN, '-')) AS HPN
+			     , D.DMT_UE_YN
+			     , D.SNDY_LODG_YN
+			     , D.BUS_UE_YN
+			     , D.RMK_SBJ AS RMK
+			  FROM TBCSPSAE101C A
+			     , TBCSPSAE102C B
+			     , TBCSPSAE103C C
+			     , TBCSPSAE301D D
+			     , TBCSPSAE201D E
+			WHERE 1=1
+			  AND B.EDU_DVSN_CD = A.EDU_DVSN_CD
+			  AND C.EDU_DVSN_CD = B.EDU_DVSN_CD
+			  AND C.EDU_CAT_CD  = B.EDU_CAT_CD
+			  AND D.CRS_CD		= C.CRS_CD
+			  AND E.YR			= D.YR
+			  AND E.CRS_CD		= D.CRS_CD
+			  AND E.CRS_CDN		= D.CRS_CDN
+			  AND D.YR			= #strYR#
+			  AND D.CRS_CD		= #strEDU_CRS_CD#
+			  AND D.CRS_CDN		= #strCRS_CDN#
+			  AND D.TANE_ID		= #strTANE_ID#
+        ]]>
+	</select>
+
+	<select id="CSPSAE202PSelectMaxTaneId" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT LPAD(NVL(MAX(TANE_ID), 0)+1, 13, '0') AS TANE_ID FROM TBCSPSAE301D
+			WHERE YR = #YR#
+			  AND CRS_CD = #CRS_CD#
+			  AND CRS_CDN = #CRS_CDN#
+			  AND TANE_ID LIKE '0%'
+        ]]>
+	</select>
+
+	<update id="CSPSAE202PUpdateMain" parameterClass="paramMap">
+			UPDATE TBCSPSAE301D
+			   SET  BTDT             = #BTDT#
+ 				  , NAM              = #NAM#
+ 				  , SEX_CD           = #SEX_CD#
+ 				  , ORG_DVSN_CD      = #ORG_DVSN_CD#
+ 				  , ORG_CD           = #ORG_CD#
+ 				  , DPT_NM           = #DPT_NM#
+ 				  , PST_NM           = #PST_NM#
+ 				  , RANK_NM          = #RANK_NM#
+ 				  , OW_RM_TNB        = #OW_RM_TNB#
+ 				  , HPN              = #HPN#
+ 				  , EML_AD           = #EML_AD#
+ 				  , WRK_PRD_TXT      = #WRK_PRD_TXT1# || #WRK_PRD_TXT2#
+ 				  , DMT_UE_YN        = #DMT_UE_YN#
+ 				  , SNDY_LODG_YN     = #SNDY_LODG_YN#
+ 				  , BUS_UE_YN        = #BUS_UE_YN#
+ 				  , NPL_BLT_NM       = #NPL_BLT_NM#
+ 				  , RMK_SBJ          = #RMK#
+			      , FNL_USR_ID 	  	 = #FNL_USR_ID#
+			      , FNL_DEAL_DPT_CD  = #FNL_DEAL_DPT_CD#
+			      , FNL_MNU_ID 		 = #FNL_MNU_ID#
+			      , FNL_MDF_DH 		 = SYSDATE
+			 WHERE 1=1
+			   AND YR 		= #YR#
+			   AND CRS_CD 	= #CRS_CD#
+			   AND CRS_CDN 	= #CRS_CDN#
+			   AND TANE_ID 	= #TANE_ID# 
+	</update>
+	
+	<select id="CSPSAE202PSelectCak" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT A.YR /* CSPSAE202PSelectCak */
+				 , A.CRS_CD
+				 , A.CRS_NM
+				 , A.CRS_CDN
+				 , A.TANE_ID
+				 , A.NAM
+				 , DECODE(A.EDU_EXS, 0, 'N' , 'Y') AS CHK
+				 , A.DMT_EXS
+				 , A.FDEX
+			FROM (
+				SELECT A.YR
+				     , A.CRS_CD
+				     , D.CRS_NM
+				     , A.CRS_CDN
+				     , A.TANE_ID
+				     , A.NAM
+				     , A.EDU_EXS
+				     , NVL( (SELECT Z.DMT_EXS 
+				                                       FROM TBCSPSAE113B Z
+				                                      WHERE Z.CRS_CD = A.CRS_CD
+	 			                                        AND APC_DT = (SELECT MAX(APC_DT)
+	 			                                                        FROM TBCSPSAE113B X
+	 			                                                       WHERE X.CRS_CD = Z.CRS_CD
+	 			                                                       AND X.APC_DT < F.EDU_STR_DT)
+	 			                                     )* (DECODE(A.DMT_UE_YN, 'Y', F.EDU_DAY-1, 0) + DECODE(A.SNDY_LODG_YN, 'Y', 1, 0)),
+	 			                                    (SELECT Y.DMT_EXS 
+				                                       FROM TBCSPSAE113B Y
+				                                      WHERE Y.CRS_CD = '000'
+	 			                                        AND APC_DT = (SELECT MAX(APC_DT)
+	 			                                                        FROM TBCSPSAE113B X
+	 			                                                       WHERE X.CRS_CD = '000'
+	 			                                                       AND X.APC_DT < F.EDU_STR_DT)
+	 			                                       )* (DECODE(A.DMT_UE_YN, 'Y', F.EDU_DAY-1, 0) + DECODE(A.SNDY_LODG_YN, 'Y', 1, 0))
+	 			       ) AS DMT_EXS /*기숙사비*/
+					  , NVL( (SELECT DECODE(A.DMT_UE_YN, 'Y', Z.BRKF_FDEX*(F.EDU_DAY-1) + Z.LUNCH_FDEX*(F.EDU_DAY) +Z.DINR_FDEX*(F.EDU_DAY-1)
+				                                                                    , Z.LUNCH_FDEX*(F.EDU_DAY)) /* 20250312 감사교육 금요일 점심식비 추가에 따른 수정_천은정감사관 */
+				                                       FROM TBCSPSAE113B Z
+				                                      WHERE Z.CRS_CD = A.CRS_CD
+	 			                                        AND APC_DT = (SELECT MAX(APC_DT)
+	 			                                                        FROM TBCSPSAE113B X
+	 			                                                       WHERE X.CRS_CD = Z.CRS_CD
+	 			                                                       AND X.APC_DT < F.EDU_STR_DT)
+	 			                                     ), (SELECT DECODE(A.DMT_UE_YN, 'Y', Y.BRKF_FDEX*(F.EDU_DAY-1) + Y.LUNCH_FDEX*(F.EDU_DAY) +Y.DINR_FDEX*(F.EDU_DAY-1)
+	 			                                                                       , Y.LUNCH_FDEX*(F.EDU_DAY)) /* 20250312 감사교육 금요일 점심식비 추가에 따른 수정_천은정감사관 */
+				                                       FROM TBCSPSAE113B Y
+				                                      WHERE Y.CRS_CD = '000'
+	 			                                        AND APC_DT = (SELECT MAX(APC_DT)
+	 			                                                        FROM TBCSPSAE113B X
+	 			                                                       WHERE X.CRS_CD = '000'
+	 			                                                       AND X.APC_DT < F.EDU_STR_DT)
+	 			                                       )) AS FDEX /*식비*/
+				  FROM TBCSPSAE301D A
+				  	 , TBCSPSAE101C B
+				  	 , TBCSPSAE102C C
+				     , TBCSPSAE103C D
+				     , TBDCMACM015M E
+				     , (SELECT TO_DATE(A.EDU_END_DT, 'YYYYMMDD')+1 - TO_DATE(A.EDU_STR_DT, 'YYYYMMDD') AS EDU_DAY
+	                         , CEIL((TO_DATE(A.EDU_END_DT, 'YYYYMMDD') - NEXT_DAY(TO_DATE(A.EDU_STR_DT, 'YYYYMMDD') -1, '6') +1)/7) AS FRIDY_DCN /* 20240613 교육과정 점심식비에 금요일 미포함 계산식 조정으로 추가 */
+	                         , A.YR
+	                         , A.CRS_CD
+	                         , A.CRS_CDN
+	                         , A.EDU_STR_DT
+	                         , A.EDU_END_DT
+	                         , B.EAN
+			             FROM TBCSPSAE201D A
+			                , TBCSPSAE201M B
+			             WHERE A.YR = B.YR
+			             AND A.CRS_CD = B.CRS_CD) F
+				 WHERE B.EDU_DVSN_CD = D.EDU_DVSN_CD
+				   AND B.EDU_DVSN_CD = C.EDU_DVSN_CD
+				   AND C.EDU_CAT_CD = D.EDU_CAT_CD
+				   AND D.CRS_CD = A.CRS_CD
+				   AND E.ORG_CD(+) = A.ORG_CD
+				   AND F.YR	= A.YR
+				   AND F.CRS_CD = A.CRS_CD
+				   AND F.CRS_CDN = A.CRS_CDN
+				   AND A.ORG_CD IS NOT NULL
+				   AND A.YR = #YR#
+				   AND A.CRS_CD = #CRS_CD#
+				   AND A.CRS_CDN = #CRS_CDN#
+				   AND A.TANE_ID = #TANE_ID# 
+			) A
+		ORDER BY A.YR, A.CRS_CD, A.CRS_CDN, A.TANE_ID
+        ]]>
+	</select>
+	
+	<update id="CSPSAE202PUpdateExs" parameterClass="paramMap">
+			UPDATE TBCSPSAE301D
+			   SET  DMT_EXS           = #DMT_EXS#
+ 				  , FDEX              = #FDEX#
+			 WHERE YR = #YR#
+			   AND CRS_CD = #CRS_CD#
+			   AND CRS_CDN = #CRS_CDN#
+			   AND TANE_ID = #TANE_ID# 
+	</update>
+
+	<update id="CSPSAE202PUpdateFromHpData" parameterClass="paramMap">
+			UPDATE TBCSPSAE301D
+			   SET  BTDT             = #BTDT#
+ 				  , NAM              = #NAM#
+ 				  , ORG_CD           = #ORG_CD#
+ 				  , SEX_CD           = #SEX_CD#
+ 				  , DPT_NM           = #DPT_NM#
+ 				  , PST_NM           = #PST_NM#
+ 				  , RANK_NM          = #RANK_NM#
+ 				  , HPN              = #HPN#
+ 				  , WRK_PRD_TXT      = #WRK_PRD_TXT#
+ 				  , DMT_UE_YN        = #DMT_UE_YN#
+ 				  , SNDY_LODG_YN     = #SNDY_LODG_YN#
+ 				  , RMK_SBJ          = #RMK_SBJ#
+			      , FNL_USR_ID 	  	 = #FNL_USR_ID#
+			      , FNL_DEAL_DPT_CD  = #FNL_DEAL_DPT_CD#
+			      , FNL_MNU_ID 		 = #FNL_MNU_ID#
+			      , FNL_MDF_DH 		 = SYSDATE
+			 WHERE 1=1
+			   AND YR 		= #YR#
+			   AND CRS_CD 	= #CRS_CD#
+			   AND CRS_CDN 	= #CRS_CDN#
+			   AND TANE_ID 	= #TANE_ID# 
+	</update>
+	
+	<insert id="CSPSAE202PInsertMain" parameterClass="paramMap">
+        <![CDATA[
+ 			INSERT INTO TBCSPSAE301D 
+ 				( 	YR
+ 				  , CRS_CD
+ 				  , CRS_CDN
+ 				  , TANE_ID
+ 				  , SNO
+ 				  , BTDT
+ 				  , NAM
+ 				  , SEX_CD
+ 				  , ORG_DVSN_CD
+ 				  , ORG_CD
+ 				  , DPT_NM
+ 				  , PST_NM
+ 				  , RANK_NM
+ 				  , OW_RM_TNB
+ 				  , HPN
+ 				  , EML_AD
+ 				  , WRK_PRD_TXT
+ 				  , DMT_UE_YN
+ 				  , SNDY_LODG_YN
+ 				  , BUS_UE_YN
+ 				  , FIN_YN
+ 				  , NPL_BLT_NM
+ 				  , RMK_SBJ
+ 				  , PD_YN
+ 				  , FRT_USR_ID
+ 				  , FNL_USR_ID
+ 				  , FNL_DEAL_DPT_CD
+ 				  , FNL_MNU_ID
+ 				  , FRT_REGI_DH
+ 				  , FNL_MDF_DH)
+        	VALUES( #YR#
+ 				  , #CRS_CD#
+ 				  , #CRS_CDN#
+ 				  , #TANE_ID#
+ 				  , (SELECT NVL(MAX(SNO)+1, 1) FROM TBCSPSAE301D WHERE YR = #YR# AND CRS_CD = #CRS_CD# AND CRS_CDN = #CRS_CDN#)
+ 				  , #BTDT#
+ 				  , #NAM#
+ 				  , #SEX_CD#
+ 				  , #ORG_DVSN_CD#
+ 				  , #ORG_CD#
+ 				  , #DPT_NM#
+ 				  , #PST_NM#
+ 				  , #RANK_NM#
+ 				  , #OW_RM_TNB#
+ 				  , #HPN#
+ 				  , #EML_AD#
+ 				  , #WRK_PRD_TXT1# || #WRK_PRD_TXT2#
+ 				  , #DMT_UE_YN#
+ 				  , #SNDY_LODG_YN#
+ 				  , #BUS_UE_YN#
+ 				  , 'N'
+ 				  , #NPL_BLT_NM#
+ 				  , #RMK#
+ 				  , 'N'
+ 				  , #FRT_USR_ID#
+ 				  , #FNL_USR_ID#
+ 				  , #FNL_DEAL_DPT_CD#
+ 				  , #FNL_MNU_ID#
+ 				  , SYSDATE
+ 				  , SYSDATE)
+        ]]>
+	</insert>
+
+	<select id="CSPSAE203PSelectTitle" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT A.CRS_NM
+			  FROM TBCSPSAE103C A
+			 WHERE A.CRS_CD = #strEDU_CRS_CD#
+        ]]>
+	</select>
+	
+	<select id="CSPSAE203PSelectContent" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT EDU_DATE
+			     , TG_NOP_CNT
+			     , SV_DATE
+			     , TG_NOP_CNT || ' 중 ' || MAX(RP_CNT)||'명' AS SV_INFO
+			  FROM (
+					SELECT SUBSTR(B.EDU_STR_DT, 0, 4) || '.' || SUBSTR(B.EDU_STR_DT, 5, 2) || '.' || SUBSTR(B.EDU_STR_DT, 7, 2) || '(' || SUBSTRING(UPPER(TO_CHAR(TO_DATE(B.EDU_STR_DT), 'DAY', 'NLS_DATE_LANGUAGE=KOREAN')), 0, 1) || ')'
+					|| ' ~ ' || SUBSTR(B.EDU_END_DT, 0, 4) || '.' || SUBSTR(B.EDU_END_DT, 5, 2) || '.' || SUBSTR(B.EDU_END_DT, 7, 2) || '(' || SUBSTRING(UPPER(TO_CHAR(TO_DATE(B.EDU_END_DT), 'DAY', 'NLS_DATE_LANGUAGE=KOREAN')), 0, 1) || ')' AS EDU_DATE
+					     , A.EDU_TG_TXT || ' ' || A.ONTM_NOP_CNT || '명' AS TG_NOP_CNT
+					     , SUBSTR(B.SV_DT, 0, 4) || '.' || SUBSTR(B.SV_DT, 5, 2) || '.' || SUBSTR(B.SV_DT, 7, 2) || '(' || SUBSTRING(UPPER(TO_CHAR(TO_DATE(B.SV_DT), 'DAY', 'NLS_DATE_LANGUAGE=KOREAN')), 0, 1) || ')' AS SV_DATE
+					     , C.RP_CNT
+					  FROM TBCSPSAE201M A
+					     , TBCSPSAE201D B
+					     , (SELECT SUM(RP_CNT) AS RP_CNT
+					             , YR
+					             , CRS_CD
+					             , CRS_CDN
+					             , SV_QEST_NO
+					          FROM TBCSPSAE302D 
+					         WHERE YR = #strYR_CD#
+  							   AND CRS_CD = #strEDU_CRS_CD#
+							   AND CRS_CDN = #strCRS_CDN#
+							GROUP BY YR, CRS_CD, CRS_CDN, SV_QEST_NO) C
+					WHERE B.YR = A.YR
+					  AND B.CRS_CD = A.CRS_CD
+					  AND C.YR = B.YR
+					  AND C.CRS_CD = B.CRS_CD
+					  AND C.CRS_CDN = B.CRS_CDN
+					  AND A.YR = #strYR_CD#
+					  AND A.CRS_CD = #strEDU_CRS_CD#
+					  AND B.CRS_CDN = #strCRS_CDN#
+					)
+				GROUP BY EDU_DATE, TG_NOP_CNT, SV_DATE
+        ]]>
+	</select>
+	
+	<select id="CSPSAE203PSelectSvList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+	        SELECT B.SV_QEST_NO
+				 , '(' || B.SV_QEST_NO || ') ' || B.SV_QEST_TXT AS SV_QEST_TXT
+			     , B.SV_TIT_CD
+			     , B.SUB_QEST_NO
+			     , B.QEST_DVSN_CD
+			     , B.SV_CLU_NO
+			     , B.SV_CLU_TXT
+			     , NVL((SELECT RP_CNT
+			          FROM TBCSPSAE302D
+			         WHERE YR = A.YR
+			           AND CRS_CD = A.CRS_CD
+			           AND CRS_CDN = A.CRS_CDN
+			           AND SV_QEST_NO = A.SV_QEST_NO
+			           AND SV_CLU_NO = B.SV_CLU_NO), 0) AS RP_CNT
+			     , A.RP_TXT
+			     , A.SV_DT
+			  FROM (
+					 SELECT A.YR,
+					        A.CRS_CD,
+					        A.CRS_CDN,
+					        A.SV_TIT_CD,
+					        A.SV_QEST_NO,
+					        A.SV_CLU_NO,
+					        A.RP_CNT,
+					        A.RP_TXT,
+					        B.SV_DT
+					   FROM TBCSPSAE302D A
+					      , TBCSPSAE201D B
+					  WHERE B.YR = A.YR
+					    AND B.CRS_CD = A.CRS_CD
+					    AND B.CRS_CDN = A.CRS_CDN
+						AND A.YR = #strYR_CD#
+						AND A.CRS_CD = #strEDU_CRS_CD#
+						AND A.CRS_CDN = #strCRS_CDN#
+				     ) A
+				   , ( SELECT C.SV_TIT_CD,
+						       C.SUB_QEST_NO,
+						       C.SV_QEST_NO,
+						       C.SV_QEST_TXT,
+						       C.QEST_DVSN_CD,
+						       D.SV_CLU_NO,
+						       D.SV_CLU_TXT
+						  FROM TBCSPSAE122C C
+						     , TBCSPSAE123C D
+						 WHERE D.SV_TIT_CD = C.SV_TIT_CD
+						   AND D.SV_QEST_NO = C.SV_QEST_NO
+						   AND C.SV_TIT_CD = (SELECT MAX(A.SV_TIT_CD) AS SV_TIT_CD
+											   FROM TBCSPSAE302D A
+											      , TBCSPSAE201D B
+											  WHERE B.YR = A.YR
+											    AND B.CRS_CD = A.CRS_CD
+											    AND B.CRS_CDN = A.CRS_CDN
+												AND A.YR = #strYR_CD#
+												AND A.CRS_CD = #strEDU_CRS_CD#
+												AND A.CRS_CDN = #strCRS_CDN#)
+				      ) B
+				  WHERE A.SV_TIT_CD(+) = B.SV_TIT_CD
+				    AND A.SV_QEST_NO(+) = B.SV_QEST_NO
+				    AND A.SV_CLU_NO(+) = B.SV_CLU_NO
+				    AND B.SV_CLU_NO IS NOT NULL
+			   ORDER BY B.SV_QEST_NO, B.SV_CLU_NO
+        ]]>
+	</select>
+	
+	<select id="CSPSAE203PSelectPfsrSvList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT A.SUBJ_NM || '[' || A.NAM || ']' AS SUBJ_NM
+			     , A.SV_DVSN_NM
+			     , NVL(DECODE(C.TOT_STFT, 0, 0, ROUND(B.EDU_STFT_TXT_1 / C.TOT_STFT  * 100, 0)), 0) AS EDU_STFT_RATIO_1
+			     , NVL(DECODE(C.TOT_STFT, 0, 0, ROUND(B.EDU_STFT_TXT_2 / C.TOT_STFT  * 100, 0)), 0) AS EDU_STFT_RATIO_2
+			     , NVL(DECODE(C.TOT_STFT, 0, 0, ROUND(B.EDU_STFT_TXT_3 / C.TOT_STFT  * 100, 0)), 0) AS EDU_STFT_RATIO_3
+			     , NVL(DECODE(C.TOT_STFT, 0, 0, ROUND(B.EDU_STFT_TXT_4 / C.TOT_STFT  * 100, 0)), 0) AS EDU_STFT_RATIO_4
+			     , NVL(DECODE(C.TOT_STFT, 0, 0, ROUND(B.EDU_STFT_TXT_5 / C.TOT_STFT  * 100, 0)), 0) AS EDU_STFT_RATIO_5
+			     , NVL(D.TOT_SCORE, 0) AS TOT_SCORE
+			  FROM (SELECT DISTINCT B.YR
+							     , B.CRS_CD
+							     , B.CRS_CDN
+							     , E.PFSR_ID
+							     , E.PFSR_DVSN_CD
+							     , (SELECT CD_NM FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1000312' AND CD = E.PFSR_DVSN_CD) AS PFSR_DVSN_NM
+							     , E.NAM
+							     , B.SUBJ_CD
+							     , D.SUBJ_NM
+							     , C.CD AS SV_DVSN_CD
+							     , (SELECT CD_NM FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1000317' AND CD = C.CD) AS SV_DVSN_NM
+							  FROM TBCSPSAE304D A
+							     , TBCSPSAE101D B
+							     , (SELECT CD FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1000317' ) AS C
+							     , TBCSPSAE101M D
+							     , TBCSPSAE109M E
+							 WHERE 1=1
+							   AND B.YR = A.YR(+)
+							   AND B.CRS_CD = A.CRS_CD(+)
+							   AND B.CRS_CDN = A.CRS_CDN(+)
+							   AND D.SUBJ_CD = B.SUBJ_CD
+							   AND E.PFSR_ID = B.PFSR_ID
+							   AND B.YR = #strYR_CD#
+							   AND B.CRS_CD = #strEDU_CRS_CD#
+							   AND B.CRS_CDN = #strCRS_CDN#
+							   AND D.BSC_OP_SUBJ_YN != 'Y'
+							ORDER BY E.PFSR_DVSN_CD, B.SUBJ_CD, C.CD
+							) A
+				    , TBCSPSAE304D B
+				    , ( SELECT EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5 AS TOT_STFT
+						     , SUBJ_CD
+						     , SV_DVSN_CD
+						  FROM TBCSPSAE304D 
+				         WHERE YR = #strYR_CD#
+				           AND CRS_CD = #strEDU_CRS_CD#
+				           AND CRS_CDN = #strCRS_CDN#
+				      ) C
+				    , (
+					    SELECT ROUND(SUM((DECODE((EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5),
+					    				0, 0, ROUND(EDU_STFT_TXT_1 / (EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5)  * 100, 0))*1)
+	 								   + (DECODE((EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5),
+	 								    0, 0, ROUND(EDU_STFT_TXT_2 / (EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5)  * 100, 0))*0.8)
+									   + (DECODE((EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5),
+									    0, 0, ROUND(EDU_STFT_TXT_3 / (EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5)  * 100, 0))*0.6)
+									   + (DECODE((EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5),
+									    0, 0, ROUND(EDU_STFT_TXT_4 / (EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5)  * 100, 0))*0.4)
+									   + (DECODE((EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5),
+									    0, 0, ROUND(EDU_STFT_TXT_5 / (EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5)  * 100, 0))*0.2))/3, 0) AS TOT_SCORE
+							  , SUBJ_CD
+				          FROM TBCSPSAE304D 
+				         WHERE YR = #strYR_CD#
+				           AND CRS_CD = #strEDU_CRS_CD#
+				           AND CRS_CDN = #strCRS_CDN#
+				        GROUP BY SUBJ_CD
+				      ) D
+			  WHERE 1=1
+			    AND A.YR = B.YR(+)
+			    AND A.CRS_CD = B.CRS_CD(+)
+			    AND A.CRS_CDN = B.CRS_CDN(+)
+			    AND A.SUBJ_CD = B.SUBJ_CD(+)
+			    AND A.SV_DVSN_CD = B.SV_DVSN_CD(+)
+			    AND C.SUBJ_CD(+) = B.SUBJ_CD
+			    AND C.SV_DVSN_CD(+) = B.SV_DVSN_CD
+			    AND D.SUBJ_CD(+) = B.SUBJ_CD    
+        ]]>
+	</select>
+
+	<select id="CSPSAE203PSelectMainSvList" parameterClass="paramMap" resultMap="hwpDocMap">
+        <![CDATA[
+			SELECT YR
+			     , CRS_CD
+			     , CRS_CDN
+			     , TXT
+			  FROM TBCSPSAE303D 
+			 WHERE YR = #strYR_CD#
+			   AND CRS_CD = #strEDU_CRS_CD#
+			   AND CRS_CDN = #strCRS_CDN#
+        ]]>
+	</select>
+	
+	<select id="CSPSAE203PExistYn" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT DECODE(NVL(MAX(CRS_CDN), 0), 0, 'N', 'Y') AS EXIST_YN
+			  FROM TBCSPSAE303D 
+			 WHERE YR = #strYR_CD#
+			   AND CRS_CD = #strEDU_CRS_CD#
+			   AND CRS_CDN = #strCRS_CDN#
+        ]]>
+	</select>
+	
+	<insert id="CSPSAE203PInsertMain" parameterClass="paramMap">
+        <![CDATA[
+ 			INSERT INTO TBCSPSAE303D 
+ 				( 	YR
+ 				  , CRS_CD
+ 				  , CRS_CDN
+ 				  , TXT
+ 				  , FRT_USR_ID
+ 				  , FNL_USR_ID
+ 				  , FNL_DEAL_DPT_CD
+ 				  , FNL_MNU_ID
+ 				  , FRT_REGI_DH
+ 				  , FNL_MDF_DH)
+        	VALUES( #strYR_CD#
+ 				  , #strEDU_CRS_CD#
+ 				  , #strCRS_CDN#
+ 				  , #hwp#
+ 				  , #FRT_USR_ID#
+ 				  , #FNL_USR_ID#
+ 				  , #FNL_DEAL_DPT_CD#
+ 				  , #FNL_MNU_ID#
+ 				  , SYSDATE
+ 				  , SYSDATE)
+        ]]>
+	</insert>
+
+	<update id="CSPSAE203PUpdateMain" parameterClass="paramMap">
+        <![CDATA[
+			UPDATE TBCSPSAE303D
+		       SET TXT 				= #hwp#
+		         , FNL_USR_ID 	  	= #FNL_USR_ID#
+			     , FNL_DEAL_DPT_CD  = #FNL_DEAL_DPT_CD#
+			     , FNL_MNU_ID 		= #FNL_MNU_ID#
+			     , FNL_MDF_DH 		= SYSDATE
+			 WHERE 1=1
+			   AND YR 		= #strYR_CD#
+			   AND CRS_CD 	= #strEDU_CRS_CD#
+			   AND CRS_CDN 	= #strCRS_CDN#
+        ]]>
+	</update>
+
+	<select id="CSPSAE204EMainList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT A.PFSR_DVSN_CD
+			    , (SELECT CD_NM FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1000312' AND CD = A.PFSR_DVSN_CD) AS PFSR_DVSN_NM
+			    , A.NAM
+			    , A.PFSR_BLT_NM
+			    , A.PFSR_RANK_NM
+			    , A.PFSR_TNB
+			    , A.PFSR_EML_AD
+			    , A.VLD_DVSN_CD
+			    , (SELECT CD_NM FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1000313' AND CD = A.VLD_DVSN_CD) AS VLD_DVSN_NM
+			    , A.PFSR_ID
+			  FROM TBCSPSAE109M A
+			 WHERE 1=1
+        ]]>
+        <dynamic>
+	        <isNotEmpty property="strPFSR_DVSN_CD">
+	        	AND A.PFSR_DVSN_CD = #strPFSR_DVSN_CD#
+	       	</isNotEmpty>
+	        <isNotEmpty property="strNAM">
+	        	AND A.NAM LIKE '%' || #strNAM# || '%'
+	       	</isNotEmpty>
+	        <isNotEmpty property="strVLD_DVSN_CD">
+	        	AND A.VLD_DVSN_CD = #strVLD_DVSN_CD#
+	       	</isNotEmpty>
+        </dynamic>
+        ORDER BY A.PFSR_DVSN_CD, A.NAM, A.PFSR_BLT_NM, A.PFSR_RANK_NM
+	</select>
+	
+	<select id="CSPSAE204EExistPfsr" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT DECODE(TO_CHAR(SUM(CNT)), '0', '0', (SELECT NAM FROM TBCSPSAE109M WHERE PFSR_ID = #PFSR_ID#)) AS EXIST_NM
+			  FROM (
+			        SELECT COUNT(*) AS CNT
+					  FROM TBCSPSAE304D
+					 WHERE PFSR_ID = #PFSR_ID#
+					UNION
+					SELECT COUNT(*) AS CNT
+					  FROM TBCSPSAE305D
+					 WHERE PFSR_ID = #PFSR_ID#
+					UNION
+					SELECT COUNT(*) AS CNT
+					  FROM TBCSPSAE101L
+					 WHERE PFSR_ID = #PFSR_ID#
+					)	 
+        ]]>
+	</select>
+
+	<delete id="CSPSAE204EDeleteMain" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE109M
+			 WHERE PFSR_ID = #PFSR_ID#
+		]]>  
+	</delete>
+	<delete id="CSPSAE204EDeleteBook" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE109D
+			 WHERE PFSR_ID = #PFSR_ID#
+		]]>  
+	</delete>
+	<delete id="CSPSAE204EDeleteSchl" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE111D
+			 WHERE PFSR_ID = #PFSR_ID#
+		]]>  
+	</delete>
+	<delete id="CSPSAE204EDeleteCarr" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE110D
+			 WHERE PFSR_ID = #PFSR_ID#
+		]]>  
+	</delete>
+
+	<select id="CSPSAE205PnameChk" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT COUNT(*) 
+			  FROM TBCSPSAE109M
+			 WHERE NAM = #NAM#
+        ]]>
+	</select>
+
+	<select id="CSPSAE205PSelectPfsrId" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT NVL(MAX(PFSR_ID), 0)+1 
+			  FROM TBCSPSAE109M
+        ]]>
+	</select>
+	
+	<!-- 강사 기본사항 조회 -->
+	<select id="CSPSAE205PMainList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT D1.PFSR_ID
+			     , D1.NAM
+			     , D1.CNB
+			     , D1.PFSR_DVSN_CD
+			     , D1.PFSR_RK_CD
+			     , D1.PFSR_SPH_CD
+			     , D1.PFSR_BLT_NM
+			     , D1.PFSR_RANK_NM
+			     , D1.PFSR_AD
+			     , D1.PFSR_EML_AD
+			     , D1.PFSR_TNB
+			     , D1.DEPTS_BNK_NM
+			     , D1.EAN
+			     , D1.VLD_DVSN_CD
+			     , D1.DOC_ID
+			     , (SELECT FILE_NAME 
+			          FROM ECM_FILE_LIST_VIEW2 D2        
+			         WHERE D1.DOC_ID = D2.DOC_ID) AS IMG_FILE_NAME
+			 FROM TBCSPSAE109M D1
+			WHERE D1.PFSR_ID = #strPFSR_ID#
+        ]]>
+	</select>
+
+	<select id="CSPSAE205PBookList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT PFSR_ID
+			     , BOOK_NM
+			     , SRNO
+			  FROM TBCSPSAE109D
+			 WHERE PFSR_ID = #strPFSR_ID#
+			 ORDER BY SRNO
+        ]]>
+	</select>
+	
+	<!-- 강사정보_학력상세 조회 -->	
+	<select id="CSPSAE205PSchlList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT PFSR_ID
+			     , NTV_SCHL_TXT
+			     , MJR_TXT
+			     , DEG_TXT
+			     , SRNO
+			  FROM TBCSPSAE111D
+			 WHERE PFSR_ID = #strPFSR_ID#
+			ORDER BY SRNO
+        ]]>
+	</select>
+
+	<!-- 강사정보_경력상세 조회 -->	
+	<select id="CSPSAE205PCrrList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+   			SELECT PFSR_ID
+			     , BAJ_DVSN_CD
+			     , CRR_TXT
+			     , SRNO
+			  FROM TBCSPSAE110D
+			 WHERE PFSR_ID = #strPFSR_ID#
+			ORDER BY SRNO 
+        ]]>
+	</select>
+
+	<delete id="CSPSAE205PDeleteMain" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE109M
+			 WHERE PFSR_ID = #PFSR_ID#
+		]]>  
+	</delete>
+	
+	<delete id="CSPSAE205PDeleteBook" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE109D
+			 WHERE PFSR_ID = #PFSR_ID#
+		]]>  
+	</delete>	
+	
+	<!-- 강사정보_학력상세 삭제 -->
+	<delete id="CSPSAE205PDeleteSchl" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE111D
+			 WHERE PFSR_ID = #PFSR_ID#
+		]]>  
+	</delete>	
+	
+	<!-- 강사정보_경력상세 삭제 -->	
+	<delete id="CSPSAE205PDeleteCrr" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE110D
+			 WHERE PFSR_ID = #PFSR_ID#
+		]]>  
+	</delete>	
+	
+	<delete id="CSPSAE205PDeleteBookInfo" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE109D
+			 WHERE PFSR_ID = #PFSR_ID#
+			   AND SRNO = #SRNO#
+		]]>  
+	</delete>	
+	
+	<delete id="CSPSAE205PDeleteSchlInfo" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE111D
+			 WHERE PFSR_ID = #PFSR_ID#
+			   AND SRNO = #SRNO#
+		]]>  
+	</delete>	
+	
+	<delete id="CSPSAE205PDeleteCrrInfo" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE110D
+			 WHERE PFSR_ID = #PFSR_ID#
+			   AND SRNO = #SRNO#
+		]]>  
+	</delete>	
+	
+	<!-- 강사 기본사항 저장 -->
+	<insert id="CSPSAE205PInsertMain" parameterClass="paramMap">
+        <![CDATA[
+			INSERT INTO TBCSPSAE109M
+			(
+				  PFSR_ID
+				, NAM
+				, PFSR_DVSN_CD
+				, PFSR_RK_CD
+				, PFSR_SPH_CD
+				, PFSR_BLT_NM
+				, PFSR_RANK_NM
+				, PFSR_AD
+				, PFSR_EML_AD
+				, PFSR_TNB
+				, DEPTS_BNK_NM
+				, EAN
+				, VLD_DVSN_CD
+				, FRT_USR_ID
+				, FNL_USR_ID
+				, FNL_DEAL_DPT_CD
+				, FNL_MNU_ID
+				, FRT_REGI_DH
+				, FNL_MDF_DH
+				, CNB 				/*전산번호*/	
+				, DOC_ID			
+			) VALUES (
+				  #PFSR_ID#
+				, #NAM#
+				, #PFSR_DVSN_CD#
+				, #PFSR_RK_CD#
+				, #PFSR_SPH_CD#
+				, #PFSR_BLT_NM#
+				, #PFSR_RANK_NM#
+				, #PFSR_AD#
+				, #PFSR_EML_AD#
+				, #PFSR_TNB#
+				, #DEPTS_BNK_NM#
+				, #EAN#
+				, #VLD_DVSN_CD#
+				, #FRT_USR_ID#
+				, #FNL_USR_ID#
+				, #FNL_DEAL_DPT_CD#
+				, #FNL_MNU_ID#
+				, SYSDATE
+				, SYSDATE			
+				, #CNB#
+				, #DOC_ID#
+			)
+        ]]>
+	</insert>
+
+	<!-- 강사 기본사항 수정 -->
+	<update id="CSPSAE205PUpdateMain" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPSAE109M
+				SET	  NAM             = #NAM#              
+					, PFSR_DVSN_CD    = #PFSR_DVSN_CD#     
+					, PFSR_RK_CD      = #PFSR_RK_CD#       
+					, PFSR_SPH_CD     = #PFSR_SPH_CD#      
+					, PFSR_BLT_NM     = #PFSR_BLT_NM#      
+					, PFSR_RANK_NM    = #PFSR_RANK_NM#     
+					, PFSR_AD         = #PFSR_AD#          
+					, PFSR_EML_AD     = #PFSR_EML_AD#      
+					, PFSR_TNB        = #PFSR_TNB#         
+					, DEPTS_BNK_NM    = #DEPTS_BNK_NM#     
+					, EAN   		  = #EAN#    
+					, VLD_DVSN_CD     = #VLD_DVSN_CD#      
+					, FNL_USR_ID      = #FNL_USR_ID#       
+					, FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#  
+					, FNL_MNU_ID      = #FNL_MNU_ID#       
+					, FNL_MDF_DH      = SYSDATE
+					, DOC_ID          = #DOC_ID#
+					, CNB             = #CNB#  
+			WHERE	PFSR_ID = #PFSR_ID#
+		]]>
+	</update>
+	
+	<!-- 강사 저서 저장 -->
+	<insert id="CSPSAE205PInsertBook" parameterClass="paramMap">
+        <![CDATA[
+			INSERT INTO TBCSPSAE109D
+			(
+					  PFSR_ID
+					, SRNO
+					, BOOK_NM
+					, FRT_USR_ID
+					, FNL_USR_ID
+					, FNL_DEAL_DPT_CD
+					, FNL_MNU_ID
+					, FRT_REGI_DH
+					, FNL_MDF_DH
+			) 
+			VALUES
+			(
+				    #PFSR_ID#
+				  , (SELECT NVL(MAX(SRNO), 0) + 1 
+				       FROM TBCSPSAE109D 
+				      WHERE PFSR_ID = #PFSR_ID#)
+				  , #BOOK_NM#
+				  , #FRT_USR_ID#
+				  , #FNL_USR_ID#
+				  , #FNL_DEAL_DPT_CD#
+				  , #FNL_MNU_ID#
+				  , SYSDATE
+				  , SYSDATE
+			)
+        ]]>
+	</insert>
+
+	<!-- 강사 저서 수정 -->
+	<update id="CSPSAE205PUpdateBook" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE TBCSPSAE109D
+			   SET BOOK_NM         = #BOOK_NM#,
+			       FNL_USR_ID      = #FNL_USR_ID#,
+			       FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#,
+			       FNL_MNU_ID      = #FNL_MNU_ID#,
+			       FNL_MDF_DH      = SYSDATE
+			 WHERE 1=1
+			   AND PFSR_ID         = #PFSR_ID#
+			   AND SRNO            = #SRNO#
+		]]>
+	</update>
+
+	<!-- 강사 학력 저장 -->
+	<insert id="CSPSAE205PInsertSchl" parameterClass="paramMap">
+        <![CDATA[
+			INSERT INTO TBCSPSAE111D
+			(
+					  PFSR_ID
+					, SRNO
+					, NTV_SCHL_TXT
+					, MJR_TXT
+					, DEG_TXT
+					, FRT_USR_ID
+					, FNL_USR_ID
+					, FNL_DEAL_DPT_CD
+					, FNL_MNU_ID
+					, FRT_REGI_DH
+					, FNL_MDF_DH
+			) VALUES (
+				    #PFSR_ID#
+				  , (SELECT NVL(MAX(SRNO), 0) + 1 FROM TBCSPSAE111D WHERE PFSR_ID = #PFSR_ID#)
+				  , #NTV_SCHL_TXT#
+				  , #MJR_TXT#
+				  , #DEG_TXT#
+				  , #FRT_USR_ID#
+				  , #FNL_USR_ID#
+				  , #FNL_DEAL_DPT_CD#
+				  , #FNL_MNU_ID#
+				  , SYSDATE
+				  , SYSDATE
+			)
+        ]]>
+	</insert>
+
+	<!-- 강사 학력 수정 -->
+	<update id="CSPSAE205PUpdateSchl" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPSAE111D
+			SET		NTV_SCHL_TXT    = #BOOK_NM#,
+					MJR_TXT			= #MJR_TXT#,
+					DEG_TXT			= #DEG_TXT#,
+					FNL_USR_ID      = #FNL_USR_ID#,
+					FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#,
+					FNL_MNU_ID      = #FNL_MNU_ID#,
+					FNL_MDF_DH      = SYSDATE
+			WHERE	PFSR_ID         = #PFSR_ID#
+			  AND   SRNO            = #SRNO#
+		]]>
+	</update>
+	
+	<!-- 강사 경력 저장 -->
+	<insert id="CSPSAE205PInsertCrr" parameterClass="paramMap">
+        <![CDATA[
+			INSERT INTO TBCSPSAE110D
+			(
+					  PFSR_ID
+					, SRNO
+					, BAJ_DVSN_CD
+					, CRR_TXT
+					, FRT_USR_ID
+					, FNL_USR_ID
+					, FNL_DEAL_DPT_CD
+					, FNL_MNU_ID
+					, FRT_REGI_DH
+					, FNL_MDF_DH
+			) VALUES (
+				    #PFSR_ID#
+				  , (SELECT NVL(MAX(SRNO), 0) + 1 FROM TBCSPSAE110D WHERE PFSR_ID = #PFSR_ID#)
+				  , #BAJ_DVSN_CD#
+				  , #CRR_TXT#
+				  , #FRT_USR_ID#
+				  , #FNL_USR_ID#
+				  , #FNL_DEAL_DPT_CD#
+				  , #FNL_MNU_ID#
+				  , SYSDATE
+				  , SYSDATE
+			)
+        ]]>
+	</insert>
+	
+	<!-- 강사 경력 수정 -->
+	<update id="CSPSAE205PUpdateCrr" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPSAE110D
+			SET		BAJ_DVSN_CD     = #BAJ_DVSN_CD#,
+					CRR_TXT    		= #CRR_TXT#,
+					FNL_USR_ID      = #FNL_USR_ID#,
+					FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#,
+					FNL_MNU_ID      = #FNL_MNU_ID#,
+					FNL_MDF_DH      = SYSDATE
+			WHERE	PFSR_ID         = #PFSR_ID#
+			  AND   SRNO            = #SRNO#
+		]]>
+	</update>
+
+	<select id="CSPSAE206QMainList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT B.NAM
+			     , C.EDU_DVSN_NM
+			     , D.EDU_CAT_NM
+			     , E.CRS_NM
+			     , A.CRS_CDN
+				 , SUBSTR(F.EDU_STR_DT, 0, 4)||'.'||SUBSTR(F.EDU_STR_DT, 5, 2)||'.'||SUBSTR(F.EDU_STR_DT, 7, 2)||' ~ '||SUBSTR(F.EDU_END_DT, 0,4)||'.'||SUBSTR(F.EDU_END_DT, 5,2)||'.'||SUBSTR(F.EDU_END_DT, 7,2) AS EDU_DT
+			     , A.PMT_AMT
+			  FROM TBCSPSAE305D A
+			     , TBCSPSAE109M B
+			     , TBCSPSAE101C C
+			     , TBCSPSAE102C D
+			     , TBCSPSAE103C E
+			     , TBCSPSAE201D F
+			 WHERE 1=1
+			   AND B.PFSR_ID 		= A.PFSR_ID
+			   AND E.CRS_CD 		= A.CRS_CD
+			   AND D.EDU_CAT_CD		= E.EDU_CAT_CD
+			   AND D.EDU_DVSN_CD 	= E.EDU_DVSN_CD
+			   AND C.EDU_DVSN_CD 	= D.EDU_DVSN_CD
+			   AND F.YR				= A.YR
+			   AND F.CRS_CD			= A.CRS_CD
+			   AND F.CRS_CDN		= A.CRS_CDN
+			   AND A.PMT_YN = 'Y'
+        ]]>
+        <dynamic>
+	        <isNotEmpty property="strFromYm">
+		        <isNotEmpty property="strToYm">
+		        	AND SUBSTR(F.EDU_STR_DT, 0, 6) BETWEEN SUBSTR(#strFromYm#, 0, 6) AND SUBSTR(#strToYm#, 0, 6)
+		       	</isNotEmpty>
+	       	</isNotEmpty>
+	        <isNotEmpty property="strEDU_DVSN_CD">
+	        	AND C.EDU_DVSN_CD	= #strEDU_DVSN_CD#
+	       	</isNotEmpty>
+	        <isNotEmpty property="strEDU_CAT_CD">
+	        	AND E.EDU_CAT_CD 	= #strEDU_CAT_CD#
+	       	</isNotEmpty>
+	        <isNotEmpty property="strEDU_CRS_CD">
+	        	AND A.CRS_CD 		= #strEDU_CRS_CD#
+	       	</isNotEmpty>
+	        <isNotEmpty property="strCRS_CDN">
+	        	AND A.CRS_CDN 		= #strCRS_CDN#
+	       	</isNotEmpty>
+		</dynamic>
+       	<![CDATA[
+			ORDER BY C.EDU_DVSN_NM, D.EDU_CAT_NM, E.CRS_NM, A.CRS_CDN, B.NAM
+       	]]>
+	</select>
+	
+	<select id="CSPSAE207QMainList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT 
+				   (SELECT CD_NM FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1000312' AND CD = E.PFSR_DVSN_CD) AS PFSR_DVSN_NM
+			     , I.CRS_NM
+			     , A.CRS_CDN
+			     , E.NAM
+			     , D.SUBJ_NM
+			     ,(SELECT CD_NM FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1000317' AND CD = A.SV_DVSN_CD) AS SV_DVSN_NM
+			     , NVL(A.EDU_STFT_TXT_1, 0) || ' (' || DECODE(B.TOT_STFT, 0, 0, ROUND(A.EDU_STFT_TXT_1 / B.TOT_STFT  * 100, 0)) || '%)' AS EDU_STFT_TXT_1
+			     , NVL(A.EDU_STFT_TXT_2, 0) || ' (' || DECODE(B.TOT_STFT, 0, 0, ROUND(A.EDU_STFT_TXT_2 / B.TOT_STFT  * 100, 0)) || '%)' AS EDU_STFT_TXT_2
+			     , NVL(A.EDU_STFT_TXT_3, 0) || ' (' || DECODE(B.TOT_STFT, 0, 0, ROUND(A.EDU_STFT_TXT_3 / B.TOT_STFT  * 100, 0)) || '%)' AS EDU_STFT_TXT_3
+			     , NVL(A.EDU_STFT_TXT_4, 0) || ' (' || DECODE(B.TOT_STFT, 0, 0, ROUND(A.EDU_STFT_TXT_4 / B.TOT_STFT  * 100, 0)) || '%)' AS EDU_STFT_TXT_4
+			     , NVL(A.EDU_STFT_TXT_5, 0) || ' (' || DECODE(B.TOT_STFT, 0, 0, ROUND(A.EDU_STFT_TXT_5 / B.TOT_STFT  * 100, 0)) || '%)' AS EDU_STFT_TXT_5
+			     , C.TOT_SCORE
+			  FROM TBCSPSAE304D A
+				 , ( SELECT EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5 AS TOT_STFT
+				 			 , YR
+				 			 , CRS_CD
+				 			 , CRS_CDN
+						     , SUBJ_CD
+						     , SV_DVSN_CD
+						  FROM TBCSPSAE304D 
+				    ) B
+				 , ( SELECT ROUND(SUM( (DECODE( (EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5),
+			                  0,
+			                  0,
+			                  ROUND(EDU_STFT_TXT_1 / (EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5) * 100,
+			                  0) ) *1) + (DECODE( (EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5),
+			                  0,
+			                  0,
+			                  ROUND(EDU_STFT_TXT_2 / (EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5) * 100,
+			                  0) ) *0.8) + (DECODE( (EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5),
+			                  0,
+			                  0,
+			                  ROUND(EDU_STFT_TXT_3 / (EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5) * 100,
+			                  0) ) *0.6) + (DECODE( (EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5),
+			                  0,
+			                  0,
+			                  ROUND(EDU_STFT_TXT_4 / (EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5) * 100,
+			                  0) ) *0.4) + (DECODE( (EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5),
+			                  0,
+			                  0,
+			                  ROUND(EDU_STFT_TXT_5 / (EDU_STFT_TXT_1 + EDU_STFT_TXT_2 + EDU_STFT_TXT_3 + EDU_STFT_TXT_4 + EDU_STFT_TXT_5) * 100,
+			                  0) ) *0.2) ) /3,
+			                  0) AS TOT_SCORE  
+				 			 , YR
+				 			 , CRS_CD
+				 			 , CRS_CDN
+						     , SUBJ_CD
+				      FROM TBCSPSAE304D
+				     GROUP BY YR, CRS_CD, CRS_CDN, SUBJ_CD
+				    ) C
+			      , TBCSPSAE101M D
+			      , TBCSPSAE109M E
+				  , TBCSPSAE201D F
+			      , TBCSPSAE101C G
+			      , TBCSPSAE102C H
+			      , TBCSPSAE103C I
+			  WHERE 1=1
+			    AND B.YR			= A.YR
+			    AND B.CRS_CD		= A.CRS_CD
+			    AND B.CRS_CDN		= A.CRS_CDN
+			    AND B.SUBJ_CD 		= A.SUBJ_CD
+			    AND B.SV_DVSN_CD 	= A.SV_DVSN_CD
+			    AND C.YR			= A.YR
+			    AND C.CRS_CD		= A.CRS_CD
+			    AND C.CRS_CDN		= A.CRS_CDN
+			    AND C.SUBJ_CD 		= A.SUBJ_CD
+			    AND D.SUBJ_CD		= A.SUBJ_CD 
+			    AND F.YR			= A.YR
+			    AND F.CRS_CD		= A.CRS_CD
+			    AND F.CRS_CDN		= A.CRS_CDN
+			    AND E.PFSR_ID		= A.PFSR_ID
+			    AND I.CRS_CD	 	= A.CRS_CD
+			    AND H.EDU_CAT_CD	= I.EDU_CAT_CD
+			    AND G.EDU_DVSN_CD	= H.EDU_DVSN_CD
+			    AND G.EDU_DVSN_CD	= I.EDU_DVSN_CD
+        ]]>
+        <dynamic>
+	        <isNotEmpty property="strFromYm">
+		        <isNotEmpty property="strToYm">
+		        	AND SUBSTR(F.EDU_STR_DT, 0, 6) BETWEEN SUBSTR(#strFromYm#, 0, 6) AND SUBSTR(#strToYm#, 0, 6)
+		       	</isNotEmpty>
+	       	</isNotEmpty>
+	        <isNotEmpty property="strEDU_DVSN_CD">
+	        	AND G.EDU_DVSN_CD	= #strEDU_DVSN_CD#
+	       	</isNotEmpty>
+	        <isNotEmpty property="strEDU_CAT_CD">
+	        	AND H.EDU_CAT_CD 	= #strEDU_CAT_CD#
+	       	</isNotEmpty>
+	        <isNotEmpty property="strEDU_CRS_CD">
+	        	AND A.CRS_CD 		= #strEDU_CRS_CD#
+	       	</isNotEmpty>
+	        <isNotEmpty property="strCRS_CDN">
+	        	AND A.CRS_CDN 		= #strCRS_CDN#
+	       	</isNotEmpty>
+	        <isNotEmpty property="strPFSR_DVSN_CD">
+	            AND E.PFSR_DVSN_CD  = #strPFSR_DVSN_CD#
+	       	</isNotEmpty>
+	        <isNotEmpty property="strNAM">
+				AND E.NAM LIKE '%' || #strNAM# || '%'
+	       	</isNotEmpty>
+	    </dynamic>
+       	<![CDATA[
+			ORDER BY E.PFSR_DVSN_CD, I.CRS_NM, A.CRS_CDN, E.NAM, A.SUBJ_CD, A.SV_DVSN_CD 
+       	]]>
+	</select>
+	
+	<select id="CSPSAE208QMainList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT (SELECT CD_NM FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1000312' AND CD = B.PFSR_DVSN_CD) AS PFSR_DVSN_NM
+			     , B.NAM
+			     , F.EDU_DVSN_NM
+			     , E.EDU_CAT_NM
+			     , D.CRS_NM
+			     , A.CRS_CDN
+				 , C.SUBJ_NM      
+			     , (SUBSTRING(A.LCT_DT, 0, 4) || '-' || SUBSTRING(A.LCT_DT, 5, 2) || '-' || SUBSTRING(A.LCT_DT, 7, 2) || '(' || SUBSTRING(UPPER(TO_CHAR(TO_DATE(A.LCT_DT), 'DAY', 'NLS_DATE_LANGUAGE=KOREAN')), 0, 1) || ')') AS LCT_DT
+			     , A.HUC_TXT || '(' || G.CONSECUTIVE_LEC || ')' AS HUC
+			  FROM TBCSPSAE202D A
+			     , TBCSPSAE109M B
+			     , TBCSPSAE101M C
+			     , TBCSPSAE103C D
+			     , TBCSPSAE102C E
+			     , TBCSPSAE101C F
+			     , (SELECT YR
+			             , CRS_CD
+			             , CRS_CDN
+			             , SUBJ_CD
+			             , COUNT(YR) AS CONSECUTIVE_LEC
+			          FROM TBCSPSAE202D
+			        GROUP BY YR , CRS_CD , CRS_CDN , SUBJ_CD
+			         HAVING YR BETWEEN SUBSTR(#strFromYm#, 0, 4) AND SUBSTR(#strToYm#, 0, 4)) G
+			     , ( SELECT A.YR, A.CRS_CD, A.CRS_CDN, A.SUBJ_CD, MIN(ASG_SNO) AS ASG_SNO FROM TBCSPSAE202D A
+      					GROUP BY A.YR, A.CRS_CD, A.CRS_CDN, A.SUBJ_CD) H
+			 WHERE B.PFSR_ID		= A.PFSR_ID
+			   AND D.CRS_CD			= A.CRS_CD
+			   AND E.EDU_CAT_CD		= D.EDU_CAT_CD
+			   AND F.EDU_DVSN_CD	= D.EDU_DVSN_CD
+			   AND F.EDU_DVSN_CD	= E.EDU_DVSN_CD
+			   AND C.SUBJ_CD		= A.SUBJ_CD
+			   AND G.YR 			= A.YR
+			   AND G.CRS_CD 		= A.CRS_CD
+			   AND G.CRS_CDN		= A.CRS_CDN
+			   AND G.SUBJ_CD		= A.SUBJ_CD
+			   AND H.YR 			= A.YR
+			   AND H.CRS_CD 		= A.CRS_CD
+			   AND H.CRS_CDN 		= A.CRS_CDN
+			   AND H.SUBJ_CD 		= A.SUBJ_CD
+			   AND A.ASG_SNO 		= H.ASG_SNO
+			   AND SUBSTR(A.LCT_DT, 0, 6) BETWEEN SUBSTR(#strFromYm#, 0, 6) AND SUBSTR(#strToYm#, 0, 6)
+        ]]>
+        <dynamic>
+	        <isNotEmpty property="strEDU_DVSN_CD">
+	        	AND F.EDU_DVSN_CD	= #strEDU_DVSN_CD#
+	       	</isNotEmpty>
+	        <isNotEmpty property="strEDU_CAT_CD">
+	        	AND E.EDU_CAT_CD 	= #strEDU_CAT_CD#
+	       	</isNotEmpty>
+	        <isNotEmpty property="strEDU_CRS_CD">
+	        	AND A.CRS_CD 		= #strEDU_CRS_CD#
+	       	</isNotEmpty>
+	        <isNotEmpty property="strCRS_CDN">
+	        	AND A.CRS_CDN 		= #strCRS_CDN#
+	       	</isNotEmpty>
+	        <isNotEmpty property="strPFSR_DVSN_CD">
+	            AND B.PFSR_DVSN_CD  = #strPFSR_DVSN_CD#
+	       	</isNotEmpty>
+	        <isNotEmpty property="strNAM">
+				AND B.NAM LIKE '%' || #strNAM# || '%'
+	       	</isNotEmpty>
+	    </dynamic>
+       	<![CDATA[
+			ORDER BY B.PFSR_DVSN_CD, B.NAM, F.EDU_DVSN_NM, E.EDU_CAT_NM, D.CRS_NM, A.CRS_CDN, C.SUBJ_NM, A.LCT_DT
+       	]]>
+	</select>
+	
+	<select id="CSPSAE208QReportData" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT A.YR
+			     , (SELECT CD_NM FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1000312' AND CD = B.PFSR_DVSN_CD) AS PFSR_DVSN_NM
+			     , B.PFSR_ID
+			     , B.NAM
+			     , F.EDU_DVSN_NM
+			     , E.EDU_CAT_NM
+			     , D.CRS_NM
+			     , A.CRS_CDN 
+				 , C.SUBJ_NM
+			     , (SUBSTRING(A.LCT_DT, 0, 4) || '-' || SUBSTRING(A.LCT_DT, 5, 2) || '-' || SUBSTRING(A.LCT_DT, 7, 2)) AS LCT_DT
+			     , A.HUC_TXT || '(' || G.CONSECUTIVE_LEC || ')' AS HUC
+			     , SUBSTRING(UPPER(TO_CHAR(TO_DATE(A.LCT_DT), 'DAY', 'NLS_DATE_LANGUAGE=KOREAN')), 0, 1) AS DAY
+			     , G.CONSECUTIVE_LEC
+			  FROM TBCSPSAE202D A
+			     , TBCSPSAE109M B
+			     , TBCSPSAE101M C
+			     , TBCSPSAE103C D
+			     , TBCSPSAE102C E
+			     , TBCSPSAE101C F
+			     , (SELECT YR
+			             , CRS_CD
+			             , CRS_CDN
+			             , SUBJ_CD
+			             , COUNT(YR) AS CONSECUTIVE_LEC
+			          FROM TBCSPSAE202D
+			        GROUP BY YR , CRS_CD , CRS_CDN , SUBJ_CD
+			        HAVING YR BETWEEN SUBSTR(#strFromYm#, 0, 4) AND SUBSTR(#strToYm#, 0, 4)) G
+			     , ( SELECT A.YR, A.CRS_CD, A.CRS_CDN, A.SUBJ_CD, MIN(ASG_SNO) AS ASG_SNO FROM TBCSPSAE202D A
+      					GROUP BY A.YR, A.CRS_CD, A.CRS_CDN, A.SUBJ_CD) H
+			 WHERE B.PFSR_ID		= A.PFSR_ID
+			   AND D.CRS_CD			= A.CRS_CD
+			   AND E.EDU_CAT_CD		= D.EDU_CAT_CD
+			   AND F.EDU_DVSN_CD	= D.EDU_DVSN_CD
+			   AND F.EDU_DVSN_CD	= E.EDU_DVSN_CD
+			   AND C.SUBJ_CD		= A.SUBJ_CD
+			   AND G.YR 			= A.YR
+			   AND G.CRS_CD 		= A.CRS_CD
+			   AND G.CRS_CDN		= A.CRS_CDN
+			   AND G.SUBJ_CD		= A.SUBJ_CD
+			   AND H.YR 			= A.YR
+			   AND H.CRS_CD 		= A.CRS_CD
+			   AND H.CRS_CDN 		= A.CRS_CDN
+			   AND H.SUBJ_CD 		= A.SUBJ_CD
+			   AND A.ASG_SNO 		= H.ASG_SNO
+			   AND SUBSTR(A.LCT_DT, 0, 6) BETWEEN SUBSTR(#strFromYm#, 0, 6) AND SUBSTR(#strToYm#, 0, 6)
+        ]]>
+        <dynamic>
+	        <isNotEmpty property="strEDU_DVSN_CD">
+	        	AND F.EDU_DVSN_CD	= #strEDU_DVSN_CD#
+	       	</isNotEmpty>
+	        <isNotEmpty property="strEDU_CAT_CD">
+	        	AND E.EDU_CAT_CD 	= #strEDU_CAT_CD#
+	       	</isNotEmpty>
+	        <isNotEmpty property="strEDU_CRS_CD">
+	        	AND A.CRS_CD 		= #strEDU_CRS_CD#
+	       	</isNotEmpty>
+	        <isNotEmpty property="strCRS_CDN">
+	        	AND A.CRS_CDN 		= #strCRS_CDN#
+	       	</isNotEmpty>
+	        <isNotEmpty property="strPFSR_DVSN_CD">
+	            AND B.PFSR_DVSN_CD  = #strPFSR_DVSN_CD#
+	       	</isNotEmpty>
+	        <isNotEmpty property="strNAM">
+				AND B.NAM LIKE '%' || #strNAM# || '%'
+	       	</isNotEmpty>
+	    </dynamic>
+       	<![CDATA[
+			ORDER BY A.YR, B.PFSR_DVSN_CD, B.NAM, F.EDU_DVSN_NM, E.EDU_CAT_NM, D.CRS_NM, A.CRS_CDN, C.SUBJ_NM, A.LCT_DT
+       	]]>
+	</select>
+
+	<select id="CSPSAE209EMainList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+        
+			SELECT A.SV_TIT_CD
+				 , A.SV_QEST_NO
+    			 , DECODE(A.SV_CLU_NO, 0, A.SNO, '') AS SNO
+			     , DECODE(A.SV_CLU_NO, 0, A.SUB_QEST_NO, '') AS SUB_QEST_NO
+			     , A.SV_CLU_NO
+			     , A.SV_QEST_TXT
+			  FROM (SELECT A.SV_TIT_CD
+			  			 , B.SV_QEST_NO
+			             , B.SNO
+					     , B.SUB_QEST_NO
+					     , 0 AS SV_CLU_NO
+					     , B.SV_QEST_TXT
+					  FROM TBCSPSAE121C A
+					     , TBCSPSAE122C B
+					 WHERE B.SV_TIT_CD = A.SV_TIT_CD     
+					 UNION ALL
+					SELECT A.SV_TIT_CD
+			  			 , B.SV_QEST_NO
+			             , B.SNO
+					     , B.SUB_QEST_NO
+					     , C.SV_CLU_NO
+					     , C.SV_CLU_TXT
+					  FROM TBCSPSAE121C A
+					     , TBCSPSAE122C B
+					     , TBCSPSAE123C C
+					 WHERE B.SV_TIT_CD = A.SV_TIT_CD     
+					   AND C.SV_QEST_NO = B.SV_QEST_NO
+					   AND C.SV_TIT_CD = B.SV_TIT_CD
+				   ) A
+			  WHERE A.SV_TIT_CD = #strSvTit#
+			ORDER BY A.SNO, A.SV_QEST_NO, A.SV_CLU_NO
+       	]]>
+	</select>
+
+	<update id="CSPSAE209EUpdateMain" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPSAE122C
+			SET		SNO     = #SNO#
+			      , SUB_QEST_NO	= #SUB_QEST_NO#
+			      , FNL_USR_ID      = #FNL_USR_ID#
+				  , FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+				  , FNL_MNU_ID      = #FNL_MNU_ID#
+			      , FNL_MDF_DH      = SYSDATE
+			WHERE	SV_QEST_NO  = #SV_QEST_NO#
+			  AND   SV_TIT_CD   = #SV_TIT_CD#
+		]]>
+	</update>
+  
+	<select id="CSPSAE210PSvTitList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			 SELECT SV_TIT_CD
+		      , SV_TIT_NM
+		   FROM TBCSPSAE121C
+		  WHERE USE_YN = 'Y'
+       	]]>
+	</select>
+	
+	<select id="CSPSAE210PSvList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT SNO
+		     , '(' || SNO || ') ' || SV_QEST_TXT AS SV_QEST_TXT
+		  FROM TBCSPSAE122C
+		 WHERE SV_TIT_CD = #strSV_TIT_CD#
+		  AND SUB_QEST_NO = 0
+		  ORDER BY SNO
+       	]]>
+	</select>
+	
+	<select id="CSPSAE210PSvCluList" parameterClass="paramMap" resultClass="resultMap">
+		<dynamic>
+			<isEmpty property="strSV_QEST_NO">
+				SELECT ROWNUM AS SV_CLU_NO
+			    	 , SV_CLU_TXT
+			    	 , #strSV_TIT_CD#  AS SV_TIT_CD
+			    	 , '' AS SV_QEST_NO
+				  FROM (
+				  	   SELECT USR_DFN_TXT_1 AS SV_CLU_TXT
+						 FROM TBDCMACM013C
+						WHERE TSK_CAT_CD = 'SP'
+						  AND FUNC_CAT_CD = 'AE'
+						  AND CMM_CD_DVSN_CD = '1000318'
+						  AND CD = #CD#
+						UNION ALL
+					   SELECT USR_DFN_TXT_2 AS SV_CLU_TXT
+						 FROM TBDCMACM013C
+						WHERE TSK_CAT_CD = 'SP'
+						  AND FUNC_CAT_CD = 'AE'
+						  AND CMM_CD_DVSN_CD = '1000318'
+						  AND CD = #CD#
+						UNION ALL
+					   SELECT USR_DFN_TXT_3 AS SV_CLU_TXT
+						 FROM TBDCMACM013C
+						WHERE TSK_CAT_CD = 'SP'
+						  AND FUNC_CAT_CD = 'AE'
+						  AND CMM_CD_DVSN_CD = '1000318'
+						  AND CD = #CD#
+						UNION ALL
+					   SELECT USR_DFN_TXT_4 AS SV_CLU_TXT
+						 FROM TBDCMACM013C
+						WHERE TSK_CAT_CD = 'SP'
+						  AND FUNC_CAT_CD = 'AE'
+						  AND CMM_CD_DVSN_CD = '1000318'
+						  AND CD = #CD#
+						UNION ALL
+				       SELECT USR_DFN_TXT_5 AS SV_CLU_TXT
+						 FROM TBDCMACM013C
+						WHERE TSK_CAT_CD = 'SP'
+						  AND FUNC_CAT_CD = 'AE'
+						  AND CMM_CD_DVSN_CD = '1000318'
+						  AND CD = #CD#
+						  )
+				WHERE SV_CLU_TXT IS NOT NULL
+			</isEmpty>
+			<isNotEmpty property="strSV_QEST_NO">
+				SELECT SV_CLU_NO
+				     , SV_CLU_TXT
+				     , #strSV_TIT_CD#  AS SV_TIT_CD
+				     , #strSV_QEST_NO# AS SV_QEST_NO
+				  FROM TBCSPSAE123C
+				WHERE SV_QEST_NO = #strSV_QEST_NO#
+				  AND SV_TIT_CD = #strSV_TIT_CD#
+			</isNotEmpty>
+		</dynamic>
+	</select>
+	
+	<select id="CSPSAE210PMainList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT A.SV_TIT_NM
+			     , A.SV_TIT_CD
+			     , B.SV_QEST_NO
+			     , B.SUB_QEST_NO
+			     , B.QEST_DVSN_CD
+			     , B.SV_QEST_TXT
+			     , B.SNO
+			     , DECODE(SUB_QEST_NO, NULL, 'N', 'Y') AS SUB_YN
+			  FROM TBCSPSAE121C A
+			     , TBCSPSAE122C B
+			 WHERE B.SV_TIT_CD = A.SV_TIT_CD
+			   AND A.SV_TIT_CD = #strSV_TIT_CD#
+			   AND B.SV_QEST_NO = #strSV_QEST_NO#
+       	]]>
+	</select>
+	
+	<select id="CSPSAE210PMaxQestNo" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT NVL(MAX(SV_QEST_NO), 0)+1 AS SV_QEST_NO
+			  FROM TBCSPSAE122C 
+			 WHERE SV_TIT_CD = #SV_TIT_CD#
+       	]]>
+	</select>
+	
+	<select id="CSPSAE210PModiFyYn" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT DECODE(COUNT(*), 0, 'Y', 'N') MODIFY_YN
+			  FROM TBCSPSAE302D
+		     WHERE SV_QEST_NO = #strSV_QEST_NO#
+		       AND SV_TIT_CD = #strSV_TIT_CD#
+       	]]>
+	</select>
+	
+	<select id="CSPSAE210PMaxSubQestNo" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT NVL(MAX(SUB_QEST_NO), 0)+1 AS SUB_QEST_NO FROM TBCSPSAE122C
+			WHERE SV_TIT_CD = #SV_TIT_CD#
+			  AND SV_QEST_NO IN (SELECT SV_QEST_NO 
+			                      FROM TBCSPSAE122C
+			                     WHERE SV_TIT_CD = #SV_TIT_CD#
+			                       AND SNO = #SNO#)
+       	]]>
+	</select>
+	
+	<select id="CSPSAE210PMaxSno" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT NVL(MAX(SNO), 0)+1 AS SNO
+			  FROM TBCSPSAE122C
+			 WHERE SV_TIT_CD = #SV_TIT_CD#
+       	]]>
+	</select>
+
+	<insert id="CSPSAE210PInsertMain" parameterClass="paramMap">
+        <![CDATA[
+ 			INSERT INTO TBCSPSAE122C 
+ 				( 	SV_QEST_NO
+				  , SV_TIT_CD
+				  , SUB_QEST_NO
+				  , SV_QEST_TXT
+				  , QEST_DVSN_CD
+				  , SNO
+ 				  , FRT_USR_ID
+ 				  , FNL_USR_ID
+ 				  , FNL_DEAL_DPT_CD
+ 				  , FNL_MNU_ID
+ 				  , FRT_REGI_DH
+ 				  , FNL_MDF_DH)
+        	VALUES( #SV_QEST_NO#
+				  , #SV_TIT_CD#
+				  , #SUB_QEST_NO#
+				  , #SV_QEST_TXT#
+				  , #QEST_DVSN_CD#
+				  , #SNO#
+ 				  , #FRT_USR_ID#
+ 				  , #FNL_USR_ID#
+ 				  , #FNL_DEAL_DPT_CD#
+ 				  , #FNL_MNU_ID#
+ 				  , SYSDATE
+ 				  , SYSDATE)
+        ]]>
+	</insert>
+	<update id="CSPSAE210PUpdateMain" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPSAE122C
+			SET		SV_QEST_TXT		= #SV_QEST_TXT#
+			      , QEST_DVSN_CD	= #QEST_DVSN_CD#
+			      , FNL_USR_ID		= #FNL_USR_ID#
+ 				  , FNL_DEAL_DPT_CD	= #FNL_DEAL_DPT_CD#
+ 				  , FNL_MNU_ID		= #FNL_MNU_ID#
+ 				  , FNL_MDF_DH		= SYSDATE
+			WHERE SV_TIT_CD  = #SV_TIT_CD#
+			  AND SV_QEST_NO = #SV_QEST_NO#
+		]]>
+		<dynamic>
+			<isNotEmpty property="SUB_QEST_NO">
+			      AND SUB_QEST_NO = #SUB_QEST_NO#
+			</isNotEmpty>
+		</dynamic>
+	</update>
+
+	<select id="CSPSAE210PExistSv" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT COUNT(*) AS EXIST_YN
+			  FROM TBCSPSAE302D
+			 WHERE SV_QEST_NO = #SV_QEST_NO#
+			   AND SV_TIT_CD = #SV_TIT_CD#
+       	]]>
+	</select>
+		
+	<delete id="CSPSAE210PDeleteMain" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE122C
+			 WHERE SV_TIT_CD = #SV_TIT_CD#
+			   AND SV_QEST_NO = #SV_QEST_NO#
+		]]>
+		<dynamic>
+			<isNotEmpty property="SUB_QEST_NO">
+			      AND SUB_QEST_NO = #SUB_QEST_NO#
+			</isNotEmpty>
+		</dynamic>
+	</delete>
+	
+	<select id="CSPSAE210PMaxSvCluNo" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT NVL(MAX(SV_CLU_NO), 0)+1 AS SUB_QEST_NO
+			  FROM TBCSPSAE123C
+			 WHERE SV_QEST_NO = #SV_QEST_NO#
+			   AND SV_TIT_CD = #SV_TIT_CD#
+       	]]>
+	</select>
+	
+	<insert id="CSPSAE210PInsertSvClu" parameterClass="paramMap">
+        <![CDATA[
+ 			INSERT INTO TBCSPSAE123C 
+ 			( 	
+ 					SV_QEST_NO
+				  , SV_CLU_NO
+				  , SV_TIT_CD
+				  , SV_CLU_TXT
+ 				  , FRT_USR_ID
+ 				  , FNL_USR_ID
+ 				  , FNL_DEAL_DPT_CD
+ 				  , FNL_MNU_ID
+ 				  , FRT_REGI_DH
+ 				  , FNL_MDF_DH
+ 			)
+        	VALUES
+        	( 		
+        			#SV_QEST_NO#
+				  , #SV_CLU_NO#
+				  , #SV_TIT_CD#
+				  , #SV_CLU_TXT#
+ 				  , #FRT_USR_ID#
+ 				  , #FNL_USR_ID#
+ 				  , #FNL_DEAL_DPT_CD#
+ 				  , #FNL_MNU_ID#
+ 				  , SYSDATE
+ 				  , SYSDATE
+ 			)
+        ]]>
+	</insert>
+	<update id="CSPSAE210PUpdateSvClu" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPSAE123C
+			SET		SV_CLU_TXT		= #SV_CLU_TXT#
+			      , FNL_USR_ID		= #FNL_USR_ID#
+ 				  , FNL_DEAL_DPT_CD	= #FNL_DEAL_DPT_CD#
+ 				  , FNL_MNU_ID		= #FNL_MNU_ID#
+ 				  , FNL_MDF_DH		= SYSDATE
+			WHERE SV_QEST_NO = #SV_QEST_NO#
+			  AND SV_CLU_NO = #SV_CLU_NO#
+			  AND SV_TIT_CD = #SV_TIT_CD#
+		]]>
+	</update>
+
+	<select id="CSPSAE210PExistSvClu" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT COUNT(*) AS EXIST_YN
+			  FROM TBCSPSAE302D
+			 WHERE 1=1
+			   AND SV_QEST_NO = #SV_QEST_NO#
+			   AND SV_CLU_NO  = #SV_CLU_NO#
+			   AND SV_TIT_CD  = #SV_TIT_CD#
+       	]]>
+	</select>
+	
+	<delete id="CSPSAE210PAllDeleteSvClu" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE123C
+			 WHERE 1=1
+			   AND SV_QEST_NO = #SV_QEST_NO#
+			   AND SV_TIT_CD  = #SV_TIT_CD#
+		]]>
+	</delete>
+	
+	<delete id="CSPSAE210PDeleteSvClu" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE123C
+			 WHERE 1=1
+			   AND SV_QEST_NO = #SV_QEST_NO#
+			   AND SV_CLU_NO  = #SV_CLU_NO#
+			   AND SV_TIT_CD  = #SV_TIT_CD#
+		]]>
+	</delete>
+
+	<select id="CSPSAE211EApcYr" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT DISTINCT SUBSTR(APC_DT, 0, 4) AS YR_CD
+			      , SUBSTR(APC_DT, 0, 4) AS YR_NM
+			  FROM TBCSPSAE112B
+			 ORDER BY SUBSTR(APC_DT, 0, 4) DESC
+       	]]>
+	</select>
+	
+	<select id="CSPSAE211EMainList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT A.APC_DT AS BF_APC_DT
+			     , A.APC_DT
+			     , A.PFSR_RK_CD AS BF_PFSR_RK_CD
+			     , A.PFSR_RK_CD
+			     , A.BSC_PFSR_FEE
+			     , A.EXCS_PFSR_FEE
+			     , '' AS STATUS
+			  FROM TBCSPSAE112B A
+			 WHERE 1=1
+		]]>
+		<dynamic>
+			<isNotEmpty property="strApcYr">
+				AND SUBSTR(A.APC_DT, 0, 4) = #strApcYr#
+			</isNotEmpty>	 
+		</dynamic>
+        <![CDATA[
+        	ORDER BY A.APC_DT DESC
+        ]]>
+	</select>
+	
+	<insert id="CSPSAE211EInsertMain" parameterClass="paramMap">
+        <![CDATA[
+ 			INSERT INTO TBCSPSAE112B 
+ 			( 	
+ 					APC_DT
+				  , PFSR_RK_CD
+				  , BSC_PFSR_FEE
+				  , EXCS_PFSR_FEE
+ 				  , FRT_USR_ID
+ 				  , FNL_USR_ID
+ 				  , FNL_DEAL_DPT_CD
+ 				  , FNL_MNU_ID
+ 				  , FRT_REGI_DH
+ 				  , FNL_MDF_DH
+ 			)
+        	VALUES
+        	( 
+        			#APC_DT#
+				  , #PFSR_RK_CD#
+				  , #BSC_PFSR_FEE#
+				  , #EXCS_PFSR_FEE#
+ 				  , #FRT_USR_ID#
+ 				  , #FNL_USR_ID#
+ 				  , #FNL_DEAL_DPT_CD#
+ 				  , #FNL_MNU_ID#
+ 				  , SYSDATE
+ 				  , SYSDATE
+ 			)
+        ]]>
+	</insert>
+	
+	<update id="CSPSAE211EUpdateMain" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPSAE112B
+			SET		BSC_PFSR_FEE	= #BSC_PFSR_FEE#
+				  , EXCS_PFSR_FEE	= #EXCS_PFSR_FEE#
+				  , APC_DT			= #APC_DT#
+				  , PFSR_RK_CD		= #PFSR_RK_CD#
+			      , FNL_USR_ID		= #FNL_USR_ID#
+ 				  , FNL_DEAL_DPT_CD	= #FNL_DEAL_DPT_CD#
+ 				  , FNL_MNU_ID		= #FNL_MNU_ID#
+ 				  , FNL_MDF_DH		= SYSDATE
+			 WHERE 1=1
+			   AND APC_DT 		= #BF_APC_DT#
+			   AND PFSR_RK_CD 	= #BF_PFSR_RK_CD#
+		]]>
+	</update>
+	
+	<delete id="CSPSAE211EDeleteMain" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE112B
+			 WHERE APC_DT = #APC_DT#
+			   AND PFSR_RK_CD = #PFSR_RK_CD#
+		]]>
+	</delete>
+
+	<select id="CSPSAE212PSelectMain" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+		 SELECT SV_TIT_CD
+		      , SV_TIT_NM
+		      , USE_YN
+		   FROM TBCSPSAE121C
+       	]]>
+	</select>
+
+	<select id="CSPSAE212PMaxCd" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT MAX(LPAD(SV_TIT_CD, 4, 0))+1 AS SV_TIT_CD
+		   	  FROM TBCSPSAE121C
+       	]]>
+	</select>
+	
+	<insert id="CSPSAE212PInsertMain" parameterClass="paramMap">
+        <![CDATA[
+ 			INSERT INTO TBCSPSAE121C 
+ 			( 	
+ 					SV_TIT_CD
+				  , SV_TIT_NM
+				  , USE_YN
+ 				  , FRT_USR_ID
+ 				  , FNL_USR_ID
+ 				  , FNL_DEAL_DPT_CD
+ 				  , FNL_MNU_ID
+ 				  , FRT_REGI_DH
+ 				  , FNL_MDF_DH
+ 			)
+        	VALUES
+        	( 
+        			#SV_TIT_CD#
+				  , #SV_TIT_NM#
+				  , #USE_YN#
+ 				  , #FRT_USR_ID#
+ 				  , #FNL_USR_ID#
+ 				  , #FNL_DEAL_DPT_CD#
+ 				  , #FNL_MNU_ID#
+ 				  , SYSDATE
+ 				  , SYSDATE
+ 			)
+        ]]>
+	</insert>
+	
+	<update id="CSPSAE212PUpdateMain" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPSAE121C
+			SET		SV_TIT_NM     	= #SV_TIT_NM#
+			      , USE_YN		  	= #USE_YN#
+			      , FNL_USR_ID		= #FNL_USR_ID#
+ 				  , FNL_DEAL_DPT_CD	= #FNL_DEAL_DPT_CD#
+ 				  , FNL_MNU_ID		= #FNL_MNU_ID#
+ 				  , FNL_MDF_DH		= SYSDATE
+			WHERE	SV_TIT_CD  = #SV_TIT_CD#
+		]]>
+	</update>
+
+	<delete id="CSPSAE212PDeleteMain" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE121C
+			 WHERE SV_TIT_CD = #SV_TIT_CD#
+		]]>  
+	</delete>
+	
+	<select id="CSPSAE212PExistSvTit" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT DECODE(TO_CHAR(COUNT(*)), '0', '0', (SELECT SV_TIT_NM FROM TBCSPSAE121C WHERE SV_TIT_CD = #SV_TIT_CD#)) AS EXIST_NM
+			  FROM TBCSPSAE122C
+			 WHERE SV_TIT_CD = #SV_TIT_CD#
+       	]]>
+	</select>
+	
+	<!-- 교육과정운영_수료시간 조회 -->
+	<select id="CSPSAE201ETimeList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT LEVEL-1 AS CD, LEVEL-1 AS CD_NM
+			  FROM DUAL 
+		   CONNECT BY LEVEL <= 201
+        ]]>
+	</select>
+	
+	<!-- 교육과정운영_평가결과 조회 -->
+	<select id="CSPSAE201EEvalResultList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT LEVEL AS CD, LEVEL AS CD_NM
+			  FROM DUAL 
+		   CONNECT BY LEVEL <= 100
+        ]]>
+	</select>	
+			
+	<!--사진업로드 update-->
+	<update id="CSPSAE205P_FileUploadUpdate" parameterClass="paramMap">		 	
+			UPDATE TBCSPSAE109M
+			   SET DOC_ID           = #DOC_ID#
+			     , FNL_USR_ID       = #FNL_USR_ID#		 
+			     , FNL_DEAL_DPT_CD  = #FNL_DEAL_DPT_CD#	
+			     , FNL_MNU_ID       = #FNL_MNU_ID#
+				 , FNL_MDF_DH       = SYSDATE			
+			  WHERE 1=1
+			    AND PFSR_ID = #PFSR_ID#  
+	</update>		
+	
+	<!--사진업로드 delete-->
+	<update id="CSPSAE205P_FileUploadDelete" parameterClass="paramMap">		
+			  UPDATE TBCSPSAE109M
+			    SET DOC_ID           = ''			     			
+			  WHERE 1=1
+			    AND PFSR_ID = #PFSR_ID#			    
+	</update>
+	
+	<!-- 가장마지막에 등록한 강사번호를 가져온다 -->
+	<select id="CSPSAE205P_MaxPfsrId" resultClass="String">
+        <![CDATA[
+			SELECT MAX(PFSR_ID) AS PFSR_ID
+			  FROM TBCSPSAE109M
+        ]]>
+	</select>
+	
+	<!-- 강사정보에서 사진이 있는지 조회 -->
+	<select id="CSPSAE205P_ImgList" parameterClass="String" resultClass="String">
+        <![CDATA[
+			SELECT DOC_ID
+			 FROM TBCSPSAE109M
+			WHERE PFSR_ID = #strPFSR_ID#
+        ]]>
+	</select>
+		
+	<!-- 레포팅 생성1 -->
+	<select id="CSPSAE205PReportData1" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT D1.PFSR_ID
+			     , D1.NAM
+			     , D1.CNB
+			     , (SELECT CD_NM 
+			          FROM TBDCMACM013C D4        
+			         WHERE D1.PFSR_DVSN_CD = D4.CD 
+                       AND D4.CMM_CD_DVSN_CD = '1000312') AS PFSR_DVSN_NM /*강사구분*/
+			     , (SELECT CD_NM 
+			          FROM TBDCMACM013C D5        
+			         WHERE D1.PFSR_RK_CD = D5.CD 
+                       AND D5.CMM_CD_DVSN_CD = '1000141') AS PFSR_RK_NM /*강사등급*/
+                 , (SELECT CD_NM 
+			          FROM TBDCMACM013C D6        
+			         WHERE D1.PFSR_SPH_CD = D6.CD 
+                       AND D6.CMM_CD_DVSN_CD = '1000136') AS PFSR_SPH_NM /*강사분야*/		     
+			     , D1.PFSR_BLT_NM	/*소속*/
+			     , D1.PFSR_RANK_NM	/*직급*/
+			     , D1.PFSR_AD		/*주소*/
+			     , D1.PFSR_EML_AD	/*이메일*/
+			     , D1.PFSR_TNB		/*휴대전화*/
+			     , D1.DEPTS_BNK_NM	/*은행*/
+			     , DGUARD.DECRYPT('TB_ENC','EAN',D1.EAN) AS EAN		/*암호화계좌번호*/
+			     , (SELECT CD_NM 
+			          FROM TBDCMACM013C D3        
+			         WHERE D1.VLD_DVSN_CD = D3.CD 
+                       AND D3.CMM_CD_DVSN_CD = '1000313') AS VLD_DVSN_NM  /*유효여부*/
+			     , D1.DOC_ID
+			     , (SELECT FILE_NAME 
+			          FROM ECM_FILE_LIST_VIEW2 D2        
+			         WHERE D1.DOC_ID = D2.DOC_ID) AS IMG_FILE_NAME
+			 FROM TBCSPSAE109M D1
+			WHERE D1.PFSR_ID = #strPFSR_ID#
+        ]]>
+	</select>
+	
+	<!-- 레포팅 생성2 -->
+	<select id="CSPSAE205PReportData2" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+ 			SELECT PFSR_ID
+			       , DECODE(BAJ_DVSN_CD,'1','현직','2','전직') AS BAJ_DVSN_NM
+			       , CRR_TXT
+			       , SRNO
+			  FROM TBCSPSAE110D
+			 WHERE PFSR_ID = #strPFSR_ID#
+			 ORDER BY SRNO	
+        ]]>
+	</select>	
+	
+	<!-- 강사구분값을 가져온다. -->
+	<select id="CSPSAE205P_PfsrDvsnCd" parameterClass="String" resultClass="String">
+        <![CDATA[
+			SELECT PFSR_DVSN_CD
+			 FROM TBCSPSAE109M
+			WHERE PFSR_ID = #strPFSR_ID#
+        ]]>
+	</select>
+	
+	<insert id="CSPSAE201E_EH_INF_SP_AE_006_Insert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO EH_INF_SP_AE_006
+			(
+				IF_SEQ,
+				IF_TYPE,
+				YR,
+				CRS_CD,
+				CRS_CDN,
+				TANE_ID,
+				FIN_YN,
+				FIN_TIME,
+				FRT_USR_ID
+			)
+			VALUES
+			(
+				#IF_SEQ#,
+				'SND',
+				#YR#,
+				#CRS_CD#,
+				#CRS_CDN#,
+				#TANE_ID#,
+				#FIN_YN#,
+				#FIN_TIME#,
+				#FRT_USR_ID#
+			)
+		]]>
+	</insert>
+	
+	<insert id="CSPSAE201E_IS_EDU_FIN_Insert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO IS_EDU_FIN
+			(
+				SRNO,
+				DATA_HNDL_DVSN_CD,
+				ORG_CD,
+				NAM,
+				BTDT,
+				RANK_NM,
+				DPT_NM,
+				CRS_NM, 
+				CRS_CDN,
+				EDU_STR_DT, 
+				EDU_END_DT, 
+				FIN_TIME,
+				EDU_IDNTF_NO,
+				FRT_USR_ID,
+				FNL_USR_ID,
+				FNL_DEAL_DPT_CD,
+				FNL_MNU_ID,
+				FRT_REGI_DH,
+				FNL_MDF_DH
+			)
+			SELECT  (SELECT NVL(MAX(SRNO), 0) + 1 FROM IS_EDU_FIN) AS SRNO,
+			        #DATA_HNDL_DVSN_CD# AS DATA_HNDL_DVSN_CD,
+			        T1.ORG_CD,
+			        T1.NAM,
+			        T1.BTDT,
+			        T1.RANK_NM,
+			        T1.DPT_NM,
+			        T2.CRS_NM, 
+			        T1.CRS_CDN,
+			        T3.EDU_STR_DT, 
+			        T3.EDU_END_DT, 
+			        T1.FIN_TIME,
+			        T1.YR||T1.CRS_CD||T1.CRS_CDN||T1.TANE_ID AS EDU_IDNTF_NO,
+			        #FRT_USR_ID# AS FRT_USR_ID,
+			        #FNL_USR_ID# AS FNL_USR_ID,
+			        #FNL_DEAL_DPT_CD# AS FNL_DEAL_DPT_CD,
+			        #FNL_MNU_ID# AS FNL_MNU_ID,
+			        SYSDATE AS FRT_REGI_DH,
+			        SYSDATE AS FNL_MDF_DH 
+			  FROM  TBCSPSAE301D T1,
+			        TBCSPSAE103C T2,
+			        TBCSPSAE201D T3
+			 WHERE T1.CRS_CD = T2.CRS_CD
+			   AND T1.YR = T3.YR
+			   AND T1.CRS_CD = T3.CRS_CD
+			   AND T1.CRS_CDN = T3.CRS_CDN 
+			   AND T1.YR = #YR#
+			   AND T1.CRS_CD = #CRS_CD#
+			   AND T1.CRS_CDN = #CRS_CDN#
+			   AND T1.TANE_ID = #TANE_ID#
+		]]>
+	</insert>
+	
+</sqlMap> 

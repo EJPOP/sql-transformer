@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/bii/212">
+ 	
+ 	<!-- 감사정보기본 상세조회 맵 -->
+	<resultMap class="java.util.HashMap" id="CSPBII212QSelectMainMap">
+		<result property="ACP_YR_NO"		column="ACP_YR_NO" 		jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="ACP_DT"			column="ACP_DT" 		jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="HNDL_CHGR_NM"		column="HNDL_CHGR_NM" 	jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="AUD_TG_ORG_NM"	column="AUD_TG_ORG_NM"	jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="HNDL_DPT_NM"		column="HNDL_DPT_NM"	jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="SUC_CVPT"			column="SUC_CVPT"		jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="CVPTR_NM"			column="CVPTR_NM"		jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="AD"				column="AD"				jdbcType="VARCHAR2" javaType="java.lang.String"/>	
+		<result property="TIT_NM"			column="TIT_NM" 		jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="CVPT_TXT"			column="CVPT_TXT" 		jdbcType="CLOB" 	javaType="java.lang.String"/>
+ 	</resultMap>
+ 	
+ 	<select id="CSPBII212QSelectMain" parameterClass="paramMap"	resultMap="CSPBII212QSelectMainMap">
+		<![CDATA[
+		    SELECT D1.ACP_YR||CASE WHEN D1.REQ_DVSN_CD = '1' THEN DECODE(D1.RM_ACP_KND_CD,'','-','2','-민원-','1','-제보-') ||D1.RM_CVPT_ACP_NO
+		    					   WHEN D1.REQ_DVSN_CD IN ('2','3') THEN DECODE(D1.REQ_DVSN_CD,'','-','2','-국민-','3','-공익-') ||D1.RM_CVPT_ACP_NO
+		    					   ELSE ''
+		    					    END AS ACP_YR_NO
+			      ,TO_CHAR(D1.ACP_DH, 'YYYY-MM-DD') AS ACP_DT
+			      ,CASE WHEN D1.REQ_DVSN_CD = '1' THEN (SELECT F_USR_INFO((SELECT CNB FROM TBDCMACM001M WHERE USR_ID = D2.HNDL_CHGR_ID), '2')
+												          FROM TBCSPDCP201M D2
+												         WHERE D2.REQ_DVSN_CD = D1.REQ_DVSN_CD
+												           AND D2.ACP_YR      = D1.ACP_YR
+												           AND D2.CVPT_ACP_NO = D1.CVPT_ACP_NO)
+						WHEN D1.REQ_DVSN_CD IN ('2','3') THEN (SELECT F_USR_INFO((SELECT CNB FROM TBDCMACM001M WHERE USR_ID = D2.HNDL_CHGR_ID), '2')
+														        FROM TBCSPEAR001M D2
+														       WHERE D2.REQ_DVSN_CD = D1.REQ_DVSN_CD
+														         AND D2.ACP_YR      = D1.ACP_YR
+														         AND D2.CVPT_ACP_NO = D1.CVPT_ACP_NO)	
+			            ELSE ''
+			             END  AS HNDL_CHGR_NM
+			      ,CASE WHEN D1.REQ_DVSN_CD = '1' THEN (SELECT AGGR_CONCAT(F_ORG_INFO(D2.ORG_CD, '1'), ',')
+												          FROM TBCSPDCP206L D2
+												         WHERE D2.REQ_DVSN_CD = D1.REQ_DVSN_CD
+												           AND D2.ACP_YR      = D1.ACP_YR
+												           AND D2.CVPT_ACP_NO = D1.CVPT_ACP_NO
+												           AND D2.ORG_HIS_DVSN_CD = '1')
+						WHEN D1.REQ_DVSN_CD IN ('2','3') THEN (SELECT AGGR_CONCAT(F_ORG_INFO(D2.AUD_TG_ORG_CD, '1'), ',')
+													             FROM TBCSPDCP104L D2
+													            WHERE D2.REQ_DVSN_CD = D1.REQ_DVSN_CD
+													              AND D2.ACP_YR      = D1.ACP_YR
+													              AND D2.CVPT_ACP_NO = D1.CVPT_ACP_NO)	
+			            ELSE ''
+			             END  AS AUD_TG_ORG_NM
+			      ,CASE WHEN D1.REQ_DVSN_CD = '1' THEN (SELECT F_DPT_INFO(D2.HNDL_DPT_CD, '1')
+												          FROM TBCSPDCP201M D2
+												         WHERE D2.REQ_DVSN_CD = D1.REQ_DVSN_CD
+												           AND D2.ACP_YR      = D1.ACP_YR
+												           AND D2.CVPT_ACP_NO = D1.CVPT_ACP_NO)
+						WHEN D1.REQ_DVSN_CD IN ('2','3') THEN (SELECT F_DPT_INFO(D2.HNDL_DPT_CD, '1')
+														        FROM TBCSPEAR001M D2
+														       WHERE D2.REQ_DVSN_CD = D1.REQ_DVSN_CD
+														         AND D2.ACP_YR      = D1.ACP_YR
+														         AND D2.CVPT_ACP_NO = D1.CVPT_ACP_NO)	
+			            ELSE ''
+			             END  AS HNDL_DPT_NM			             
+			      ,(SELECT LTRIM(sys_connect_by_path(S3.SUC_ACP_YRNO,','),',')
+				      FROM (SELECT S2.ACP_YR
+					              ,S2.CVPT_ACP_NO 
+					              ,S2.SUC_ACP_YR||'-'||S2.SUC_CVPT_ACP_NO AS SUC_ACP_YRNO
+					              ,ROW_NUMBER() OVER (ORDER BY S2.ACP_YR, S2.CVPT_ACP_NO) RNUM
+					              ,COUNT(1) OVER () CNT
+					          FROM TBCSPDCP105L S2
+					         WHERE S2.REQ_DVSN_CD = #REQ_DVSN_CD#
+					           AND S2.ACP_YR      = #ACP_YR#
+					           AND S2.CVPT_ACP_NO = #CVPT_ACP_NO#) S3
+			         WHERE LEVEL = 2
+			        START WITH S3.RNUM = 1
+			        CONNECT BY PRIOR S3.ACP_YR = S3.ACP_YR 
+			                     AND S3.CVPT_ACP_NO = S3.CVPT_ACP_NO
+			                     AND PRIOR S3.RNUM = S3.RNUM - 1) AS SUC_CVPT
+			      ,D1.CVPTR_NM
+			      ,D1.AD
+			      ,D1.TIT_NM
+			      ,(SELECT CVPT_TXT
+			          FROM TBCSPDCP102M D2
+			         WHERE D2.REQ_DVSN_CD = D1.REQ_DVSN_CD
+			           AND D2.ACP_YR      = D1.ACP_YR
+			           AND D2.CVPT_ACP_NO = D1.CVPT_ACP_NO) AS CVPT_TXT
+			  FROM TBCSPDCP101M D1
+			 WHERE 1=1
+			   AND D1.REQ_DVSN_CD = #REQ_DVSN_CD#
+			   AND D1.ACP_YR      = #ACP_YR#
+			   AND D1.CVPT_ACP_NO = #CVPT_ACP_NO#
+  		]]>
+  		UNION ALL
+		<![CDATA[
+			SELECT D1.ACP_YR||'-부감-'||D1.RM_CVPT_ACP_NO AS ACP_YR_NO
+			      ,TO_CHAR(D1.ACP_DH, 'YYYY-MM-DD') AS ACP_DT
+			      ,(SELECT F_USR_INFO((SELECT CNB FROM TBDCMACM001M WHERE USR_ID = D2.HNDL_CHGR_ID), '2')
+			          FROM TBCORCOR201M D2
+			         WHERE D2.REQ_DVSN_CD = D1.REQ_DVSN_CD
+			           AND D2.ACP_YR      = D1.ACP_YR
+			           AND D2.CVPT_ACP_NO = D1.CVPT_ACP_NO) AS HNDL_CHGR_NM
+			      ,(SELECT AGGR_CONCAT(F_ORG_INFO(D2.ORG_CD, '1'), ',')
+			          FROM TBCORCOR206L D2
+			         WHERE D2.REQ_DVSN_CD = D1.REQ_DVSN_CD
+			           AND D2.ACP_YR      = D1.ACP_YR
+			           AND D2.CVPT_ACP_NO = D1.CVPT_ACP_NO
+			           AND D2.ORG_HIS_DVSN_CD = '1')        AS AUD_TG_ORG_NM
+			      ,(SELECT F_DPT_INFO(D2.HNDL_DPT_CD, '1')
+			          FROM TBCORCOR201M D2
+			         WHERE D2.REQ_DVSN_CD = D1.REQ_DVSN_CD
+			           AND D2.ACP_YR      = D1.ACP_YR
+			           AND D2.CVPT_ACP_NO = D1.CVPT_ACP_NO) AS HNDL_DPT_NM     
+			      ,(SELECT LTRIM(sys_connect_by_path(S3.SUC_ACP_YRNO,','),',')
+				      FROM (SELECT S2.ACP_YR
+					              ,S2.CVPT_ACP_NO 
+					              ,S2.SUC_ACP_YR||'-'||S2.SUC_CVPT_ACP_NO AS SUC_ACP_YRNO
+					              ,ROW_NUMBER() OVER (ORDER BY S2.ACP_YR, S2.CVPT_ACP_NO) RNUM
+					              ,COUNT(1) OVER () CNT
+					          FROM TBCORCOR105L S2
+					         WHERE S2.REQ_DVSN_CD = #REQ_DVSN_CD#
+					           AND S2.ACP_YR      = #ACP_YR#
+					           AND S2.CVPT_ACP_NO = #CVPT_ACP_NO#) S3
+			         WHERE LEVEL = 2
+			        START WITH S3.RNUM = 1
+			        CONNECT BY PRIOR S3.ACP_YR = S3.ACP_YR 
+			                     AND S3.CVPT_ACP_NO = S3.CVPT_ACP_NO
+			                     AND PRIOR S3.RNUM = S3.RNUM - 1) AS SUC_CVPT
+			      ,D1.CVPTR_NM
+			      ,D1.AD
+			      ,D1.TIT_NM
+			      ,(SELECT CVPT_TXT
+			          FROM TBCORCOR102M D2
+			         WHERE D2.REQ_DVSN_CD = D1.REQ_DVSN_CD
+			           AND D2.ACP_YR      = D1.ACP_YR
+			           AND D2.CVPT_ACP_NO = D1.CVPT_ACP_NO) AS CVPT_TXT
+			  FROM TBCORCOR101M D1
+			 WHERE 1=1
+			   AND D1.REQ_DVSN_CD = #REQ_DVSN_CD#
+			   AND D1.ACP_YR      = #ACP_YR#
+			   AND D1.CVPT_ACP_NO = #CVPT_ACP_NO#
+  		]]> 
+  		UNION ALL
+		<![CDATA[
+			SELECT D1.ACP_YR||'-청금-'||D1.RM_CVPT_ACP_NO AS ACP_YR_NO
+			      ,TO_CHAR(D1.ACP_DH, 'YYYY-MM-DD') AS ACP_DT
+			      ,(SELECT F_USR_INFO((SELECT CNB FROM TBDCMACM001M WHERE USR_ID = D2.HNDL_CHGR_ID), '2')
+			          FROM TBDCPDCP201M D2
+			         WHERE D2.REQ_DVSN_CD = D1.REQ_DVSN_CD
+			           AND D2.ACP_YR      = D1.ACP_YR
+			           AND D2.CVPT_ACP_NO = D1.CVPT_ACP_NO) AS HNDL_CHGR_NM
+			      ,(SELECT AGGR_CONCAT(F_ORG_INFO(D2.ORG_CD, '1'), ',')
+			          FROM TBDCPDCP206L D2
+			         WHERE D2.REQ_DVSN_CD = D1.REQ_DVSN_CD
+			           AND D2.ACP_YR      = D1.ACP_YR
+			           AND D2.CVPT_ACP_NO = D1.CVPT_ACP_NO
+			           AND D2.ORG_HIS_DVSN_CD = '1')        AS AUD_TG_ORG_NM
+			      ,(SELECT F_DPT_INFO(D2.HNDL_DPT_CD, '1')
+			          FROM TBDCPDCP201M D2
+			         WHERE D2.REQ_DVSN_CD = D1.REQ_DVSN_CD
+			           AND D2.ACP_YR      = D1.ACP_YR
+			           AND D2.CVPT_ACP_NO = D1.CVPT_ACP_NO) AS HNDL_DPT_NM     
+			      ,(SELECT LTRIM(sys_connect_by_path(S3.SUC_ACP_YRNO,','),',')
+				      FROM (SELECT S2.ACP_YR
+					              ,S2.CVPT_ACP_NO 
+					              ,S2.SUC_ACP_YR||'-'||S2.SUC_CVPT_ACP_NO AS SUC_ACP_YRNO
+					              ,ROW_NUMBER() OVER (ORDER BY S2.ACP_YR, S2.CVPT_ACP_NO) RNUM
+					              ,COUNT(1) OVER () CNT
+					          FROM TBDCPDCP105L S2
+					         WHERE S2.REQ_DVSN_CD = #REQ_DVSN_CD#
+					           AND S2.ACP_YR      = #ACP_YR#
+					           AND S2.CVPT_ACP_NO = #CVPT_ACP_NO#) S3
+			         WHERE LEVEL = 2
+			        START WITH S3.RNUM = 1
+			        CONNECT BY PRIOR S3.ACP_YR = S3.ACP_YR 
+			                     AND S3.CVPT_ACP_NO = S3.CVPT_ACP_NO
+			                     AND PRIOR S3.RNUM = S3.RNUM - 1) AS SUC_CVPT
+			      ,D1.CVPTR_NM
+			      ,D1.AD
+			      ,D1.TIT_NM
+			      ,(SELECT CVPT_TXT
+			          FROM TBDCPDCP102M D2
+			         WHERE D2.REQ_DVSN_CD = D1.REQ_DVSN_CD
+			           AND D2.ACP_YR      = D1.ACP_YR
+			           AND D2.CVPT_ACP_NO = D1.CVPT_ACP_NO) AS CVPT_TXT
+			  FROM TBDCPDCP101M D1
+			 WHERE 1=1
+			   AND D1.REQ_DVSN_CD = #REQ_DVSN_CD#
+			   AND D1.ACP_YR      = #ACP_YR#
+			   AND D1.CVPT_ACP_NO = #CVPT_ACP_NO#
+  		]]>  		  		 		
+	</select>
+ 	
+</sqlMap> 

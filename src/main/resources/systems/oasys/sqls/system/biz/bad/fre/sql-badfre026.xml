@@ -1,0 +1,1622 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap namespace="bad/fre/026">
+	
+	<!-- 재심의심사청구 조회-->
+	<select id="BADFRE026QMainList" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+SELECT NVL(M1.GUBUN      , 0) AS GUBUN     
+     , NVL(M1.TOT_MAKE   , 0) AS TOT_MAKE  
+     , NVL(M1.PAST_MAKE  , 0) AS PAST_MAKE 
+     , NVL(M1.NOW_MAKE   , 0) AS NOW_MAKE  
+     , NVL(M1.RESULT_TOT , 0) AS RESULT_TOT
+     , NVL(M1.RESULT_1   , 0) AS RESULT_1  
+     , NVL(M1.RESULT_2   , 0) AS RESULT_2  
+     , NVL(M1.RESULT_3   , 0) AS RESULT_3  
+     , NVL(M1.RESULT_4   , 0) AS RESULT_4  
+     , NVL(CASE WHEN M1.RESULT_TOT = 0 THEN NULL
+            ELSE TRUNC(M1.RESULT_1/M1.RESULT_TOT*100,2)||'%' END, 0) AS PASS_PERCENT
+     , NVL(M1.TOT_MAKE, 0) - NVL(M1.RESULT_TOT, 0) AS REMAIN
+  FROM (
+ SELECT NVL(#strFromDt#, '18000101')|| '~' || NVL(#strToDt#, '99991231') AS GUBUN
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND D2.SBCN_DT IS NULL 
+                 AND D3.ENF_DT IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS TOT_MAKE                                /* 청구건수 계 */
+       , SUM(
+           CASE WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(D2.SBCN_DT, D3.ENF_DT) IS NULL 
+                 AND D3.ENF_DT IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS PAST_MAKE                               /* 청구건수 이월 */
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS NOW_MAKE                                /* 청구건수 신규 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND NVL(D2.VT_KND_CD, '9999') != '9999' THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_TOT                               /* 처리결과 계 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('1', '2', '3', '4', '5') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_1                               /* 처리결과 인용 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('6') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_2                               /* 처리결과 기각 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('8') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_3                               /* 처리결과 각하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('7') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_4                               /* 처리결과 취하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('9') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_ETC                               /* 처리결과 기타 */
+    FROM TBBADFRE012M D1
+       , TBBADFRE012D D2
+       , TBBADFRE013D D3
+   WHERE 1 = 1
+     AND D1.ACP_YR      = D2.ACP_YR     
+     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D2.ACP_SRNO   
+     AND D1.DPT_CD      = D2.DPT_CD    
+     AND D1.ACP_YR      = D3.ACP_YR     
+     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D3.ACP_SRNO   
+     AND D1.DPT_CD      = D3.DPT_CD
+     AND D1.ACP_DVSN_CD = '1'    
+UNION
+  SELECT '우리원처분' AS GUBUN
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND D2.SBCN_DT IS NULL 
+                 AND D3.ENF_DT IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS TOT_MAKE                                /* 청구건수 계 */
+       , SUM(
+           CASE WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(D2.SBCN_DT, D3.ENF_DT) IS NULL 
+                 AND D3.ENF_DT IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS PAST_MAKE                               /* 청구건수 이월 */
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS NOW_MAKE                                /* 청구건수 신규 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND NVL(D2.VT_KND_CD, '9999') != '9999' THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_TOT                               /* 처리결과 계 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('1', '2', '3', '4', '5') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_1                               /* 처리결과 인용 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('6') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_2                               /* 처리결과 기각 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('8') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_3                               /* 처리결과 각하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('7') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_4                               /* 처리결과 취하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('9') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_ETC                               /* 처리결과 기타 */
+    FROM TBBADFRE012M D1
+       , TBBADFRE012D D2
+       , TBBADFRE013D D3
+   WHERE 1 = 1
+     AND D1.ACP_YR      = D2.ACP_YR     
+     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D2.ACP_SRNO   
+     AND D1.DPT_CD      = D2.DPT_CD    
+     AND D1.ACP_YR      = D3.ACP_YR     
+     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D3.ACP_SRNO   
+     AND D1.DPT_CD      = D3.DPT_CD
+     AND D1.ACP_DVSN_CD = '1'
+     AND NVL(D1.BAI_DSP_YN, 'N') = 'Y'
+)M1     
+	]]>
+	</select>
+	
+	<select id="BADFRE026QMain2List" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+SELECT NVL(M1.GUBUN     , 0) AS GUBUN_2
+     , NVL(M1.TOT_MAKE  , 0) AS TOT_MAKE_2
+     , NVL(M1.PAST_MAKE , 0) AS PAST_MAKE_2
+     , NVL(M1.NOW_MAKE  , 0) AS NOW_MAKE_2
+     , NVL(M1.RESULT_TOT, 0) AS RESULT_TOT_2
+     , NVL(M1.RESULT_1  , 0) AS RESULT_1_2
+     , NVL(M1.RESULT_2  , 0) AS RESULT_2_2
+     , NVL(M1.RESULT_3  , 0) AS RESULT_3_2
+     , NVL(M1.RESULT_4  , 0) AS RESULT_4_2
+     , NVL(CASE WHEN M1.RESULT_TOT = 0 THEN NULL
+            ELSE TRUNC(M1.RESULT_1/M1.RESULT_TOT*100,2)||'%' END, 0) AS PASS_PERCENT_2
+     , NVL(M1.TOT_MAKE, 0) - NVL(M1.RESULT_TOT, 0) AS REMAIN_2
+  FROM (
+  SELECT F_DPT_INFO(D1.DPT_CD, '1') AS GUBUN
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND D2.SBCN_DT IS NULL 
+                 AND D3.ENF_DT IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS TOT_MAKE                                /* 청구건수 계 */
+       , SUM(
+           CASE WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(D2.SBCN_DT, D3.ENF_DT) IS NULL 
+                 AND D3.ENF_DT IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS PAST_MAKE                               /* 청구건수 이월 */
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS NOW_MAKE                                /* 청구건수 신규 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND NVL(D2.VT_KND_CD, '9999') != '9999' THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_TOT                               /* 처리결과 계 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('1', '2', '3', '4', '5') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_1                               /* 처리결과 인용 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('6') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_2                               /* 처리결과 기각 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('8') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_3                               /* 처리결과 각하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('7') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_4                               /* 처리결과 취하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('9') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_ETC                               /* 처리결과 기타 */
+    FROM TBBADFRE012M D1
+       , TBBADFRE012D D2
+       , TBBADFRE013D D3
+   WHERE 1 = 1
+     AND D1.ACP_YR      = D2.ACP_YR     
+     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D2.ACP_SRNO   
+     AND D1.DPT_CD      = D2.DPT_CD    
+     AND D1.ACP_YR      = D3.ACP_YR     
+     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D3.ACP_SRNO   
+     AND D1.DPT_CD      = D3.DPT_CD
+     AND D1.ACP_DVSN_CD = '1'
+GROUP BY D1.DPT_CD
+UNION
+SELECT '합계' AS GUBUN
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND D2.SBCN_DT IS NULL 
+                 AND D3.ENF_DT IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS TOT_MAKE                                /* 청구건수 계 */
+       , SUM(
+           CASE WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(D2.SBCN_DT, D3.ENF_DT) IS NULL 
+                 AND D3.ENF_DT IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS PAST_MAKE                               /* 청구건수 이월 */
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS NOW_MAKE                                /* 청구건수 신규 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND NVL(D2.VT_KND_CD, '9999') != '9999' THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_TOT                               /* 처리결과 계 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('1', '2', '3', '4', '5') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_1                               /* 처리결과 인용 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('6') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_2                               /* 처리결과 기각 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('8') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_3                               /* 처리결과 각하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('7') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_4                               /* 처리결과 취하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('9') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_ETC                               /* 처리결과 기타 */
+    FROM TBBADFRE012M D1
+       , TBBADFRE012D D2
+       , TBBADFRE013D D3
+   WHERE 1 = 1
+     AND D1.ACP_YR      = D2.ACP_YR     
+     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D2.ACP_SRNO   
+     AND D1.DPT_CD      = D2.DPT_CD    
+     AND D1.ACP_YR      = D3.ACP_YR     
+     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D3.ACP_SRNO   
+     AND D1.DPT_CD      = D3.DPT_CD
+     AND D1.ACP_DVSN_CD = '1'
+) AS M1
+ORDER BY M1.GUBUN
+	]]>
+	</select>
+	
+	
+	<select id="BADFRE026QMain3List" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+SELECT NVL(M1.GUBUN     , 0) AS GUBUN_3
+     , NVL(M1.TOT_MAKE  , 0) AS TOT_MAKE_3
+     , NVL(M1.PAST_MAKE , 0) AS PAST_MAKE_3
+     , NVL(M1.NOW_MAKE  , 0) AS NOW_MAKE_3
+     , NVL(M1.RESULT_TOT, 0) AS RESULT_TOT_3
+     , NVL(M1.RESULT_1  , 0) AS RESULT_1_3
+     , NVL(M1.RESULT_2  , 0) AS RESULT_2_3
+     , NVL(M1.RESULT_3  , 0) AS RESULT_3_3
+     , NVL(M1.RESULT_4  , 0) AS RESULT_4_3
+     , NVL(CASE WHEN M1.RESULT_TOT = 0 THEN NULL
+            ELSE TRUNC(M1.RESULT_1/M1.RESULT_TOT*100,2)||'%' END, 0) AS PASS_PERCENT_3
+     , NVL(M1.TOT_MAKE, 0) - NVL(M1.RESULT_TOT, 0) AS REMAIN_3
+  FROM (
+  SELECT F_DPT_INFO(D1.DPT_CD, '1') AS GUBUN
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND D2.SBCN_DT IS NULL 
+                 AND D3.ENF_DT IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS TOT_MAKE                                /* 청구건수 계 */
+       , SUM(
+           CASE WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(D2.SBCN_DT, D3.ENF_DT) IS NULL 
+                 AND D3.ENF_DT IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS PAST_MAKE                               /* 청구건수 이월 */
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS NOW_MAKE                                /* 청구건수 신규 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND NVL(D2.VT_KND_CD, '9999') != '9999' THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_TOT                               /* 처리결과 계 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('1', '2', '3', '4', '5') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_1                               /* 처리결과 인용 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('6') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_2                               /* 처리결과 기각 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('8') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_3                               /* 처리결과 각하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('7') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_4                               /* 처리결과 취하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('9') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_ETC                               /* 처리결과 기타 */
+    FROM TBBADFRE012M D1
+       , TBBADFRE012D D2
+       , TBBADFRE013D D3
+   WHERE 1 = 1
+     AND D1.ACP_YR      = D2.ACP_YR     
+     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D2.ACP_SRNO   
+     AND D1.DPT_CD      = D2.DPT_CD    
+     AND D1.ACP_YR      = D3.ACP_YR     
+     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D3.ACP_SRNO   
+     AND D1.DPT_CD      = D3.DPT_CD
+     AND D1.ACP_DVSN_CD = '1'
+     AND NVL(D1.BAI_DSP_YN, 'N') = 'Y'
+GROUP BY D1.DPT_CD
+UNION
+  SELECT '합계' AS GUBUN
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND D2.SBCN_DT IS NULL 
+                 AND D3.ENF_DT IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS TOT_MAKE                                /* 청구건수 계 */
+       , SUM(
+           CASE WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(D2.SBCN_DT, D3.ENF_DT) IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS PAST_MAKE                               /* 청구건수 이월 */
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS NOW_MAKE                                /* 청구건수 신규 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND NVL(D2.VT_KND_CD, '9999') != '9999' THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_TOT                               /* 처리결과 계 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('1', '2', '3', '4', '5') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_1                               /* 처리결과 인용 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('6') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_2                               /* 처리결과 기각 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('8') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_3                               /* 처리결과 각하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('7') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_4                               /* 처리결과 취하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('9') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_ETC                               /* 처리결과 기타 */
+    FROM TBBADFRE012M D1
+       , TBBADFRE012D D2
+       , TBBADFRE013D D3
+   WHERE 1 = 1
+     AND D1.ACP_YR      = D2.ACP_YR     
+     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D2.ACP_SRNO   
+     AND D1.DPT_CD      = D2.DPT_CD    
+     AND D1.ACP_YR      = D3.ACP_YR     
+     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D3.ACP_SRNO   
+     AND D1.DPT_CD      = D3.DPT_CD
+     AND D1.ACP_DVSN_CD = '1'
+     AND NVL(D1.BAI_DSP_YN, 'N') = 'Y'
+) AS M1
+ORDER BY M1.GUBUN
+	]]>
+	</select>
+	
+	<select id="BADFRE026QMain4List" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+SELECT NVL(M1.GUBUN, 0) AS GUBUN_4
+     , NVL(SUM(M1.STTC_CNT), 0) AS RESULT_TOT_4
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT BETWEEN 0 AND 90 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS IN3MONTH_4  /* 3개월 이내 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT > 90 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS OUT3MONTH_4  /* 기간초과처리건수 계 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT BETWEEN 91 AND 180 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS BETWEEN4_6_4  /* 기간초과처리건수 4에서 6월 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT BETWEEN 181 AND 270 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS BETWEEN6_9_4  /* 기간초과처리건수 7에서 9월 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT BETWEEN 271 AND 365 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS BETWEEN9_12_4  /* 기간초과처리건수 10에서 12월 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT > 365 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS OVER1_4  /* 기간초과처리건수 1년 초과 */
+     , NVL(TRUNC(SUM(M1.TERM_DT*M1.STTC_CNT)/SUM(M1.STTC_CNT), 0), 0) AS TERM_AVG_4
+  FROM (
+  SELECT TO_DATE(NVL(D2.SBCN_DT, D3.ENF_DT)) - TO_DATE(NVL(D3.RLS_DT, D1.ACP_DT)) AS TERM_DT
+       , NVL(#strFromDt#, '18000101')|| '~' || NVL(#strToDt#, '99991231') AS GUBUN
+       , D1.STTC_CNT
+    FROM TBBADFRE012M D1
+       , TBBADFRE012D D2
+       , TBBADFRE013D D3
+   WHERE 1 = 1
+     AND D1.ACP_YR      = D2.ACP_YR     
+     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D2.ACP_SRNO   
+     AND D1.DPT_CD      = D2.DPT_CD    
+     AND D1.ACP_YR      = D3.ACP_YR     
+     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D3.ACP_SRNO   
+     AND D1.DPT_CD      = D3.DPT_CD
+     AND D1.ACP_DVSN_CD = '1'                               /* 접수구분코드 1 : 심사청구 */
+     AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+     AND NVL(D2.VT_KND_CD, '9999') != '9999' 
+) M1
+	]]>
+	</select>
+	
+	<select id="BADFRE026QMain5List" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+SELECT F_DPT_INFO(M1.DPT_CD, '1') AS GUBUN_5
+     , NVL(SUM(M1.STTC_CNT), 0) AS RESULT_TOT_5
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT BETWEEN 0 AND 90 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS IN3MONTH_5  /* 3개월 이내 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT > 90 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS OUT3MONTH_5  /* 기간초과처리건수 계 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT BETWEEN 91 AND 180 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS BETWEEN4_6_5  /* 기간초과처리건수 4에서 6월 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT BETWEEN 181 AND 270 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS BETWEEN6_9_5  /* 기간초과처리건수 7에서 9월 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT BETWEEN 271 AND 365 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS BETWEEN9_12_5  /* 기간초과처리건수 10에서 12월 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT > 365 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS OVER1_5  /* 기간초과처리건수 1년 초과 */
+     , NVL(TRUNC(SUM(M1.TERM_DT*M1.STTC_CNT)/SUM(M1.STTC_CNT), 0), 0) AS TERM_AVG_5
+  FROM (
+  SELECT TO_DATE(NVL(D2.SBCN_DT, D3.ENF_DT)) - TO_DATE(NVL(D3.RLS_DT, D1.ACP_DT)) AS TERM_DT
+       , D1.DPT_CD
+       , D1.STTC_CNT
+    FROM TBBADFRE012M D1
+       , TBBADFRE012D D2
+       , TBBADFRE013D D3
+   WHERE 1 = 1
+     AND D1.ACP_YR      = D2.ACP_YR     
+     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D2.ACP_SRNO   
+     AND D1.DPT_CD      = D2.DPT_CD    
+     AND D1.ACP_YR      = D3.ACP_YR     
+     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D3.ACP_SRNO   
+     AND D1.DPT_CD      = D3.DPT_CD
+     AND D1.ACP_DVSN_CD = '1'                               /* 접수구분코드 1 : 심사청구 */
+     AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+     AND NVL(D2.VT_KND_CD, '9999') != '9999' 
+) M1
+GROUP BY M1.DPT_CD
+ORDER BY M1.DPT_CD
+	]]>
+	</select>
+	
+	
+	<select id="BADFRE026QMain6List" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+SELECT CASE WHEN NVL(M1.GUBUN     , 0) = '1' THEN '국세'
+            WHEN NVL(M1.GUBUN     , 0) = '2' THEN '지방세'
+            WHEN NVL(M1.GUBUN     , 0) = '3' THEN '산재'
+            WHEN NVL(M1.GUBUN     , 0) = '4' THEN '기타'
+            ELSE '합계' END AS GUBUN_6
+     , NVL(M1.TOT_MAKE  , 0) AS TOT_MAKE_6
+     , NVL(M1.PAST_MAKE , 0) AS PAST_MAKE_6
+     , NVL(M1.NOW_MAKE  , 0) AS NOW_MAKE_6
+     , NVL(M1.RESULT_TOT, 0) AS RESULT_TOT_6
+     , NVL(M1.RESULT_1  , 0) AS RESULT_1_6
+     , NVL(M1.RESULT_2  , 0) AS RESULT_2_6
+     , NVL(M1.RESULT_3  , 0) AS RESULT_3_6
+     , NVL(M1.RESULT_4  , 0) AS RESULT_4_6
+     , NVL(CASE WHEN M1.RESULT_TOT = 0 THEN NULL
+            ELSE TRUNC(M1.RESULT_1/M1.RESULT_TOT*100,2)||'%' END, 0) AS PASS_PERCENT_6
+     , NVL(M1.TOT_MAKE, 0) - NVL(M1.RESULT_TOT, 0) AS REMAIN_6
+  FROM (
+  SELECT CASE WHEN SUBSTR(D1.JDG_REQ_DVSN_CD, 1, 1) = 1 THEN '1'
+              WHEN SUBSTR(D1.JDG_REQ_DVSN_CD, 1, 1) = 2 THEN '2'
+              WHEN D1.JDG_REQ_DVSN_CD IN ('31') THEN '3'
+              ELSE '4'  END AS GUBUN
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND D2.SBCN_DT IS NULL 
+                 AND D3.ENF_DT IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS TOT_MAKE                                /* 청구건수 계 */
+       , SUM(
+           CASE WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(D2.SBCN_DT, D3.ENF_DT) IS NULL 
+                 AND D3.ENF_DT IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS PAST_MAKE                               /* 청구건수 이월 */
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS NOW_MAKE                                /* 청구건수 신규 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND NVL(D2.VT_KND_CD, '9999') != '9999' THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_TOT                               /* 처리결과 계 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('1', '2', '3', '4', '5') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_1                               /* 처리결과 인용 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('6') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_2                               /* 처리결과 기각 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('8') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_3                               /* 처리결과 각하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('7') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_4                               /* 처리결과 취하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('9') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_ETC                               /* 처리결과 기타 */
+    FROM TBBADFRE012M D1
+       , TBBADFRE012D D2
+       , TBBADFRE013D D3
+   WHERE 1 = 1
+     AND D1.ACP_YR      = D2.ACP_YR     
+     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D2.ACP_SRNO   
+     AND D1.DPT_CD      = D2.DPT_CD    
+     AND D1.ACP_YR      = D3.ACP_YR     
+     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D3.ACP_SRNO   
+     AND D1.DPT_CD      = D3.DPT_CD
+     AND D1.ACP_DVSN_CD = '1'
+     AND SUBSTR(D1.JDG_REQ_DVSN_CD, 1, 1) IN ('1', '2', '3')
+     AND D1.JDG_REQ_DVSN_CD NOT IN ('40','41','42','43','49')
+     
+        ]]>
+		<isNotEmpty property="strDpt">
+			AND D1.DPT_CD    = #strDpt#
+		</isNotEmpty>
+		<![CDATA[
+GROUP BY CASE WHEN SUBSTR(D1.JDG_REQ_DVSN_CD, 1, 1) = 1 THEN '1'
+              WHEN SUBSTR(D1.JDG_REQ_DVSN_CD, 1, 1) = 2 THEN '2'
+              WHEN D1.JDG_REQ_DVSN_CD IN ('31') THEN '3'
+              ELSE '4'  END
+UNION
+SELECT '합계' AS GUBUN
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND D2.SBCN_DT IS NULL 
+                 AND D3.ENF_DT IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS TOT_MAKE                                /* 청구건수 계 */
+       , SUM(
+           CASE WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(D2.SBCN_DT, D3.ENF_DT) IS NULL 
+                 AND D3.ENF_DT IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS PAST_MAKE                               /* 청구건수 이월 */
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS NOW_MAKE                                /* 청구건수 신규 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND NVL(D2.VT_KND_CD, '9999') != '9999' THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_TOT                               /* 처리결과 계 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('1', '2', '3', '4', '5') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_1                               /* 처리결과 인용 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('6') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_2                               /* 처리결과 기각 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('8') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_3                               /* 처리결과 각하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('7') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_4                               /* 처리결과 취하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('9') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_ETC                               /* 처리결과 기타 */
+    FROM TBBADFRE012M D1
+       , TBBADFRE012D D2
+       , TBBADFRE013D D3
+   WHERE 1 = 1
+     AND D1.ACP_YR      = D2.ACP_YR     
+     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D2.ACP_SRNO   
+     AND D1.DPT_CD      = D2.DPT_CD    
+     AND D1.ACP_YR      = D3.ACP_YR     
+     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D3.ACP_SRNO   
+     AND D1.DPT_CD      = D3.DPT_CD
+     AND D1.ACP_DVSN_CD = '1'
+     AND SUBSTR(D1.JDG_REQ_DVSN_CD, 1, 1) IN ('1', '2', '3')
+     AND D1.JDG_REQ_DVSN_CD NOT IN ('40','41','42','43','49')
+     
+        ]]>
+		<isNotEmpty property="strDpt">
+			AND D1.DPT_CD    = #strDpt#
+		</isNotEmpty>
+		<![CDATA[
+) AS M1
+ORDER BY M1.GUBUN
+	]]>
+	</select>
+	
+	
+	<select id="BADFRE026QMain62List" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+SELECT NVL(M1.GUBUN     , 0) AS GUBUN_6
+     , NVL(M1.TOT_MAKE  , 0) AS TOT_MAKE_6
+     , NVL(M1.PAST_MAKE , 0) AS PAST_MAKE_6
+     , NVL(M1.NOW_MAKE  , 0) AS NOW_MAKE_6
+     , NVL(M1.RESULT_TOT, 0) AS RESULT_TOT_6
+     , NVL(M1.RESULT_1  , 0) AS RESULT_1_6
+     , NVL(M1.RESULT_2  , 0) AS RESULT_2_6
+     , NVL(M1.RESULT_3  , 0) AS RESULT_3_6
+     , NVL(M1.RESULT_4  , 0) AS RESULT_4_6
+     , NVL(CASE WHEN M1.RESULT_TOT = 0 THEN NULL
+            ELSE TRUNC(M1.RESULT_1/M1.RESULT_TOT*100,2)||'%' END, 0) AS PASS_PERCENT_6
+     , NVL(M1.TOT_MAKE, 0) - NVL(M1.RESULT_TOT, 0) AS REMAIN_6
+  FROM (
+  SELECT F_DPT_INFO(D1.DPT_CD, '1') AS GUBUN
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND D2.SBCN_DT IS NULL 
+                 AND D3.ENF_DT IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS TOT_MAKE                                /* 청구건수 계 */
+       , SUM(
+           CASE WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(D2.SBCN_DT, D3.ENF_DT) IS NULL 
+                 AND D3.ENF_DT IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS PAST_MAKE                               /* 청구건수 이월 */
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS NOW_MAKE                                /* 청구건수 신규 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND NVL(D2.VT_KND_CD, '9999') != '9999' THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_TOT                               /* 처리결과 계 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('1', '2', '3', '4', '5') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_1                               /* 처리결과 인용 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('6') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_2                               /* 처리결과 기각 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('8') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_3                               /* 처리결과 각하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('7') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_4                               /* 처리결과 취하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('9') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_ETC                               /* 처리결과 기타 */
+    FROM TBBADFRE012M D1
+       , TBBADFRE012D D2
+       , TBBADFRE013D D3
+   WHERE 1 = 1
+     AND D1.ACP_YR      = D2.ACP_YR     
+     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D2.ACP_SRNO   
+     AND D1.DPT_CD      = D2.DPT_CD    
+     AND D1.ACP_YR      = D3.ACP_YR     
+     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D3.ACP_SRNO   
+     AND D1.DPT_CD      = D3.DPT_CD
+     AND D1.ACP_DVSN_CD = '1'
+     AND SUBSTR(D1.JDG_REQ_DVSN_CD, 1, 1) IN ('1', '2', '3')
+        ]]>
+		<isNotEmpty property="strType">
+	 AND CASE WHEN SUBSTR(#strType#, 1, 1) = '3' THEN (
+	          CASE WHEN D1.JDG_REQ_DVSN_CD = #strType# THEN 1
+	               ELSE 0 END
+	        ) ELSE (
+	          CASE WHEN SUBSTR(#strType#, 1, 1) = SUBSTR(D1.JDG_REQ_DVSN_CD, 1, 1) THEN 1
+	               ELSE 0 END
+	        ) END = 1
+		</isNotEmpty>
+		<![CDATA[
+GROUP BY D1.DPT_CD
+UNION
+  SELECT '합계' AS GUBUN
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND D2.SBCN_DT IS NULL 
+                 AND D3.ENF_DT IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS TOT_MAKE                                /* 청구건수 계 */
+       , SUM(
+           CASE WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(D2.SBCN_DT, D3.ENF_DT) IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS PAST_MAKE                               /* 청구건수 이월 */
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS NOW_MAKE                                /* 청구건수 신규 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND NVL(D2.VT_KND_CD, '9999') != '9999' THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_TOT                               /* 처리결과 계 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('1', '2', '3', '4', '5') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_1                               /* 처리결과 인용 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('6') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_2                               /* 처리결과 기각 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('8') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_3                               /* 처리결과 각하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('7') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_4                               /* 처리결과 취하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('9') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_ETC                               /* 처리결과 기타 */
+    FROM TBBADFRE012M D1
+       , TBBADFRE012D D2
+       , TBBADFRE013D D3
+   WHERE 1 = 1
+     AND D1.ACP_YR      = D2.ACP_YR     
+     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D2.ACP_SRNO   
+     AND D1.DPT_CD      = D2.DPT_CD    
+     AND D1.ACP_YR      = D3.ACP_YR     
+     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D3.ACP_SRNO   
+     AND D1.DPT_CD      = D3.DPT_CD
+     AND D1.ACP_DVSN_CD = '1'
+     AND SUBSTR(D1.JDG_REQ_DVSN_CD, 1, 1) IN ('1', '2', '3')
+        ]]>
+		<isNotEmpty property="strType">
+	 AND CASE WHEN SUBSTR(#strType#, 1, 1) = '3' THEN (
+	          CASE WHEN D1.JDG_REQ_DVSN_CD = #strType# THEN 1
+	               ELSE 0 END
+	        ) ELSE (
+	          CASE WHEN SUBSTR(#strType#, 1, 1) = SUBSTR(D1.JDG_REQ_DVSN_CD, 1, 1) THEN 1
+	               ELSE 0 END
+	        ) END = 1
+		</isNotEmpty>
+		<![CDATA[
+) AS M1
+ORDER BY M1.GUBUN
+	]]>
+	</select>
+	
+
+
+	<select id="BADFRE026QSubList" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+SELECT M1.GUBUN               AS SGUBUN     
+     , NVL(M1.TOT_MAKE  , 0)  AS STOT_MAKE  
+     , NVL(M1.PAST_MAKE , 0)  AS SPAST_MAKE 
+     , NVL(M1.NOW_MAKE  , 0)  AS SNOW_MAKE  
+     , NVL(M1.RESULT_TOT, 0)  AS SRESULT_TOT
+     , NVL(M1.RESULT_1  , 0)  AS SRESULT_1  
+     , NVL(M1.RESULT_2  , 0)  AS SRESULT_2  
+     , NVL(M1.RESULT_3  , 0)  AS SRESULT_3  
+     , NVL(M1.RESULT_4  , 0)  AS SRESULT_4  
+     , NVL(M1.RESULT_5  , 0)  AS SRESULT_5  
+     , NVL(CASE WHEN M1.RESULT_TOT = 0 THEN NULL                    
+                ELSE TRUNC(M1.RESULT_1/M1.RESULT_TOT*100,2)||'%' END, 0) AS SPASS_PERCENT
+     , NVL(M1.TOT_MAKE, 0) - NVL(M1.RESULT_TOT, 0) AS SREMAIN
+  FROM (
+ SELECT NVL(#strFromDt#, '18000101')|| '~' || NVL(#strToDt#, '99991231') AS GUBUN
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND D2.SBCN_DT IS NULL 
+                 AND D3.ENF_DT IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS TOT_MAKE                                /* 청구건수 계 */
+       , SUM(
+           CASE WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(D2.SBCN_DT, D3.ENF_DT) IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS PAST_MAKE                               /* 청구건수 이월 */
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS NOW_MAKE                                /* 청구건수 신규 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND NVL(D2.VT_KND_CD, '9999') != '9999' THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_TOT                               /* 처리결과 계 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('3', '4', '5') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_1                               /* 처리결과 인용 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('1', '2') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_2                               /* 처리결과 인용 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('6') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_3                               /* 처리결과 기각 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('8') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_4                               /* 처리결과 각하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('7') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_5                               /* 처리결과 취하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('9') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_ETC                               /* 처리결과 기타 */
+    FROM TBBADFRE012M D1
+       , TBBADFRE012D D2
+       , TBBADFRE013D D3
+   WHERE 1 = 1
+     AND D1.ACP_YR      = D2.ACP_YR     
+     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D2.ACP_SRNO   
+     AND D1.DPT_CD      = D2.DPT_CD    
+     AND D1.ACP_YR      = D3.ACP_YR     
+     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D3.ACP_SRNO   
+     AND D1.DPT_CD      = D3.DPT_CD
+     AND D1.ACP_DVSN_CD = '2'    
+UNION
+  SELECT '우리원처분' AS GUBUN
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND D2.SBCN_DT IS NULL 
+                 AND D3.ENF_DT IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS TOT_MAKE                                /* 청구건수 계 */
+       , SUM(
+           CASE WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(D2.SBCN_DT, D3.ENF_DT) IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS PAST_MAKE                               /* 청구건수 이월 */
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS NOW_MAKE                                /* 청구건수 신규 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND NVL(D2.VT_KND_CD, '9999') != '9999' THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_TOT                               /* 처리결과 계 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('3', '4', '5') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_1                               /* 처리결과 인용 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('1', '2') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_2                               /* 처리결과 인용 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('6') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_3                               /* 처리결과 기각 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('8') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_4                               /* 처리결과 각하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('7') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_5                               /* 처리결과 취하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('9') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_ETC                               /* 처리결과 기타 */
+    FROM TBBADFRE012M D1
+       , TBBADFRE012D D2
+       , TBBADFRE013D D3
+   WHERE 1 = 1
+     AND D1.ACP_YR      = D2.ACP_YR     
+     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D2.ACP_SRNO   
+     AND D1.DPT_CD      = D2.DPT_CD    
+     AND D1.ACP_YR      = D3.ACP_YR     
+     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D3.ACP_SRNO   
+     AND D1.DPT_CD      = D3.DPT_CD
+     AND D1.ACP_DVSN_CD = '2'
+     AND NVL(D1.BAI_DSP_YN, 'N') = 'Y'
+)M1     
+	]]>
+	</select>
+	
+	<select id="BADFRE026QSub2List" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+SELECT NVL(M1.GUBUN     , 0) AS S2GUBUN     
+     , NVL(M1.TOT_MAKE  , 0) AS S2TOT_MAKE  
+     , NVL(M1.PAST_MAKE , 0) AS S2PAST_MAKE 
+     , NVL(M1.NOW_MAKE  , 0) AS S2NOW_MAKE  
+     , NVL(M1.RESULT_TOT, 0) AS S2RESULT_TOT
+     , NVL(M1.RESULT_1  , 0) AS S2RESULT_1  
+     , NVL(M1.RESULT_2  , 0) AS S2RESULT_2  
+     , NVL(M1.RESULT_3  , 0) AS S2RESULT_3  
+     , NVL(M1.RESULT_4  , 0) AS S2RESULT_4  
+     , NVL(M1.RESULT_5  , 0) AS S2RESULT_5  
+     , NVL(M1.TOT_MAKE, 0) - NVL(M1.RESULT_TOT, 0) AS S2REMAIN
+  FROM (
+ SELECT F_DPT_INFO(D1.DPT_CD, '1') AS GUBUN
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND D2.SBCN_DT IS NULL 
+                 AND D3.ENF_DT IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS TOT_MAKE                                /* 청구건수 계 */
+       , SUM(
+           CASE WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(D2.SBCN_DT, D3.ENF_DT) IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS PAST_MAKE                               /* 청구건수 이월 */
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS NOW_MAKE                                /* 청구건수 신규 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND NVL(D2.VT_KND_CD, '9999') != '9999' THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_TOT                               /* 처리결과 계 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('3', '4', '5') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_1                               /* 처리결과 인용 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('1', '2') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_2                               /* 처리결과 인용 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('6') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_3                               /* 처리결과 기각 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('8') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_4                               /* 처리결과 각하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('7') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_5                               /* 처리결과 취하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('9') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_ETC                               /* 처리결과 기타 */
+    FROM TBBADFRE012M D1
+       , TBBADFRE012D D2
+       , TBBADFRE013D D3
+   WHERE 1 = 1
+     AND D1.ACP_YR      = D2.ACP_YR     
+     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D2.ACP_SRNO   
+     AND D1.DPT_CD      = D2.DPT_CD    
+     AND D1.ACP_YR      = D3.ACP_YR     
+     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D3.ACP_SRNO   
+     AND D1.DPT_CD      = D3.DPT_CD
+     AND D1.ACP_DVSN_CD = '2'    
+GROUP BY D1.DPT_CD
+UNION
+  SELECT '합계' AS GUBUN
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND D2.SBCN_DT IS NULL 
+                 AND D3.ENF_DT IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS TOT_MAKE                                /* 청구건수 계 */
+       , SUM(
+           CASE WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(D2.SBCN_DT, D3.ENF_DT) IS NULL THEN NVL(D1.STTC_CNT, 1)
+                WHEN D1.ACP_YR < SUBSTR(#strFromDt#, 1, 4)
+                 AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS PAST_MAKE                               /* 청구건수 이월 */
+       , SUM(
+           CASE WHEN D1.ACP_DT BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS NOW_MAKE                                /* 청구건수 신규 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND NVL(D2.VT_KND_CD, '9999') != '9999' THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_TOT                               /* 처리결과 계 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('3', '4', '5') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_1                               /* 처리결과 인용 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('1', '2') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_2                               /* 처리결과 인용 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('6') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_3                               /* 처리결과 기각 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('8') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_4                               /* 처리결과 각하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('7') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_5                               /* 처리결과 취하 */
+       , SUM(
+           CASE WHEN NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+                 AND D2.VT_KND_CD IN ('9') THEN NVL(D1.STTC_CNT, 1)
+                ELSE 0 END
+       ) AS RESULT_ETC                               /* 처리결과 기타 */
+    FROM TBBADFRE012M D1
+       , TBBADFRE012D D2
+       , TBBADFRE013D D3
+   WHERE 1 = 1
+     AND D1.ACP_YR      = D2.ACP_YR     
+     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D2.ACP_SRNO   
+     AND D1.DPT_CD      = D2.DPT_CD    
+     AND D1.ACP_YR      = D3.ACP_YR     
+     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D3.ACP_SRNO   
+     AND D1.DPT_CD      = D3.DPT_CD
+     AND D1.ACP_DVSN_CD = '2'
+)M1     
+ORDER BY M1.GUBUN
+	]]>
+	</select>
+	
+	<select id="BADFRE026QSub3List" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+SELECT M1.GUBUN  AS S3GUBUN
+     , NVL(SUM(M1.STTC_CNT), 0) AS S3RESULT_TOT
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT BETWEEN 0 AND 60 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS S3IN2MONTH  /* 2개월 이내 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT > 60 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS S3OUT2MONTH  /* 기간초과처리건수 계 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT BETWEEN 60 AND 180 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS S3BETWEEN3_6  /* 기간초과처리건수 4에서 6월 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT BETWEEN 181 AND 270 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS S3BETWEEN6_9  /* 기간초과처리건수 7에서 9월 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT BETWEEN 271 AND 365 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS S3BETWEEN9_12  /* 기간초과처리건수 10에서 12월 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT > 365 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS S3OVER1  /* 기간초과처리건수 1년 초과 */
+     , NVL(TRUNC(SUM(M1.TERM_DT*M1.STTC_CNT)/SUM(M1.STTC_CNT), 0), 0) AS S3TERM_AVG
+  FROM (
+  SELECT TO_DATE(NVL(D2.SBCN_DT, D3.ENF_DT)) - TO_DATE(NVL(D3.RLS_DT, D1.ACP_DT)) AS TERM_DT
+       , NVL(#strFromDt#, '18000101')|| '~' || NVL(#strToDt#, '99991231') AS GUBUN
+       , D1.STTC_CNT
+    FROM TBBADFRE012M D1
+       , TBBADFRE012D D2
+       , TBBADFRE013D D3
+   WHERE 1 = 1
+     AND D1.ACP_YR      = D2.ACP_YR     
+     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D2.ACP_SRNO   
+     AND D1.DPT_CD      = D2.DPT_CD    
+     AND D1.ACP_YR      = D3.ACP_YR     
+     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D3.ACP_SRNO   
+     AND D1.DPT_CD      = D3.DPT_CD
+     AND D1.ACP_DVSN_CD = '2'                               /* 접수구분코드 2 : 재심의청구 */
+     AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') 
+) M1
+	]]>
+	</select>
+	
+	<select id="BADFRE026QSub4List" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+SELECT F_DPT_INFO(M1.DPT_CD, '1') AS S4GUBUN
+     , NVL(SUM(M1.STTC_CNT), 0) AS S4RESULT_TOT
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT BETWEEN 0 AND 60 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS S4IN2MONTH  /* 2개월 이내 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT > 60 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS S4OUT2MONTH  /* 기간초과처리건수 계 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT BETWEEN 91 AND 180 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS S4BETWEEN3_6  /* 기간초과처리건수 4에서 6월 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT BETWEEN 181 AND 270 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS S4BETWEEN6_9  /* 기간초과처리건수 7에서 9월 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT BETWEEN 271 AND 365 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS S4OVER1  /* 기간초과처리건수 10에서 12월 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT > 365 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS S4BETWEEN9_12  /* 기간초과처리건수 1년 초과 */
+     , NVL(TRUNC(SUM(M1.TERM_DT*M1.STTC_CNT)/SUM(M1.STTC_CNT), 0), 0) AS S4TERM_AVG
+  FROM (
+  SELECT TO_DATE(NVL(D2.SBCN_DT, D3.ENF_DT)) - TO_DATE(NVL(D3.RLS_DT, D1.ACP_DT)) AS TERM_DT
+       , D1.DPT_CD
+       , D1.STTC_CNT
+    FROM TBBADFRE012M D1
+       , TBBADFRE012D D2
+       , TBBADFRE013D D3
+   WHERE 1 = 1
+     AND D1.ACP_YR      = D2.ACP_YR     
+     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D2.ACP_SRNO   
+     AND D1.DPT_CD      = D2.DPT_CD    
+     AND D1.ACP_YR      = D3.ACP_YR     
+     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D3.ACP_SRNO   
+     AND D1.DPT_CD      = D3.DPT_CD
+     AND D1.ACP_DVSN_CD = '2'                               /* 접수구분코드 2 : 재심의청구 */
+     AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231') 
+) M1
+GROUP BY M1.DPT_CD
+ORDER BY M1.DPT_CD
+	]]>
+	</select>
+	
+	<select id="BADFRE026QSub5List" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+SELECT M1.GUBUN AS S5GUBUN
+     , NVL(SUM(M1.STTC_CNT), 0) AS S5RESULT_TOT
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT BETWEEN 0 AND 60 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS S5IN2MONTH  /* 2개월 이내 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT > 60 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS S5OUT2MONTH  /* 기간초과처리건수 계 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT BETWEEN 60 AND 180 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS S5BETWEEN3_6  /* 기간초과처리건수 4에서 6월 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT BETWEEN 181 AND 270 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS S5BETWEEN6_9  /* 기간초과처리건수 7에서 9월 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT BETWEEN 271 AND 365 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS S5BETWEEN9_12  /* 기간초과처리건수 10에서 12월 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT > 365 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS S5OVER1  /* 기간초과처리건수 1년 초과 */
+     , NVL(TRUNC(SUM(M1.TERM_DT*M1.STTC_CNT)/SUM(M1.STTC_CNT), 0), 0) AS S5TERM_AVG
+  FROM (
+  SELECT TO_DATE(NVL(D2.SBCN_DT, D3.ENF_DT)) - TO_DATE(NVL(D3.RLS_DT, D1.ACP_DT)) AS TERM_DT
+       , TO_CHAR(SYSDATE, 'YYYY')||'년' AS GUBUN
+       , D1.STTC_CNT
+    FROM TBBADFRE012M D1
+       , TBBADFRE012D D2
+       , TBBADFRE013D D3
+   WHERE 1 = 1
+     AND D1.ACP_YR      = D2.ACP_YR     
+     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D2.ACP_SRNO   
+     AND D1.DPT_CD      = D2.DPT_CD    
+     AND D1.ACP_YR      = D3.ACP_YR     
+     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D3.ACP_SRNO   
+     AND D1.DPT_CD      = D3.DPT_CD
+     AND D1.ACP_DVSN_CD = '2'                               /* 접수구분코드 2 : 재심의청구 */
+     AND D3.ENF_DT IS NULL
+     AND D2.SBCN_DT IS NULL 
+) M1
+	]]>
+	</select>
+	
+	<select id="BADFRE026QSub6List" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+SELECT F_DPT_INFO(M1.DPT_CD, '1') AS S6GUBUN
+     , NVL(SUM(M1.STTC_CNT), 0) AS S6RESULT_TOT
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT BETWEEN 0 AND 60 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS S6IN2MONTH  /* 3개월 이내 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT > 60 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS S6OUT2MONTH  /* 기간초과처리건수 계 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT BETWEEN 91 AND 180 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS S6BETWEEN3_6  /* 기간초과처리건수 4에서 6월 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT BETWEEN 181 AND 270 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS S6BETWEEN6_9  /* 기간초과처리건수 7에서 9월 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT BETWEEN 271 AND 365 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS S6OVER1  /* 기간초과처리건수 10에서 12월 */
+     , NVL(SUM(
+            CASE WHEN M1.TERM_DT > 365 THEN NVL(M1.STTC_CNT, 1)
+                 ELSE 0 END
+     ), 0) AS S6BETWEEN9_12  /* 기간초과처리건수 1년 초과 */
+     , NVL(TRUNC(SUM(M1.TERM_DT*M1.STTC_CNT)/SUM(M1.STTC_CNT), 0), 0) AS S6TERM_AVG
+  FROM (
+  SELECT TO_DATE(NVL(D2.SBCN_DT, D3.ENF_DT)) - TO_DATE(NVL(D3.RLS_DT, D1.ACP_DT)) AS TERM_DT
+       , D1.DPT_CD
+       , D1.STTC_CNT
+    FROM TBBADFRE012M D1
+       , TBBADFRE012D D2
+       , TBBADFRE013D D3
+   WHERE 1 = 1
+     AND D1.ACP_YR      = D2.ACP_YR     
+     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D2.ACP_SRNO   
+     AND D1.DPT_CD      = D2.DPT_CD    
+     AND D1.ACP_YR      = D3.ACP_YR     
+     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+     AND D1.ACP_SRNO    = D3.ACP_SRNO   
+     AND D1.DPT_CD      = D3.DPT_CD
+     AND D1.ACP_DVSN_CD = '2'                               /* 접수구분코드 2 : 재심의청구 */
+     AND D2.SBCN_DT IS NULL
+     AND D3.ENF_DT IS NULL 
+) M1
+GROUP BY M1.DPT_CD
+ORDER BY M1.DPT_CD
+	]]>
+	</select>
+	
+	<select id="BADFRE026QSub7List" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+    SELECT F_DPT_INFO(M1.DPT_CD, '1') AS S7GUBUN
+         , NVL(SUM(CASE WHEN M1.DSP_RQ_KND_CD = '210' THEN NVL(M1.STTC_CNT, 1)   /* 징계, 문책 */
+                    ELSE 0 END), 0) AS S7RESULT1
+         , NVL(SUM(CASE WHEN M1.DSP_RQ_KND_CD = '410' THEN NVL(M1.STTC_CNT, 1)   /* 주의 */
+                    ELSE 0 END), 0) AS S7RESULT2
+         , NVL(SUM(CASE WHEN M1.DSP_RQ_KND_CD IN ('310', '320') THEN NVL(M1.STTC_CNT, 1)   /* 시정 */
+                    ELSE 0 END), 0) AS S7RESULT3
+         , NVL(SUM(CASE WHEN M1.DSP_RQ_KND_CD IN ('610', '620', '621', '623', '630') THEN NVL(M1.STTC_CNT, 1)   /* 통보 */
+                    ELSE 0 END), 0) AS S7RESULT4
+         , NVL(SUM(CASE WHEN M1.DSP_RQ_KND_CD IN ('110') THEN NVL(M1.STTC_CNT, 1)   /* 변상판정 */
+                    ELSE 0 END), 0) AS S7RESULT5
+         , NVL(SUM(CASE WHEN M1.DSP_RQ_KND_CD NOT IN ('210','410', '310', '320', '610', '620', '621', '623', '630', '110') THEN NVL(M1.STTC_CNT, 1)   /* 재심의기타 */
+                    ELSE 0 END), 0) AS S7RESULT7
+         , NVL(SUM(M1.STTC_CNT), 0) AS S7RESULT_TOT
+      FROM (
+      SELECT D1.DPT_CD
+           , D4.DSP_RQ_KND_CD
+           , D1.STTC_CNT
+        FROM TBBADFRE012M D1
+           , TBBADFRE012D D2
+           , TBBADFRE013D D3
+           , TBBADEAR001M D4
+       WHERE 1 = 1
+         AND D1.ACP_YR      = D2.ACP_YR     
+         AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+         AND D1.ACP_SRNO    = D2.ACP_SRNO   
+         AND D1.DPT_CD      = D2.DPT_CD    
+         AND D1.ACP_YR      = D3.ACP_YR     
+         AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+         AND D1.ACP_SRNO    = D3.ACP_SRNO   
+         AND D1.DPT_CD      = D3.DPT_CD
+         AND D1.AUD_YR      = D4.AUD_YR     
+         AND D1.AUD_NO      = D4.AUD_NO
+         AND D1.DSP_RQ_SNO  = D4.DSP_RQ_SNO 
+         AND D1.ACP_DVSN_CD = '2'                               /* 접수구분코드 2 : 재심의청구 */
+         AND D1.ACP_DT      BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+         AND D3.ENF_DT IS NULL
+         AND D2.SBCN_DT IS NULL
+    ORDER BY D1.DPT_CD
+         ) M1
+    GROUP BY M1.DPT_CD
+UNION
+    SELECT '합계' AS S7GUBUN
+         , NVL(SUM(CASE WHEN M1.DSP_RQ_KND_CD = '210' THEN NVL(M1.STTC_CNT, 1)   /* 징계, 문책 */
+                    ELSE 0 END), 0) AS S7RESULT1
+         , NVL(SUM(CASE WHEN M1.DSP_RQ_KND_CD = '410' THEN NVL(M1.STTC_CNT, 1)   /* 주의 */
+                    ELSE 0 END), 0) AS S7RESULT2
+         , NVL(SUM(CASE WHEN M1.DSP_RQ_KND_CD IN ('310', '320') THEN NVL(M1.STTC_CNT, 1)   /* 시정 */
+                    ELSE 0 END), 0) AS S7RESULT3
+         , NVL(SUM(CASE WHEN M1.DSP_RQ_KND_CD IN ('610', '620', '621', '623', '630') THEN NVL(M1.STTC_CNT, 1)   /* 통보 */
+                    ELSE 0 END), 0) AS S7RESULT4
+         , NVL(SUM(CASE WHEN M1.DSP_RQ_KND_CD IN ('110') THEN NVL(M1.STTC_CNT, 1)   /* 변상판정 */
+                    ELSE 0 END), 0) AS S7RESULT5
+         , NVL(SUM(CASE WHEN M1.DSP_RQ_KND_CD NOT IN ('210','410', '310', '320', '610', '620', '621', '623', '630', '110') THEN NVL(M1.STTC_CNT, 1)   /* 재심의기타 */
+                    ELSE 0 END), 0) AS S7RESULT7
+         , NVL(SUM(M1.STTC_CNT), 0) AS S7RESULT_TOT
+      FROM (
+      SELECT D1.DPT_CD
+           , D4.DSP_RQ_KND_CD
+           , D1.STTC_CNT
+        FROM TBBADFRE012M D1
+           , TBBADFRE012D D2
+           , TBBADFRE013D D3
+           , TBBADEAR001M D4
+       WHERE 1 = 1
+         AND D1.ACP_YR      = D2.ACP_YR     
+         AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+         AND D1.ACP_SRNO    = D2.ACP_SRNO   
+         AND D1.DPT_CD      = D2.DPT_CD    
+         AND D1.ACP_YR      = D3.ACP_YR     
+         AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+         AND D1.ACP_SRNO    = D3.ACP_SRNO   
+         AND D1.DPT_CD      = D3.DPT_CD
+         AND D1.AUD_YR      = D4.AUD_YR     
+         AND D1.AUD_NO      = D4.AUD_NO
+         AND D1.DSP_RQ_SNO  = D4.DSP_RQ_SNO 
+         AND D1.ACP_DVSN_CD = '2'                               /* 접수구분코드 2 : 재심의청구 */
+         AND D1.ACP_DT      BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+         AND D3.ENF_DT IS NULL
+         AND D2.SBCN_DT IS NULL
+         ) M1
+	]]>
+	</select>
+	
+	<select id="BADFRE026QSub8List" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+    SELECT F_DPT_INFO(M1.DPT_CD, '1') AS S8GUBUN
+         , NVL(SUM(CASE WHEN M1.DSP_RQ_KND_CD = '210' THEN NVL(M1.STTC_CNT, 1)   /* 징계, 문책 */
+                    ELSE 0 END), 0) AS S8RESULT1
+         , NVL(SUM(CASE WHEN M1.DSP_RQ_KND_CD = '410' THEN NVL(M1.STTC_CNT, 1)   /* 주의 */
+                    ELSE 0 END), 0) AS S8RESULT2
+         , NVL(SUM(CASE WHEN M1.DSP_RQ_KND_CD IN ('310', '320') THEN NVL(M1.STTC_CNT, 1)   /* 시정 */
+                    ELSE 0 END), 0) AS S8RESULT3
+         , NVL(SUM(CASE WHEN M1.DSP_RQ_KND_CD IN ('610', '620', '621', '623', '630') THEN NVL(M1.STTC_CNT, 1)   /* 통보 */
+                    ELSE 0 END), 0) AS S8RESULT4
+         , NVL(SUM(CASE WHEN M1.DSP_RQ_KND_CD IN ('110') THEN NVL(M1.STTC_CNT, 1)   /* 변상판정 */
+                    ELSE 0 END), 0) AS S8RESULT5
+         , NVL(SUM(CASE WHEN M1.DSP_RQ_KND_CD NOT IN ('210','410', '310', '320', '610', '620', '621', '623', '630', '110') THEN NVL(M1.STTC_CNT, 1)   /* 재심의기타 */
+                    ELSE 0 END), 0) AS S8RESULT7
+         , NVL(SUM(M1.STTC_CNT), 0) AS S8RESULT_TOT
+      FROM (
+      SELECT D1.DPT_CD
+           , D4.DSP_RQ_KND_CD
+           , D1.STTC_CNT
+        FROM TBBADFRE012M D1
+           , TBBADFRE012D D2
+           , TBBADFRE013D D3
+           , TBBADEAR001M D4
+       WHERE 1 = 1
+         AND D1.ACP_YR      = D2.ACP_YR     
+         AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+         AND D1.ACP_SRNO    = D2.ACP_SRNO   
+         AND D1.DPT_CD      = D2.DPT_CD    
+         AND D1.ACP_YR      = D3.ACP_YR     
+         AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+         AND D1.ACP_SRNO    = D3.ACP_SRNO   
+         AND D1.DPT_CD      = D3.DPT_CD
+         AND D1.AUD_YR      = D4.AUD_YR     
+         AND D1.AUD_NO      = D4.AUD_NO
+         AND D1.DSP_RQ_SNO  = D4.DSP_RQ_SNO 
+         AND D1.ACP_DVSN_CD = '2'                               /* 접수구분코드 2 : 재심의청구 */ 
+         AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+    ORDER BY D1.DPT_CD
+         ) M1
+    GROUP BY M1.DPT_CD
+UNION
+    SELECT '합계' AS S8GUBUN
+         , NVL(SUM(CASE WHEN M1.DSP_RQ_KND_CD = '210' THEN NVL(M1.STTC_CNT, 1)   /* 징계, 문책 */
+                    ELSE 0 END), 0) AS S8RESULT1
+         , NVL(SUM(CASE WHEN M1.DSP_RQ_KND_CD = '410' THEN NVL(M1.STTC_CNT, 1)   /* 주의 */
+                    ELSE 0 END), 0) AS S8RESULT2
+         , NVL(SUM(CASE WHEN M1.DSP_RQ_KND_CD IN ('310', '320') THEN NVL(M1.STTC_CNT, 1)   /* 시정 */
+                    ELSE 0 END), 0) AS S8RESULT3
+         , NVL(SUM(CASE WHEN M1.DSP_RQ_KND_CD IN ('610', '620', '621', '623', '630') THEN NVL(M1.STTC_CNT, 1)   /* 통보 */
+                    ELSE 0 END), 0) AS S8RESULT4
+         , NVL(SUM(CASE WHEN M1.DSP_RQ_KND_CD IN ('110') THEN NVL(M1.STTC_CNT, 1)   /* 변상판정 */
+                    ELSE 0 END), 0) AS S8RESULT5
+         , NVL(SUM(CASE WHEN M1.DSP_RQ_KND_CD NOT IN ('210','410', '310', '320', '610', '620', '621', '623', '630', '110') THEN NVL(M1.STTC_CNT, 1)   /* 재심의기타 */
+                    ELSE 0 END),0) AS S8RESULT7
+         , NVL(SUM(M1.STTC_CNT), 0) AS S8RESULT_TOT
+      FROM (
+      SELECT D1.DPT_CD
+           , D4.DSP_RQ_KND_CD
+           , D1.STTC_CNT
+        FROM TBBADFRE012M D1
+           , TBBADFRE012D D2
+           , TBBADFRE013D D3
+           , TBBADEAR001M D4
+       WHERE 1 = 1
+         AND D1.ACP_YR      = D2.ACP_YR     
+         AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+         AND D1.ACP_SRNO    = D2.ACP_SRNO   
+         AND D1.DPT_CD      = D2.DPT_CD    
+         AND D1.ACP_YR      = D3.ACP_YR     
+         AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+         AND D1.ACP_SRNO    = D3.ACP_SRNO   
+         AND D1.DPT_CD      = D3.DPT_CD
+         AND D1.AUD_YR      = D4.AUD_YR     
+         AND D1.AUD_NO      = D4.AUD_NO
+         AND D1.DSP_RQ_SNO  = D4.DSP_RQ_SNO 
+         AND D1.ACP_DVSN_CD = '2'                               /* 접수구분코드 2 : 재심의청구 */
+         AND NVL(NVL(D2.SBCN_DT, D3.ENF_DT), '99999999') BETWEEN NVL(#strFromDt#, '18000101') AND NVL(#strToDt#, '99991231')
+         ) M1
+	]]>
+	</select>
+</sqlMap> 

@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="aep/gkm/048">
+	<select id="AEPGKM048EMainselect" parameterClass="paramMap" resultClass="resultMap">
+		<include refid = "include.pageSelct"/>
+		SELECT  C.KEY,
+		        C.KNB,
+		        C.KLD_CAT_NM,
+		        C.CAT_SPH_NM,
+		        C.KLD_NM,
+		        C.REGN_NM,
+		        C.REGI_RQS_DT,
+		        C.KLD_STA_NM,
+		        C.KLD_STA_CD,
+		        C.PRSV_WAY_NM,
+		        C.ABRG_DH,
+		        C.SRCH_CNT,
+		        C.DOC_YN,
+		        C.DOC_ID,
+				C.ECL_KLD,
+		        NVL(D.COUNT, '0') AS COUNT,
+		        NVL(E.COFM_YN, 'N') AS COFM_YN,
+		        NVL(F.CMMT_CNT, 0) AS CMMT_CNT,
+		        NVL(G.RCMD_CNT, 0) AS RCMD_CNT
+		FROM    (
+		        SELECT  ROWNUM AS KEY,
+		                A.KNB,
+		                F_CODE_NM(#cmmCdDvsnCd#, A.NEW_KLD_CAT_CD) AS KLD_CAT_NM,
+		                F_CODE_NM(#cmmCdDvsnCd2#, A.NEW_CAT_SPH_CD) AS CAT_SPH_NM,
+		                A.KLD_NM,
+		                <isEqual property="strReqPgmId" compareValue="KM10505">
+		                	F_USR_INFO(A.REGN_CNB, '2') AS REGN_NM,
+		                </isEqual>
+		                <isNotEqual property="strReqPgmId" compareValue="KM10505">
+		                	DECODE(REGN_OPEN_YN,'Y',F_USR_INFO(A.REGN_CNB, '2'),'N','비공개') AS REGN_NM,
+		                </isNotEqual>
+		                A.REGI_RQS_DT,
+		                F_CODE_NM('1000351',A.KLD_STA_CD) AS KLD_STA_NM,
+		                A.KLD_STA_CD,
+		                DECODE(A.PRSV_WAY_CD, '0', '영구보존', '1', '기간제한') AS PRSV_WAY_NM,
+		                TO_CHAR(A.ABRG_DH, 'YYYYMMDD') AS ABRG_DH,
+		                A.SRCH_CNT,
+		                DECODE(A.DOC_ID, NULL, 'N', 'Y') AS DOC_YN,
+		                A.DOC_ID,
+		                NVL(A.ECL_KLD, 'N') AS ECL_KLD
+		        FROM    TBAEPGKM001M A,
+		                TBDCMACM013C B
+		        WHERE	1=1
+		    <isNotEmpty property="strUsrCnb">
+		    	AND		A.REGN_CNB = #strUsrCnb#
+		    </isNotEmpty>
+		        AND		B.CMM_CD_DVSN_CD = #cmmCdDvsnCd#
+		    <isNotEmpty property="strKldCatCdDvsn">
+		        AND		B.USR_DFN_TXT_1  = #strKldCatCdDvsn#
+		    </isNotEmpty>
+		        AND		A.NEW_KLD_CAT_CD = B.CD
+		    <isNotEmpty property="strNewKldCatCd">
+		        AND		A.NEW_KLD_CAT_CD = #strNewKldCatCd#
+		    </isNotEmpty>
+		    <isNotEmpty property="strNewCatSphCd">
+		        AND		A.NEW_CAT_SPH_CD = #strNewCatSphCd#
+		    </isNotEmpty>
+		    <isNotEmpty property="strSdt">
+		        <isNotEmpty property="strEdt">
+		            AND		A.REGI_RQS_DT BETWEEN #strSdt# AND #strEdt#
+		        </isNotEmpty>
+		        <isEmpty property="strEdt">
+		            <![CDATA[	AND		A.REGI_RQS_DT >= #strSdt# ]]>
+		        </isEmpty>
+		    </isNotEmpty>
+		    <isNotEmpty property="strEdt">
+		        <![CDATA[	AND		A.REGI_RQS_DT <= #strEdt# ]]>
+		    </isNotEmpty>
+		    <isNotEmpty property="strTitNm">
+		        AND		(A.KLD_NM LIKE '%'|| #strTitNm# ||'%' OR (	A.KYWD_NM_1 LIKE '%'|| #strTitNm# ||'%' OR
+		                                                            A.KYWD_NM_2 LIKE '%'|| #strTitNm# ||'%' OR
+		                                                            A.KYWD_NM_3 LIKE '%'|| #strTitNm# ||'%')
+		                )
+		    </isNotEmpty>
+		    <isNotEmpty property="strRegnNm">
+		        AND		F_USR_INFO(A.REGN_CNB, '2') LIKE '%'|| #strRegnNm# ||'%'
+		    </isNotEmpty>
+		    <isEqual property="rdbEclKld" compareValue="2">
+		    	AND		ECL_KLD = 'Y'
+		    </isEqual>
+		        ORDER BY TO_NUMBER(A.KNB) DESC
+		        ) C,
+		        (SELECT KNB,
+		                COUNT(KNB) AS COUNT
+		        FROM    (SELECT KNB
+		                FROM    TBAEPGKM002L
+		                UNION ALL
+				        SELECT  KNB
+				        FROM    TBAEPGKM004L
+				        )
+		        GROUP BY KNB) D,
+		        (SELECT KNB,
+		                MAX(COFM_YN) AS COFM_YN
+				FROM    TBAEPGKM016L
+				WHERE   COFM_YN = 'Y'
+				AND     KNB IS NOT NULL
+				GROUP BY KNB) E,
+		        (SELECT POST_SEQ,
+		                COUNT(*) AS CMMT_CNT
+		        FROM    CTT_POST_CMMT
+		        WHERE   BOARD_ID = '1550'
+		        GROUP BY POST_SEQ) F,
+				(SELECT  KNB,
+                         SUM(CASE WHEN RCMD_YN = 'Y' THEN 1 ELSE 0 END
+                         ) AS RCMD_CNT
+                 FROM    TBAEPGKM021M
+                 GROUP BY KNB) G
+		WHERE   1=1
+		AND     C.KNB = D.KNB(+)
+		AND     C.KNB = E.KNB(+)
+		AND     C.KNB = F.POST_SEQ(+)
+		AND		C.KNB = G.KNB(+)
+		<include refid = "include.pageOrder"/> 
+	</select>
+	
+	<update id="AEPGKM048EMainupdate" parameterClass="java.util.Map">
+		<isEqual property="KLD_STA_CD" compareValue="6">
+			UPDATE	TBAEPGKM001M
+			SET		KLD_STA_CD = #KLD_STA_CD#,
+					RSTR_DH = SYSDATE,
+					EXPR_DH = NULL,
+					ABRG_DH = NULL,
+					FNL_USR_ID		= #FNL_USR_ID#,
+					FNL_DEAL_DPT_CD	= #FNL_DEAL_DPT_CD#,
+					FNL_MNU_ID		= #FNL_MNU_ID#,
+					FNL_MDF_DH		= SYSDATE
+			WHERE	1=1	
+			AND		KNB = #KNB#
+		</isEqual>
+		<isEqual property="KLD_STA_CD" compareValue="7">
+			UPDATE	TBAEPGKM001M
+			SET		KLD_STA_CD = #KLD_STA_CD#,
+					RSTR_DH = NULL,
+					EXPR_DH = SYSDATE,
+					ABRG_DH = NULL,
+					FNL_USR_ID		= #FNL_USR_ID#,
+					FNL_DEAL_DPT_CD	= #FNL_DEAL_DPT_CD#,
+					FNL_MNU_ID		= #FNL_MNU_ID#,
+					FNL_MDF_DH		= SYSDATE
+			WHERE	1=1	
+			AND		KNB = #KNB#
+		</isEqual>
+		<isEqual property="KLD_STA_CD" compareValue="8">
+			UPDATE	TBAEPGKM001M
+			SET		KLD_STA_CD = #KLD_STA_CD#,
+					RSTR_DH = NULL,
+					ABRG_DH = SYSDATE,
+					FNL_USR_ID		= #FNL_USR_ID#,
+					FNL_DEAL_DPT_CD	= #FNL_DEAL_DPT_CD#,
+					FNL_MNU_ID		= #FNL_MNU_ID#,
+					FNL_MDF_DH		= SYSDATE
+			WHERE	1=1	
+			AND		KNB = #KNB#
+		</isEqual>
+	</update>
+
+	<update id="AEPGKM048EEclKldupdate" parameterClass="java.util.Map">
+		UPDATE	TBAEPGKM001M
+		SET		ECL_KLD = #ECL_KLD#
+		WHERE	KNB = #KNB#
+	</update>
+	
+	
+	<delete id="AEPGKM048EMaindelete" parameterClass="java.util.Map">
+		DECLARE
+			BEGIN
+				INSERT INTO TBAEPGKM018H
+					(
+					HST_DVSN_CD	/* 이력구분코드 */
+					,HST_SNO	/* 이력순번 */
+					,HST_DH	/* 이력일시 */
+					,KNB	/* 지식번호 */
+					,KLD_NM	/* 지식명 */
+					,KLD_SMM_TXT	/* 지식요약내용 */
+					,KYWD_NM_1	/* 키워드명1 */
+					,KYWD_NM_2	/* 키워드명2 */
+					,KYWD_NM_3	/* 키워드명3 */
+					,REGI_RQS_DT	/* 등록요청일 */
+					,PRSV_WAY_CD	/* 보존방법코드 */
+					,PRSV_DDLN_DH	/* 보존기한일시 */
+					,KLD_CAT_CD	/* 지식분류코드 */
+					,KLD_TXT	/* 지식내용 */
+					,TG_ORG_CD	/* 대상기관코드 */
+					,AUD_YR	/* 감사년도 */
+					,AUD_NO	/* 감사번호 */
+					,DSP_RQ_SNO	/* 처분요구순번 */
+					,FUNC_SPH_CD	/* 기능분야코드 */
+					,CAT_SPH_CD	/* 분류분야코드 */
+					,DOC_ID	/* 문서ID */
+					,DOC_TYP_CD	/* 문서유형코드 */
+					,REGN_OPEN_YN	/* 등록자공개여부 */
+					,KLD_STA_CD	/* 지식상태코드 */
+					,SRCH_CNT	/* 조회수 */
+					,EXPR_DH	/* 만기일시 */
+					,ABRG_DH	/* 폐기일시 */
+					,RSTR_DH	/* 복구일시 */
+					,ABRG_RSN	/* 폐기사유 */
+					,REGN_CNB	/* 등록자전산번호 */
+					,REGN_DPT_CD	/* 등록자부서코드 */
+					,REGN_DPT_NM	/* 등록자부서명 */
+					,MTRL_CD	/* 자료코드 */
+					,ORI_SEAT_NM	/* 원서위치명 */
+					,AUD_KND_CD	/* 감사종류코드 */
+					,AUD_SBJ_NM	/* 감사사항명 */
+					,KLD_SRC_NM	/* 지식출처명 */
+					,KLD_REGI_YR	/* 지식등록년도 */
+					,DSP_RQ_NM	/* 처분요구명 */
+					,FRT_USR_ID	/* 최초사용자ID */
+					,FNL_USR_ID	/* 최종사용자ID */
+					,FNL_DEAL_DPT_CD	/* 최종거래부서코드 */
+					,FNL_MNU_ID /* 최종메뉴ID */ 
+					,FRT_REGI_DH /* 최초등록일시 */
+					,FNL_MDF_DH /* 최종수정일시 */
+					,CM_PROCESS_STATUS /*공감상태코드*/
+					,NEW_KLD_CAT_CD
+					,NEW_CAT_SPH_CD
+					,ECL_KLD
+					)
+				SELECT	'D' AS HST_DVSN_CD
+						,(SELECT NVL(MAX(HST_SNO), 0) + 1 FROM TBAEPGKM018H WHERE HST_DH = SYSDATE) AS HST_SNO
+						,SYSDATE AS HST_DH
+						,KNB
+						,KLD_NM
+						,KLD_SMM_TXT
+						,KYWD_NM_1
+						,KYWD_NM_2
+						,KYWD_NM_3
+						,REGI_RQS_DT
+						,PRSV_WAY_CD
+						,PRSV_DDLN_DH
+						,KLD_CAT_CD
+						,KLD_TXT
+						,TG_ORG_CD
+						,AUD_YR
+						,AUD_NO
+						,DSP_RQ_SNO
+						,FUNC_SPH_CD
+						,CAT_SPH_CD
+						,DOC_ID
+						,DOC_TYP_CD
+						,REGN_OPEN_YN
+						,KLD_STA_CD
+						,SRCH_CNT
+						,EXPR_DH
+						,ABRG_DH
+						,RSTR_DH
+						,ABRG_RSN
+						,REGN_CNB
+						,REGN_DPT_CD
+						,REGN_DPT_NM
+						,MTRL_CD
+						,ORI_SEAT_NM
+						,AUD_KND_CD
+						,AUD_SBJ_NM
+						,KLD_SRC_NM
+						,KLD_REGI_YR
+						,DSP_RQ_NM
+						,FRT_USR_ID
+						,FNL_USR_ID
+						,FNL_DEAL_DPT_CD
+						,FNL_MNU_ID
+						,FRT_REGI_DH
+						,FNL_MDF_DH
+						,CM_PROCESS_STATUS /*공감상태코드*/
+						,NEW_KLD_CAT_CD
+						,NEW_CAT_SPH_CD
+						,ECL_KLD
+				FROM	TBAEPGKM001M AS A
+				WHERE	KNB = #KNB#;
+				DELETE FROM TBAEPGKM001M
+				WHERE KNB = #KNB#;
+				DELETE FROM TBAEPGKM004L
+				WHERE KNB = #KNB#;
+				DELETE FROM TBAEPGKM002L
+				WHERE KNB = #KNB#;
+		END;
+	</delete>
+	
+</sqlMap>
+

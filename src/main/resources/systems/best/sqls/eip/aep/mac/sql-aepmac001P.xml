@@ -1,0 +1,681 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.mac.dao.AEPMAC001PMapper">
+    
+    <select id="selectEviDocbList" parameterType="paramMap" resultType="egovMap" >
+        /*kr.go.bai.eip.aep.mac.dao.AEPMAC001QMapper.selectEviDocbList*/
+        /*증거서류함(그룹)*/
+        <include refid="include.pageSelct" />
+        SELECT 
+            AUD_YR  /*감사년도 */
+            ,AUD_NO /*감사번호 */
+            ,EVI_DCMB_SNO   /*감사서류함순번 */
+            ,AUD_KND_CD /*감사종류코드 */
+            ,AUD_GRN_NO /*감사부여코드 */
+            ,FOLDER_NM  /*폴더명 */
+            ,SORT_SNO   /*정렬순번 */
+            ,FRT_USR_ID  /*최초사용자ID */
+            ,F_USR_INFO_BY_ID(FRT_USR_ID,'2') AS FRT_USR_NM /*최초사용자ID명 */
+            ,TO_CHAR(FRT_REGI_DH,'YYYY-MM-DD') FRT_REGI_DH  /*최초등록일시 */
+            ,(SELECT COUNT(*) FROM TBBADDED108D D
+                WHERE D.EVI_DCM_GRP_SNO = A.EVI_DCMB_SNO
+                AND A.AUD_YR = d.AUD_YR
+                AND A.AUD_NO = d.AUD_NO
+                AND D.EVI_DCMB_DVSN_CD = #{eviDcmbDvsnCd} /*감사서류구분코드 10 : 증거서류,30 : 실지감사부속서류*/) AS CNT
+            FROM TBBADDED108M A
+          WHERE 1=1
+            <if test='audYr != null and audYr != ""'>
+                AND A.AUD_YR = #{audYr}
+            </if>
+            <if test='audKndCd != null and audKndCd != ""'>
+                AND A.AUD_KND_CD = #{audKndCd}
+            </if>
+            <if test='audNo != null and audNo != ""'>
+                AND A.AUD_NO = #{audNo}
+            </if>
+            <if test='usrId != null and usrId != ""'>
+                AND A.DCMB_CRE_ID = #{usrId}
+            </if>
+            ORDER BY SORT_SNO ASC
+            <include refid="include.pageOrder" />
+    </select>
+    
+    <select id="selectRelAffList" parameterType="paramMap" resultType="egovMap" >
+        /*kr.go.bai.eip.aep.mac.dao.AEPMAC001PMapper.selectRelAffList*/
+        SELECT 
+            F_MNG_KND_AUDYRNO(T2.AUD_YR, T2.AUD_NO, T2.AUD_KND_CD, '-')||'-'||T2.AFF_CD AS AFF_CD
+            , TITLE_NM
+          FROM TBBADDED110M T1
+               INNER JOIN TBBADDED145M T2
+               ON (T1.AUD_YR = T2.AUD_YR
+                   AND T1.AUD_NO = T2.AUD_NO
+                   AND T1.RPRT_FILD_ID = T2.RPRT_FILD_ID
+                   AND ((T2.FNL_YN = 'Y' AND EXISTS (SELECT 'O' 
+                                                                              FROM TBBADDED145M ST1
+                                                                             WHERE ST1.AUD_YR = T2.AUD_YR
+                                                                               AND ST1.AUD_NO = T2.AUD_NO
+                                                                               AND ST1.RPRT_FILD_ID = T2.RPRT_FILD_ID
+                                                                               AND ST1.FNL_YN = 'Y'))
+                               OR (T2.APVR_CD = '0013600' AND NOT EXISTS (SELECT 'O' 
+                                                                              FROM TBBADDED145M ST1
+                                                                             WHERE ST1.AUD_YR = T2.AUD_YR
+                                                                               AND ST1.AUD_NO = T2.AUD_NO
+                                                                               AND ST1.RPRT_FILD_ID = T2.RPRT_FILD_ID
+                                                                               AND ST1.FNL_YN = 'Y')  )))
+         WHERE T1.AUD_YR = #{audYr}
+           AND T1.AUD_NO = #{audNo}
+           AND T1.AUD_DCM_DOC_ID = #{audDcmDocId}
+    </select>
+    
+    <select id="selectEviDocList" parameterType="paramMap" resultType="egovMap" >
+        /*kr.go.bai.eip.aep.mac.dao.AEPMAC001PMapper.selectEviDocList*/
+        /*증거서류*/
+        <include refid="include.pageSelct" />
+        SELECT 
+            AUD_DCM_DOC_ID	    /*감사서류문서ID */
+            ,EVI_DCMB_SNO       /*감사서류함순번 */
+            ,EVI_DCM_DVSN_CD	/*증거서류구분코드 */
+            ,F_CODE_NM('1000776', A.EVI_DCM_DVSN_CD) AS EVI_DCM_DVSN_NM	/*증거서류구분코드 */
+            ,SUBSTR(F_CODE_NM('1000776', A.EVI_DCM_DVSN_CD),0,2)||'-'||LPAD(EVI_DCM_NO,4,'0') AS EVI_DCM_NO /*증거서류구분 번호 */
+            ,FILE_NM            /*파일명 */
+            ,FILE_NM AS V_FILE_NM          /*파일명 */
+            ,AFF_SNO	        /*사건순번 */
+            ,NVL(TO_CHAR(TO_DATE(ISUE_DY,'YYYY-MM-DD'),'YYYY-MM-DD'),'-') AS ISUE_DY /*발부일자*/
+            ,EVI_DCMB_DVSN_CD	/*감사서류구분코드 */
+            ,F_CODE_NM('1000778', A.EVI_DCMB_DVSN_CD) AS EVI_DCMB_DVSN_NM /*감사서류구분코드 */
+            ,SORT_SNO           /*정렬순번 */
+            ,FRT_USR_ID         /*최초사용자ID */
+            ,F_USR_INFO_BY_ID(AUD_DCM_CRE_ID,'2') AS FRT_USR_NM /* 작성자 */
+            ,TO_CHAR(FRT_REGI_DH,'YYYY"-"MM"-"DD" "HH24:MI')FRT_REGI_DH  /*최초등록일시 */
+            , AUD_YR
+            , AUD_NO
+            , FILE_NM AS REAL_FILE_NM
+            , DECODE(DOC_STA_CD,'N','미사용','C','변경','사용') AS DOC_STA_NM
+            , DOC_STA_CD
+            , CHG_HIS_RMK
+            , (SELECT 
+                    F_MNG_KND_AUDYRNO(T2.AUD_YR, T2.AUD_NO, T2.AUD_KND_CD, '-')||'-'||MIN(T2.AFF_CD)||DECODE(COUNT(1),1,'',' (외 '||TO_CHAR(COUNT(1)-1)||'건)') AS AUD_YR_NO
+                  FROM TBBADDED110M T1
+                       INNER JOIN TBBADDED145M T2
+                       ON (T1.AUD_YR = T2.AUD_YR 
+                           AND T1.AUD_NO = T2.AUD_NO
+                           AND T1.RPRT_FILD_ID = T2.RPRT_FILD_ID
+                           AND ((T2.FNL_YN = 'Y' AND EXISTS (SELECT 'O' 
+                                                                              FROM TBBADDED145M ST1
+                                                                             WHERE ST1.AUD_YR = T2.AUD_YR
+                                                                               AND ST1.AUD_NO = T2.AUD_NO
+                                                                               AND ST1.RPRT_FILD_ID = T2.RPRT_FILD_ID
+                                                                               AND ST1.FNL_YN = 'Y'))
+                               OR (T2.APVR_CD = '0013600' AND NOT EXISTS (SELECT 'O' 
+                                                                              FROM TBBADDED145M ST1
+                                                                             WHERE ST1.AUD_YR = T2.AUD_YR
+                                                                               AND ST1.AUD_NO = T2.AUD_NO
+                                                                               AND ST1.RPRT_FILD_ID = T2.RPRT_FILD_ID
+                                                                               AND ST1.FNL_YN = 'Y')  )))
+                 WHERE T1.AUD_YR = A.AUD_YR
+                   AND T1.AUD_NO = A.AUD_NO
+                   AND T1.AUD_DCM_DOC_ID = A.AUD_DCM_DOC_ID
+                 GROUP BY T2.AUD_YR, T2.AUD_NO, T2.AUD_KND_CD, T1.AUD_DCM_DOC_ID) AS REL_AFF_CD
+            , NVL((SELECT ST1.FOLDER_NM FROM TBBADDED108M ST1 WHERE ST1.AUD_YR = A.AUD_YR AND ST1.AUD_NO = A.AUD_NO AND ST1.EVI_DCMB_SNO = A.EVI_DCM_GRP_SNO),'-') AS EVI_DCM_GRP_NM
+            , (SELECT ST1.EVI_DCMB_SNO FROM TBBADDED108M ST1 WHERE ST1.AUD_YR = A.AUD_YR AND ST1.AUD_NO = A.AUD_NO AND ST1.EVI_DCMB_SNO = A.EVI_DCM_GRP_SNO) AS EVI_DCM_GRP_SNO
+            , A.PERS_INF_INC_CD
+            , (SELECT ST.CD_NM FROM TBDCMACM013C ST WHERE ST.CMM_CD_DVSN_CD = '1000880' AND ST.CD = A.PERS_INF_INC_CD) AS PERS_INF_INC_NM
+            , A.DESTROY_YN
+            , DECODE(A.DESTROY_YN,'Y','파기완료','미파기') AS DESTROY_YN_INFO
+            , TO_CHAR(A.DESTROY_DH, 'YYYY-MM-DD HH24:MI:SS') AS DESTROY_DH
+            , (SELECT ST.USR_NAM FROM TBDCMACM001M ST WHERE ST.CNB = A.DESTROY_CNB) AS DESTROY_NM
+            FROM TBBADDED108D A
+          WHERE EVI_DCMB_DVSN_CD = #{eviDcmbDvsnCd}  /*감사서류구분코드 10 : 증거서류,30 : 실지감사부속서류*/
+            <if test='audYr != null and audYr != ""'>
+                AND A.AUD_YR = #{audYr}
+            </if>
+            <if test='audKndCd != null and audKndCd != ""'>
+                AND A.AUD_KND_CD = #{audKndCd}
+            </if>
+            <if test='audNo != null and audNo != ""'>
+                AND A.AUD_NO = #{audNo}
+            </if>
+            <if test='eviDcmbSno != null and eviDcmbSno != ""'>
+                AND A.EVI_DCMB_SNO = #{eviDcmbSno}
+            </if>
+            <if test='eviDcmDvsnCdList != null and eviDcmDvsnCdList != ""'>
+                AND A.EVI_DCM_DVSN_CD IN (${eviDcmDvsnCdList})
+            </if>
+            <if test='eviDcmGrpSno != null and eviDcmGrpSno != ""'>
+                AND A.EVI_DCM_GRP_SNO = REPLACE(#{eviDcmGrpSno},',')
+            </if>
+            <if test='audDcmCreId != null and audDcmCreId != ""'>
+                AND A.AUD_DCM_CRE_ID = #{audDcmCreId}
+            </if>
+            <if test='schPersInfIncCd != null and schPersInfIncCd != ""'>
+                AND A.PERS_INF_INC_CD = #{schPersInfIncCd}
+            </if>
+            <if test='schDestroyYn != null and schDestroyYn != ""'>
+                AND A.DESTROY_YN = #{schDestroyYn}
+            </if>
+            <if test='MaintenanceYn == null or MaintenanceYn == ""'>
+                AND (EXISTS (SELECT 'O' 
+                                          FROM TBBADDED031L ST1
+                                         WHERE ST1.AUD_YR = A.AUD_YR
+                                           AND ST1.AUD_NO = A.AUD_NO
+                                           AND ST1.CNB = #{cnb})    /* 주관자 보조자 */
+                        OR EXISTS (SELECT 'O' 
+                                          FROM TBBADDED001M ST1
+                                         WHERE ST1.AUD_YR = A.AUD_YR
+                                           AND ST1.AUD_NO = A.AUD_NO
+                                           AND ST1.AUD_TOT_DRTR_CNB = #{cnb})    /* 감사단장 */
+                        OR EXISTS (SELECT 'O'
+                                                FROM TBDCMACM001M ST2
+                                              WHERE ST2.CNB = #{cnb}
+                                                 AND TRIM(ST2.PST_CD) IS NOT NULL)  /* 국장 이상 */
+                        OR '150180' = #{dptCd}  /* 구축용역팀 */
+                        OR (AUD_DCM_CRE_ID = #{usrId}
+                               OR AUD_DCM_CRE_ID IN (SELECT ST1.AUD_DCM_CRE_ID
+                                                                          FROM TBBADDED108L ST1
+                                                                         WHERE ST1.AUD_YR = A.AUD_YR
+                                                                           AND ST1.AUD_NO = A.AUD_NO
+                                                                           AND ST1.AUD_DCM_SHARE_ID = #{usrId}))  /* 작성자, 공유자 */
+                       ) 
+            </if>
+             ORDER BY A.FRT_REGI_DH DESC, A.EVI_DCM_NO DESC
+         <include refid="include.pageOrder" />
+    </select>
+    
+    <select id="selectMaxEviDcmbSno" parameterType="paramMap" resultType="egovMap">
+        /*kr.go.bai.eip.aep.mac.dao.AEPMAC002PMapper.selectMaxEviDcmbSno*/
+        /*감사서류함순번 MAX*/
+        SELECT NVL(MAX(EVI_DCMB_SNO),0)+1 FROM TBBADDED108M 
+        WHERE A.AUD_YR = #{audYr}
+            <if test='audNo != null and audNo != ""'>
+                AND A.AUD_NO = #{audNo}
+            </if>
+    </select>
+    
+        
+    <select id="selectEviDcmbDvsnList" parameterType="paramMap" resultType="egovMap">
+        /*kr.go.bai.eip.aep.mac.dao.AEPMAC002PMapper.selectMaxEviDcmbSno*/
+        SELECT DISTINCT EVI_DCMB_SNO AS CD, FOLDER_NM AS CD_NM
+          FROM TBBADDED108M
+         WHERE AUD_YR = #{audYr}
+           AND AUD_NO= #{audNo}
+    </select>
+    
+    <select id="selectEviCreIdList" parameterType="paramMap" resultType="egovMap">
+        /*kr.go.bai.eip.aep.mac.dao.AEPMAC002PMapper.selectEviCreIdList*/
+        SELECT DISTINCT AUD_DCM_CRE_ID AS CD, F_USR_INFO_BY_ID(AUD_DCM_CRE_ID,'2') AS CD_NM
+            FROM TBBADDED108D
+         WHERE AUD_YR = #{audYr}
+           AND AUD_NO= #{audNo}
+    </select>
+    
+    <insert id="TBBADDED108MInsert" parameterType="paramMap">
+        /*kr.go.bai.eip.aep.mac.dao.AEPMAC001PMapper.TBBADDED108MInsert*/
+        /*증거서류함 Insert*/
+        INSERT INTO TBBADDED108M
+        (
+            AUD_YR  /*감사년도 */
+            ,AUD_NO /*감사번호 */
+            ,EVI_DCMB_SNO   /*감사서류함순번 */
+            ,AUD_KND_CD /*감사종류코드 */
+            ,AUD_GRN_NO /*감사부여코드 */
+            ,FOLDER_NM  /*폴더명 */
+            ,DCMB_CRE_ID /*서류함생성자ID*/
+            ,SORT_SNO   /*정렬순번 */
+            ,FRT_USR_ID  /*최초사용자ID */
+            ,FNL_USR_ID /*최종사용자ID */
+            ,FNL_DEAL_DPT_CD    /*최종거래부서코드 */
+            ,FNL_MNU_ID /*최종메뉴ID */
+            ,FRT_REGI_DH    /*최초등록일시 */
+            ,FNL_MDF_DH /*최종수정일시 */
+        )
+        values
+        (
+            #{audYr}        /*감사년도 */
+            ,#{audNo}       /*감사번호 */
+            ,(SELECT NVL(MAX(EVI_DCMB_SNO),0)+1 FROM TBBADDED108M)  /*감사서류함순번 */
+            ,(SELECT AUD_KND_CD FROM TBBADDED001M WHERE AUD_YR = #{audYr} AND AUD_NO = #{audNo}) /*감사종류코드 */
+            ,(SELECT AUD_GRN_NO FROM TBBADDED001M WHERE AUD_YR = #{audYr} AND AUD_NO = #{audNo})  /*감사부여코드 */
+            ,REPLACE(#{folderNm},';')  /*폴더명 */
+            ,#{usrId}  /*서류함생성자ID */
+            ,(SELECT NVL(MAX(SORT_SNO),0)+1 
+                 FROM TBBADDED108M
+                  WHERE AUD_YR = #{audYr}
+                  AND AUD_NO = #{audNo} /*정렬순번 */
+              )
+            ,#{frtUsrId}  /*최초사용자id */
+            ,#{fnlUsrId} /*최종사용자id */
+            ,#{fnlDealDptCd}    /*최종거래부서코드 */
+            ,#{fnlMnuId} /*최종메뉴id */
+            ,SYSDATE    /*최초등록일시 */
+            ,SYSDATE /*최종수정일시 */
+        )
+    </insert>
+    
+    <update id="TBBADDED108MUpdate" parameterType="paramMap">
+    /*kr.go.bai.eip.aep.mac.dao.AEPMAC001PMapper.TBBADDED108MUpdate*/
+    /*증거서류함 Update*/
+        UPDATE TBBADDED108M
+           SET FOLDER_NM = #{folderNm} /*폴더명 */
+          ,
+               FNL_USR_ID = #{fnlUsrId} /*최종사용자ID */
+          ,
+               FNL_DEAL_DPT_CD = #{fnlDealDptCd} /*최종거래부서코드 */
+          ,
+               FNL_MNU_ID = #{fnlMnuId} /*최종메뉴ID */
+          ,
+               FNL_MDF_DH = sysdate /*최종수정일시 */
+         WHERE EVI_DCMB_SNO = #{eviDcmbSno} /*감사서류함순번 */
+            <if test='audYr != null and audYr != ""'>
+                AND AUD_YR = #{audYr}
+            </if>
+            <if test='audNo != null and audNo != ""'>
+                AND AUD_NO = #{audNo}
+            </if>
+    </update>
+    
+    <delete id="TBBADDED108MDelete" parameterType="paramMap">
+    /*kr.go.bai.eip.aep.mac.dao.AEPMAC001PMapper.TBBADDED108MDelete*/
+    /*증거서류함 Delete*/
+        DELETE FROM TBBADDED108M
+        WHERE EVI_DCMB_SNO = #{eviDcmbSno} /*감사서류함순번 */
+            <if test='audYr != null and audYr != ""'>
+                AND AUD_YR = #{audYr}
+            </if>
+            <if test='audNo != null and audNo != ""'>
+                AND AUD_NO = #{audNo}
+            </if>
+    </delete>
+    
+    <update id="disConnectEvibDoc" parameterType="paramMap">
+    /*kr.go.bai.eip.aep.mac.dao.AEPMAC001PMapper.disConnectEvibDoc*/
+        UPDATE TBBADDED108D
+           SET EVI_DCM_GRP_SNO = NULL
+          ,
+               FNL_USR_ID = #{fnlUsrId} /*최종사용자ID */
+          ,
+               FNL_DEAL_DPT_CD = #{fnlDealDptCd} /*최종거래부서코드 */
+          ,
+               FNL_MNU_ID = #{fnlMnuId} /*최종메뉴ID */
+          ,
+               FNL_MDF_DH = sysdate /*최종수정일시 */
+         WHERE EVI_DCM_GRP_SNO = #{eviDcmbSno} /*감사서류함순번 */
+            <if test='audYr != null and audYr != ""'>
+                AND AUD_YR = #{audYr}
+            </if>
+            <if test='audNo != null and audNo != ""'>
+                AND AUD_NO = #{audNo}
+            </if>
+    </update>
+    
+    <insert id="TBBADDED108DInsert" parameterType="paramMap">
+        /*kr.go.bai.eip.aep.mac.dao.AEPMAC001PMapper.TBBADDED108DInsert*/
+        /*증거서류 Insert*/
+        INSERT INTO TBBADDED108D
+        (
+            AUD_YR /*감사년도 */
+            ,AUD_NO /*감사번호*/ 
+            ,EVI_DCMB_SNO	/*감사서류함순번 */
+            ,AUD_DCM_DOC_ID	/*감사서류문서ID */
+            ,AUD_KND_CD	/*감사종류코드 */
+            ,AUD_GRN_NO	/*감사부여코드 */
+            ,EVI_DCM_DVSN_CD	/*증거서류구분코드 */
+            ,FILE_NM	/*파일명 */
+            ,ISUE_DY	/*발부일자 */
+            ,EVI_DCMB_DVSN_CD	/*감사서류구분코드 */
+            ,AFF_SNO	/*사건순번 */
+            ,AUD_DCM_CRE_ID	/*감사서류생성자ID */
+            ,SORT_SNO	/*정렬순번 */
+            ,FRT_USR_ID	/*최초사용자ID */
+            ,FNL_USR_ID	/*최종사용자ID */
+            ,FNL_DEAL_DPT_CD	/*최종거래부서코드 */
+            ,FNL_MNU_ID	/*최종메뉴ID */
+            ,FRT_REGI_DH	/*최초등록일시 */
+            ,FNL_MDF_DH	/*최종수정일시  */
+            ,FILE_SIZE
+            ,EVI_DCM_NO
+            ,DOC_STA_CD
+            ,EVI_DCM_GRP_SNO
+            ,PERS_INF_INC_CD
+            ,ANNEX_DVSN_CD
+        )
+        values
+        (
+            #{audYr}        /*감사년도 */
+            ,#{audNo}       /*감사번호 */
+            ,#{eviDcmbSno}  /*감사서류함순번 */
+            ,#{audDcmDocId}  /*감사서류문서ID */
+            ,#{audKndCd} /*감사종류코드 */
+            ,#{audGrnNo} /*감사부여코드 */
+            ,#{eviDcmDvsnCd}	/*증거서류구분코드 */
+            ,#{fileNm}	/*파일명 */
+            ,REPLACE(#{isueDy},'-')  /*발부일자 */
+            ,#{eviDcmbDvsnCd}   /*감사서류구분코드 */
+            ,#{affSno}	/*사건순번 */
+            ,#{frtUsrId} /*감사서류생성자ID(최초사용자id) */
+            ,(SELECT NVL(MAX(SORT_SNO),0)+1 
+                 FROM TBBADDED108D
+                  WHERE AUD_YR = #{audYr}
+                  AND AUD_NO = #{audNo}
+              )
+            ,#{frtUsrId}  /*최초사용자id */
+            ,#{fnlUsrId} /*최종사용자id */
+            ,#{fnlDealDptCd}    /*최종거래부서코드 */
+            ,#{fnlMnuId} /*최종메뉴id */
+            ,SYSDATE    /*최초등록일시 */
+            ,SYSDATE /*최종수정일시 */
+            ,#{fileSize}
+            ,(SELECT LPAD(NVL(MAX(TO_NUMBER(NVL(EVI_DCM_NO,0))),0)+1,4,'0')
+                 FROM TBBADDED108D
+                  WHERE AUD_YR = #{audYr}
+                  AND AUD_NO = #{audNo}
+                  AND EVI_DCM_DVSN_CD = #{eviDcmDvsnCd}
+              )
+            ,'Y'
+            ,#{eviDcmGrpSnoVal}
+            ,#{persInfIncCd}
+            ,#{annexDvsnCd}
+        )
+    </insert>
+    
+    
+    <insert id="insertNewEviDoc" parameterType="paramMap">
+        /*kr.go.bai.eip.aep.mac.dao.AEPMAC001PMapper.insertNewEviDoc*/
+        INSERT INTO TBBADDED108D
+            (
+            AUD_YR
+            ,AUD_NO
+            ,EVI_DCMB_SNO
+            ,AUD_DCM_DOC_ID
+            ,AUD_KND_CD
+            ,AUD_GRN_NO
+            ,EVI_DCM_DVSN_CD
+            ,FILE_NM
+            ,ISUE_DY
+            ,EVI_DCMB_DVSN_CD
+            ,AFF_SNO
+            ,AUD_DCM_CRE_ID
+            ,SORT_SNO
+            ,FILE_SIZE
+            ,FRT_USR_ID
+            ,FNL_USR_ID
+            ,FNL_DEAL_DPT_CD
+            ,FNL_MNU_ID
+            ,FRT_REGI_DH
+            ,FNL_MDF_DH
+            ,RLTN_ORG_NM
+            ,RLTN_REL_PER
+            ,EVI_DCM_NO
+            ,DOC_STA_CD
+            ,CHG_HIS_RMK 
+            ,EVI_DCM_GRP_SNO 
+            ,PERS_INF_INC_CD
+            ,ANNEX_DVSN_CD
+            )
+            SELECT 
+                AUD_YR
+                ,AUD_NO
+                ,EVI_DCMB_SNO
+                ,#{newAudDcmDocId}
+                ,AUD_KND_CD
+                ,AUD_GRN_NO
+                ,#{eviDcmDvsnCd}
+                ,#{fileNm}
+                ,REPLACE(#{isueDy},'-')
+                ,EVI_DCMB_DVSN_CD
+                ,AFF_SNO
+                ,AUD_DCM_CRE_ID
+                ,(SELECT NVL(MAX(SORT_SNO),0)+1 
+                    FROM TBBADDED108D
+                   WHERE AUD_YR = #{audYr}
+                     AND AUD_NO = #{audNo})
+                ,FILE_SIZE
+                ,FRT_USR_ID
+                ,#{usrId} AS FNL_USR_ID
+                ,#{dptCd} AS FNL_DEAL_DPT_CD
+                ,'AEPMAC001Q'
+                ,SYSDATE
+                ,SYSDATE
+                ,RLTN_ORG_NM
+                ,RLTN_REL_PER
+                ,(SELECT LPAD(NVL(MAX(TO_NUMBER(NVL(EVI_DCM_NO,0))),0)+1,4,'0')
+                    FROM TBBADDED108D
+                   WHERE AUD_YR = #{audYr}
+                     AND AUD_NO = #{audNo}
+                     AND EVI_DCM_DVSN_CD = #{eviDcmDvsnCd})
+                ,'Y'
+                ,'' AS CHG_HIS_RMK
+                , #{eviDcmGrpSnoVal}
+                , #{persInfIncCd}
+                , #{annexDvsnCd}
+              FROM TBBADDED108D 
+             WHERE AUD_YR = #{audYr}
+               AND AUD_NO = #{audNo}
+               AND AUD_DCM_DOC_ID = #{audDcmDocId}
+    </insert>
+    
+    <update id="updateBefEviDoc" parameterType="paramMap">
+    /*kr.go.bai.eip.aep.mac.dao.AEPMAC001PMapper.updateBefEviDoc*/
+        UPDATE TBBADDED108D T1
+           SET T1.CHG_HIS_RMK = SUBSTR(F_CODE_NM('1000776',EVI_DCM_DVSN_CD),0,2)||'-'||LPAD(EVI_DCM_NO,4,'0')||' > '
+                                                          ||SUBSTR(F_CODE_NM('1000776', #{eviDcmDvsnCd}),0,2)||'-'||LPAD((SELECT NVL(MAX(TO_NUMBER(NVL(EVI_DCM_NO,0))),'0')
+                                                                                                                                                                            FROM TBBADDED108D ST1
+                                                                                                                                                                           WHERE ST1.AUD_YR = #{audYr}
+                                                                                                                                                                             AND ST1.AUD_NO = #{audNo}
+                                                                                                                                                                             AND ST1.EVI_DCM_DVSN_CD = #{eviDcmDvsnCd}),4,'0'),
+               T1.DOC_STA_CD = 'C',
+               T1.FNL_USR_ID = #{usrId},
+               T1.FNL_DEAL_DPT_CD = #{dptCd} ,
+               T1.FNL_MNU_ID = 'AEPMAC002Q',
+               T1.FNL_MDF_DH = SYSDATE
+         WHERE  T1.AUD_YR = #{audYr}
+            AND T1.AUD_NO = #{audNo}
+            AND T1.AUD_DCM_DOC_ID = #{audDcmDocId}
+    </update>
+    
+    <update id="updateEviDoc" parameterType="paramMap">
+    /*kr.go.bai.eip.aep.mac.dao.AEPMAC001PMapper.updateEviDoc*/
+        UPDATE TBBADDED108D T1
+           SET T1.FILE_NM = #{fileNm}
+               , T1.ISUE_DY = REPLACE(#{isueDy},'-')
+               , T1.EVI_DCM_GRP_SNO = #{eviDcmGrpSnoVal}
+               , T1.FNL_USR_ID = #{usrId}
+               , T1.FNL_DEAL_DPT_CD = #{dptCd}
+               , T1.FNL_MNU_ID = 'AEPMAC002Q'
+               , T1.FNL_MDF_DH = SYSDATE
+               , T1.PERS_INF_INC_CD = #{persInfIncCd}
+               <if test="destroyYn != '' and destroyYn eq 'Y'.toString()">
+               , T1.DESTROY_YN = #{destroyYn}
+               , T1.DESTROY_DH = SYSDATE
+               , T1.DESTROY_CNB = (SELECT ST.CNB FROM TBDCMACM001M ST WHERE ST.USR_ID = #{usrId})
+               </if>
+         WHERE  T1.AUD_YR = #{audYr}
+            AND T1.AUD_NO = #{audNo}
+            AND T1.AUD_DCM_DOC_ID = #{audDcmDocId}
+    </update>
+    
+    <update id="updateEviDocUseYn" parameterType="paramMap">
+    /*kr.go.bai.eip.aep.mac.dao.AEPMAC001PMapper.updateEviDocUseYn*/
+        UPDATE TBBADDED108D
+           SET DOC_STA_CD = #{docStaCd},
+               FNL_USR_ID = #{usrId},
+               FNL_DEAL_DPT_CD = #{dptCd} ,
+               FNL_MNU_ID = 'AEPMAC002Q',
+               FNL_MDF_DH = SYSDATE
+         WHERE  AUD_YR = #{audYr}
+            AND AUD_NO = #{audNo}
+            AND AUD_DCM_DOC_ID = #{audDcmDocId}
+    </update>
+    
+    <delete id="TBBADDED108DDelete" parameterType="paramMap">
+    /*kr.go.bai.eip.aep.mac.dao.AEPMAC001PMapper.TBBADDED108DDelete*/
+    /*증거서류 Delete*/
+        DELETE FROM TBBADDED108D
+        WHERE EVI_DCMB_SNO = #{eviDcmbSno} /*감사서류함순번 */
+            <if test='audYr != null and audYr != ""'>
+                AND AUD_YR = #{audYr}
+            </if>
+            <if test='audKndCd != null and audKndCd != ""'>
+                AND AUD_KND_CD = #{audKndCd}
+            </if>
+            <if test='audNo != null and audNo != ""'>
+                AND AUD_NO = #{audNo}
+            </if>
+            <if test='eviDcmbSno != null and eviDcmbSno != ""'>
+                AND EVI_DCMB_SNO  = #{eviDcmbSno}
+            </if>
+            <if test='audDcmDocId != null and audDcmDocId != ""'>
+                AND AUD_DCM_DOC_ID  = #{audDcmDocId}
+            </if>
+    </delete>
+    
+    <delete id="TBBADDED110DDelete" parameterType="paramMap">
+    /*kr.go.bai.eip.aep.mac.dao.AEPMAC001PMapper.TBBADDED110DDelete*/
+    /*증거서류 사건 매핑정보 삭제*/
+        DELETE 
+          FROM TBBADDED110M
+         WHERE AUD_YR = #{audYr}
+           AND AUD_NO = #{audNo}
+           AND AUD_DCM_DOC_ID  = #{audDcmDocId}
+    </delete>
+    
+    <select id="chkFileTBBADDED110M" parameterType="paramMap" resultType="Integer">
+    /*kr.go.bai.eip.aep.mac.dao.AEPMAC001PMapper.chkFileTBBADDED110M*/
+    /*증거서류 매핑테이블 존재여부*/
+        SELECT COUNT(*) FROM 
+        TBBADDED108D A INNER JOIN TBBADDED110M B
+            ON A.AUD_YR = B.AUD_YR
+            AND A.AUD_NO = B.AUD_NO
+            AND A.AUD_DCM_DOC_ID  = B.AUD_DCM_DOC_ID 
+            AND A.EVI_DCMB_SNO  = B.EVI_DCMB_SNO 
+        WHERE A.AUD_YR = #{audYr}
+            AND A.AUD_NO = #{audNo}
+            <if test='eviDcmbSno != null and eviDcmbSno != ""'>
+                <if test='type == null or type == ""'>
+                    AND B.EVI_DCMB_SNO = #{eviDcmbSno}
+                </if>
+            </if>
+            <if test='audDcmDocId != null and audDcmDocId != ""'>
+                <if test="type != '' and type eq 'docId'.toString()">
+                    AND A.AUD_DCM_DOC_ID = #{audDcmDocId}
+                </if>
+            </if>
+    </select>
+	
+    
+    <update id="updateDcmDoc" parameterType="paramMap">
+    /*kr.go.bai.eip.aep.mac.dao.AEPMAC001PMapper.updateDcmDoc*/
+    UPDATE TBBADDED108D
+           SET EVI_DCM_DVSN_CD = #{eviDcmDvsnCd},
+                  ISUE_DY = TRIM(REPLACE(#{isueDy},'-')),
+                  FNL_USR_ID = #{usrId},
+                  FNL_DEAL_DPT_CD = #{dptCd},
+                  FNL_MNU_ID = #{menuNo},
+                  FNL_MDF_DH = SYSDATE
+     WHERE AUD_YR = #{audYr}
+          AND AUD_NO = #{audNo}
+          AND EVI_DCMB_SNO = #{eviDcmbSno}
+          AND AUD_DCM_DOC_ID = #{audDcmDocId}
+    </update>
+    
+    <update id="saveEviSortSno" parameterType="paramMap">
+    /*kr.go.bai.eip.aep.mac.dao.AEPMAC001PMapper.saveEviSortSno*/
+    UPDATE TBBADDED108D
+           SET SORT_SNO = #{sortSno},
+                  FNL_USR_ID = #{usrId},
+                  FNL_DEAL_DPT_CD = #{dptCd},
+                  FNL_MNU_ID = #{menuNo},
+                  FNL_MDF_DH = SYSDATE
+     WHERE AUD_YR = #{audYr}
+          AND AUD_NO = #{audNo}
+          AND EVI_DCMB_SNO = #{eviDcmbSno}
+          AND AUD_DCM_DOC_ID = #{audDcmDocId}
+    </update>
+    
+    <select id="selectDcmAuthList" parameterType="paramMap" resultType="egovMap" >
+    /*kr.go.bai.eip.aep.mac.dao.AEPMAC001PMapper.selectDcmAuthList*/
+        SELECT
+            T1.AUD_DCM_CRE_ID
+            , T1.AUD_DCM_SHARE_ID
+            , T1.RMK_TXT
+            , T1.AUD_YR
+            , T1.AUD_NO
+            , T1.AUD_DCM_SHARE_SNO
+            , T1.AUD_DCM_SHARE_ID
+            , F_USR_INFO_BY_ID(T1.AUD_DCM_SHARE_ID,'2') AS AUD_DCM_SHARE_NM
+         FROM TBBADDED108L T1
+        WHERE T1.AUD_YR = #{audYr}
+          AND T1.AUD_NO = #{audNo}
+    </select>
+    
+    
+    <insert id="insertDcmAuthData" parameterType="paramMap">
+        /*kr.go.bai.eip.aep.mac.dao.AEPMAC001PMapper.insertDcmAuthData*/
+        INSERT INTO TBBADDED108L
+        (
+            AUD_YR
+          ,AUD_NO
+          ,AUD_DCM_CRE_ID
+          ,AUD_DCM_SHARE_SNO
+          ,AUD_DCM_SHARE_ID
+          ,RMK_TXT
+          ,FRT_USR_ID
+          ,FNL_USR_ID
+          ,FNL_DEAL_DPT_CD
+          ,FNL_MNU_ID
+          ,FRT_REGI_DH
+          ,FNL_MDF_DH
+        )
+        VALUES
+        (
+            #{audYr}
+            ,#{audNo}
+            ,#{audDcmCreId}
+            ,(SELECT NVL(MAX(AUD_DCM_SHARE_SNO),0)+1 FROM TBBADDED108L WHERE AUD_YR = #{audYr} AND AUD_NO = #{audNo})
+            ,#{audDcmShareId}
+            ,#{rmkTxt}
+            ,#{usrId}
+            ,#{usrId}
+            ,#{dptCd}
+            ,'AEPMAC009P'
+            ,SYSDATE
+            ,SYSDATE
+        )
+    </insert>
+    
+    <update id="updateDcmAuthData" parameterType="paramMap">
+    /*kr.go.bai.eip.aep.mac.dao.AEPMAC001PMapper.updateDcmAuthData*/
+    UPDATE TBBADDED108L
+           SET AUD_DCM_SHARE_ID = #{audDcmShareId},
+                  AUD_DCM_CRE_ID = #{audDcmCreId},
+                  RMK_TXT = #{rmkTxt},
+                  FNL_USR_ID = #{usrId},
+                  FNL_DEAL_DPT_CD = #{dptCd},
+                  FNL_MNU_ID = 'AEPMAC009P',
+                  FNL_MDF_DH = SYSDATE
+     WHERE AUD_YR = #{audYr}
+          AND AUD_NO = #{audNo}
+          AND AUD_DCM_SHARE_SNO = #{audDcmShareSno}
+    </update>
+    
+    
+    <delete id="deleteDcmAuthData" parameterType="paramMap">
+    /*kr.go.bai.eip.aep.mac.dao.AEPMAC001PMapper.deleteDcmAuthData*/
+        DELETE TBBADDED108L
+         WHERE AUD_YR = #{audYr}
+          AND AUD_NO = #{audNo}
+          AND AUD_DCM_SHARE_SNO = #{audDcmShareSno}
+    </delete>
+    
+    <select id="getSpvrAstYn" parameterType="paramMap" resultType="egovMap" >
+    /*kr.go.bai.eip.aep.mac.dao.AEPMAC001PMapper.getSpvrAstYn*/
+        SELECT
+            DECODE(COUNT(1),0,'N','Y') AS SPVR_AST_YN
+          FROM TBBADDED031L
+         WHERE AUD_YR = #{audYr}
+           AND AUD_NO = #{audNo}
+           AND AUDTOR_DVSN_CD IN ('1','2', '3')
+           AND CNB = #{cnb}
+    </select>
+    
+</mapper> 

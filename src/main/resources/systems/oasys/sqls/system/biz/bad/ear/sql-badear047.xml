@@ -1,0 +1,836 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/ear/047">
+ 	
+ 	<select id="BADEAR047EMainSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<![CDATA[
+		   SELECT  D1.TSK_CAT_CD
+			      ,D1.TSK_SNO
+			      ,D1.REGI_DT
+			      ,D1.REGI_HMS
+			      ,D1.HNDL_DPT_CD
+			      ,F_DPT_INFO(D1.HNDL_DPT_CD, '1') AS HNDL_DPT_NM
+			      ,D1.AUD_STR_DT
+			      ,D1.AUD_END_DT
+			      ,D1.AUD_SBJ_NM
+			      ,D1.AUD_SBJ_TXT
+			      ,D1.SRCH_NOC
+			      ,D1.DOC_ID_1
+			      ,D1.DOC_ID_2
+			      ,D1.OPEN_YN
+			      ,D1.AUD_SLN
+			      ,SUBSTR(D1.AUD_SLN, 0, 4) AS AUD_SLN_YR
+			      ,SUBSTR(D1.AUD_SLN, 5, 3) AS AUD_SLN_NO
+			      ,SUBSTR(D1.AUD_SPH_CD, 0, 3)||'0' AS AUD_SPH_HIRK_CD
+			      ,D1.AUD_SPH_CD
+			      ,F_CODE_NM('1000660', D1.AUD_SPH_CD) AS AUD_SPH_NM
+			      ,D1.REL_ORG_CD
+			      ,F_ORG_INFO(D1.REL_ORG_CD, '1') AS REL_ORG_NM
+			      ,D1.EML_SND_YN
+			      ,(SELECT S1.FILE_NAME
+			        FROM ECM_FILE_LIST_VIEW2 S1
+			        WHERE S1.DOC_ID = D1.DOC_ID_1
+			        AND ROWNUM = 1
+			        ) AS DOC_1_FILE_NAME          /*전문 첨부파일*/
+			      ,(SELECT S2.FILE_NAME
+			        FROM ECM_FILE_LIST_VIEW2 S2
+			        WHERE S2.DOC_ID = D1.DOC_ID_2
+			        AND ROWNUM = 1
+			        ) AS DOC_2_FILE_NAME        /*보도자료첨부파일*/
+			      ,(SELECT	CASE WHEN S1.AUD_YR >= '2016' 
+			                 THEN S1.AUD_KND_CD
+			            ELSE '' 
+			        END                              AS AUD_YR_NO_KND_CD /*감사연번호종류코드 추가 - 2015.12.18 yyh*/	
+			      	FROM	TBBADDED001M S1 
+			      	WHERE	S1.AUD_YR = SUBSTR(D1.AUD_SLN, 0, 4)
+			      	AND		S1.AUD_NO = SUBSTR(D1.AUD_SLN, 5, 3)) AS AUD_YR_NO_KND_CD
+			      ,CASE WHEN SUBSTR(D1.AUD_SLN, 0, 4) >= '2016' 
+			                     THEN F_CODE_NM('1000739',(SELECT	CASE WHEN S1.AUD_YR >= '2016' 
+			                 THEN S1.AUD_KND_CD
+			            ELSE '' 
+			        END                              AS AUD_YR_NO_KND_CD /*감사연번호종류코드 추가 - 2015.12.18 yyh*/	
+			      	FROM	TBBADDED001M S1 
+			      	WHERE	S1.AUD_YR = SUBSTR(D1.AUD_SLN, 0, 4)
+			      	AND		S1.AUD_NO = SUBSTR(D1.AUD_SLN, 5, 3)))   
+			                ELSE '' 
+			            END                         AS AUD_YR_NO_KND_NM
+			      ,(SELECT	AUD_GRN_NO /*감사연번호종류코드 추가 - 2015.12.18 yyh*/	
+			      	FROM	TBBADDED001M S1 
+			      	WHERE	S1.AUD_YR = SUBSTR(D1.AUD_SLN, 0, 4)
+			      	AND		S1.AUD_NO = SUBSTR(D1.AUD_SLN, 5, 3)) AS AUD_GRN_NO
+			      ,NVL(D1.PRL_SMT_YN,'N') AS PRL_SMT_YN
+			      ,TO_CHAR(TO_DATE(D1.PRL_SMT_DT),'YYYY-MM-DD') AS PRL_SMT_DT
+			      ,D1.DGE
+				  /*
+				  본안,별도건의 시행이 다를경우 최종 시행일만 가져오는 오류 수정 2021.07.09 EUNOK 
+				  ,(SELECT TO_CHAR(TO_DATE(MAX(ENF_DT)),'YYYY-MM-DD') 
+                       FROM TBBADEAR002D S1 
+                      WHERE S1.AUD_YR = D2.AUD_YR AND S1.AUD_NO = D2.AUD_NO) AS ENF_DT
+                  */    
+                  ,(SELECT TO_CHAR(TO_DATE(MIN(C.ENF_DT)), 'YYYY-MM-DD')
+                      FROM TBBADDED146M A 
+                      INNER JOIN TBBADEAR001M B ON (B.AUD_YR = A.AUD_YR AND B.AUD_NO = A.AUD_NO AND B.AUD_DSP_RQ_SNO = A.DSP_RQ_SNO)
+                      INNER JOIN TBBADEAR002D C ON (C.AUD_YR = B.AUD_YR AND C.AUD_NO = B.AUD_NO AND C.DSP_RQ_SNO = B.DSP_RQ_SNO)
+                      WHERE A.AUD_YR = D2.AUD_YR
+                      AND A.AUD_NO = D2.AUD_NO
+                      AND A.FNL_YN = 'Y'
+                      AND NVL(A.REF_DOC_ID, A.DOC_ID) IN (SELECT ST.REF_DOC_ID FROM TBBADEAR028L ST WHERE ST.AUD_SLN = D1.AUD_SLN AND ST.DOC_ID = D1.DOC_ID_1)) AS ENF_DT    
+                      
+                    ,TO_CHAR(TO_DATE(D1.PRL_SMT_DT),'YYYY-MM-DD') AS PRL_SMT_DT
+                    ,CASE WHEN D1.REGI_DT IS NOT NULL THEN TO_DATE(D1.REGI_DT) - (SELECT TO_DATE(MIN(C.ENF_DT))
+																                   FROM TBBADDED146M A 
+																                   INNER JOIN TBBADEAR001M B ON (B.AUD_YR = A.AUD_YR AND B.AUD_NO = A.AUD_NO AND B.AUD_DSP_RQ_SNO = A.DSP_RQ_SNO)
+																                   INNER JOIN TBBADEAR002D C ON (C.AUD_YR = B.AUD_YR AND C.AUD_NO = B.AUD_NO AND C.DSP_RQ_SNO = B.DSP_RQ_SNO)
+																                   WHERE A.AUD_YR = D2.AUD_YR
+																	                     AND A.AUD_NO = D2.AUD_NO
+																	                     AND A.FNL_YN = 'Y'
+																	                     AND NVL(A.REF_DOC_ID, A.DOC_ID) IN (SELECT ST.REF_DOC_ID FROM TBBADEAR028L ST WHERE ST.AUD_SLN = D1.AUD_SLN AND ST.DOC_ID = D1.DOC_ID_1))
+   					ELSE TO_DATE(SYSDATE) - (SELECT TO_DATE(MIN(C.ENF_DT))
+											FROM TBBADDED146M A 
+											INNER JOIN TBBADEAR001M B ON (B.AUD_YR = A.AUD_YR AND B.AUD_NO = A.AUD_NO AND B.AUD_DSP_RQ_SNO = A.DSP_RQ_SNO)
+											INNER JOIN TBBADEAR002D C ON (C.AUD_YR = B.AUD_YR AND C.AUD_NO = B.AUD_NO AND C.DSP_RQ_SNO = B.DSP_RQ_SNO)
+											WHERE A.AUD_YR = D2.AUD_YR
+												  AND A.AUD_NO = D2.AUD_NO
+												  AND A.FNL_YN = 'Y'
+												  AND NVL(A.REF_DOC_ID, A.DOC_ID) IN (SELECT ST.REF_DOC_ID FROM TBBADEAR028L ST WHERE ST.AUD_SLN = D1.AUD_SLN AND ST.DOC_ID = D1.DOC_ID_1))
+					END AS DAY_CNT /*시행일 이후 경과일수*/
+				,F_MNG_KND_AUDYRNO(D2.AUD_YR, D2.AUD_NO, D2.AUD_KND_CD, '-')  
+			                                                        AS AUD_YR_NO    	
+			   ,DECODE(D1.DGE,NULL,NULL,'홈페이지 공개문 '||D1.DGE||'차') AS DGE_NM	
+			   ,D1.WRIT_PEN_CNB
+			   ,F_USR_INFO(D1.WRIT_PEN_CNB, '2') AS WRIT_PEN_NM                          
+			   ,NVL(D1.UN_OPEN_YN,'N') AS UN_OPEN_YN
+               , CASE WHEN D1.OPEN_YN = 'Y' AND (D1.UN_OPEN_YN = 'N' OR D1.UN_OPEN_YN IS NULL) THEN '홈페이지공개'
+                      WHEN D1.OPEN_YN = 'Y' AND D1.UN_OPEN_YN = 'Y' THEN '미공개종결'
+                      WHEN D1.PRSS_STA_CD = '99' THEN '홍보등록'
+                      ELSE '제출완료'
+                 END AS OPEN_NM
+               ,D1.PRSS_STA_CD 
+               ,D1.REMARK
+               ,F_DPT_INFO(D2.SPV_BRDV_CD,'1') AS WRIT_DPT_NM /*담당(제출)과*/
+			  FROM TBBADEAR028M D1
+			  ,TBBADDED001M D2 
+			  WHERE 1=1
+			    AND D1.TSK_CAT_CD = 'KP1' 
+			    AND	D2.AUD_YR = SUBSTR(D1.AUD_SLN, 0, 4)
+			AND		D2.AUD_NO = SUBSTR(D1.AUD_SLN, 5, 3)
+			AND		D1.PRL_SMT_YN = 'Y'
+			
+		]]>		
+		      <isNotEmpty property="STARTDT">
+		       <isNotEmpty property="ENDDT">
+		        AND ((TO_CHAR(TO_DATE(D1.REGI_DT, 'YYYYMMDD'), 'YYYYMMDD') BETWEEN #STARTDT# AND #ENDDT#) OR (D1.PRL_SMT_DT BETWEEN #STARTDT# AND #ENDDT#))
+		       </isNotEmpty>
+		      </isNotEmpty>
+		      
+		      <isNotEmpty property="AUD_SPH_CD">
+		        AND D1.AUD_SPH_CD = #AUD_SPH_CD# 
+		      </isNotEmpty>
+		      
+		      <isNotEmpty property = "HNDL_DPT_CD">
+		        AND D1.HNDL_DPT_CD = #HNDL_DPT_CD#
+		      </isNotEmpty>
+		      
+		      <isNotEmpty property="ORGCD">
+		        AND D1.REL_ORG_CD = #ORGCD#
+		      </isNotEmpty>
+		      
+		      <isNotEmpty property="OPENYN">
+		      	AND D1.OPEN_YN = #OPENYN#
+		      </isNotEmpty>
+		      
+		      <isNotEmpty property="SELFNEW">
+			      <isEqual property="SELFNEW" compareValue="Y">
+				 	AND D1.DGE IS NULL
+				  </isEqual>
+				  <isEqual property="SELFNEW" compareValue="N">
+				 	AND D1.DGE IS NOT NULL
+				  </isEqual>
+			  </isNotEmpty>
+		      
+		    <isEmpty property="SEARCHKEY" >
+			 <isNotEmpty property="SEARCHVALUE">
+			   AND ( D1.AUD_SBJ_NM LIKE '%'||#SEARCHVALUE#||'%'
+			    OR D1.AUD_SBJ_TXT LIKE '%'||#SEARCHVALUE#||'%' )
+			 </isNotEmpty>
+			</isEmpty>
+		      
+		     <isEqual property="SEARCHKEY" compareValue="1">
+			 <isNotEmpty property="SEARCHVALUE">
+			   AND D1.AUD_SBJ_NM LIKE '%'||#SEARCHVALUE#||'%'
+			 </isNotEmpty>
+			</isEqual>
+			
+			<isEqual property="SEARCHKEY" compareValue="2">
+			 <isNotEmpty property="SEARCHVALUE">
+			   AND D1.AUD_SBJ_TXT LIKE '%'||#SEARCHVALUE#||'%'
+			 </isNotEmpty>
+			</isEqual>
+		      
+		      ORDER BY D1.TSK_SNO DESC
+		
+		
+	</select>
+	
+	<select id="BADEAR047EMaxSno" parameterClass="paramMap"
+		resultClass="java.lang.String"> 
+		
+		SELECT NVL(MAX(TSK_SNO), 0)+1  AS MAX_SRNO
+          FROM TBBADEAR028M
+         WHERE 1=1
+           AND TSK_CAT_CD = 'KP1'
+		
+	</select>
+	
+	<insert id="BADEAR047EInsert" parameterClass="paramMap">
+	<![CDATA[
+	INSERT INTO TBBADEAR028M(
+            TSK_CAT_CD 
+            ,TSK_SNO
+            ,HNDL_DPT_CD
+            ,AUD_SBJ_NM 
+            ,AUD_SBJ_TXT
+            ,DOC_TYP_CD_1 
+            ,DOC_ID_1 
+            ,DOC_TYP_CD_2 
+            ,DOC_ID_2 
+            ,OPEN_YN 
+            ,AUD_SLN 
+            ,AUD_SPH_CD 
+            ,REL_ORG_CD 
+            ,PRL_SMT_DT
+            ,PRL_SMT_YN
+            ,PRSS_STA_CD
+            ,REMARK
+            ,FRT_USR_ID 
+            ,FNL_USR_ID 
+            ,FNL_DEAL_DPT_CD 
+            ,FNL_MNU_ID 
+            ,FRT_REGI_DH
+            ,FNL_MDF_DH
+            )
+            VALUES(
+                #TSK_CAT_CD#
+               ,#TSK_SNO#
+               ,#HNDL_DPT_CD#
+               ,#AUD_SBJ_NM# 
+               ,#AUD_SBJ_TXT#
+               ,#DOC_TYP_CD_1#
+               ,#DOC_ID_1# 
+               ,#DOC_TYP_CD_2#
+               ,#DOC_ID_2# 
+               ,#OPEN_YN#
+               ,#AUD_SLN#
+               ,#AUD_SPH_CD#
+               ,#REL_ORG_CD#
+               ,TO_CHAR(SYSDATE, 'YYYYMMDD')
+               , 'Y'
+               ,'99' /* 신규등록은 '홍보등록' */
+               ,#REMARK#
+               ,#FRT_USR_ID#
+               ,#FNL_USR_ID# 
+               ,#FNL_DEAL_DPT_CD#
+               ,#FNL_MNU_ID# 
+               ,SYSDATE
+               ,SYSDATE
+            )  
+	]]>
+	</insert>
+	
+	<update id="BADEAR047EUpdate" parameterClass="paramMap">
+	<![CDATA[
+	UPDATE TBBADEAR028M
+       SET FNL_USR_ID         = #FNL_USR_ID#
+    	  ,FNL_DEAL_DPT_CD    = #FNL_DEAL_DPT_CD#
+    	  ,FNL_MNU_ID         = #FNL_MNU_ID#
+          ,FNL_MDF_DH         = SYSDATE
+          ,AUD_SPH_CD = #AUD_SPH_CD#
+          ,REL_ORG_CD = #REL_ORG_CD#
+          ,HNDL_DPT_CD= #HNDL_DPT_CD#
+          ,AUD_SBJ_NM = #AUD_SBJ_NM#
+          ,AUD_SBJ_TXT= #AUD_SBJ_TXT#
+          ,DOC_ID_1 = #DOC_ID_1#
+		  ,DOC_ID_2 = #DOC_ID_2#
+		  ,REGI_DT = #REGI_DT#
+		  ,REGI_HMS = #REGI_HMS#
+		  ,REMARK = #REMARK#
+     WHERE TSK_CAT_CD = #TSK_CAT_CD#
+       AND TSK_SNO    = #TSK_SNO#
+        ]]>
+	</update>
+	
+	<delete id="BADEAR047EDelete" parameterClass="paramMap">
+	<![CDATA[
+	
+		      DELETE 
+                FROM TBBADEAR028M
+               WHERE 1=1
+                 AND TSK_CAT_CD = #TSK_CAT_CD#
+                 AND TSK_SNO    = #TSK_SNO#
+	
+	]]>
+	</delete>
+	
+	
+	
+	<!-- 연계 -->
+	<insert id="BADEAR047EISinsert" parameterClass="paramMap">
+	<![CDATA[
+	INSERT INTO TBBADEAR029H(
+			 CON_NO
+            ,TSK_CAT_CD 
+            ,TSK_SNO
+            ,REGI_DT
+            ,REGI_HMS
+            ,HNDL_DPT_CD
+            ,AUD_SBJ_NM 
+            ,AUD_SBJ_TXT
+            ,DOC_TYP_CD_1 
+            ,DOC_ID_1 
+            ,DOC_TYP_CD_2 
+            ,DOC_ID_2 
+            ,OPEN_YN 
+            ,AUD_SLN 
+            ,AUD_SPH_CD 
+            ,REL_ORG_CD 
+            ,CON_HNDL_CD
+            ,FRT_USR_ID 
+            ,FNL_USR_ID 
+            ,FNL_DEAL_DPT_CD 
+            ,FNL_MNU_ID 
+            ,FRT_REGI_DH
+            ,FNL_MDF_DH
+            ,CON_HNDL_STA_CD /* 연계처리상태코드 추가 - 2017.09.07 yyh */
+            )
+       SELECT (SELECT NVL(MAX(CON_NO),0)+1 FROM TBBADEAR029H) 
+            ,TSK_CAT_CD 
+            ,TSK_SNO
+            ,REGI_DT
+            ,REGI_HMS
+            ,HNDL_DPT_CD
+            ,AUD_SBJ_NM 
+            ,AUD_SBJ_TXT
+            ,DOC_TYP_CD_1 
+            ,DOC_ID_1 
+            ,DOC_TYP_CD_2 
+            ,DOC_ID_2 
+            ,OPEN_YN 
+            ,AUD_SLN 
+            ,AUD_SPH_CD 
+            ,REL_ORG_CD 
+            ,#CON_HNDL_CD#          /*연계구분코드*/
+            ,FRT_USR_ID 
+            ,FNL_USR_ID 
+            ,FNL_DEAL_DPT_CD 
+            ,FNL_MNU_ID 
+            ,FRT_REGI_DH
+            ,FNL_MDF_DH
+            ,'0000'
+        FROM TBBADEAR028M
+      ]]>
+       WHERE TSK_CAT_CD = #TSK_CAT_CD#
+         AND TSK_SNO    = #TSK_SNO#
+         
+     </insert>
+     
+     <!-- 홈페이지용 select :: 홈페이지 연계 -->
+     
+     <select id="BADEAR047ESendHomepageselect" parameterClass="paramMap"
+		resultClass="resultMap">
+     <![CDATA[
+	     SELECT  TSK_CAT_CD 
+	           , TSK_SNO
+	           , REGI_DT
+	           , REGI_HMS
+	           , HNDL_DPT_CD
+	           , F_DPT_INFO(HNDL_DPT_CD, 1) AS HNDL_DPT_NM
+	           , AUD_SBJ_NM 
+	           , AUD_SBJ_TXT
+	           , DOC_ID_1 
+	           , DOC_ID_2 
+	           , OPEN_YN 
+	           , AUD_SLN 
+	           , (SELECT USR_DFN_TXT_1 
+	                         FROM   TBDCMACM013C 
+	                         WHERE  CMM_CD_DVSN_CD = '1000660'
+	                         AND    CD = AUD_SPH_CD) AS AUD_SPH_HIRK_CD
+	           , AUD_SPH_CD 
+	           , REL_ORG_CD  
+	           ,#CON_HNDL_CD# AS CON_HNDL_CD
+	       FROM TBBADEAR028M
+      ]]>
+	       WHERE TSK_CAT_CD = #TSK_CAT_CD#
+	         AND TSK_SNO    = #TSK_SNO#
+     </select>
+     
+     <insert id="BADEAR047OSEND001Insert" parameterClass="paramMap">
+     	<![CDATA[
+     		INSERT INTO	EH_INF_AD_ER_001
+     				(	IF_SEQ
+						,IF_TYPE
+						,TSK_CAT_CD
+						,TSK_SNO
+						,REGI_DT
+						,REGI_HMS
+						,HNDL_DPT_CD
+						,HNDL_DPT_NM
+						,AUD_SBJ_NM
+						,AUD_SBJ_TXT
+						,DOC_ID_1
+						,DOC_ID_2
+						,OPEN_YN
+						,AUD_SLN
+						,AUD_SPH_HIRK_CD
+						,AUD_SPH_CD
+						,REL_ORG_CD
+						,CON_HNDL_CD
+						,FRT_USR_ID
+					)
+			VALUES	(	#IF_SEQ#
+						,'SND'
+						,#AUD_KND_CD#
+						,#TSK_SNO#
+						,#REGI_DT#
+						,#REGI_HMS#
+						,#HNDL_DPT_CD#
+						,#HNDL_DPT_NM#
+						,#AUD_SBJ_NM#
+						,#AUD_SBJ_TXT#
+						,#DOC_ID_1#
+						,#DOC_ID_2#
+						,#OPEN_YN#
+						,#AUD_SLN#
+						,#AUD_SPH_HIRK_CD#
+						,#AUD_SPH_CD#
+						,#REL_ORG_CD#
+						,#CON_HNDL_CD#
+						,#FRT_USR_ID#
+					)
+     	]]>
+     </insert>
+     
+     <update id="BADEAR047EConfUpdate" parameterClass="paramMap">
+     	<![CDATA[
+     		UPDATE TBBADEAR028M
+		       SET FNL_USR_ID         = #FNL_USR_ID#
+		    	  ,FNL_DEAL_DPT_CD    = #FNL_DEAL_DPT_CD#
+		    	  ,FNL_MNU_ID         = #FNL_MNU_ID#
+		          ,FNL_MDF_DH         = SYSDATE
+		          ,OPEN_YN = 'Y'
+		          ,REGI_DT = #REGI_DT#
+		          ,REGI_HMS= #REGI_HMS#
+		          ,PRSS_STA_CD = '50'
+		     WHERE TSK_CAT_CD = #TSK_CAT_CD#
+		       AND TSK_SNO    = #TSK_SNO#
+     	]]>
+     </update>
+     
+     <!-- 확정취소 -->
+      <update id="BADEAR047EConfCancleUpdate" parameterClass="paramMap">
+     	<![CDATA[
+     		UPDATE /*BADEAR047EConfCancleUpdate*/
+     				TBBADEAR028M
+		       SET FNL_USR_ID         = #FNL_USR_ID#
+		    	  ,FNL_DEAL_DPT_CD    = #FNL_DEAL_DPT_CD#
+		    	  ,FNL_MNU_ID         = #FNL_MNU_ID#
+		          ,FNL_MDF_DH         = SYSDATE
+		          ,OPEN_YN = 'N'
+		          ,REGI_DT = NULL
+		          ,REGI_HMS= NULL
+		          ,PRSS_STA_CD= '30'
+		          ,UN_OPEN_YN = 'N'
+		     WHERE TSK_CAT_CD = #TSK_CAT_CD#
+		       AND TSK_SNO    = #TSK_SNO#
+     	]]>
+     </update>
+     
+     <!-- 반려 -->
+      <update id="BADEAR047EDeleteUpdate" parameterClass="paramMap">
+     	<![CDATA[
+     		UPDATE /*BADEAR047EDeleteUpdate*/
+     				TBBADEAR028M
+		       SET 	FNL_USR_ID         = #FNL_USR_ID#
+		    	  	,FNL_DEAL_DPT_CD    = #FNL_DEAL_DPT_CD#
+		    	  	,FNL_MNU_ID         = #FNL_MNU_ID#
+		          	,FNL_MDF_DH         = SYSDATE
+		          	,PRL_SMT_DT = NULL
+					,APV_DOC_NO = NULL
+					,PRL_SMT_YN = NULL
+					,PRSS_STA_CD = '40'
+		     WHERE TSK_CAT_CD = #TSK_CAT_CD#
+		       AND TSK_SNO    = #TSK_SNO#
+     	]]>
+     </update>
+     
+     <!-- 반려시 메신저 전송  -->
+     <insert id="BADEAR047EDeleteMsgInsert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO
+			TBDCMACM026L
+			(
+			  MSG_SNO
+			, TSK_CAT_CD
+			, FUNC_CAT_CD
+			, SEND_ID
+	        , MSG_TP_YN
+	  
+	        , MSG_TXT_2
+	        , RCNT_CNT
+	        , RCNT_HIS
+	        , MSG_REGI_DH
+	
+			, FRT_USR_ID
+			, FNL_USR_ID
+			, FNL_DEAL_DPT_CD
+			, FNL_MNU_ID
+			, FRT_REGI_DH
+			,
+			FNL_MDF_DH
+	
+			)
+			VALUES
+			(
+			  (SELECT NVL(MAX(MSG_SNO),0)+1 FROM TBDCMACM026L)
+			, 'AD'
+			, 'AR'
+			, #FNL_USR_ID#
+	        , '0'
+	     
+	        , #SMS_TXT#
+	        , 1
+	        , #WRIT_PEN_CNB#
+	        , SYSDATE
+	        
+	        
+			, #FNL_USR_ID#
+			, #FNL_USR_ID#
+			, #FNL_DEAL_DPT_CD#
+			, #FNL_MNU_ID#
+			, SYSDATE
+			, SYSDATE
+	
+			);
+			
+		]]>
+	</insert>
+	
+	<insert id="BADEAR047EDeleteMmsMsgInsert" parameterClass ="paramMap">
+		<![CDATA[
+			INSERT INTO MMS_CONTENTS_INFO 
+				 	(	CONT_SEQ
+				 		, FILE_CNT
+				 		, MMS_BODY
+				 		, MMS_SUBJECT
+				 	) 
+			VALUES (	#CONT_SEQ#
+						, 1
+						, #SMS_TXT#
+						, #SMS_TLT#
+					)
+		]]>
+	</insert>
+	
+	<select id="BADEAR047ECallToSelect" parameterClass="paramMap" resultClass="string">
+		<![CDATA[
+			SELECT	REPLACE(D1.HOM_TNB,'-','')
+							FROM	TBDCMACM001M D1
+							WHERE	D1.CNB = #WRIT_PEN_CNB#
+		]]>
+		
+	</select>
+	
+	<select id="BADEAR047ECallFromSelect" parameterClass="paramMap" resultClass="string">
+		<![CDATA[
+			SELECT	REPLACE(D2.TNB,'-','')
+							FROM	TBDCMACM001M D1
+									,TBDCMACM002M D2
+							WHERE	D1.CNB = #WRIT_PEN_CNB#
+							AND		D1.DPT_CD = D2.DPT_CD
+		]]>	
+	</select>
+	
+	<insert id="BADEAR047EDeleteMsgDataInsert" parameterClass ="paramMap">
+		<![CDATA[
+			INSERT INTO MSG_DATA
+				 	(	MSG_SEQ
+				 		, CUR_STATE
+				 		, REQ_DATE
+				 		, CALL_TO
+				 		, CALL_FROM
+				 		, SMS_TXT
+				 		, MSG_TYPE
+				 		, CONT_SEQ
+				 		, USERDATA
+				 	) 
+			VALUES (	MSG_DATA_SEQ.NEXTVAL
+						, 0
+						, SYSDATE
+						, #CALL_TO#
+						, #CALL_FROM#
+						, ''
+						, 6
+						, #CONT_SEQ#
+						, NULL
+					)
+		]]>
+	</insert>
+	
+	<insert id="BADEAR047EInsertMSGSend" parameterClass="paramMap">
+		<![CDATA[
+			CALL NURI2_MESSAGE_SEND(#CALL_FROM#, #CALL_TO#, #SMS_TLT#, #SMS_TXT#)
+		]]>
+	</insert>
+	
+	
+	<update id="BADEAR047EUnConfUpdate" parameterClass="paramMap">
+     	<![CDATA[
+     		UPDATE TBBADEAR028M
+		       SET FNL_USR_ID         = #FNL_USR_ID#
+		    	  ,FNL_DEAL_DPT_CD    = #FNL_DEAL_DPT_CD#
+		    	  ,FNL_MNU_ID         = #FNL_MNU_ID#
+		          ,FNL_MDF_DH         = SYSDATE
+		          ,OPEN_YN = 'Y'
+		          ,REGI_DT = #REGI_DT#
+		          ,REGI_HMS= TO_CHAR(SYSDATE, 'HH24MISS')
+		          ,PRSS_STA_CD = '50'
+		          ,UN_OPEN_YN = 'Y'
+		     WHERE TSK_CAT_CD = #TSK_CAT_CD#
+		       AND TSK_SNO    = #TSK_SNO#
+     	]]>
+     </update>
+     
+     
+     <select id="BADEAR047EExcelSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+		   SELECT  D1.TSK_CAT_CD
+			      ,D1.TSK_SNO
+			      ,D1.REGI_DT
+			      ,D1.REGI_HMS
+			      ,D1.HNDL_DPT_CD
+			      ,F_DPT_INFO(D1.HNDL_DPT_CD, '1') AS HNDL_DPT_NM
+			      ,D1.AUD_STR_DT
+			      ,D1.AUD_END_DT
+			      ,D1.AUD_SBJ_NM
+			      ,D1.AUD_SBJ_TXT
+			      ,D1.SRCH_NOC
+			      ,D1.DOC_ID_1
+			      ,D1.DOC_ID_2
+			      ,D1.OPEN_YN
+			      ,D1.AUD_SLN
+			      ,SUBSTR(D1.AUD_SLN, 0, 4) AS AUD_SLN_YR
+			      ,SUBSTR(D1.AUD_SLN, 5, 3) AS AUD_SLN_NO
+			      ,SUBSTR(D1.AUD_SPH_CD, 0, 3)||'0' AS AUD_SPH_HIRK_CD
+			      ,D1.AUD_SPH_CD
+			      ,F_CODE_NM('1000660', D1.AUD_SPH_CD) AS AUD_SPH_NM
+			      ,D1.REL_ORG_CD
+			      ,F_ORG_INFO(D1.REL_ORG_CD, '1') AS REL_ORG_NM
+			      ,D1.EML_SND_YN
+			      ,(SELECT S1.FILE_NAME
+			        FROM ECM_FILE_LIST_VIEW2 S1
+			        WHERE S1.DOC_ID = D1.DOC_ID_1
+			        AND ROWNUM = 1
+			        ) AS DOC_1_FILE_NAME          /*전문 첨부파일*/
+			      ,(SELECT S2.FILE_NAME
+			        FROM ECM_FILE_LIST_VIEW2 S2
+			        WHERE S2.DOC_ID = D1.DOC_ID_2
+			        AND ROWNUM = 1
+			        ) AS DOC_2_FILE_NAME        /*보도자료첨부파일*/
+			      ,(SELECT	CASE WHEN S1.AUD_YR >= '2016' 
+			                 THEN S1.AUD_KND_CD
+			            ELSE '' 
+			        END                              AS AUD_YR_NO_KND_CD /*감사연번호종류코드 추가 - 2015.12.18 yyh*/	
+			      	FROM	TBBADDED001M S1 
+			      	WHERE	S1.AUD_YR = SUBSTR(D1.AUD_SLN, 0, 4)
+			      	AND		S1.AUD_NO = SUBSTR(D1.AUD_SLN, 5, 3)) AS AUD_YR_NO_KND_CD
+			      ,CASE WHEN SUBSTR(D1.AUD_SLN, 0, 4) >= '2016' 
+			                     THEN F_CODE_NM('1000739',(SELECT	CASE WHEN S1.AUD_YR >= '2016' 
+			                 THEN S1.AUD_KND_CD
+			            ELSE '' 
+			        END                              AS AUD_YR_NO_KND_CD /*감사연번호종류코드 추가 - 2015.12.18 yyh*/	
+			      	FROM	TBBADDED001M S1 
+			      	WHERE	S1.AUD_YR = SUBSTR(D1.AUD_SLN, 0, 4)
+			      	AND		S1.AUD_NO = SUBSTR(D1.AUD_SLN, 5, 3)))   
+			                ELSE '' 
+			            END                         AS AUD_YR_NO_KND_NM
+			      ,(SELECT	AUD_GRN_NO /*감사연번호종류코드 추가 - 2015.12.18 yyh*/	
+			      	FROM	TBBADDED001M S1 
+			      	WHERE	S1.AUD_YR = SUBSTR(D1.AUD_SLN, 0, 4)
+			      	AND		S1.AUD_NO = SUBSTR(D1.AUD_SLN, 5, 3)) AS AUD_GRN_NO
+			      ,NVL(D1.PRL_SMT_YN,'N') AS PRL_SMT_YN
+			      ,TO_CHAR(TO_DATE(D1.PRL_SMT_DT),'YYYY-MM-DD') AS PRL_SMT_DT
+			      ,D1.DGE
+					,(SELECT TO_CHAR(TO_DATE(MAX(ENF_DT)),'YYYY-MM-DD') 
+                       FROM TBBADEAR002D S1 
+                      WHERE S1.AUD_YR = D2.AUD_YR AND S1.AUD_NO = D2.AUD_NO) AS ENF_DT
+                    ,TO_CHAR(TO_DATE(D1.PRL_SMT_DT),'YYYY-MM-DD') AS PRL_SMT_DT
+                    , CASE WHEN D1.REGI_DT IS NOT NULL THEN TO_DATE(D1.REGI_DT) - (SELECT TO_DATE(MAX(ENF_DT)) 
+                     																  FROM TBBADEAR002D S1 
+                 																 WHERE S1.AUD_YR = D2.AUD_YR AND S1.AUD_NO = D2.AUD_NO)
+   						ELSE TO_DATE(SYSDATE) - (SELECT TO_DATE(MAX(ENF_DT)) 
+   						                           FROM TBBADEAR002D S1 
+   						                          WHERE S1.AUD_YR = D2.AUD_YR AND S1.AUD_NO = D2.AUD_NO) END AS DAY_CNT /*시행일 이후 경과일수*/
+				,F_MNG_KND_AUDYRNO(D2.AUD_YR, D2.AUD_NO, D2.AUD_KND_CD, '-')  
+			                                                        AS AUD_YR_NO    	
+			   ,DECODE(D1.DGE,NULL,NULL,'홈페이지 공개문 '||D1.DGE||'차') AS DGE_NM	
+			   ,D1.WRIT_PEN_CNB
+			   ,F_USR_INFO(D1.WRIT_PEN_CNB, '2') AS WRIT_PEN_NM                          
+			   ,NVL(D1.UN_OPEN_YN,'N') AS UN_OPEN_YN
+               , CASE WHEN D1.OPEN_YN = 'Y' AND (D1.UN_OPEN_YN = 'N' OR D1.UN_OPEN_YN IS NULL) THEN '홈페이지공개'
+                      WHEN D1.OPEN_YN = 'Y' AND D1.UN_OPEN_YN = 'Y' THEN '미공개종결'
+                      WHEN D1.PRSS_STA_CD = '99' THEN '홍보등록'
+                      ELSE '제출완료'
+                  END AS OPEN_NM
+               ,D1.REMARK
+			  FROM TBBADEAR028M D1
+			  ,TBBADDED001M D2 
+			  WHERE 1=1
+			    AND D1.TSK_CAT_CD = 'KP1' 
+			    AND		D2.AUD_YR = SUBSTR(D1.AUD_SLN, 0, 4)
+			AND		D2.AUD_NO = SUBSTR(D1.AUD_SLN, 5, 3)
+			AND		D1.PRL_SMT_YN = 'Y'
+			
+		]]>		
+		      <isNotEmpty property="STARTDT">
+		       <isNotEmpty property="ENDDT">
+		        AND ((TO_CHAR(TO_DATE(D1.REGI_DT, 'YYYYMMDD'), 'YYYYMMDD') BETWEEN #STARTDT# AND #ENDDT#) OR (D1.PRL_SMT_DT BETWEEN #STARTDT# AND #ENDDT#))
+		       </isNotEmpty>
+		      </isNotEmpty>
+		      
+		      <isNotEmpty property="AUD_SPH_CD">
+		        AND D1.AUD_SPH_CD = #AUD_SPH_CD# 
+		      </isNotEmpty>
+		      
+		      <isNotEmpty property = "HNDL_DPT_CD">
+		        AND D1.HNDL_DPT_CD = #HNDL_DPT_CD#
+		      </isNotEmpty>
+		      
+		      <isNotEmpty property="ORGCD">
+		        AND D1.REL_ORG_CD = #ORGCD#
+		      </isNotEmpty>
+		      
+		      <isNotEmpty property="OPENYN">
+		      	AND D1.OPEN_YN = #OPENYN#
+		      </isNotEmpty>
+		      
+		       <isNotEmpty property="SELFNEW">
+			      <isEqual property="SELFNEW" compareValue="Y">
+				 	AND D1.DGE IS NULL
+				  </isEqual>
+				  <isEqual property="SELFNEW" compareValue="N">
+				 	AND D1.DGE IS NOT NULL
+				  </isEqual>
+			  </isNotEmpty>
+		    <isEmpty property="SEARCHKEY" >
+			 <isNotEmpty property="SEARCHVALUE">
+			   AND D1.AUD_SBJ_NM LIKE '%'||#SEARCHVALUE#||'%'
+			    OR D1.AUD_SBJ_TXT LIKE '%'||#SEARCHVALUE#||'%'
+			 </isNotEmpty>
+			</isEmpty>
+		      
+		     <isEqual property="SEARCHKEY" compareValue="1">
+			 <isNotEmpty property="SEARCHVALUE">
+			   AND D1.AUD_SBJ_NM LIKE '%'||#SEARCHVALUE#||'%'
+			 </isNotEmpty>
+			</isEqual>
+			
+			<isEqual property="SEARCHKEY" compareValue="2">
+			 <isNotEmpty property="SEARCHVALUE">
+			   AND D1.AUD_SBJ_TXT LIKE '%'||#SEARCHVALUE#||'%'
+			 </isNotEmpty>
+			</isEqual>
+		    ORDER BY D1.TSK_SNO DESC
+	</select>
+	
+	<update id="BADEAR047ODeleteAwubakdar001" parameterClass="paramMap">
+		<![CDATA[
+			DELETE 
+			  FROM TBAWUBAKDAR001M T1
+			 WHERE T1.TSK_SNO = #TSK_SNO# 
+			  
+		]]>
+	</update>	
+	
+	<update id="BADEAR047OInsertAwubakdar001" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO TBAWUBAKDAR001M
+				(	SRNO
+				   ,OPEN_DT
+				   ,OPEN_HM
+				   ,HNDL_DPT_CD
+				   ,HNDL_DPT_NM
+				   ,AUD_SPH_CD
+				   ,AUD_SPH_DTL_CD
+				   ,TIT_NM
+				   ,OPEN_TXT
+				   ,OPEN_DOC_ID
+				   ,NEWS_MTRL_DOC_ID
+				   ,AUD_YR
+				   ,AUD_NO
+				   ,TSK_SNO
+				   ,FRT_USR_ID
+				   ,FNL_USR_ID
+				   ,FNL_DEAL_DPT_CD
+				   ,FNL_MNU_ID
+				   ,FRT_REGI_DH
+				   ,FNL_MDF_DH
+				   ,AUD_KND_CD
+				) VALUES (
+					(SELECT NVL(MAX(SRNO),0) + 1 FROM TBAWUBAKDAR001M )
+					,#REGI_DT#
+					,#REGI_HMS#
+					,#HNDL_DPT_CD#
+					,F_DPT_INFO(#HNDL_DPT_CD#,'1')
+					,#AUD_SPH_HIRK_CD#
+					,#AUD_SPH_CD#
+					,#AUD_SBJ_NM#
+					,#AUD_SBJ_TXT#
+				   ,(SELECT DOC_ID_1 FROM TBBADEAR028M S1 WHERE S1.TSK_SNO = #TSK_SNO#)
+				   ,(SELECT DOC_ID_2 FROM TBBADEAR028M S1 WHERE S1.TSK_SNO = #TSK_SNO#)
+				   ,SUBSTR(#AUD_SLN#,0,4)
+				   ,substr(#AUD_SLN#,5)
+				   ,#TSK_SNO#
+				   ,'batch'
+				   ,'batch'
+				   ,'batch'
+				   ,'batch'
+				   ,sysdate
+				   ,sysdate
+				   ,#AUD_KND_CD#
+				   
+			    )
+				   
+		]]>
+	</update>
+	
+	<update id="BADEAR047OUpdateAwubakdar001" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE TBAWUBAKDAR001M
+			  SET OPEN_DT = #REGI_DT#
+				   ,OPEN_HM = #REGI_HMS#
+				   ,HNDL_DPT_CD = #HNDL_DPT_CD#
+				   ,HNDL_DPT_NM = F_DPT_INFO(#HNDL_DPT_CD#,'1')
+				   ,AUD_SPH_CD = #AUD_SPH_HIRK_CD#
+				   ,AUD_SPH_DTL_CD = #AUD_SPH_CD#
+				   ,TIT_NM = #AUD_SBJ_NM#
+				   ,OPEN_TXT = #AUD_SBJ_TXT#
+				   ,OPEN_DOC_ID = (SELECT DOC_ID_1 FROM TBBADEAR028M S1 WHERE S1.TSK_SNO = #TSK_SNO#)
+				   ,NEWS_MTRL_DOC_ID = (SELECT DOC_ID_2 FROM TBBADEAR028M S1 WHERE S1.TSK_SNO = #TSK_SNO#)
+				   ,AUD_YR = SUBSTR(#AUD_SLN#,0,4)
+				   ,AUD_NO = substr(#AUD_SLN#,5)
+				   ,FNL_MDF_DH = SYSDATE
+				   ,AUD_KND_CD = #AUD_KND_CD#
+		    WHERE TSK_SNO = #TSK_SNO#
+				   
+		]]>
+	</update>
+	
+	
+	<select id="selectAudKndCd" parameterClass="paramMap" resultClass="String">
+		SELECT SUBSTR(AUD_KND_CD,3,1)
+		  FROM TBBADDED001M S1
+		 WHERE AUD_YR = SUBSTR(#AUD_SLN#,0,4)
+		  AND AUD_NO = substr(#AUD_SLN#,5)
+	</select>
+</sqlMap> 

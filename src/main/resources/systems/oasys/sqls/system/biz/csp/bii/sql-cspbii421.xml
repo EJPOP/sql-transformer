@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd" >
+<sqlMap namespace="csp/bii/421">
+	<!-- 감찰자료 현황 -->
+	<select id="CSPBII421QMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT 	/* csp.bii.service.impl.CSPBII421QServiceImpl.CSPBII421QMainSelect */
+			       	NVL2(EPS_MNG_DVSN_CD,EPS_MNG_DVSN_CD,'전체') AS DVSN_NM,
+			       	NVL2(RSG_YN,RSG_YN, NVL2(EPS_MNG_DVSN_CD,'소계','총계')) AS RSG_DVSN_NM ,
+			       	SUM(TOT_CNT) AS TOT_CNT, 
+			       	SUM(SUB_CNT1) AS SUB_CNT1,
+			       	SUM(SUB_CNT2) AS SUB_CNT2,
+			       	SUM(SUB_CNT3) AS SUB_CNT3, 
+			       	SUM(SUB_CNT4) AS SUB_CNT4 
+			FROM	(
+						SELECT	NVL(F_CODE_NM('1000084', A.EPS_MNG_DVSN_CD),'값없음') AS EPS_MNG_DVSN_CD
+								, CASE WHEN A.RSG_YN = 'Y' THEN '퇴직자' WHEN A.RSG_YN = 'N' THEN '현직자' ELSE '값없음' END AS RSG_YN
+								, COUNT(*)   AS TOT_CNT
+								, COUNT(CASE WHEN B.ORG_DVSN_CD = '10' THEN 1  ELSE NULL  END) AS SUB_CNT1
+								, COUNT(CASE WHEN B.ORG_DVSN_CD = '21' THEN 1  ELSE NULL  END) AS SUB_CNT2
+								, COUNT(CASE WHEN B.ORG_DVSN_CD = '22' THEN 1  ELSE NULL  END) AS SUB_CNT3
+								, COUNT(CASE WHEN B.ORG_DVSN_CD NOT IN ('10', '21', '22') OR B.ORG_DVSN_CD IS NULL THEN 1 ELSE NULL  END) AS SUB_CNT4 
+						FROM 	TBCSPBII300M A, TBDCMACM015M B
+						WHERE	A.BLT_ORG_CD = B.ORG_CD(+)   
+						GROUP BY A.EPS_MNG_DVSN_CD , A.RSG_YN 
+					)
+			GROUP BY ROLLUP ( EPS_MNG_DVSN_CD, RSG_YN)
+			ORDER BY NVL(EPS_MNG_DVSN_CD, '') DESC, NVL(RSG_YN, '0')
+		]]>
+	</select>
+	
+	<!-- 연계자료 현황 -->
+	<select id="CSPBII421QSubSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT /* csp.bii.service.impl.CSPBII421QServiceImpl.CSPBII421QSubSelect */
+			       CASE A.DVSN_CD WHEN 1 THEN '인원'
+			                      WHEN 2 THEN '건수'
+			       END                                                      AS DVSN_NM
+			     , (SELECT CASE A.DVSN_CD WHEN 1 THEN COUNT(DISTINCT B.EIN)
+			                              WHEN 2 THEN COUNT(*)
+			               END
+			          FROM TBBADEAR007M B)                                  AS SUB_CNT1 
+			     , (SELECT CASE A.DVSN_CD WHEN 1 THEN COUNT(DISTINCT B.EIN)
+			                              WHEN 2 THEN COUNT(*)
+			               END
+				      FROM TBCSPBII130L B)                                  AS SUB_CNT2
+			     , (SELECT CASE A.DVSN_CD WHEN 1 THEN COUNT(DISTINCT B.EIN)
+			                              WHEN 2 THEN COUNT(*)
+			               END
+				      FROM TBFAAAEA032M B)                                  AS SUB_CNT4
+			     , (SELECT CASE A.DVSN_CD WHEN 1 THEN COUNT(DISTINCT B.EIN)
+			                              WHEN 2 THEN COUNT(*)
+			               END
+			          FROM TBBADGDA001L B)                                  AS SUB_CNT5
+			     , (SELECT CASE A.DVSN_CD WHEN 1 THEN COUNT(DISTINCT B.EIN)
+			                              WHEN 2 THEN COUNT(*)
+			               END
+			          FROM TBCSPBII500L B)                                  AS SUB_CNT6
+			     , (SELECT CASE A.DVSN_CD WHEN 1 THEN COUNT(DISTINCT B.EIN)
+			                              WHEN 2 THEN COUNT(*)
+			               END
+			          FROM TBCSPBII401L B)                                  AS SUB_CNT7
+			  FROM (SELECT LEVEL AS DVSN_CD
+			          FROM DUAL 
+			        CONNECT BY LEVEL <= 2) A
+		]]>
+	</select>	
+</sqlMap>

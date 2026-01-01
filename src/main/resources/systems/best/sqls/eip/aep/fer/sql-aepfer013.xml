@@ -1,0 +1,522 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.fer.dao.AEPFER013QMapper">
+    
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap" >
+            /* kr.go.bai.eip.aep.fer.dao.AEPFER013QMapper.selectMainList */
+		<![CDATA[
+			WITH BASIS_INFO AS (/* 기본정보 : BASIS_INFO */
+			                    SELECT A1.AUD_YR         --감사년도
+			                          ,A1.AUD_NO         --감사번호
+			                          ,A1.AUD_KND_CD     --감사종류코드(1:재무,2:특정,3:성과,4:기관,5:확인,9:서면)
+			                          ,A1.SPV_BRDV_CD    --주관국과코드     
+			                          ,NVL((SELECT T4.ABR_DPT_NM_1
+											 FROM TBDCMACM002M T4
+											WHERE T4.DPT_CD = (SELECT A2.HIRK_DPT_CD
+											                      FROM TBDCMACM002M A2
+											                     WHERE A2.DPT_CD =  A1.SPV_BRDV_CD)
+											   AND T4.USE_YN = 'Y'
+											   AND ROWNUM = 1)
+											 ,(SELECT T4.ABR_DPT_NM_1
+												 FROM TBDCMACM002M T4
+												WHERE T4.DPT_CD = A1.SPV_BRDV_CD
+												   AND T4.USE_YN = 'Y'
+												   AND ROWNUM = 1)) AS HIRK_DPT_NM    /* 국 */
+			                          ,(SELECT A2.DPT_NM
+			                              FROM TBDCMACM002M A2
+			                             WHERE A2.DPT_CD = A1.SPV_BRDV_CD) AS AUD_DPT_FULL_NM    --주관국과명       
+			                          ,(SELECT T4.ABR_DPT_NM_1
+										 FROM TBDCMACM002M T4
+										WHERE T4.DPT_CD = A1.SPV_BRDV_CD
+										   AND T4.USE_YN = 'Y'
+										   AND ROWNUM = 1) AS AUD_DPT_NM    /* 과 */
+			                          ,A1.AUD_SBJ_NM    --감사사항명
+			                          ,F_MNG_KND_AUDYRNO(A1.AUD_YR, A1.AUD_NO, A1.AUD_KND_CD, '-') AS AUD_YR_NO --감사번호                        
+			                          ,F_CODE_NM('1000739', A1.AUD_KND_CD)  AS AUD_KND_NM     --감사종류코드
+			                          ,(SELECT T1.CD_NM
+											 FROM TBDCMACM013C T1
+											WHERE T1.CMM_CD_DVSN_CD = '1000027'
+											  AND T1.CD = A1.AUD_SCL_CD
+											  AND ROWNUM = 1)  AS AUD_SCL_CD     --감사규모코드
+			                          ,(SELECT MIN(TO_DATE(A7.ENF_APV_DT))
+			                              FROM TBBADDED003M A7
+			                             WHERE A7.AUD_YR      = A1.AUD_YR
+			                               AND A7.AUD_NO      = A1.AUD_NO
+			                           ) AS ENF_DT   --최초시행일
+			                          ,(SELECT A6.DVSN_CD FROM TBBADDED030L A6
+			                             WHERE A6.AUD_YR = A1.AUD_YR
+			                               AND A6.AUD_NO = A1.AUD_NO
+			                               AND A6.SRNO = 1) AS AUD_KND_CD2  --종류코드2(1:민원2:국민3:공익4:국회5:심사6:재심8:손망9:판청)
+			                          ,(SELECT MIN(TO_DATE(A4.SBCN_DY))
+			                              FROM TBBADDED113M A4
+			                             WHERE A4.AUD_YR = A1.AUD_YR
+			                               AND A4.AUD_NO = A1.AUD_NO
+			                             GROUP BY A4.AUD_YR,A4.AUD_NO) AS SBCN_DY       --최초부의일
+			                          ,A5.EXTN_PRD_COFM_DT                              --연장기간승인일
+			                          ,TO_DATE(A5.REQ_NTAS_DCS_DT) AS REQ_NTAS_DCS_DT   --청구국회결정일
+			                          ,STAD_HNDL_DCN AS STAN_PROC_DAY                   --기준처리일
+			                          , GNR_HNDL_PLAN_YN											-- (2019.04.05 LSR 추가)
+                                      , RTN_DT														-- (2019.04.05 LSR 추가)
+                                      , ENF_APV_DT													-- (2019.04.05 LSR 추가)
+                                      , NVL(F_GNR_HNDL_PLAN_EXTN_DCN(A1.AUD_YR, A1.AUD_NO), 0) AS GNR_HNDL_PLAN_EXTN_DCN			-- (2019.04.05 LSR 추가)
+                                      , NVL(CASE WHEN NVL(A5.EXTN_PRD_COFM_DT, 0) > 0 OR NVL(A5.GNR_HNDL_PLAN_YN, 'N') = 'Y'
+		                         			THEN F_EXTN_HNDL_DT_CNT(A5.AUD_YR, A5.AUD_NO, TO_CHAR(TO_DATE(A5.RTN_DT)-1, 'YYYYMMDD'), NVL(A5.ENF_APV_DT, TO_CHAR(SYSDATE, 'YYYYMMDD')), '5', '9', 'T')
+		                         			ELSE F_HNDL_DT_CNT(A5.AUD_YR, A5.AUD_NO, TO_CHAR(TO_DATE(A5.RTN_DT)-1, 'YYYYMMDD'), NVL(A5.ENF_APV_DT, TO_CHAR(SYSDATE, 'YYYYMMDD')), '2', '9')
+		                         		END, 0) AS REAL_HNDL_DT										-- (2019.04.18 LSR 추가)
+			                      FROM TBBADDED001M A1
+			                          ,TBBADDED003M A5
+			                     WHERE A1.AUD_YR = A5.AUD_YR(+)
+			                       AND A1.AUD_NO = A5.AUD_NO(+)
+			                       AND A1.AUD_YR = #{srcAudYr}   --PARAM
+			                       AND SUBSTR(A1.AUD_KND_CD,3,1) <> '5' --확인출장제외
+			                       AND (SELECT MIN(TO_DATE(A7.ENF_APV_DT))
+    			                              FROM TBBADDED003M A7
+    			                             WHERE A7.AUD_YR      = A1.AUD_YR
+    			                               AND A7.AUD_NO      = A1.AUD_NO) IS NOT NULL
+			                    ),
+			     BZT_INFO AS (/* 출장정보 : BZT_INFO */
+			                    SELECT H.AUD_YR
+			                          ,H.AUD_NO
+			                          /* --데이터 검증
+			                          ,SUM(H.AUD02_STR_DT)                                                                                   AS AUD02_STR_DT --실지_출장시작
+			                          ,SUM(H.AUD02_END_DT)                                                                                   AS AUD02_END_DT --실지_출장종료
+			                          ,F_GET_NUMBER_DAY2(TO_DATE(SUM(H.AUD02_STR_DT)),TO_DATE(SUM(H.AUD02_END_DT)),'P')                      AS AUD02_DT     --실지_출장기간
+			                          ,SUM((SELECT COUNT(*) FROM TBBADDED013B Z WHERE Z.YE||Z.MD BETWEEN H.AUD02_STR_DT AND H.AUD02_END_DT)) AS AUD02_HOLI   --실지_휴일
+			                          ,SUM(H.AUD03_STR_DT)                                                                                   AS AUD03_STR_DT --연장_출장시작
+			                          ,SUM(H.AUD03_END_DT)                                                                                   AS AUD03_END_DT --연장_출장종료
+			                          ,F_GET_NUMBER_DAY2(TO_DATE(SUM(H.AUD03_STR_DT)),TO_DATE(SUM(H.AUD03_END_DT)),'P')                      AS AUD03_DT     --연장_출장기간
+			                          ,SUM((SELECT COUNT(*) FROM TBBADDED013B Z WHERE Z.YE||Z.MD BETWEEN H.AUD03_STR_DT AND H.AUD03_END_DT)) AS AUD03_HOLI   --연장_휴일
+			                          ,F_GET_NUMBER_DAY2(TO_DATE(SUM(H.AUD02_STR_DT)),TO_DATE(SUM(H.AUD02_END_DT)),'P')
+			                          -SUM((SELECT COUNT(*) FROM TBBADDED013B Z WHERE Z.YE||Z.MD BETWEEN H.AUD02_STR_DT AND H.AUD02_END_DT)) AS AUD02_DT     --실지_출장기간(휴일제외)
+			                          ,F_GET_NUMBER_DAY2(TO_DATE(SUM(H.AUD03_STR_DT)),TO_DATE(SUM(H.AUD03_END_DT)),'P')
+			                          -SUM((SELECT COUNT(*) FROM TBBADDED013B Z WHERE Z.YE||Z.MD BETWEEN H.AUD03_STR_DT AND H.AUD03_END_DT)) AS AUD03_DT     --연장_출장기간(휴일제외)
+			                          */
+			                          ,DECODE(TO_DATE(SUM(H.AUD03_END_DT)),NULL,TO_DATE(SUM(H.AUD02_END_DT)),TO_DATE(SUM(H.AUD03_END_DT)))+1 AS RETURN_DT
+			                          ,(NVL(TRUNC((TO_DATE(TO_CHAR(TO_DATE(SUM(H.AUD02_END_DT)), 'YYYYMMDD'))- TO_DATE(TO_CHAR(TO_DATE(SUM(H.AUD02_STR_DT)) , 'YYYYMMDD'))) +1,0),0)
+			                            -SUM((SELECT COUNT(*) FROM TBBADDED013B Z WHERE Z.YE||Z.MD BETWEEN H.AUD02_STR_DT AND H.AUD02_END_DT))
+			                           )
+			                          +(NVL(TRUNC((TO_DATE(TO_CHAR(TO_DATE(SUM(H.AUD03_END_DT)), 'YYYYMMDD'))- TO_DATE(TO_CHAR(TO_DATE(SUM(H.AUD03_STR_DT)) , 'YYYYMMDD'))) +1,0),0)
+			                            -SUM((SELECT COUNT(*) FROM TBBADDED013B Z WHERE Z.YE||Z.MD BETWEEN H.AUD03_STR_DT AND H.AUD03_END_DT))
+			                           ) AS AUD_DCN     --실지+연장_출장기간(휴일제외)
+			
+			                          ,SUM(H.MAN_DAY) AS MAN_DAY
+			                      FROM (
+			                            SELECT SITU.REL_AUD_YR                                            AS AUD_YR
+			                                  ,SITU.REL_AUD_NO                                            AS AUD_NO
+			                                  ,SITU.AUD_BZT_KND_CD                                        AS AUD_BZT_KND_CD
+			                                  ,MIN(DECODE(SITU.AUD_BZT_KND_CD,'02',AGGR.AUD_STR_DT,NULL)) AS AUD02_STR_DT
+			                                  ,MAX(DECODE(SITU.AUD_BZT_KND_CD,'02',AGGR.AUD_END_DT,NULL)) AS AUD02_END_DT
+			                                  ,MIN(DECODE(SITU.AUD_BZT_KND_CD,'03',AGGR.AUD_STR_DT,NULL)) AS AUD03_STR_DT
+			                                  ,MAX(DECODE(SITU.AUD_BZT_KND_CD,'03',AGGR.AUD_END_DT,NULL)) AS AUD03_END_DT
+			                                  ,SUM(AGGR.AUD_DCN)                                          AS AUD_DCN
+			                                  ,SUM(AGGR.MAN_DAY)                                          AS MAN_DAY
+			                              FROM TBBADDED002M SITU
+			                                  ,TBBADDED001M T1
+			                                  ,(SELECT TTO.ORG_CD,TTO.BZT_YR,TTO.BZT_SNO
+			                                          ,MIN(TTO.AUD_STR_DT) AS AUD_STR_DT
+			                                          ,MAX(TTO.AUD_END_DT) AS AUD_END_DT
+			                                          ,COUNT(Z1.PCT_CNB)   AS MAN_CNT
+			                                          ,MAX(PTD.AUD_DCN)    AS AUD_DCN
+			                                          ,SUM(PTD.AUD_DCN)    AS MAN_DAY
+			                                      FROM TBBADDED006L PTD
+			                                          ,TBBADDED008L TTO
+			                                          ,TBBADDED005L Z1
+			                                          ,TBDCMACM015M ORG
+			                                     WHERE 1=1
+			                                       AND TTO.ORG_CD          = ORG.ORG_CD
+			                                       AND PTD.BZT_YR          = TTO.BZT_YR
+			                                       AND PTD.BZT_SNO         = TTO.BZT_SNO
+			                                       AND PTD.TEAM_SNO        = TTO.TEAM_SNO
+			                                       AND PTD.BGRP_TG_ORG_SNO = TTO.BGRP_TG_ORG_SNO
+			                                       AND PTD.BZT_YR          = Z1.BZT_YR
+			                                       AND PTD.BZT_SNO         = Z1.BZT_SNO
+			                                       AND PTD.TEAM_SNO        = Z1.TEAM_SNO
+			                                       AND PTD.PCT_ALC_SNO     = Z1.PCT_ALC_SNO
+			                                     GROUP BY TTO.ORG_CD,TTO.BZT_YR,TTO.BZT_SNO) AGGR
+			                             WHERE AGGR.BZT_YR         = SITU.BZT_YR
+			                               AND AGGR.BZT_SNO        = SITU.BZT_SNO
+			                               AND SITU.REL_AUD_YR     = T1.AUD_YR
+			                               AND SITU.REL_AUD_NO     = T1.AUD_NO
+			                               AND SITU.AUD_BZT_KND_CD IN ('02','03')
+			                               AND SITU.REL_AUD_YR = #{srcAudYr}
+			                            GROUP BY SITU.REL_AUD_YR,SITU.REL_AUD_NO,SITU.AUD_BZT_KND_CD
+			                           ) H
+			                     GROUP BY H.AUD_YR,H.AUD_NO
+			                 ),
+			     DSP_CNT_INFO AS (/* 처분요구정보 : DSP_CNT_INFO */
+			                      SELECT C.AUD_YR
+			                            ,C.AUD_NO
+			                            ,SUM(C.END_RPT_D10)      AS END_RPT_D10
+			                            ,SUM(C.END_RPT_E10)      AS END_RPT_E10
+			                            ,SUM(C.END_RPT_STOT)     AS END_RPT_STOT
+			                            ,SUM(C.END_RPT_LOCAL)    AS END_RPT_LOCAL
+			                            ,SUM(C.END_RPT_TOTAL)    AS END_RPT_TOTAL
+			                            ,SUM(C.Q_AUD_RPT_D10)    AS Q_AUD_RPT_D10
+			                            ,SUM(C.Q_AUD_RPT_E10)    AS Q_AUD_RPT_E10
+			                            ,SUM(C.Q_AUD_RPT_TOTAL)  AS Q_AUD_RPT_TOTAL
+			                            ,SUM(C.ENF_D10)          AS ENF_D10
+			                            ,SUM(C.ENF_E10)          AS ENF_E10
+			                            ,SUM(C.ENF_STOT)         AS ENF_STOT
+			                            ,SUM(C.ENF_LOCAL)        AS ENF_LOCAL
+			                            ,SUM(C.ENF_TOTAL)        AS ENF_TOTAL
+			                            ,(SELECT D.SYT_TRTM_DVSN_YN FROM TBBADDED103M D
+			                               WHERE D.AUD_YR           = C.AUD_YR
+			                                 AND D.AUD_NO           = C.AUD_NO
+			                                 AND D.RPRT_CD          = 'A10600200'
+			                                 AND D.AUD_STEP_CD      = 'A1060'
+			                                 AND D.AUD_RPRT_DVSN_CD = '10' ) AS SYT_TRTM_DVSN_YN
+			                        FROM (SELECT A.AUD_YR
+			                                    ,A.AUD_NO
+			                                    ,A.AUD_STEP_CD
+			                                    ,A.DOC_ID
+			                                    ,A.APVR_CD
+			                                    ,A.AFF_SNO
+			                                    ,B.DSP_RQ_SNO
+			                                    ,A.REFER_DVSN_CD
+			                                    ,B.DSP_RQ_CD              
+			                                    ,(SELECT T1.CD_NM
+													 FROM TBDCMACM013C T1
+													WHERE T1.CMM_CD_DVSN_CD = '1000002'
+													  AND T1.CD = B.DSP_RQ_CD
+													  AND ROWNUM = 1)   AS DSP_RQ_NM
+			                                    ,CASE WHEN A.AUD_STEP_CD = 'A1050'                           AND A.REFER_DVSN_CD = 'D10' AND B.DSP_RQ_CD NOT IN ('390','391','395','396','490','495','730') THEN 1 ELSE 0 END AS END_RPT_D10       --종료보고_부의
+			                                    ,CASE WHEN A.AUD_STEP_CD = 'A1050'                           AND A.REFER_DVSN_CD = 'E10' AND B.DSP_RQ_CD NOT IN ('390','391','395','396','490','495','730') THEN 1 ELSE 0 END AS END_RPT_E10       --종료보고_위임
+			                                    ,CASE WHEN A.AUD_STEP_CD = 'A1050'                                                       AND B.DSP_RQ_CD NOT IN ('390','391','395','396','490','495','730') THEN 1 ELSE 0 END AS END_RPT_STOT      --종료보고_소계
+			                                    ,CASE WHEN A.AUD_STEP_CD = 'A1050'                                                       AND B.DSP_RQ_CD     IN ('390','391','395','396','490','495'     ) THEN 1 ELSE 0 END AS END_RPT_LOCAL     --종료보고_현지수사
+			                                    ,CASE WHEN A.AUD_STEP_CD = 'A1050'                                                                                                        THEN 1 ELSE 0 END AS END_RPT_TOTAL     --종료보고_합계
+			                                    ,CASE WHEN A.AUD_STEP_CD = 'A1060' AND A.APVR_CD = '0013600' AND A.REFER_DVSN_CD = 'D10' AND B.DSP_RQ_CD NOT IN ('390','391','395','396','490','495','730') THEN 1 ELSE 0 END AS Q_AUD_RPT_D10     --품질_부의
+			                                    ,CASE WHEN A.AUD_STEP_CD = 'A1060' AND A.APVR_CD = '0013600' AND A.REFER_DVSN_CD = 'E10' AND B.DSP_RQ_CD NOT IN ('390','391','395','396','490','495','730') THEN 1 ELSE 0 END AS Q_AUD_RPT_E10     --품질_위임
+			                                    ,CASE WHEN A.AUD_STEP_CD = 'A1060' AND A.APVR_CD = '0013600'                             AND B.DSP_RQ_CD NOT IN ('390','391','395','396','490','495','730') THEN 1 ELSE 0 END AS Q_AUD_RPT_TOTAL   --품질_합계
+			                                    ,CASE WHEN A.AUD_STEP_CD = 'A1070' AND A.APVR_CD = 'A1070'   AND A.REFER_DVSN_CD = 'D10' AND B.DSP_RQ_CD NOT IN ('390','391','395','396','490','495','730') THEN 1 ELSE 0 END AS ENF_D10           --시행_부의
+			                                    ,CASE WHEN A.AUD_STEP_CD = 'A1070' AND A.APVR_CD = 'A1070'   AND A.REFER_DVSN_CD = 'E10' AND B.DSP_RQ_CD NOT IN ('390','391','395','396','490','495','730') THEN 1 ELSE 0 END AS ENF_E10           --시행_위임
+			                                    ,CASE WHEN A.AUD_STEP_CD = 'A1070' AND A.APVR_CD = 'A1070'                               AND B.DSP_RQ_CD NOT IN ('390','391','395','396','490','495','730') THEN 1 ELSE 0 END AS ENF_STOT          --시행_소계
+			                                    ,CASE WHEN A.AUD_STEP_CD = 'A1070' AND A.APVR_CD = 'A1070'                               AND B.DSP_RQ_CD     IN ('390','391','395','396','490','495'      ) THEN 1 ELSE 0 END AS ENF_LOCAL         --시행_현지수사
+			                                    ,CASE WHEN A.AUD_STEP_CD = 'A1070' AND A.APVR_CD = 'A1070'                                                                                THEN 1 ELSE 0 END AS ENF_TOTAL         --시행_합계
+			                                FROM TBBADDED145M A
+			                                    ,TBBADDED146M B
+			                              WHERE A.AUD_YR      = B.AUD_YR
+			                                AND A.AUD_NO      = B.AUD_NO
+			                                AND A.AUD_STEP_CD = B.AUD_STEP_CD
+			                                AND A.DOC_ID      = B.DOC_ID
+			                                AND A.APVR_CD     = B.APVR_CD
+			                                AND A.AFF_SNO     = B.AFF_SNO
+			                                AND A.AUD_YR      = #{srcAudYr} --PARAM
+			                             ) C
+			                       GROUP BY C.AUD_YR,C.AUD_NO
+			                     ),
+			     RATE_INFO AS (/* 비율정보 : RATE_INFO */
+			                    SELECT H.AUD_YR
+			                          ,H.AUD_NO
+			                          ,SUM(H.TOT_D20_CNT) AS TOT_D20_CNT
+			                          ,SUM(H.TOT_D21_CNT) AS TOT_D21_CNT
+			                          ,SUM(H.TOT_D30_CNT) AS TOT_D30_CNT
+			                          ,SUM(H.TOT_D40_CNT) AS TOT_D40_CNT
+			                          ,SUM(H.TOT_D50_CNT) AS TOT_D50_CNT
+			                          ,SUM(H.TOT_D80_CNT) AS TOT_D80_CNT
+			                          ,SUM(H.TOT_D90_CNT) AS TOT_D90_CNT
+			                          ,SUM(H.TOT_ETC_CNT) AS TOT_ETC_CNT
+			                          ,SUM(H.GUK_D20_CNT) AS GUK_D20_CNT
+			                          ,SUM(H.GUK_D21_CNT) AS GUK_D21_CNT
+			                          ,SUM(H.GUK_D30_CNT) AS GUK_D30_CNT
+			                          ,SUM(H.GUK_D40_CNT) AS GUK_D40_CNT
+			                          ,SUM(H.GUK_D50_CNT) AS GUK_D50_CNT
+			                          ,SUM(H.GUK_D80_CNT) AS GUK_D80_CNT
+			                          ,SUM(H.GUK_D90_CNT) AS GUK_D90_CNT
+			                          ,SUM(H.GUK_ETC_CNT) AS GUK_ETC_CNT
+			                      FROM (
+			                            SELECT A.AUD_YR
+			                                  ,A.AUD_NO
+			                                  ,A.AUD_STEP_CD
+			                                  ,A.APVR_CD
+			                                  ,A.DOC_ID
+			                                  ,A.AFF_MPP_DVSN_CD
+			                                  ,CASE WHEN A.AFF_MPP_DVSN_CD IN ('D20') THEN 1 ELSE 0 END AS TOT_D20_CNT --전체_종변건수
+			                                  ,CASE WHEN A.AFF_MPP_DVSN_CD IN ('D21') THEN 1 ELSE 0 END AS TOT_D21_CNT --전체_부변건수
+			                                  ,CASE WHEN A.AFF_MPP_DVSN_CD IN ('D30') THEN 1 ELSE 0 END AS TOT_D30_CNT --전체_합건건수
+			                                  ,CASE WHEN A.AFF_MPP_DVSN_CD IN ('D40') THEN 1 ELSE 0 END AS TOT_D40_CNT --전체_분건건수
+			                                  ,CASE WHEN A.AFF_MPP_DVSN_CD IN ('D50') THEN 1 ELSE 0 END AS TOT_D50_CNT --전체_신규건수
+			                                  ,CASE WHEN A.AFF_MPP_DVSN_CD IN ('D80') THEN 1 ELSE 0 END AS TOT_D80_CNT --전체_보류건수
+			                                  ,CASE WHEN A.AFF_MPP_DVSN_CD IN ('D90') THEN 1 ELSE 0 END AS TOT_D90_CNT --전체_불문건수
+			                                  ,CASE WHEN A.AFF_MPP_DVSN_CD NOT IN ('D10','D20','D21','D30','D40','D50','D80','D90') THEN 1 ELSE 0 END AS TOT_ETC_CNT --전체_기타건수
+			                                  ,CASE WHEN A.APVR_CD <> '0013600' AND A.AFF_MPP_DVSN_CD IN ('D20') THEN 1 ELSE 0 END AS GUK_D20_CNT --국장후_종변건수
+			                                  ,CASE WHEN A.APVR_CD <> '0013600' AND A.AFF_MPP_DVSN_CD IN ('D21') THEN 1 ELSE 0 END AS GUK_D21_CNT --국장후_부변건수
+			                                  ,CASE WHEN A.APVR_CD <> '0013600' AND A.AFF_MPP_DVSN_CD IN ('D30') THEN 1 ELSE 0 END AS GUK_D30_CNT --국장후_합건건수
+			                                  ,CASE WHEN A.APVR_CD <> '0013600' AND A.AFF_MPP_DVSN_CD IN ('D40') THEN 1 ELSE 0 END AS GUK_D40_CNT --국장후_분건건수
+			                                  ,CASE WHEN A.APVR_CD <> '0013600' AND A.AFF_MPP_DVSN_CD IN ('D50') THEN 1 ELSE 0 END AS GUK_D50_CNT --국장후_신규건수
+			                                  ,CASE WHEN A.APVR_CD <> '0013600' AND A.AFF_MPP_DVSN_CD IN ('D80') THEN 1 ELSE 0 END AS GUK_D80_CNT --국장후_보류건수
+			                                  ,CASE WHEN A.APVR_CD <> '0013600' AND A.AFF_MPP_DVSN_CD IN ('D90') THEN 1 ELSE 0 END AS GUK_D90_CNT --국장후_불문건수
+			                                  ,CASE WHEN A.APVR_CD <> '0013600' AND A.AFF_MPP_DVSN_CD NOT IN ('D10','D20','D21','D30','D40','D50','D80','D90') THEN 1 ELSE 0 END AS GUK_ETC_CNT --국장후_기타건수
+			                              FROM TBBADDED148M A
+			                             WHERE A.AUD_YR = #{srcAudYr}
+			                               AND A.AUD_STEP_CD <> 'A1050'
+			                           ) H
+			                     GROUP BY H.AUD_YR,H.AUD_NO
+			                  ),
+			     SPVR_INFO AS (/* 주관자/보조자 : SPVR_INFO */
+			                    SELECT A.AUD_YR
+			                          ,A.AUD_NO
+			                          ,MAX(CASE WHEN B.AUDTOR_DVSN_CD = '1' AND AUDTOR_SNO = '1' THEN ((SELECT T1.USR_NAM
+																											FROM TBDCMACM001M T1
+																											WHERE T1.CNB = B.CNB
+																											  AND ROWNUM = 1)) END)
+			                          ||MAX(CASE WHEN B.AUDTOR_DVSN_CD = '1' AND AUDTOR_SNO = '2' THEN ','||((SELECT T1.USR_NAM
+																												FROM TBDCMACM001M T1
+																												WHERE T1.CNB = B.CNB
+																												  AND ROWNUM = 1)) END)
+			                          ||MAX(CASE WHEN B.AUDTOR_DVSN_CD = '1' AND AUDTOR_SNO = '3' THEN ','||((SELECT T1.USR_NAM
+																												FROM TBDCMACM001M T1
+																												WHERE T1.CNB = B.CNB
+																												  AND ROWNUM = 1)) END) AS SPVR_NM
+			                          ,MAX(CASE WHEN B.AUDTOR_DVSN_CD = '2' AND AUDTOR_SNO = '1' THEN ((SELECT T1.USR_NAM
+																											FROM TBDCMACM001M T1
+																											WHERE T1.CNB = B.CNB
+																											  AND ROWNUM = 1)) END)
+			                          ||MAX(CASE WHEN B.AUDTOR_DVSN_CD = '2' AND AUDTOR_SNO = '2' THEN ','||((SELECT T1.USR_NAM
+																												FROM TBDCMACM001M T1
+																												WHERE T1.CNB = B.CNB
+																												  AND ROWNUM = 1)) END)
+			                          ||MAX(CASE WHEN B.AUDTOR_DVSN_CD = '2' AND AUDTOR_SNO = '3' THEN ','||((SELECT T1.USR_NAM
+																												FROM TBDCMACM001M T1
+																												WHERE T1.CNB = B.CNB
+																												  AND ROWNUM = 1)) END) AS AST_NM
+			                      FROM TBBADDED001M A
+			                          ,TBBADDED031L B
+			                     WHERE 1=1
+			                       AND A.AUD_YR = B.AUD_YR
+			                       AND A.AUD_NO = B.AUD_NO
+			                       AND A.AUD_YR = #{srcAudYr} --PARAM
+			                     GROUP BY A.AUD_YR,A.AUD_NO
+			                  ),
+			     CHF_CMTR_INFO AS (/* 주심위원 : CHF_CMTR_INFO */
+                                SELECT B.AUD_YR
+                                      ,B.AUD_NO
+                                      ,B.CHF_CMTR_NM||DECODE(B.CHF_CMTR_CNT,0,'',' 외'||B.CHF_CMTR_CNT) AS CHF_CMTR_NM
+                                  FROM (SELECT A.AUD_YR
+                                              ,A.AUD_NO                               
+                                              ,(SELECT T1.USR_NAM
+                                                    FROM TBDCMACM001M T1
+                                                    WHERE T1.CNB = A.CHF_CMTR_CNB
+                                                      AND ROWNUM = 1)  AS CHF_CMTR_NM
+                                              ,DECODE(CHF_CMTR1_CNB, NULL, 0, 1)
+                                              +DECODE(CHF_CMTR2_CNB, NULL, 0, 1)
+                                              +DECODE(CHF_CMTR3_CNB, NULL, 0, 1)
+                                              +DECODE(CHF_CMTR4_CNB, NULL, 0, 1)
+                                              +DECODE(CHF_CMTR5_CNB, NULL, 0, 1) AS CHF_CMTR_CNT
+                                          FROM TBBADDED116L A
+                                         WHERE 1=1
+                                           AND A.AUD_YR = #{srcAudYr} --PARAM
+                                           AND A.TASK_DVSN_CD = '9'
+                                           AND A.DOC_ID = (SELECT ST1.DOC_ID 
+                                                             FROM (SELECT ROW_NUMBER() OVER(PARTITION BY AUD_YR, AUD_NO ORDER BY AUD_RPRT_DVSN_CD) AS SEQ, T1.AUD_YR, T1.AUD_NO, T1.DOC_ID
+                                                                     FROM TBBADDED103M T1
+                                                                    WHERE T1.RPRT_CD = 'A10600200' AND NVL(T1.FNL_BAI_RPRT_YN,'N') = 'N' 
+                                                                      AND EXISTS (SELECT 'O' FROM TBBADDED116L ST1 WHERE ST1.AUD_YR = T1.AUD_YR AND ST1.AUD_NO = T1.AUD_NO AND ST1.TASK_DVSN_CD = '9' AND ST1.DOC_ID = T1.DOC_ID)
+                                                                  ) ST1
+                                                            WHERE ST1.AUD_YR = A.AUD_YR
+                                                              AND ST1.AUD_NO = A.AUD_NO
+                                                              AND ST1.SEQ = 1)
+                                                                      
+                                           AND A.SRNO = (SELECT MAX(C.SRNO) FROM TBBADDED116L C
+                                                          WHERE C.AUD_YR = A.AUD_YR
+                                                            AND C.AUD_NO = A.AUD_NO
+                                                            AND C.DOC_ID = A.DOC_ID
+                                                        )
+                                       ) B
+			                      ),
+			     SBCN_INFO AS (/* 부의정보 : SBCN_INFO */
+			                    SELECT A.AUD_YR             --감사연도
+			                          ,A.AUD_NO             --감사번호
+			                          ,DECODE(E.CMT_SQ,NULL,(SELECT CASE WHEN COUNT(*) = 0 THEN '사건0건'
+			                                                             WHEN SUM(DECODE(S1.REFER_DVSN_CD,'D10',1,0)) = 0 THEN '전부위임'
+			                                                        ELSE '부의'
+			                                                         END
+			                                                   FROM TBBADDED145M S1
+			                                                  WHERE 1=1
+			                                                    AND S1.AUD_YR  = A.AUD_YR
+			                                                    AND S1.AUD_NO  = A.AUD_NO
+			                                                    AND S1.DOC_ID  = A.DOC_ID
+			                                                    AND S1.APVR_CD = 'A1070'),E.CMT_SQ||'회') AS CMT_SQ
+			                      FROM TBBADDED103M A
+			                          ,TBBADDED001M B
+			                          ,(SELECT C.AUD_YR
+			                                  ,C.AUD_NO
+			                                  ,C.DOC_ID
+			                                  ,C.SBCN_DY
+			                                  ,(SELECT C1.CMT_SQ FROM TBBADDED120M C1 WHERE C1.CMT_DY = C.SBCN_DY) AS CMT_SQ
+			                              FROM TBBADDED113M C
+			                             WHERE C.AUD_YR = #{srcAudYr}    --PARAM
+			                             GROUP BY C.AUD_YR,C.AUD_NO,C.DOC_ID,C.SBCN_DY
+			                             ORDER BY C.SBCN_DY
+			                           ) E
+			                     WHERE 1=1
+			                       AND A.AUD_YR            = B.AUD_YR(+)
+			                       AND A.AUD_NO            = B.AUD_NO(+)
+			                       AND A.AUD_YR            = E.AUD_YR(+)
+			                       AND A.AUD_NO            = E.AUD_NO(+)
+			                       AND A.DOC_ID            = E.DOC_ID(+)
+			                       AND A.AUD_YR            = #{srcAudYr}         --PARAM
+			                       AND A.RPRT_CD           = 'A10600200'    --감사보고서
+			                       AND A.APV_STA_CD        = '30'           --결재완료
+			                       AND A.AUD_RPRT_DVSN_CD  = '10'           --본안
+			                       AND SUBSTR(A.AUD_RPRT_DVSN_CD,2) <> '1'  --최종보고서 제외
+			                     ORDER BY A.AUD_RPRT_DVSN_CD,A.AUD_YR,A.AUD_NO
+			                  )
+			SELECT ROW_NUMBER() OVER(ORDER BY AA.AUD_YR,AA.AUD_NO) AS ROW_NUM  
+				  ,AA.AUD_YR            --감사년도
+			      ,AA.AUD_NO            --감사번호
+			      ,AA.HIRK_DPT_NM       --국
+			      ,AA.AUD_DPT_NM        --주관국과명
+			      ,AA.AUD_SBJ_NM        --감사사항명
+			      ,AA.AUD_YR_NO         --감사번호
+			      ,AA.AUD_KND_NM        --감사종류코드
+			      ,(SELECT T1.CD_NM
+					 FROM TBDCMACM013C T1
+					WHERE T1.CMM_CD_DVSN_CD = '1000742'
+					  AND T1.CD = AA.AUD_KND_CD2
+					  AND ROWNUM = 1)    AS AUD_DVSN_NM
+			      ,AA.AUD_SCL_CD        --감사규모코드
+			      ,TO_CHAR(AA.ENF_DT,'YY-MM-DD') AS ENF_DT --최초시행일
+			      ,BB.AUD_DCN           --일수
+			      ,BB.MAN_DAY           --연인원
+			      ,CC.END_RPT_D10       --종료보고_부의
+			      ,CC.END_RPT_E10       --종료보고_위임
+			      ,CC.END_RPT_STOT      --종료보고_소계
+			      ,CC.END_RPT_LOCAL     --종료보고_현지수사
+			      ,CC.END_RPT_TOTAL     --종료보고_합계
+			      ,CC.Q_AUD_RPT_D10     --품질_부의
+			      ,CC.Q_AUD_RPT_E10     --품질_위임
+			      ,CC.Q_AUD_RPT_TOTAL   --품질_합계
+			      ,CC.ENF_D10           --시행_부의
+			      ,CC.ENF_E10           --시행_위임
+			      ,CC.ENF_STOT          --시행_소계
+			      ,CC.ENF_LOCAL         --시행_현지수사
+			      ,CC.ENF_TOTAL         --시행_합계
+--			      ,DECODE(CC.SYT_TRTM_DVSN_YN,'Y','종합','')     AS SYT_TRTM_DVSN       --종합처리안
+			      ,DECODE(AA.GNR_HNDL_PLAN_YN,'Y','종합','')     AS SYT_TRTM_DVSN       --종합처리안 (2019.04.05 LSR 수정)
+			      ,DECODE(AA.EXTN_PRD_COFM_DT,0,NULL)            AS EXTN_PRD_COFM_DT    --연장승인일수
+--			      ,AA.STAN_PROC_DAY+DECODE(CC.SYT_TRTM_DVSN_YN,'Y',5,0)+DECODE(AA.EXTN_PRD_COFM_DT,'',0,AA.EXTN_PRD_COFM_DT) AS STAN_PROC_DAY --기준처리일
+			      ,AA.STAN_PROC_DAY+DECODE(AA.GNR_HNDL_PLAN_YN,'Y',AA.GNR_HNDL_PLAN_EXTN_DCN,0)+DECODE(AA.EXTN_PRD_COFM_DT,'',0,AA.EXTN_PRD_COFM_DT) AS STAN_PROC_DAY --기준처리일
+--			      ,(NVL(TRUNC((TO_DATE(TO_CHAR(AA.ENF_DT, 'YYYYMMDD'))- TO_DATE(TO_CHAR(BB.RETURN_DT , 'YYYYMMDD'))) +1,0),0)) AS PROC_DY_CNT      --실제처리일수
+				  , AA.REAL_HNDL_DT AS PROC_DY_CNT		-- 실제처리일수 (2019.04.05 LSR 수정)
+--			      ,(NVL(TRUNC((TO_DATE(TO_CHAR(AA.ENF_DT, 'YYYYMMDD'))- TO_DATE(TO_CHAR(BB.RETURN_DT , 'YYYYMMDD'))) +1,0),0)) - (AA.STAN_PROC_DAY+DECODE(CC.SYT_TRTM_DVSN_YN,'Y',5,0)+DECODE(AA.EXTN_PRD_COFM_DT,'',0,AA.EXTN_PRD_COFM_DT)) AS STAN_EXCE_DAY    --기준초과일
+			      ,(NVL(TRUNC((NVL(TO_DATE(TO_CHAR(AA.ENF_DT, 'YYYYMMDD')), TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD'))) - TO_DATE(TO_CHAR(BB.RETURN_DT , 'YYYYMMDD'))) +1,0),0)) - (AA.STAN_PROC_DAY+DECODE(AA.GNR_HNDL_PLAN_YN,'Y',AA.GNR_HNDL_PLAN_EXTN_DCN,0)+DECODE(AA.EXTN_PRD_COFM_DT,'',0,AA.EXTN_PRD_COFM_DT)) AS STAN_EXCE_DAY    --기준초과일 (2019.04.05 LSR 수정)
+			      ,CASE WHEN AA.AUD_KND_CD2 = '2' THEN AA.REQ_NTAS_DCS_DT+59
+			            WHEN AA.AUD_KND_CD2 = '3' THEN ADD_MONTHS(AA.REQ_NTAS_DCS_DT,6)
+			            WHEN AA.AUD_KND_CD2 = '4' THEN ADD_MONTHS(AA.REQ_NTAS_DCS_DT,5)
+			            ELSE NULL
+			             END AS AUD_DVSN_PROC_DT--청구국회처리기한(2:국민3:공익4:국회)
+			      ,AA.ENF_DT-(CASE WHEN AA.AUD_KND_CD2 = '2' THEN AA.REQ_NTAS_DCS_DT+59
+			                       WHEN AA.AUD_KND_CD2 = '3' THEN ADD_MONTHS(AA.REQ_NTAS_DCS_DT,6)
+			                       WHEN AA.AUD_KND_CD2 = '4' THEN ADD_MONTHS(AA.REQ_NTAS_DCS_DT,5)
+			                       ELSE NULL
+			                        END) AS AUD_DVSN_EXCE_DAY--청구국회초과일수
+			      ,DD.TOT_D20_CNT   --전체_종변건수
+			      ,DD.TOT_D21_CNT   --전체_부변건수
+			      ,DD.TOT_D30_CNT   --전체_합건건수
+			      ,DD.TOT_D40_CNT   --전체_분건건수
+			      ,DD.TOT_D50_CNT   --전체_신규건수
+			      ,DD.TOT_D80_CNT   --전체_보류건수
+			      ,DD.TOT_D90_CNT   --전체_불문건수
+			      ,DD.TOT_ETC_CNT   --전체_기타건수
+                  ,TO_CHAR(DECODE(CC.END_RPT_TOTAL, 0, 0, (DD.TOT_D20_CNT/CC.END_RPT_TOTAL))*100,'FM9990.00')||'%' AS TOT_D20_RATE   --전체_종변비율
+                  ,TO_CHAR(DECODE(CC.END_RPT_TOTAL, 0, 0, (DD.TOT_D21_CNT/CC.END_RPT_TOTAL))*100,'FM9990.00')||'%' AS TOT_D21_RATE   --전체_부변비율
+                  ,TO_CHAR(DECODE(CC.END_RPT_TOTAL, 0, 0, (DD.TOT_D30_CNT/CC.END_RPT_TOTAL))*100,'FM9990.00')||'%' AS TOT_D30_RATE   --전체_합건비율
+                  ,TO_CHAR(DECODE(CC.END_RPT_TOTAL, 0, 0, (DD.TOT_D40_CNT/CC.END_RPT_TOTAL))*100,'FM9990.00')||'%' AS TOT_D40_RATE   --전체_분건비율
+                  ,TO_CHAR(DECODE(CC.END_RPT_TOTAL, 0, 0, (DD.TOT_D50_CNT/CC.END_RPT_TOTAL))*100,'FM9990.00')||'%' AS TOT_D50_RATE   --전체_신규비율
+                  ,TO_CHAR(DECODE(CC.END_RPT_TOTAL, 0, 0, (DD.TOT_D80_CNT/CC.END_RPT_TOTAL))*100,'FM9990.00')||'%' AS TOT_D80_RATE   --전체_보류비율
+                  ,TO_CHAR(DECODE(CC.END_RPT_TOTAL, 0, 0, (DD.TOT_D90_CNT/CC.END_RPT_TOTAL))*100,'FM9990.00')||'%' AS TOT_D90_RATE   --전체_불문비율
+                  ,TO_CHAR(DECODE(CC.END_RPT_TOTAL, 0, 0, (DD.TOT_ETC_CNT/CC.END_RPT_TOTAL))*100,'FM9990.00')||'%' AS TOT_ETC_RATE   --전체_기타비율
+                  ,TO_CHAR(DECODE(CC.END_RPT_TOTAL, 0, 0, (
+                            (DD.TOT_D20_CNT
+                            +DD.TOT_D21_CNT
+                            +DD.TOT_D30_CNT
+                            +DD.TOT_D40_CNT
+                            +DD.TOT_D50_CNT
+                            +DD.TOT_D80_CNT
+                            +DD.TOT_D90_CNT
+                            +DD.TOT_ETC_CNT)/CC.END_RPT_TOTAL))*100,'FM9990.00')||'%' AS TOTAL_RATE   --전체_변경율
+			
+			      ,DD.GUK_D20_CNT   --국장후_종변건수
+			      ,DD.GUK_D21_CNT   --국장후_부변건수
+			      ,DD.GUK_D30_CNT   --국장후_합건건수
+			      ,DD.GUK_D40_CNT   --국장후_분건건수
+			      ,DD.GUK_D50_CNT   --국장후_신규건수
+			      ,DD.GUK_D80_CNT   --국장후_보류건수
+			      ,DD.GUK_D90_CNT   --국장후_불문건수
+			      ,DD.GUK_ETC_CNT   --국장후_기타건수
+			      ,EE.SPVR_NM       --주관자
+			      ,EE.AST_NM        --보조자
+			--func      
+			      ,(SELECT CASE WHEN COUNT(DISTINCT(G2.TRTM_EXAMER_CNB)) > 1
+			               THEN F_USR_INFO(MIN(G1.REF_ID), '2') || ' 등 ' || COUNT(DISTINCT(G2.TRTM_EXAMER_CNB))
+			               ELSE F_USR_INFO(MIN(G1.REF_ID), '2')
+			           END AS USR_TRTM_EXAMER_CNT
+			          FROM TBBADDED103M G1
+			              ,TBBADDED145M G2
+			         WHERE 1=1
+			           AND G1.AUD_YR = G2.AUD_YR
+			           AND G1.AUD_NO = G2.AUD_NO
+			           AND G1.DOC_ID = G2.DOC_ID
+			           AND G1.AUD_YR = AA.AUD_YR
+			           AND G1.AUD_NO = AA.AUD_NO
+			           AND G1.REF_ID IS NOT NULL
+			           AND G1.RPRT_CD = 'A10600200'
+			           AND SUBSTR(G1.AUD_RPRT_DVSN_CD,2) <> '1'  --최종보고서 제외
+			         GROUP BY G1.AUD_YR,G1.AUD_NO
+			       ) AS IN_CHARGE_NM    --담당조정관(보고서전체)
+			      ,FF.CHF_CMTR_NM       --주심위원
+			      ,GG.CMT_SQ            --부의회차
+			      ,TO_CHAR(AA.SBCN_DY,'YY-MM-DD') AS SBCN_DY    --최초부의일
+			  FROM BASIS_INFO    AA
+			      ,BZT_INFO      BB
+			      ,DSP_CNT_INFO  CC
+			      ,RATE_INFO     DD
+			      ,SPVR_INFO     EE
+			      ,CHF_CMTR_INFO FF
+			      ,SBCN_INFO     GG
+			 WHERE AA.AUD_YR = BB.AUD_YR(+) AND AA.AUD_NO = BB.AUD_NO(+)
+			   AND AA.AUD_YR = CC.AUD_YR(+) AND AA.AUD_NO = CC.AUD_NO(+)
+			   AND AA.AUD_YR = DD.AUD_YR(+) AND AA.AUD_NO = DD.AUD_NO(+)
+			   AND AA.AUD_YR = EE.AUD_YR(+) AND AA.AUD_NO = EE.AUD_NO(+)
+			   AND AA.AUD_YR = FF.AUD_YR(+) AND AA.AUD_NO = FF.AUD_NO(+)
+			   AND AA.AUD_YR = GG.AUD_YR(+) AND AA.AUD_NO = GG.AUD_NO(+)
+			 ORDER BY AA.AUD_YR,AA.AUD_NO
+			   /*
+			ORDER BY AA.AUD_YR,(CASE WHEN AA.AUD_NO = '005' THEN 01
+			                                   WHEN AA.AUD_NO = '223' THEN 02
+			                                   WHEN AA.AUD_NO = '246' THEN 03
+			                                   WHEN AA.AUD_NO = '224' THEN 04
+			                                   WHEN AA.AUD_NO = '232' THEN 05
+			                                   WHEN AA.AUD_NO = '238' THEN 06
+			                                   WHEN AA.AUD_NO = '192' THEN 07
+			                                   WHEN AA.AUD_NO = '222' THEN 08
+			                                   WHEN AA.AUD_NO = '236' THEN 09
+			                                   WHEN AA.AUD_NO = '237' THEN 10
+			                                   WHEN AA.AUD_NO = '265' THEN 11
+			                                   WHEN AA.AUD_NO = '258' THEN 12
+			                                   WHEN AA.AUD_NO = '279' THEN 13
+			                                   WHEN AA.AUD_NO = '225' THEN 14
+			                                   WHEN AA.AUD_NO = '278' THEN 15
+			                                   WHEN AA.AUD_NO = '252' THEN 16
+			                                   WHEN AA.AUD_NO = '079' THEN 17
+			                                   WHEN AA.AUD_NO = '241' THEN 18
+			                                   WHEN AA.AUD_NO = '251' THEN 19
+			                                   WHEN AA.AUD_NO = '080' THEN 20
+			                                   WHEN AA.AUD_NO = '076' THEN 21
+			                                   WHEN AA.AUD_NO = '227' THEN 22
+			                                   WHEN AA.AUD_NO = '086' THEN 23
+			                                   WHEN AA.AUD_NO = '160' THEN 24
+			                                   WHEN AA.AUD_NO = '085' THEN 25
+			                                   WHEN AA.AUD_NO = '004' THEN 26
+			                                   WHEN AA.AUD_NO = '191' THEN 27
+			                                   WHEN AA.AUD_NO = '155' THEN 28
+			                                   WHEN AA.AUD_NO = '196' THEN 29
+			                                   WHEN AA.AUD_NO = '026' THEN 30
+			                                   WHEN AA.AUD_NO = '372' THEN 31
+			                                   ELSE 99
+			                                       END)
+			   */
+        ]]>
+    </select>
+</mapper> 

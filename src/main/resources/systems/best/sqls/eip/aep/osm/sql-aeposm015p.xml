@@ -1,0 +1,419 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.osm.dao.AEPOSM015PMapper">
+
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.aep.osm.dao.AEPOSM015PMapper.selectMainList*/
+    <![CDATA[
+      SELECT  F_MNG_KND_AUDYRNO(E.AUD_YR, E.AUD_NO, E.AUD_KND_CD, '-') AS AUD_YR_NO   /* 분류번호 */
+                ,F_MNG_KND_AUDYRNO(E.AUD_YR, E.AUD_NO, E.AUD_KND_CD, '-')||'-'||E.AFF_CD AS AUD_YR_AFF_NO /* 개별사건번호 */
+                ,E.TITLE_NM /* 제목 */
+                ,D.AUD_YR 
+                ,D.AUD_NO
+                ,D.SRNO
+                ,(SELECT T1.DTIL_AUD_DOC_NM
+                   FROM TBFDMADM002M T1
+                  WHERE T1.AUD_DOC_CD  = D.RPRT_CD) AS RPRT_TYPE_NM /* 문서종류 */
+                ,D.RPRT_NM /* 문서명 */
+                ,D.RPRT_CD
+                ,D.DOC_ID 		AS MFEX_DOC_ID    
+                ,E.AFF_SNO
+                ,D.RPRT_FILD_ID
+                ,E.DOC_ID
+          FROM (
+                    SELECT A.AUD_YR
+                             ,A.AUD_NO
+                             ,MIN(A.SRNO) AS SRNO
+                             ,C.RPRT_NM
+                             ,C.RPRT_CD
+                             ,C.DOC_ID
+                             ,B.AFF_SNO
+                             ,B.RPRT_FILD_ID
+                     FROM TBCSPKDE103M A INNER JOIN TBCSPKDE106M B
+                                                               ON A.AUD_YR = B.AUD_YR
+                                                              AND A.AUD_NO = B.AUD_NO
+                                                              AND A.SRNO = B.SRNO INNER JOIN TBBADDED103M C
+                                                                                                       ON C.AUD_YR = B.AUD_YR
+                                                                                                      AND C.AUD_NO = B.AUD_NO
+                                                                                                      AND C.REF_ID  = B.RPRT_LINK_SEQ
+                                                                                                      AND C.RPRT_CD = 'A10600900'  /* A10600900 hard coding*/
+                    WHERE A.AUD_YR = #{audYr}   /*parameter*/
+                       AND A.AUD_NO = #{audNo}   /*parameter*/
+                     GROUP BY C.RPRT_NM, C.RPRT_CD, C.DOC_ID ,B.AFF_SNO  ,B.RPRT_FILD_ID, A.AUD_YR ,A.AUD_NO
+                      UNION ALL
+                      SELECT A.AUD_YR ,A.AUD_NO
+                               ,A.SRNO
+                               ,C.FILE_NM AS RPRT_NM
+                               ,'A10600800' AS RPRT_CD  /* A10600800 hard coding*/
+                               ,C.DOC_ID
+                               ,B.AFF_SNO
+                               ,B.RPRT_FILD_ID
+                       FROM TBCSPKDE103M A INNER JOIN TBCSPKDE106M B
+                                                                 ON A.AUD_YR = B.AUD_YR
+                                                                AND A.AUD_NO = B.AUD_NO
+                                                                AND A.SRNO = B.SRNO INNER JOIN TBCSPKDE104M C
+                                                                                                         ON C.AUD_YR = A.AUD_YR
+                                                                                                        AND C.AUD_NO = A.AUD_NO
+                                                                                                        AND C.SRNO  = A.SRNO  
+                       WHERE A.AUD_YR =  #{audYr}  /*parameter*/
+                          AND A.AUD_NO = #{audNo}   /*parameter*/
+                        UNION ALL
+                        SELECT  A.AUD_YR 
+                                  ,A.AUD_NO
+                                  ,MIN(C.SRNO) AS SRNO
+                                  ,A.RPRT_NM
+                                  ,A.RPRT_CD
+                                  ,A.DOC_ID
+                                  ,B.AFF_SNO
+                                  ,B.RPRT_FILD_ID
+                         FROM TBBADDED103M A INNER JOIN TBBADDED145M B
+                                                                    ON A.AUD_YR = B.AUD_YR
+                                                                   AND A.AUD_NO = B.AUD_NO
+                                                                   AND A.REF_ID = B.AFF_SNO
+                                                                   AND B.APVR_CD = 'A1070'  INNER JOIN TBCSPKDE106M C   /* A1070 hard coding*/
+                                                                                                                ON A.AUD_YR = C.AUD_YR
+                                                                                                               AND A.AUD_NO = C.AUD_NO
+                                                                                                               AND B.AFF_SNO = C.AFF_SNO
+                        WHERE A.AUD_YR = #{audYr}   /*parameter*/
+                           AND A.AUD_NO = #{audNo}    /*parameter*/
+                           AND A.RPRT_CD = 'A10601000'  /* A10601000 hard coding*/
+                            AND EXISTS ( SELECT 1  /*품질부서로 발신된 검토의견서만 조회됨*/
+                                              FROM TBBADDED111M C
+                                             WHERE C.AUD_YR = A.AUD_yR
+                                                AND C.AUD_NO  =A.AUD_NO
+                                                AND C.RPRT_CD = A.RPRT_CD
+                                                AND C.SND_DPT_CD = '160000'   /* 160000 hard coding*/
+                                                AND C.RCPT_DPT_CD = '160200' )   /* 160200 hard coding*/
+                           GROUP BY  A.RPRT_NM ,A.RPRT_CD  ,A.DOC_ID ,B.AFF_SNO ,B.RPRT_FILD_ID, A.AUD_YR ,A.AUD_NO
+                  ) D INNER JOIN TBBADDED145M E
+                                 ON E.AUD_YR = D.AUD_YR
+                               AND E.AUD_NO = D.AUD_NO
+                               AND E.AFF_SNO  =D.AFF_SNO
+                               AND E.RPRT_FILD_ID = D.RPRT_FILD_ID
+                               AND E.APVR_CD = 'A1070'   /* A1070 hard coding*/
+                               AND E.REFER_DVSN_CD = 'D10' /* D10 hard coding*/
+                               AND EXISTS (SELECT 1 
+                                                 FROM TBBADDED103M F 
+                                                WHERE F.AUD_YR = E.AUD_YR
+                                                   AND F.AUD_NO  = E.AUD_NO
+                                                   AND F.AUD_STEP_CD  ='A1060'   /* A1060 hard coding*/
+                                                   AND F.DOC_ID = E.DOC_ID
+                                                   AND F.RPRT_CD = 'A10600200') /*A10600200  hard coding 감사보고서에 속한 사건의 소명건만 조회*/
+         ORDER BY E.AFF_CD  ,E.AFF_SNO,  D.RPRT_CD DESC , D.RPRT_NM 
+	]]>
+    </select> 
+    
+     <select id="selectMainListP" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.aep.osm.dao.AEPOSM015PMapper.selectMainListP*/
+    <![CDATA[
+        SELECT        D.SRNO
+                 ,F_MNG_KND_AUDYRNO(A.AUD_YR, A.AUD_NO, A.AUD_KND_CD, '-')||'-'||A.AFF_CD AS AUD_YR_AFF_NO      
+                 ,(SELECT T1.DTIL_AUD_DOC_NM
+                   FROM TBFDMADM002M T1
+                  WHERE T1.AUD_DOC_CD  = D.RPRT_CD) AS RPRT_TYPE_NM  
+                ,D.RPRT_NM
+                ,D.RPRT_CD
+                ,D.DOC_ID AS MFEX_DOC_ID 
+                ,D.RPRT_FILD_ID
+                ,A.TITLE_NM 
+                ,A.AUD_YR
+                ,A.AUD_NO
+                ,D.DOC_TYPE
+          FROM (
+                    SELECT MIN(A.SRNO) AS SRNO
+                            ,C.RPRT_NM
+                            ,C.RPRT_CD
+                            ,C.DOC_ID    
+                            ,B.RPRT_FILD_ID 
+                            ,A.AUD_YR
+                            ,A.AUD_NO            
+                            ,F_OPEN_EDIT(C.LINK_URL) AS DOC_TYPE  
+                     FROM TBCSPKDE103M_VIEW A INNER JOIN TBCSPKDE106M B
+                        ON A.AUD_YR = B.AUD_YR
+                       AND A.AUD_NO = B.AUD_NO
+                       AND A.SRNO = B.SRNO INNER JOIN TBBADDED103M C
+                                                               ON C.AUD_YR = B.AUD_YR
+                                                              AND C.AUD_NO = B.AUD_NO
+                                                              AND ( C.REF_DY = B.AFF_SNO OR C.REF_DY = A.SRNO || A.MFEX_DVSN_CD )
+                                                              AND C.RPRT_CD IN ( 'A10600900',  'A10600960')
+                    WHERE A.AUD_YR =#{audYr}   /*parameter*/ 
+                       AND A.AUD_NO = #{audNo}   /*parameter*/                            
+                     GROUP BY C.RPRT_NM, C.RPRT_CD, C.DOC_ID, B.RPRT_FILD_ID ,A.AUD_YR  ,A.AUD_NO, C.LINK_URL               
+                     UNION ALL
+                      SELECT A.SRNO
+                              ,C.FILE_NM AS RPRT_NM
+                              ,'A10600800' AS RPRT_CD
+                              ,C.DOC_ID
+                              ,B.RPRT_FILD_ID
+                               ,A.AUD_YR
+                               ,A.AUD_NO
+                               , '' AS DOC_TYPE
+                       FROM TBCSPKDE103M A INNER JOIN TBCSPKDE106M B
+                          ON A.AUD_YR = B.AUD_YR
+                         AND A.AUD_NO = B.AUD_NO
+                         AND A.SRNO = B.SRNO INNER JOIN TBCSPKDE104M C
+                                                                                     ON C.AUD_YR = A.AUD_YR
+                                                                                    AND C.AUD_NO = A.AUD_NO
+                                                                                    AND C.SRNO  = A.SRNO  
+                       WHERE A.AUD_YR = #{audYr}   /*parameter*/ 
+                          AND A.AUD_NO = #{audNo}   /*parameter*/
+                       ]]>
+                       <if test="rprtFildId != null and rprtFildId != ''">
+                          AND B.RPRT_FILD_ID = #{rprtFildId}   /*parameter*/
+                       </if>
+                   <![CDATA[    
+                      GROUP BY A.SRNO ,C.FILE_NM ,C.DOC_ID ,B.RPRT_FILD_ID ,A.AUD_YR  ,A.AUD_NO
+                       UNION ALL
+                      SELECT DISTINCT
+                               A.SRNO
+                              ,C.RPRT_NM
+                              ,'A10600950' AS RPRT_CD
+                              ,C.DOC_ID
+                              ,B.RPRT_FILD_ID
+                              ,A.AUD_YR  
+                              ,A.AUD_NO
+                              ,F_OPEN_EDIT(C.LINK_URL) AS DOC_TYPE       
+                       FROM TBCSPKDE103M A INNER JOIN TBCSPKDE106M B
+                          ON A.AUD_YR = B.AUD_YR
+                         AND A.AUD_NO = B.AUD_NO
+                         AND A.SRNO = B.SRNO INNER JOIN TBBADDED103M C
+                                                                                     ON C.AUD_YR = A.AUD_YR
+                                                                                    AND C.AUD_NO = A.AUD_NO
+                                                                                    AND C.REF_ID  = TO_CHAR(A.SRNO)
+                                                                                    AND C.RPRT_CD = 'A10600950'
+                                                                                    AND EXISTS (SELECT 1 FROM TBBADDED111M D WHERE D.DOC_ID = C.DOC_ID)
+                        WHERE A.AUD_YR = #{audYr}   /*parameter*/ 
+                          AND A.AUD_NO = #{audNo}   /*parameter*/
+                      ]]> 
+                       <if test="rprtFildId != null and rprtFildId != ''">
+                          AND B.RPRT_FILD_ID = #{rprtFildId}   /*parameter*/
+                       </if>
+                     <![CDATA[    
+                        UNION ALL
+                        SELECT 
+                        MIN(B.SRNO) AS SRNO
+                                  ,C.RPRT_NM
+                                  ,C.RPRT_CD
+                                  ,C.DOC_ID
+                                  ,B.RPRT_FILD_ID
+                                  ,A.AUD_YR
+                                  ,A.AUD_NO
+                                  ,F_OPEN_EDIT(C.LINK_URL) AS DOC_TYPE
+                         FROM TBBADDED145M A 
+                           INNER JOIN TBCSPKDE106M B 
+                                                                  ON A.AUD_YR = B.AUD_YR
+                                                                 AND A.AUD_NO = B.AUD_NO
+                                                                 AND A.AFF_SNO = B.AFF_SNO
+                           INNER JOIN TBBADDED103M C
+                            ON A.AUD_YR = C.AUD_YR
+                           AND A.AUD_NO = C.AUD_NO
+                           AND ((C.REF_ID = B.SRNO) OR (C.REF_ID = A.AFF_SNO))
+                        WHERE A.AUD_YR = #{audYr}   /*parameter*/  
+                           AND A.AUD_NO = #{audNo}   /*parameter*/
+                           AND C.RPRT_CD = 'A10601000'
+                            AND EXISTS ( SELECT 1  
+                                              FROM TBBADDED111M D
+                                             WHERE D.AUD_YR = A.AUD_yR
+                                                AND D.AUD_NO  =A.AUD_NO
+                                                AND D.RPRT_CD = C.RPRT_CD
+                                                AND D.DOC_ID = C.DOC_ID ) 
+                           ]]>
+                       <if test="rprtFildId != null and rprtFildId != ''">
+                          AND B.RPRT_FILD_ID = #{rprtFildId}   /*parameter*/
+                       </if>
+                   <![CDATA[             
+                           GROUP BY  C.RPRT_NM ,C.RPRT_CD  ,C.DOC_ID,B.RPRT_FILD_ID, A.AUD_YR,  A.AUD_NO, C.LINK_URL
+                       
+                  ) D INNER JOIN TBBADDED145M A
+                              ON D.AUD_YR = A.AUD_YR
+                             AND D.AUD_NO = A.AUD_NO                 
+                             AND D.RPRT_FILD_ID = A.RPRT_FILD_ID
+                             AND A.APVR_CD IN (SELECT NVL(MAX(APVR_CD), '0013600')
+                                   FROM (
+                                         SELECT RANK() OVER (PARTITION BY A.DOC_ID ORDER BY DECODE(A.APVR_CD, 'A1070', 1, '0010600', 2,  '0055700', 3, '0055600' ,4 ,'0045900', 5,  '0015800' ,6,'0035100', 7, '0058100', 8,  '0013600', 9, 99) ASC ) AS RN
+                                            , A.APVR_CD APVR_CD
+                                            , A.DOC_ID
+                                         FROM TBBADDED145M A
+                                        WHERE A.AUD_YR = #{audYr}   /*parameter*/ 
+                                          AND A.AUD_NO  =  #{audNo}   /*parameter*/
+                                          AND A.APVR_CD <> '0010200'
+                      ]]>                           
+                                      <if test="docId != null and docId != ''">
+                                          AND A.DOC_ID = #{docId}   /*parameter*/
+                                      </if>
+                                          
+                  <![CDATA[     
+                                        GROUP BY A.DOC_ID, A.APVR_CD )   
+                                )
+         ORDER BY D.SRNO  , D.RPRT_CD DESC , D.RPRT_NM 
+	]]>
+    </select> 
+    
+    
+    <select id="selectAudLawList" parameterType="paramMap" resultType="egovMap">
+     /*kr.go.bai.eip.aep.osm.dao.AEPOSM015PMapper.selectAudLawList*/
+    <![CDATA[
+     SELECT ROWNUM AS NUM,
+               ST.*
+     FROM(    SELECT  T.WRK_YR
+                          , T.WRK_NO
+                          , T.WRK_DVSN_CD
+                          , T.ACP_DVSN_CD
+	                      , T.AUD_YR_NO
+	                      , T.AUD_SBJ_NM
+	                      , T.TIT_NM
+	                      , T.RPRT_NM
+                          , T.RPRT_CD
+                          , T.DOC_ID
+                          , T.AUD_KND_CD
+                          , T.AFF_SNO
+                          , T.DOC_TYPE
+                          , T.LAW_CNT
+                          , T.TOT_CNT 
+                   FROM (SELECT T1.WRK_YR
+                                    , T1.WRK_NO
+                                    , T1.WRK_DVSN_CD
+                                    , '' AS ACP_DVSN_CD
+                                    , F_MNG_KND_AUDYRNO(T1.WRK_YR, T1.WRK_NO, '' , '-') AS AUD_YR_NO
+                                    , T3.AUD_SBJ_NM
+                                    , T4.TITLE_NM AS TIT_NM
+                                    , T2.RPRT_NM
+                                    , T2.RPRT_CD
+                                    , T2.DOC_ID
+                                    , T3.AUD_KND_CD
+                                    , T1.AFF_SNO
+                                    , F_OPEN_EDIT(T2.LINK_URL) AS DOC_TYPE
+                                    , (SELECT COUNT(B.AFF_SNO)
+                                       FROM TBBADDED126M B  
+                                       WHERE T1.WRK_YR = B.WRK_YR AND T1.WRK_NO =  B.WRK_NO AND T1.WRK_DVSN_CD = B.WRK_DVSN_CD AND T1.LEGAL_REQ_DVSN_CD = B.LEGAL_REQ_DVSN_CD AND B.REQ_STAT_CD = '60') AS LAW_CNT
+                                    , COUNT(T1.WRK_NO) OVER (PARTITION BY T3.AUD_SBJ_NM  ) AS TOT_CNT 
+                            FROM TBBADDED126M T1
+                            INNER JOIN TBBADDED103M T2
+                                  ON T1.WRK_YR = T2.AUD_YR
+                                  AND T1.WRK_NO = T2.AUD_NO
+                                  AND T2.REF_ID = TO_CHAR(T1.LEGAL_REQ_SRNO)
+                                  AND T2.RPRT_CD IN ('A10602100', 'A10602310', 'A10602400')
+                                  AND T2.APV_STA_CD = '30'
+                            INNER JOIN TBBADDED001M T3
+                                  ON T1.WRK_YR = T3.AUD_YR
+                                  AND T1.WRK_NO = T3.AUD_NO
+                            INNER JOIN TBBADDED145M T4
+                                  ON T1.WRK_YR = T4.AUD_YR 
+                                  AND T1.WRK_NO =  T4.AUD_NO 
+                	]]>
+                	<if test="sbntLawYn eq 'Y'.toString()">
+                				  AND T4.APVR_CD = '0010600'
+                                  AND T1.AFF_SNO = T4.AFF_SNO 
+                                  AND T1.RPRT_FILD_ID = T4.RPRT_FILD_ID 
+                                  AND T4.RPRT_FILD_ID = #{rprtFildId}   
+                	</if>
+                	<if test="sbntLawYn neq 'Y'.toString()">
+                	              AND T4. APVR_CD = 'A1070'
+                                  AND T1.AFF_SNO = T4.AFF_SNO 
+                                  AND T1.RPRT_FILD_ID = T4.RPRT_FILD_ID 
+                                  AND T4.DOC_ID = #{audDocId}
+                	</if>
+                  <![CDATA[
+                            WHERE  T1.WRK_YR = #{audYr}
+                            AND T1.WRK_NO = #{audNo}
+                            AND T1.REQ_STAT_CD = '60'
+                            AND T1.LEGAL_REQ_DVSN_CD IN ('20', '30')
+                            ORDER BY T4.AFF_SNO,T2.RPRT_CD
+                         ) T
+            GROUP BY  T.WRK_YR
+                         , T.WRK_NO
+                         , T.WRK_DVSN_CD
+                         , T.ACP_DVSN_CD
+                         , T.AUD_YR_NO
+                         , T.AUD_SBJ_NM
+                         , T.TIT_NM
+                         , T.RPRT_NM
+                         , T.RPRT_CD
+                         , T.DOC_ID
+                         , T.AUD_KND_CD
+                         , T.AFF_SNO
+                         , T.DOC_TYPE
+                         , T.LAW_CNT
+                         , T.TOT_CNT 
+         )ST
+         ]]>
+    </select> 
+    
+    <select id="selectAcpLawList" parameterType="paramMap" resultType="egovMap">
+     /*kr.go.bai.eip.aep.osm.dao.AEPOSM015PMapper.selectAcpLawList*/
+    <![CDATA[
+SELECT ROWNUM AS NUM,
+                 ST.*
+     FROM(    SELECT   T.WRK_YR
+                          , T.WRK_NO
+                          , T.WRK_DVSN_CD
+                          , T.ACP_DVSN_CD
+	                      , T.AUD_YR_NO
+	                      , T.AUD_SBJ_NM
+	                      , T.TIT_NM
+	                      , T.RPRT_NM
+                          , T.RPRT_CD
+                          , T.DOC_ID
+                          , T.AUD_KND_CD
+                          , T.AFF_SNO
+                          , T.DOC_TYPE
+                          , T.LAW_CNT
+                          , T.TOT_CNT 
+                   FROM (SELECT T1.WRK_YR
+                                    , T1.WRK_NO
+                                    , T1.WRK_DVSN_CD
+                                    , T3.ACP_DVSN_CD
+                                    , T1.WRK_YR || '-' || DECODE(T3.ACP_DVSN_CD, '1', '심사', '재심') || '-' || TO_CHAR(T1.WRK_NO) AS AUD_YR_NO
+                                    , T3.TIT_NM AS AUD_SBJ_NM
+                                    , T3.TIT_NM
+                                    , T2.RPRT_NM
+                                    , T2.RPRT_CD
+                                    , T2.DOC_ID
+                                    , '' AS AUD_KND_CD
+                                    , '' AS AFF_SNO
+                                    , F_OPEN_EDIT(T2.LINK_URL) AS DOC_TYPE
+                                    , (SELECT COUNT(B.LEGAL_REQ_SRNO)
+                                       FROM TBBADDED126M B  
+                                       WHERE T1.WRK_YR = B.WRK_YR AND T1.WRK_NO =  B.WRK_NO AND T1.WRK_DVSN_CD = B.WRK_DVSN_CD AND T1.LEGAL_REQ_DVSN_CD = B.LEGAL_REQ_DVSN_CD AND B.REQ_STAT_CD = '60') AS LAW_CNT
+                                    , COUNT(T1.WRK_NO) OVER (PARTITION BY T3.TIT_NM  ) AS TOT_CNT 
+                            FROM TBBADDED126M T1
+                            INNER JOIN TBBADFRE103M T2
+                                  ON T1.WRK_YR = T2.ACP_YR
+                                  AND T1.WRK_NO = T2.ACP_SRNO
+                                  AND T2.ACP_DVSN_CD = #{acpDvsnCd}
+                                  AND T2.REF_ID = TO_CHAR(T1.LEGAL_REQ_SRNO)
+                                  AND T2.RPRT_CD IN ('D10200500','E10400300','D10200900','E10400700','D10200600','E10400400','D10200800','E10400600') 
+                                  AND T2.APV_STA_CD = '30'
+                            INNER JOIN TBBADFRE012M T3
+                                  ON T1.WRK_YR = T3.ACP_YR
+                                  AND T1.WRK_NO = T3.ACP_SRNO
+                                  AND T3.ACP_DVSN_CD = #{acpDvsnCd}
+                            WHERE  T1.WRK_YR = #{audYr}
+                            AND T1.WRK_NO = #{audNo}
+                            AND T1.REQ_STAT_CD = '60'
+                            AND T1.WRK_DVSN_CD = DECODE(T2.ACP_DVSN_CD, '1' , 'D10', '2', 'E10')  
+                            AND T1.LEGAL_REQ_DVSN_CD IN ('20', '30')
+                            ORDER BY T2.RPRT_CD
+                         ) T
+            GROUP BY   T.WRK_YR
+                          , T.WRK_NO
+                          , T.WRK_DVSN_CD
+                          , T.ACP_DVSN_CD
+	                      , T.AUD_YR_NO
+	                      , T.AUD_SBJ_NM
+	                      , T.TIT_NM
+	                      , T.RPRT_NM
+                          , T.RPRT_CD
+                          , T.DOC_ID
+                          , T.AUD_KND_CD
+                          , T.AFF_SNO
+                          , T.DOC_TYPE
+                          , T.LAW_CNT
+                          , T.TOT_CNT 
+         )ST
+                	]]>
+    </select> 
+    
+    
+</mapper>

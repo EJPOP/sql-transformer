@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/jfs/002">
+	
+	<!--금융정보제출요구사항 상세조회-->
+	<select id="BADJFS002ESubselect" parameterClass="paramMap" resultClass="resultMap">
+			SELECT T3.IS_NO                                 /* 발부번호 */
+				 , T1.AUD_NO                                /* 감사번호 */
+				 , T1.AUD_YR                                /* 감사년도 */
+				 , T2.AUD_GRN_NO                            /* 감사부여년도 - 2016.06.01 yyh*/
+			     , CASE WHEN T2.AUD_YR >= '2016' 
+			                 THEN F_CODE_NM('1000739', T2.AUD_KND_CD)
+			            ELSE '-' 
+			        END                                 AS AUD_YR_NO_KND_NM /*감사연번호종류코드 추가 - 2015.12.28 yyh*/				 
+				 , F_DPT_INFO(T1.DPT_CD, '1') AS DPT_NM     /* 부서명 */
+				 , T2.AUD_SBJ_NM                            /* 감사사항명 */
+				 , T1.TG_ORG_CD                             /* 대상기관코드 */ 
+				 , F_ORG_INFO(T1.TG_ORG_CD, '1') AS ORG_NM  /* 대상기관명 */
+				 , T1.DOC_ID                                /* 문서ID */
+				 , T1.DOC_TYP_CD                            /* 문서유형코드 */
+				 , T1.TG_ORG_NM                             /* 대상기관명 */
+			     , T3.IS_DT                                 /* 발부일 */
+			     , T3.NAM                                   /* 성명 */
+			     , T3.EIN                                   /* 암호화주민등록번호 */
+			     , T3.CMPY_NM                               /* 회사명 */
+			     , T3.BZN                                   /* 사업자등록번호 */
+			     , T3.EAN                                   /* 암호화계좌번호 */
+			     , T3.MNTY_ORG_NM                           /* 금융기관명 */
+			     , T3.BRC_NM                                /* 지점명 */
+			     , T3.ETC_SBJ                               /* 기타사항 */
+			     , DECODE(T3.USE_PPS_CD,'1','회계','2','금융') 
+			                                  AS USE_PPS_CD /* 사용목적코드 */
+			     , T3.RQ_DEAL_INF_HIS                       /* 요구거래정보내역 */
+			     , T3.ACP_DT                                /* 접수일 */
+			     , DECODE(T3.PUBOL_DVSN_YN,'Y','공직자','N','일반인') 
+			                               AS PUBOL_DVSN_YN /* 공직자구분여부 */
+			     , T3.PUBOL_SRCH_NOC                        /* 공직자조회건수 */
+			     , T3.GEN_PSO_SRCH_NOC                      /* 일반인조회건수 */
+			     , T3.AUD_PEN_NAM                           /* 감사자성명 */
+			     , T3.ACT_INF_NM                            /* 계좌정보명 */
+			     , T3.MNTY_ORG_INF_NM                       /* 금융기관정보명 */	
+				 
+			     , T1.YR                                    /* 년도 */
+				 , T1.DPT_CD                                /* 부서코드 */
+				 , T1.SLN                                   /* 연번 */	 			     			 
+			  FROM TBBADJFS001M T1 /*금융정보제출요구사항*/
+			     , TBBADDED001M T2 /*감사사항*/
+			     , TBBADJFS002D T3 /* 금융정보제출요구사항상세 */
+			 WHERE 	1=1
+			   AND T1.AUD_YR 	= T2.AUD_YR(+)
+			   AND T1.AUD_NO 	= T2.AUD_NO(+)
+			   AND T1.YR        = T3.YR(+)
+			   AND T1.DPT_CD    = T3.DPT_CD(+)
+			   AND T1.SLN       = T3.SLN(+)			   			   
+			   
+		<isNotEmpty property="strYr">	 
+			   AND T1.YR = #strYr#
+		</isNotEmpty>
+		
+			   AND 	T1.DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #strDptAuth#, '', #strDptCd#)))
+		
+		<isNotEmpty property="strDptCd2">
+        	   AND  T1.DPT_CD      = #strDptCd2#
+        </isNotEmpty> 		
+		
+		<isNotEmpty property="strAudYr">	 	
+			<isNotEmpty property="strAudGrnNo">	 	
+			   AND 	T1.AUD_YR     = #strAudYr#
+			   AND  T2.AUD_GRN_NO = #strAudGrnNo# 
+			</isNotEmpty>
+		</isNotEmpty>
+		
+		<isNotNull property="strAudYrNoKndCd">
+			<isNotEmpty property="strAudYrNoKndCd">	 	
+	              /* 감사연번종류코드 - 2015.12.28 yyh */
+				  AND SUBSTR(T2.AUD_KND_CD,3,1) = SUBSTR(#strAudYrNoKndCd#,3,1)
+			</isNotEmpty>		
+		</isNotNull>		
+		
+		<isEmpty property="strAudYr">
+			<isEmpty property="strAudNo">	
+				<isNotEmpty property="strAudSbjNm">	  
+			   		AND  T2.AUD_SBJ_NM LIKE '%' || #strAudSbjNm# || '%'
+				</isNotEmpty>
+			</isEmpty>
+		</isEmpty>
+		   
+		<isNotEmpty property="strSchTxt">
+        	   AND  T1.TG_ORG_NM LIKE '%' || #strSchTxt# || '%'
+        </isNotEmpty> 
+        		   
+        <![CDATA[       
+			  ORDER BY T3.YR DESC, T3.DPT_CD ASC, T3.SLN DESC, T3.IS_NO      
+        ]]>			   
+
+ 	</select>
+ 	
+</sqlMap> 

@@ -1,0 +1,188 @@
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd" >
+<sqlMap namespace="csp/bii/192">
+
+	<!-- 심사분석 사전 작업 목록 조회 -->
+	<select id="CSPBII192PMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			/* csp.bii.service.impl.CSPBII191QServiceImpl.CSPBII191QAudInfYeSelect */
+			SELECT (SELECT COUNT(*)
+			          FROM TBCSPBII100M
+			         WHERE TRNF_DT IS NOT NULL 
+			           AND TRNF_DT < TO_CHAR(ADD_MONTHS(TO_DATE(#strEndDt#), -60), 'YYYYMMDD')
+			           AND AUD_INF_PRSS_STA_CD >= '10'  /* 감사정보진행상태코드가 [10:제출접수]이상인 건 */
+			           AND (CMPT_DT IS NULL
+			             OR CMPT_DT = ''
+			             OR AUD_INF_PRSS_STA_CD <> '99' /* 감사정보진행상태코드가 [99:완료]가 아닌 건 */ ))   AS WRK_CNT1              
+			     , (SELECT COUNT(*)
+			          FROM TBCSPBII100M
+			         WHERE SMT_DT >= #strStrDt#
+			           AND SBM_DT >= #strStrDt#
+			           AND SBM_DT <= #strEndDt#
+			           AND AUD_INF_PRSS_STA_CD >= '10'        /* 감사정보진행상태코드가 [10:제출접수]이상인 건 */
+			           AND INF_DVSN_CD = '1'                  /* 정보구분코드가 [1:감사대상정보]인 건 */
+			           AND HNDL_ORD_CD NOT IN ('3', '4', '7') /* 처리지시코드가 [3:감사대상, 4:이첩대상, 7:폐기]가 아닌 건 */ ) AS WRK_CNT2
+			     , (SELECT COUNT(*)
+			          FROM TBCSPBII100M
+			         WHERE SMT_DT >= #strStrDt#
+			           AND SBM_DT >= #strStrDt#
+			           AND SBM_DT <= #strEndDt#
+			           AND AUD_INF_PRSS_STA_CD >= '10'   /* 감사정보진행상태코드가 [10:제출접수]이상인 건 */
+			           AND INF_DVSN_CD IN ('2', '3')     /* 정보구분코드가 [2:동향정보, 3:전산자료]인 건 */
+			           AND HNDL_ORD_CD NOT IN ('5', '7') /* 처리지시코드가 [5:참고자료, 7:폐기]가 아닌 건 */ ) AS WRK_CNT3
+			     , (SELECT COUNT(*)
+			          FROM TBCSPBII100M
+			         WHERE TRNF_DT IS NOT NULL 
+			           AND CMPT_DT IS NOT NULL
+			           AND CMPT_DT >= #strStrDt#
+			           AND CMPT_DT <= #strEndDt#
+			           AND AUD_INF_PRSS_STA_CD >= '10'    /* 감사정보진행상태코드가 [10:제출접수]이상인 건 */
+			           AND HNDL_RSLT_CD IS NOT NULL
+			           AND HNDL_RSLT_CD = '31'            /* 처리결과코드가 [31:입건]인 건 */
+			           AND (INF_DVSN_CD <> '1'            /* 정보구분코드가 [1:감사대상정보]가 아닌 건 */
+			             OR HNDL_ORD_CD <> '3'			  /* 처리지시코드가 [3:감사대상]이 아닌 건 */ ))    AS WRK_CNT4
+			     , (SELECT COUNT(*)
+			          FROM TBCSPBII100M
+			         WHERE TRNF_DT IS NOT NULL 
+			           AND CMPT_DT IS NOT NULL
+			           AND CMPT_DT >= #strStrDt#
+			           AND CMPT_DT <= #strEndDt#
+			           AND AUD_INF_PRSS_STA_CD >= '10'    /* 감사정보진행상태코드가 [10:제출접수]이상인 건 */
+			           AND HNDL_RSLT_CD IS NOT NULL
+			           AND HNDL_RSLT_CD = '34'            /* 처리결과코드가 [34:이첩입건]인 건 */
+			           AND (INF_DVSN_CD <> '1'            /* 정보구분코드가 [1:감사대상정보]가 아닌 건 */
+			             OR HNDL_ORD_CD <> '4'			  /* 처리지시코드가 [4:이첩대상]이 아닌 건 */ ))    AS WRK_CNT5
+			     , (SELECT COUNT(*)
+			          FROM TBCSPBII100M
+			         WHERE TRNF_DT IS NOT NULL 
+			           AND CMPT_DT IS NOT NULL
+			           AND CMPT_DT >= #strStrDt#
+			           AND CMPT_DT <= #strEndDt#
+			           AND AUD_INF_PRSS_STA_CD >= '10'    /* 감사정보진행상태코드가 [10:제출접수]이상인 건 */
+			           AND HNDL_RSLT_CD IS NOT NULL
+			           AND HNDL_RSLT_CD NOT IN ('31', '34', '35', '36', '37', '88') /* 처리결과코드가 [31:입건, 34:이첩입건, 35:감사활용, 36:불문, 37:낭비, 88:종결]이 아닌 건 */
+			       )                                                                            AS WRK_CNT6
+              FROM DUAL    
+		]]>			 
+	</select>
+	
+	<!-- 심사분석 사전 작업 [1. 5년 경과건 완결 처리] -->
+	<update id="CSPBII192PMainUpdate1" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE TBCSPBII100M                       
+			   SET HNDL_RSLT_CD        = '88'                         /* 처리결과코드[88:종결] */
+			     , AUD_INF_PRSS_STA_CD = '99'                         /* 감사정보진행상태코드[99:완료] */
+			     , HNDL_DT             = TO_CHAR(SYSDATE, 'YYYYMMDD') /* 처리일 */
+			     , CMPT_DT             = TO_CHAR(SYSDATE, 'YYYYMMDD') /* 완료일 */
+			     , FNL_USR_ID          = #FNL_USR_ID#                 /* 최종사용자ID */
+			     , FNL_DEAL_DPT_CD     = #FNL_DEAL_DPT_CD#            /* 최종거래부서코드 */
+			     , FNL_MNU_ID          = #FNL_MNU_ID#                 /* 최종메뉴ID */
+			     , FNL_MDF_DH          = SYSDATE                      /* 최종수정일시 */
+			 WHERE TRNF_DT IS NOT NULL 
+			   AND TRNF_DT < TO_CHAR(ADD_MONTHS(TO_DATE(#strEndDt#), -60), 'YYYYMMDD')
+			   AND AUD_INF_PRSS_STA_CD >= '10'  /* 감사정보진행상태코드가 [10:제출접수]이상인 건 */
+			   AND (CMPT_DT IS NULL
+			     OR CMPT_DT = ''
+			     OR AUD_INF_PRSS_STA_CD <> '99' /* 감사정보진행상태코드가 [99:완료]가 아닌 건 */ )
+		]]>			
+	</update>
+	
+	<!-- 심사분석 사전 작업 [2. 감사대상정보 = 감사대상 / 이첩대상] -->
+	<update id="CSPBII192PMainUpdate2" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE TBCSPBII100M                       
+			   SET HNDL_ORD_CD     = '3'               /* 처리지시코드[3:감사대상] */
+			     , FNL_USR_ID      = #FNL_USR_ID#      /* 최종사용자ID */
+			     , FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD# /* 최종거래부서코드 */
+			     , FNL_MNU_ID      = #FNL_MNU_ID#      /* 최종메뉴ID */
+			     , FNL_MDF_DH      = SYSDATE           /* 최종수정일시 */
+			 WHERE SMT_DT >= #strStrDt#
+			   AND SBM_DT >= #strStrDt#
+			   AND SBM_DT <= #strEndDt#
+			   AND AUD_INF_PRSS_STA_CD >= '10'        /* 감사정보진행상태코드가 [10:제출접수]이상인 건 */
+			   AND INF_DVSN_CD = '1'                  /* 정보구분코드가 [1:감사대상정보]인 건 */
+			   AND HNDL_ORD_CD NOT IN ('3', '4', '7') /* 처리지시코드가 [3:감사대상, 4:이첩대상, 7:폐기]가 아닌 건 */
+		]]>			
+	</update>
+	
+	<!-- 심사분석 사전 작업 [3. 동향정보 / 전산자료 = 참고자료 적용] -->
+	<update id="CSPBII192PMainUpdate3" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE TBCSPBII100M                       
+			   SET HNDL_ORD_CD     = '5'               /* 처리지시코드[5:참고자료] */
+			     , FNL_USR_ID      = #FNL_USR_ID#      /* 최종사용자ID */
+			     , FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD# /* 최종거래부서코드 */
+			     , FNL_MNU_ID      = #FNL_MNU_ID#      /* 최종메뉴ID */
+			     , FNL_MDF_DH      = SYSDATE           /* 최종수정일시 */
+			 WHERE SMT_DT >= #strStrDt#
+			   AND SBM_DT >= #strStrDt#
+			   AND SBM_DT <= #strEndDt#
+			   AND AUD_INF_PRSS_STA_CD >= '10'   /* 감사정보진행상태코드가 [10:제출접수]이상인 건 */
+			   AND INF_DVSN_CD IN ('2', '3')     /* 정보구분코드가 [2:동향정보, 3:전산자료]인 건 */
+			   AND HNDL_ORD_CD NOT IN ('5', '7') /* 처리지시코드가 [5:참고자료, 7:폐기]가 아닌 건 */
+		]]>			
+	</update>
+	
+	<!-- 심사분석 사전 작업 [4. 입건정보(31) = 감사대상정보 + 감사대상 적용] -->
+	<update id="CSPBII192PMainUpdate4" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE TBCSPBII100M                       
+			   SET INF_DVSN_CD     = '1'               /* 정보구분코드[1:감사대상정보] */
+			     , HNDL_ORD_CD     = '3'               /* 처리지시코드[3:감사대상] */
+			     , FNL_USR_ID      = #FNL_USR_ID#      /* 최종사용자ID */
+			     , FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD# /* 최종거래부서코드 */
+			     , FNL_MNU_ID      = #FNL_MNU_ID#      /* 최종메뉴ID */
+			     , FNL_MDF_DH      = SYSDATE           /* 최종수정일시 */
+			 WHERE TRNF_DT IS NOT NULL 
+			   AND CMPT_DT IS NOT NULL
+			   AND CMPT_DT >= #strStrDt#
+			   AND CMPT_DT <= #strEndDt#
+			   AND AUD_INF_PRSS_STA_CD >= '10'    /* 감사정보진행상태코드가 [10:제출접수]이상인 건 */
+			   AND HNDL_RSLT_CD IS NOT NULL
+			   AND HNDL_RSLT_CD = '31'            /* 처리결과코드가 [31:입건]인 건 */
+			   AND (INF_DVSN_CD <> '1'            /* 정보구분코드가 [1:감사대상정보]가 아닌 건 */
+			     OR HNDL_ORD_CD <> '3'			  /* 처리지시코드가 [3:감사대상]이 아닌 건 */
+		]]>			
+	</update>
+	
+	<!-- 심사분석 사전 작업 [5. 이첩인건정보(34) = 감사대상정보 + 이첩대상 적용] -->
+	<update id="CSPBII192PMainUpdate5" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE TBCSPBII100M                       
+			   SET INF_DVSN_CD     = '1'               /* 정보구분코드[1:감사대상정보] */
+			     , HNDL_ORD_CD     = '4'               /* 처리지시코드[4:이첩대상] */
+			     , FNL_USR_ID      = #FNL_USR_ID#      /* 최종사용자ID */
+			     , FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD# /* 최종거래부서코드 */
+			     , FNL_MNU_ID      = #FNL_MNU_ID#      /* 최종메뉴ID */
+			     , FNL_MDF_DH      = SYSDATE           /* 최종수정일시 */
+			 WHERE TRNF_DT IS NOT NULL 
+			   AND CMPT_DT IS NOT NULL
+			   AND CMPT_DT >= #strStrDt#
+			   AND CMPT_DT <= #strEndDt#
+			   AND AUD_INF_PRSS_STA_CD >= '10'    /* 감사정보진행상태코드가 [10:제출접수]이상인 건 */
+			   AND HNDL_RSLT_CD IS NOT NULL
+			   AND HNDL_RSLT_CD = '34'            /* 처리결과코드가 [34:이첩입건]인 건 */
+			   AND (INF_DVSN_CD <> '1'            /* 정보구분코드가 [1:감사대상정보]가 아닌 건 */
+			     OR HNDL_ORD_CD <> '4'			  /* 처리지시코드가 [4:이첩대상]이 아닌 건 */
+		]]>			
+	</update>
+	
+	<!-- 심사분석 사전 작업 [6. 운용중인 처리결과 외 -> 종결(88) 적용] -->
+	<update id="CSPBII192PMainUpdate6" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE TBCSPBII100M                       
+			   SET HNDL_RSLT_CD        = '88'              /* 처리결과코드[88:종결] */
+			     , AUD_INF_PRSS_STA_CD = '99'              /* 감사정보진행상태코드[99:완료] */
+			     , FNL_USR_ID          = #FNL_USR_ID#      /* 최종사용자ID */
+			     , FNL_DEAL_DPT_CD     = #FNL_DEAL_DPT_CD# /* 최종거래부서코드 */
+			     , FNL_MNU_ID          = #FNL_MNU_ID#      /* 최종메뉴ID */
+			     , FNL_MDF_DH          = SYSDATE           /* 최종수정일시 */
+			 WHERE TRNF_DT IS NOT NULL 
+			   AND CMPT_DT IS NOT NULL
+			   AND CMPT_DT >= #strStrDt#
+			   AND CMPT_DT <= #strEndDt#
+			   AND AUD_INF_PRSS_STA_CD >= '10'    /* 감사정보진행상태코드가 [10:제출접수]이상인 건 */
+			   AND HNDL_RSLT_CD IS NOT NULL
+			   AND HNDL_RSLT_CD NOT IN ('31', '34', '35', '36', '37', '88') /* 처리결과코드가 [31:입건, 34:이첩입건, 35:감사활용, 36:불문, 37:낭비, 88:종결]이 아닌 건 */
+		]]>			
+	</update>
+</sqlMap>

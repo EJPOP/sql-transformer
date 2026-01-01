@@ -1,0 +1,462 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/gda/010">
+	<!-- 목록(비위유형별직급별)출력 리스트 조회-->
+	<select id="BADGDA010EReportWrdoselect" parameterClass="paramMap" resultClass="resultMap">
+               SELECT      
+                   	 B.ENFM_TYP_CD     
+                   	,B.ENFO_TYPE_NM     
+                   	,B.WRDO_CD     
+                   	,B.WRDO_NM     
+                   	,NVL(A.CNT0, 0) AS CNT0 
+               FROM     
+                  (      
+                   	SELECT     
+                   		 A.ENFM_TYP_CD     
+                   		,A.WRDO_CD     
+                   		,SUM(A.CNT0) AS CNT0 
+                   	FROM     
+                   		(     
+                   		SELECT     
+                   			 A.ENFM_TYP_CD     
+                   			,B.WRDO_CD     
+                   			,A.REL_PEN_RANK_CD     
+                   			,1         AS CNT0     
+                   		FROM TBBADGDA001L A, /* 통보사항관계자내역 */ 
+                   		     TBBADGDA001M B  /* 통보사항 기본*/     
+                   		WHERE 1=1     
+                   		AND A.ORG_CD      = B.ORG_CD     
+                   		AND A.NTF_DVSN_CD = B.NTF_DVSN_CD     
+                   		AND A.NNB         = B.NNB     
+                   		AND A.NTF_DVSN_CD = '1'     
+                   		AND A.REL_PEN_RANK_CD BETWEEN '00' AND '10'     
+                        AND B.ACP_DT BETWEEN  #strStrDt#  AND  #strEndDt#
+                        AND B.ACP_STA_CD  != '51'
+                        AND (B.HNDL_OPIN_CD IS NULL OR B.HNDL_OPIN_CD != '8') /* 처리결과가 참고자료는 제외 - 2015.06.30 */  
+                        
+						AND B.DPT_CD      IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #strDptAuth#, '', #strDptCd#)))
+
+				    <isNotEmpty property="strDptCd2">
+		                AND B.DPT_CD      = #strDptCd2#
+		            </isNotEmpty>
+								
+                   		) A     
+                   	GROUP BY A.ENFM_TYP_CD, A.WRDO_CD     
+                   	) A,     
+                   	(     
+                   	SELECT      
+                   		 A.CD       AS ENFM_TYP_CD     
+                   		,A.CD_NM    AS ENFO_TYPE_NM     
+                   		,B.CD       AS WRDO_CD     
+                   		,B.CD_NM    AS WRDO_NM     
+                   	FROM TBDCMACM013C A,   /* 공통코드 */ 
+                   	     TBDCMACM013C B    /* 공통코드 */
+                   WHERE 1=1     
+                     AND A.CMM_CD_DVSN_CD  = '1000003'     
+                   	 AND A.CD IN ('210', '220', '230', '260', '270')     
+                   	 AND B.CMM_CD_DVSN_CD  = '1000241'     
+                   	 AND B.CD != '000000000'     
+                   	) B     
+             WHERE 1=1     
+               AND A.ENFM_TYP_CD (+)= B.ENFM_TYP_CD
+               AND A.WRDO_CD     (+)= B.WRDO_CD
+          ORDER BY ENFM_TYP_CD, WRDO_CD 
+
+	</select>	
+		
+		
+		
+	<!-- 목록(통보통지처리현황 - 진행현황)출력 리스트 조회-->
+	<select id="BADGDA010EReportNtfselect1" parameterClass="paramMap" resultClass="resultMap">
+    <![CDATA[
+			 SELECT CASE WHEN B.STAT_CD = 'A' THEN '총접수계'
+			             WHEN B.STAT_CD = 'B' THEN '이월건수'
+		                 WHEN B.STAT_CD = 'C' THEN '신규접수건수'
+		                 WHEN B.STAT_CD = 'D' THEN '처리건수'
+		                 WHEN B.STAT_CD = 'E' THEN '처리중건수'   
+		             END AS STAT_NM, 
+		            TO_CHAR(NVL(SUM(A.CNT1),0) + NVL(SUM(A.CNT2),0) + NVL(SUM(A.CNT3),0) + NVL(SUM(A.CNT4),0),'999,999,999,999') 
+		                                                                       AS CNT0,
+		            /* 범죄 및 징계만 인원수를 보여준다 - 2015.07.14 yyh */
+		            /* 
+		            TO_CHAR(NVL(SUM(A.PSON_CNT1),0) + NVL(SUM(A.PSON_CNT2),0),'999,999,999,999') 
+		                                                                       AS PSON_CNT0,
+		            */
+		            TO_CHAR(NVL(SUM(A.PSON_CNT1),0),'999,999,999,999')         AS PSON_CNT0,	
+
+		            TO_CHAR(NVL(SUM(CNT1),0),'999,999,999,999')  AS CNT1,
+		            TO_CHAR(NVL(SUM(PSON_CNT1),0),'999,999,999,999')  AS PSON_CNT1,        
+  		            TO_CHAR(NVL(SUM(CNT2),0),'999,999,999,999')  AS CNT2,
+		            TO_CHAR(NVL(SUM(PSON_CNT2),0),'999,999,999,999')  AS PSON_CNT2,        
+		            TO_CHAR(NVL(SUM(CNT3),0),'999,999,999,999')  AS CNT3,
+		            TO_CHAR(NVL(SUM(CNT4),0),'999,999,999,999')  AS CNT4
+		       FROM (   
+		             SELECT CASE WHEN (A.ACP_DT BETWEEN #strStrDt#  AND  #strEndDt#) THEN 'C' 
+		                         ELSE 'B'
+		                     END AS STAT_CD,  
+		                    DECODE(A.NTF_DVSN_CD, '1', 1) AS CNT1,
+		                    DECODE(A.NTF_DVSN_CD, '1', B.PSON_CNT) AS PSON_CNT1,
+		                    DECODE(A.NTF_DVSN_CD, '2', 1) AS CNT2,
+		                    DECODE(A.NTF_DVSN_CD, '2', B.PSON_CNT) AS PSON_CNT2,
+		                    0 AS CNT3,
+		                    0 AS CNT4
+		               FROM TBBADGDA001M A,
+		                    ( SELECT ORG_CD,
+		                             NTF_DVSN_CD,
+		                             NNB,
+		                             COUNT(*) AS PSON_CNT
+		                        FROM TBBADGDA001L 
+		                        WHERE 1=1
+		                        GROUP BY ORG_CD,
+		                              NTF_DVSN_CD,
+		                              NNB) B
+		              WHERE 1=1
+		                AND A.ORG_CD = B.ORG_CD (+ )
+		                AND A.NTF_DVSN_CD = B.NTF_DVSN_CD (+)
+		                AND A.NNB = B.NNB (+)
+                        AND A.ACP_STA_CD  != '51'
+                        AND (A.HNDL_OPIN_CD IS NULL OR A.HNDL_OPIN_CD != '8') /* 처리결과가 참고자료는 제외 - 2015.06.30 */
+		                AND ((A.ACP_DT BETWEEN #strStrDt#  AND  #strEndDt#)  OR (#strStrDt# > A.ACP_DT AND (#strStrDt# <= A.CPLT_DT OR A.CPLT_DT IS NULL ) ) )
+   		                AND A.DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #strDptAuth#, '', #strDptCd#)))		                
+		              ]]>       
+		                
+   		            
+					<![CDATA[      		                
+		                AND A.DPT_CD = (CASE WHEN #strDptCd2# IS NULL THEN A.DPT_CD
+		                                     ELSE #strDptCd2# 
+		                                 END) 
+		                                              
+                      UNION ALL
+                      
+		             SELECT CASE WHEN (A.ACP_DT BETWEEN #strStrDt#  AND  #strEndDt#) THEN 'C' 
+		                         ELSE 'B'
+		                     END AS STAT_CD,                          
+		                    0 AS CNT1,
+		                    0 AS PSON_CNT1,
+		                    0 AS CNT2,
+		                    0 AS PSON_CNT2,
+		                    DECODE(A.LAW_NTF_DVSN_CD, '100', 1) AS CNT3,
+		                    DECODE(A.LAW_NTF_DVSN_CD, '200', 1) AS CNT4
+		               FROM TBBADGDA004M A
+		              WHERE 1=1
+                        AND A.ACP_STA_CD  != '51'
+                        AND (A.HNDL_OPIN_CD IS NULL OR A.HNDL_OPIN_CD != '8') /* 처리결과가 참고자료는 제외 - 2015.06.30 */
+		                AND ((A.ACP_DT BETWEEN #strStrDt#  AND  #strEndDt#) OR (#strStrDt# > A.ACP_DT AND (#strStrDt# <= A.CPLT_DT OR A.CPLT_DT IS NULL ) ) )
+   		                AND A.DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #strDptAuth#, '', #strDptCd#)))
+		              ]]>       
+		                
+   		            
+					<![CDATA[   		                
+		                      AND A.DPT_CD = (CASE WHEN #strDptCd2# IS NULL THEN A.DPT_CD
+		                                           ELSE #strDptCd2# 
+		                                       END) 
+		
+		     UNION ALL
+		     
+		             SELECT 'A' AS STAT_CD,  
+		                     DECODE(A.NTF_DVSN_CD, '1', 1) AS CNT1,
+		                     DECODE(A.NTF_DVSN_CD, '1', B.PSON_CNT) AS PSON_CNT1,
+		                     DECODE(A.NTF_DVSN_CD, '2', 1) AS CNT2,
+		                     DECODE(A.NTF_DVSN_CD, '2', B.PSON_CNT) AS PSON_CNT2,
+		                     0 AS CNT3,
+		                     0 AS CNT4
+		               FROM TBBADGDA001M A,
+		                    (SELECT ORG_CD,
+		                            NTF_DVSN_CD,
+		                            NNB,
+		                            COUNT(*) AS PSON_CNT
+		                       FROM TBBADGDA001L 
+		                      WHERE 1=1
+		                      GROUP BY ORG_CD, NTF_DVSN_CD, NNB) B
+		              WHERE 1=1
+		                AND A.ORG_CD = B.ORG_CD (+ )
+		                AND A.NTF_DVSN_CD = B.NTF_DVSN_CD (+)
+		                AND A.NNB = B.NNB (+)
+		                AND A.ACP_STA_CD  != '51'
+		                AND (A.HNDL_OPIN_CD IS NULL OR A.HNDL_OPIN_CD != '8') /* 처리결과가 참고자료는 제외 - 2015.06.30 */
+		                AND ((A.ACP_DT BETWEEN #strStrDt#  AND  #strEndDt#) OR (#strStrDt# > A.ACP_DT AND (#strStrDt# <= A.CPLT_DT OR A.CPLT_DT IS NULL ) ) )
+   		                AND A.DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #strDptAuth#, '', #strDptCd#)))		                
+		              ]]>
+		                     
+   		            
+					<![CDATA[ 
+		                AND A.DPT_CD = (CASE WHEN #strDptCd2# IS NULL THEN A.DPT_CD
+		                                     ELSE #strDptCd2# 
+		                                 END)
+		                                  
+		             UNION ALL
+		                    
+		             SELECT 'A' AS STAT_CD,                        
+		                     0 AS CNT1,
+		                     0 AS PSON_CNT1,
+		                     0 AS CNT2,
+		                     0 AS PSON_CNT2,
+		                     DECODE(A.LAW_NTF_DVSN_CD, '100', 1) AS CNT3,
+		                     DECODE(A.LAW_NTF_DVSN_CD, '200', 1) AS CNT4
+		                FROM TBBADGDA004M A
+		               WHERE 1=1
+		                 AND A.ACP_STA_CD  != '51'
+		                 AND (A.HNDL_OPIN_CD IS NULL OR A.HNDL_OPIN_CD != '8') /* 처리결과가 참고자료는 제외 - 2015.06.30 */
+		                 AND ((A.ACP_DT BETWEEN #strStrDt#  AND  #strEndDt#) OR (#strStrDt# > A.ACP_DT AND (#strStrDt# <= A.CPLT_DT OR A.CPLT_DT IS NULL ) ) )
+   		                 AND A.DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #strDptAuth#, '', #strDptCd#)))		                 
+		              ]]>       
+		                
+					<![CDATA[ 
+		                 AND A.DPT_CD = (CASE WHEN #strDptCd2# IS NULL THEN A.DPT_CD
+		                                      ELSE #strDptCd2# 
+		                                  END)
+
+		      UNION ALL
+		
+		             SELECT CASE WHEN (A.CPLT_DT BETWEEN #strCpltStrDt#  AND  #strCpltEndDt#) THEN 'D' 
+		                         ELSE 'E'
+		                     END AS STAT_CD,  
+		                    DECODE(A.NTF_DVSN_CD, '1', 1) AS CNT1,
+		                    DECODE(A.NTF_DVSN_CD, '1', B.PSON_CNT) AS PSON_CNT1,
+		                    DECODE(A.NTF_DVSN_CD, '2', 1) AS CNT2,
+		                    DECODE(A.NTF_DVSN_CD, '2', B.PSON_CNT) AS PSON_CNT2,
+		                    0 AS CNT3,
+		                    0 AS CNT4
+		               FROM TBBADGDA001M A,
+		                    ( SELECT ORG_CD,
+		                             NTF_DVSN_CD,
+		                             NNB,
+		                             COUNT(*) AS PSON_CNT
+		                        FROM TBBADGDA001L 
+		                       WHERE 1=1
+		                       GROUP BY ORG_CD, NTF_DVSN_CD, NNB) B
+		              WHERE 1=1
+		                AND A.ORG_CD = B.ORG_CD (+)
+		                AND A.NTF_DVSN_CD = B.NTF_DVSN_CD (+)
+		                AND A.NNB = B.NNB (+)
+		                AND A.ACP_STA_CD  != '51'
+		                AND (A.HNDL_OPIN_CD IS NULL OR A.HNDL_OPIN_CD != '8') /* 처리결과가 참고자료는 제외 - 2015.06.30 */
+		                AND ((A.ACP_DT BETWEEN #strStrDt#  AND  #strEndDt#) OR (#strStrDt# > A.ACP_DT AND (#strStrDt# <= A.CPLT_DT OR A.CPLT_DT IS NULL ) ) )
+   		                AND A.DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #strDptAuth#, '', #strDptCd#)))
+		              ]]>       
+
+   		            
+					<![CDATA[ 
+		                AND A.DPT_CD = (CASE WHEN #strDptCd2# IS NULL THEN A.DPT_CD
+		                                     ELSE #strDptCd2# 
+		                                 END) 
+		                                 
+                      UNION ALL
+		                    
+		             SELECT CASE WHEN (A.CPLT_DT BETWEEN #strCpltStrDt#  AND  #strCpltEndDt#) THEN 'D' 
+		                               ELSE 'E'
+		                     END AS STAT_CD,                       
+		                    0 AS CNT1,
+		                    0 AS PSON_CNT1,
+		                    0 AS CNT2,
+		                    0 AS PSON_CNT2,
+		                    DECODE(A.LAW_NTF_DVSN_CD, '100', 1) AS CNT3,
+		                    DECODE(A.LAW_NTF_DVSN_CD, '200', 1) AS CNT4
+		               FROM TBBADGDA004M A
+		              WHERE 1=1
+		                AND A.ACP_STA_CD  != '51'
+		                AND (A.HNDL_OPIN_CD IS NULL OR A.HNDL_OPIN_CD != '8') /* 처리결과가 참고자료는 제외 - 2015.06.30 */
+		                AND ((A.ACP_DT BETWEEN #strStrDt#  AND  #strEndDt#) OR (#strStrDt# > A.ACP_DT AND (#strStrDt# <= A.CPLT_DT OR A.CPLT_DT IS NULL ) ) )
+   		                AND A.DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #strDptAuth#, '', #strDptCd#)))		                
+		              ]]>       
+		                
+   		            
+					<![CDATA[ 
+		                AND A.DPT_CD = (CASE WHEN #strDptCd2# IS NULL THEN A.DPT_CD
+		                                     ELSE #strDptCd2# 
+		                                 END) 
+		 ) A, 
+		 (SELECT CHR(64+LEVEL) AS STAT_CD
+		    FROM DUAL 
+		 CONNECT BY LEVEL < 6) B 
+      WHERE A.STAT_CD (+)= B.STAT_CD
+      GROUP BY B.STAT_CD  
+      ORDER BY B.STAT_CD
+    ]]>
+
+	</select>
+			
+			
+	<!-- 목록(통보통지처리현황 -처리결과)출력 리스트 조회-->
+	<select id="BADGDA010EReportNtfselect2" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+    SELECT L1.HNDL_OPIN_CD
+         , F_CODE_NM('1000200', L1.HNDL_OPIN_CD)      AS HNDL_TYPE_NM
+         , TO_CHAR(NVL(M1.CNT1, 0),'999,999,999,999') AS CNT1
+         , TO_CHAR(NVL(M1.CNT2, 0),'999,999,999,999') AS CNT2
+         , TO_CHAR(NVL(M2.CNT3, 0),'999,999,999,999') AS CNT3
+         , TO_CHAR(NVL(M2.CNT4, 0),'999,999,999,999') AS CNT4
+         , TO_CHAR(NVL(M1.CNT1, 0)+NVL(M1.CNT2, 0)+NVL(M2.CNT3, 0)+NVL(M2.CNT4, 0),'999,999,999,999')
+                                                      AS CNT0
+                                                      
+         , TO_CHAR(NVL(M1.PSON_CNT1, 0),'999,999,999,999') AS PSON_CNT1
+         , TO_CHAR(NVL(M1.PSON_CNT2, 0),'999,999,999,999') AS PSON_CNT2
+         
+    	   /* 범죄 및 징계만 인원수를 보여준다 - 2015.07.14 yyh */
+    	 /*          
+         , TO_CHAR(NVL(M1.PSON_CNT1, 0) + NVL(M1.PSON_CNT2, 0),'999,999,999,999')
+                                                           AS PSON_CNT_TOT
+         */
+         , TO_CHAR(NVL(M1.PSON_CNT1, 0),'999,999,999,999') AS PSON_CNT_TOT
+
+      FROM (
+            SELECT S1.HNDL_OPIN_CD
+                 , SUM(
+                       CASE WHEN S1.NTF_DVSN_CD = '1' THEN 1
+                            ELSE 0 END
+                   ) AS CNT1
+                 , SUM(
+                       CASE WHEN S1.NTF_DVSN_CD = '1' THEN S2.PSON_CNT
+                            ELSE 0 END
+                   ) AS PSON_CNT1                   
+                 , SUM(
+                       CASE WHEN S1.NTF_DVSN_CD = '2' THEN 1
+                            ELSE 0 END
+                   ) AS CNT2
+                 , SUM(
+                       CASE WHEN S1.NTF_DVSN_CD = '2' THEN S2.PSON_CNT
+                            ELSE 0 END
+                   ) AS PSON_CNT2                   
+              FROM TBBADGDA001M S1
+                  ,(SELECT ORG_CD,
+                           NTF_DVSN_CD,
+                           NNB,
+                           COUNT(*) AS PSON_CNT
+                      FROM TBBADGDA001L 
+                     WHERE 1=1
+                  GROUP BY ORG_CD
+                          ,NTF_DVSN_CD
+                          ,NNB) S2                
+             WHERE 1 = 1
+               AND S1.ORG_CD      = S2.ORG_CD (+ )
+               AND S1.NTF_DVSN_CD = S2.NTF_DVSN_CD (+)
+               AND S1.NNB         = S2.NNB (+)                 
+               AND S1.ACP_STA_CD  != '51'
+               AND S1.HNDL_OPIN_CD != '8'  /* 처리결과가 참고자료는 제외 - 2015.06.30 */
+		       AND ((S1.ACP_DT BETWEEN #strStrDt#  AND  #strEndDt#) OR (#strStrDt# > S1.ACP_DT AND (#strStrDt# <= S1.CPLT_DT OR S1.CPLT_DT IS NULL ) ) ) 
+               AND S1.CPLT_DT BETWEEN  #strCpltStrDt#  AND  #strCpltEndDt#
+               AND S1.HNDL_OPIN_CD IS NOT NULL
+			   AND S1.DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #strDptAuth#, '', #strDptCd#)))               
+        ]]>
+        
+        	
+            <isNotEmpty property="strDptCd2">
+               AND S1.DPT_CD      = #strDptCd2#
+            </isNotEmpty>
+        <![CDATA[
+          GROUP BY S1.HNDL_OPIN_CD
+           ) M1
+         , (
+            SELECT S1.HNDL_OPIN_CD                 
+                 , SUM(
+                       CASE WHEN S1.LAW_NTF_DVSN_CD = '100' THEN 1
+                            ELSE 0 END
+                   ) AS CNT3
+                 , SUM(
+                       CASE WHEN S1.LAW_NTF_DVSN_CD = '200' THEN 1
+                            ELSE 0 END
+                   ) AS CNT4
+              FROM TBBADGDA004M S1
+             WHERE 1 = 1
+               AND S1.ACP_STA_CD  != '51'
+               AND S1.HNDL_OPIN_CD != '8' /* 처리결과가 참고자료는 제외 - 2015.06.30 */             
+		       AND ((S1.ACP_DT BETWEEN #strStrDt#  AND  #strEndDt#) OR (#strStrDt# > S1.ACP_DT AND (#strStrDt# <= S1.CPLT_DT OR S1.CPLT_DT IS NULL ) ) )             
+               AND S1.CPLT_DT BETWEEN  #strCpltStrDt#  AND  #strCpltEndDt#               
+			   AND S1.HNDL_OPIN_CD IS NOT NULL
+               AND S1.DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #strDptAuth#, '', #strDptCd#)))			                   
+        ]]>
+            
+            <isNotEmpty property="strDptCd2">
+               AND S1.DPT_CD      = #strDptCd2#
+            </isNotEmpty>
+        <![CDATA[
+          GROUP BY S1.HNDL_OPIN_CD
+           ) M2
+         , (
+                  SELECT LEVEL AS HNDL_OPIN_CD
+                    FROM DUAL 
+              CONNECT BY LEVEL < 11
+           ) L1
+     WHERE 1 = 1
+       AND L1.HNDL_OPIN_CD = M1.HNDL_OPIN_CD(+)
+       AND L1.HNDL_OPIN_CD = M2.HNDL_OPIN_CD(+)
+       AND L1.HNDL_OPIN_CD != '8'
+  ORDER BY L1.HNDL_OPIN_CD 
+	]]>
+	</select>
+	
+	<!-- 목록(통보통지처리현황 - 미처리현황)출력 리스트 조회 추가 - 2017.09.08 yyh -->
+	<select id="BADGDA010EReportNtfselect3" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+   			 SELECT CASE WHEN A.DPT_CD IS NULL THEN '계' 
+                         ELSE (SELECT ABR_DPT_NM_1 FROM TBDCMACM002M WHERE DPT_CD = A.DPT_CD)  
+                     END                                         AS DVSN_NM,
+                    TO_CHAR(NVL(SUM(A.CNT1),0) + NVL(SUM(A.CNT2),0) + NVL(SUM(A.CNT3),0) ,'999,999,999,999') 
+		                                                         AS TOT,
+                    TO_CHAR(NVL(SUM(CNT1),0),'999,999,999,999')  AS TOT_1, 
+                    TO_CHAR(NVL(SUM(CNT2),0),'999,999,999,999')  AS TOT_2,     
+		            TO_CHAR(NVL(SUM(CNT3),0),'999,999,999,999')  AS TOT_3
+                    
+		       FROM ( 
+		             SELECT SUBSTR(DPT_CD,0,3) || '000'   AS DPT_CD,
+                            DECODE(A.NTF_DVSN_CD, '1', 1) AS CNT1,
+		                    DECODE(A.NTF_DVSN_CD, '2', 1) AS CNT2,
+		                    0                             AS CNT3
+		               FROM TBBADGDA001M A,
+		                    ( SELECT ORG_CD,
+		                             NTF_DVSN_CD,
+		                             NNB,
+		                             COUNT(*) AS PSON_CNT
+		                        FROM TBBADGDA001L 
+		                       WHERE 1=1
+		                       GROUP BY ORG_CD, NTF_DVSN_CD, NNB) B
+		              WHERE 1=1
+		                AND A.ORG_CD = B.ORG_CD (+)
+		                AND A.NTF_DVSN_CD = B.NTF_DVSN_CD (+)
+		                AND A.NNB = B.NNB (+)
+		                AND A.ACP_STA_CD  != '51'
+		                AND (A.HNDL_OPIN_CD IS NULL OR A.HNDL_OPIN_CD != '8') 
+		                AND ((A.ACP_DT BETWEEN #strStrDt#  AND  #strEndDt#) OR (#strStrDt# > A.ACP_DT AND (#strStrDt# <= A.CPLT_DT OR A.CPLT_DT IS NULL ) ) )
+		                AND CASE WHEN (A.CPLT_DT BETWEEN #strStrDt#  AND  #strEndDt#) THEN '' 
+		                         ELSE '1'
+		                     END = '1'
+   		                AND A.DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #strDptAuth#, '', #strDptCd#)))		                
+		              ]]>       
+		                
+   		            
+					<![CDATA[      		                
+		                AND A.DPT_CD = (CASE WHEN #strDptCd2# IS NULL THEN A.DPT_CD
+		                                     ELSE #strDptCd2# 
+		                                 END) 
+                UNION ALL
+		                    
+		             SELECT SUBSTR(DPT_CD,0,3)  || '000' AS DPT_CD,
+                            0                            AS CNT1,
+		                    0                            AS CNT2,
+		                    1                            AS CNT3
+		               FROM TBBADGDA004M A
+		              WHERE 1=1
+		                AND A.ACP_STA_CD  != '51'
+		                AND (A.HNDL_OPIN_CD IS NULL OR A.HNDL_OPIN_CD != '8') 
+		                AND ((A.ACP_DT BETWEEN #strStrDt#  AND  #strEndDt#) OR (#strStrDt# > A.ACP_DT AND (#strStrDt# <= A.CPLT_DT OR A.CPLT_DT IS NULL ) ) )
+                        AND CASE WHEN (A.CPLT_DT BETWEEN #strStrDt#  AND  #strEndDt#) THEN '' 
+		                               ELSE '1'
+		                     END = '1'
+   		                AND A.DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #strDptAuth#, '', #strDptCd#)))		                
+		              ]]>       
+		                
+   		            
+					<![CDATA[      		                
+		                AND A.DPT_CD = (CASE WHEN #strDptCd2# IS NULL THEN A.DPT_CD
+		                                     ELSE #strDptCd2# 
+		                                 END) 		                     
+				 ) A
+          GROUP BY ROLLUP(A.DPT_CD)
+          ORDER BY CASE WHEN A.DPT_CD IS NULL THEN 1
+                        ELSE 2
+                    END
+                  ,(SELECT DPT_SNO FROM TBDCMACM002M WHERE DPT_CD = A.DPT_CD)
+	]]>
+	</select>		
+</sqlMap> 

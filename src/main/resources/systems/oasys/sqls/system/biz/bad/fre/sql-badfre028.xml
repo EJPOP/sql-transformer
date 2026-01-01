@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap namespace="bad/fre/028">
+	
+	<!-- 재심의심사청구 조회-->
+	<select id="BADFRE028PMainList" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+SELECT CASE WHEN D1.GUBUN = 1 THEN '기한내'
+            WHEN D1.GUBUN = 2 THEN '기한경과'
+            WHEN D1.GUBUN = 3 THEN 'HRA'
+            WHEN D1.GUBUN = 4 THEN '집행회보접수'
+            ELSE NULL END AS TITLE
+     , CASE WHEN D1.GUBUN = 1 THEN MAX(D2.IN_TERM)
+            WHEN D1.GUBUN = 2 THEN MAX(D2.OUT_TERM)
+            WHEN D1.GUBUN = 3 THEN MAX(D2.HRA_CNT)
+            WHEN D1.GUBUN = 4 THEN MAX(0)
+            ELSE NULL END AS ITEM1
+     , CASE WHEN D1.GUBUN = 1 THEN MAX(D2.WIN_TERM)
+            WHEN D1.GUBUN = 2 THEN MAX(D2.WOUT_TERM)
+            WHEN D1.GUBUN = 3 THEN MAX(D2.WHRA_CNT)
+            WHEN D1.GUBUN = 4 THEN MAX(0)
+            ELSE NULL END AS ITEM2
+  FROM (
+        SELECT LEVEL AS GUBUN
+          FROM DUAL
+         CONNECT BY LEVEL<5
+       ) D1
+     , (
+        SELECT SUM(
+                   CASE WHEN D.DSP_RQ_KND_CD IN ('110', '210', '310', '320', '391', '800', '810', '820', '830', '840', '850')
+                         AND TO_CHAR(SYSDATE, 'YYYYMMDD') <= NVL(E.HNDL_DDLN_DT, '99991231') THEN 1
+                        ELSE 0
+                    END ) AS IN_TERM		/* 처분요구 기한내 */
+             , SUM(
+                   CASE WHEN D.DSP_RQ_KND_CD IN ('110', '210', '310', '320', '391', '800', '810', '820', '830', '840', '850')
+                         AND TO_CHAR(SYSDATE, 'YYYYMMDD') > NVL(E.HNDL_DDLN_DT, '99991231') THEN 1
+                        ELSE 0
+                    END ) AS OUT_TERM		/* 처분요구 기한외 */
+             , SUM(
+                   CASE WHEN D.DSP_RQ_KND_CD IN ('110', '210', '310', '320', '391', '800', '810', '820', '830', '840', '850')
+                         AND NVL(E.HRK_MNG_ASG_YN, 'N') = 'Y' THEN 1
+                        ELSE 0
+                    END ) AS HRA_CNT		/* 처분요구 HRA */
+             , SUM(
+                  CASE WHEN D.DSP_RQ_KND_CD IN ('110', '210', '310', '320', '391', '800', '810', '820', '830', '840', '850') THEN NVL(F.TMP_CNT, 1)
+                        ELSE 0
+                    END )AS OVER_TIME      /* 처분요구 집행회보접수 */
+             , SUM(
+                   CASE WHEN TO_CHAR(SYSDATE, 'YYYYMMDD') <= NVL(E.HNDL_DDLN_DT, '99991231')
+                         AND D.DSP_RQ_KND_CD IN ('510','520','530','610','611', '620', '621', '623', '630') THEN 1
+                        ELSE 0
+                    END ) AS WIN_TERM		/* 권고통보 기한내 */
+             , SUM(
+                   CASE WHEN TO_CHAR(SYSDATE, 'YYYYMMDD') > NVL(E.HNDL_DDLN_DT, '99991231')
+                         AND D.DSP_RQ_KND_CD IN ('510','520','530','610','611', '620', '621', '623', '630') THEN 1
+                        ELSE 0
+                    END ) AS WOUT_TERM		/* 권고통보 기한외 */
+             , SUM(
+                   CASE WHEN D.DSP_RQ_KND_CD IN ('510','520','530','610','611', '620', '621', '623', '630')
+                         AND NVL(E.HRK_MNG_ASG_YN, 'N') = 'Y' THEN 1
+                        ELSE 0
+                    END ) AS WHRA_CNT		/* 권고통보 HRA */
+             , SUM(
+                  CASE WHEN D.DSP_RQ_KND_CD IN ('510','520','530','610','611', '620', '621', '623', '630') THEN NVL(F.TMP_CNT, 1)
+                        ELSE 0
+                    END )AS OVER_TIME      /* 처분요구 집행회보접수 */
+          FROM TBBADEAR001M D
+             , TBBADEAR002D E
+             , (
+               SELECT COUNT(1) AS TMP_CNT
+                    , S1.AUD_YR
+                    , S1.AUD_NO
+                    , S1.DSP_RQ_SNO
+                 FROM TBBADFRE001H S1
+                WHERE 1 = 1
+                  AND S1.ENFM_WHLS_APV_STA_CD <> '3'
+             GROUP BY S1.AUD_YR
+                    , S1.AUD_NO
+                    , S1.DSP_RQ_SNO
+             ) F
+         WHERE 1=1
+           AND D.AUD_YR                 = E.AUD_YR(+)
+           AND D.AUD_NO                 = E.AUD_NO(+) 
+           AND D.DSP_RQ_SNO             = E.DSP_RQ_SNO(+)
+           AND D.AUD_YR                 = F.AUD_YR(+)
+           AND D.AUD_NO                 = F.AUD_NO(+)
+           AND D.DSP_RQ_SNO             = F.DSP_RQ_SNO(+)
+           AND E.DTM_STA_CD             = '1'  
+           AND E.DSP_RQ_APV_STA_CD <> '3'
+       ) D2
+GROUP BY D1.GUBUN
+ORDER BY D1.GUBUN
+	]]>
+	</select>
+</sqlMap> 

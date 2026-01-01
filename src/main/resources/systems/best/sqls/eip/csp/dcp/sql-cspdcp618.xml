@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.csp.dcp.dao.CSPDCP618Mapper">
+ 	
+ 	<!-- BEST20 연도별 감사제보 처리현황(처리완료) -->
+ 	<select id="CSPDCP618QSelectMainFnl" parameterType="paramMap" resultType="egovMap">
+ 		/* kr.go.bai.eip.csp.dcp.dao.CSPDCP618Mapper.CSPDCP618QSelectMainFnl */
+		<![CDATA[
+            WITH C_DATE AS
+            (
+             SELECT (CASE WHEN D1.CVPT_HNDL_STA_CD = '70' THEN NVL(TO_CHAR(D1.CVPT_WDW_DH, 'YYYY'),TO_CHAR(D2.FNL_HNDL_DH, 'YYYY'))
+                          WHEN D1.CVPT_HNDL_STA_CD = '80' THEN NVL(TO_CHAR(D1.ACP_DH, 'YYYY'),TO_CHAR(D2.FNL_HNDL_DH, 'YYYY'))
+                                                                        ELSE TO_CHAR(D2.FNL_HNDL_DH , 'YYYY') END) AS FNL_HNDL_YR /* 최종처리일시 */
+                      ,TO_CHAR(D1.ACP_DH, 'YYYY') AS ACP_YR
+                      ,D3.CVPT_HNDL_DVSN_CD  /* 민원처리구분코드 */
+                      ,F_CODE_NM('1000754', D3.CVPT_HNDL_DVSN_CD) AS CVPT_HNLD_DVSN_NM
+                      , D1.CVPT_HNDL_STA_CD        /* 민원처리상태코드  */
+                      ,F_CODE_NM('1000361',D1.CVPT_HNDL_STA_CD) AS CVPT_HNDL_STA_NM
+                      ,CASE WHEN D6.CNT > 0 THEN 'O' 
+                            WHEN D9.DOC_ID IS NOT NULL THEN 'O'
+                            ELSE 'X' END AS HNDL_YN
+                  FROM TBCSPDCP101M D1
+                      ,TBCSPDCP201M D2
+                      ,TBCSPDCP205L D3
+                      ,(SELECT	S5.REQ_DVSN_CD
+                                , S5.ACP_YR
+                                , S5.CVPT_ACP_NO
+                                , COUNT(*) AS CNT
+                        FROM	TBCSPDCP203M S5
+                        WHERE	S5.DGE IS NULL
+                        AND		S5.CVPT_DOC_DVSN_CD = 'A1'
+                        GROUP BY S5.REQ_DVSN_CD, S5.ACP_YR, S5.CVPT_ACP_NO ) D6
+                      ,(SELECT REQ_DVSN_CD, ACP_YR, CVPT_ACP_NO, MIN(DOC_ID) AS DOC_ID
+                        FROM TBCSPDCP603M 
+                        WHERE RPRT_CD IN ('B10200400','B10200600')
+                        GROUP BY REQ_DVSN_CD, ACP_YR, CVPT_ACP_NO
+                        ) D9
+                 WHERE D1.REQ_DVSN_CD = '1'
+                   AND D1.REQ_DVSN_CD = D2.REQ_DVSN_CD(+)
+                   AND D1.CVPT_ACP_NO = D2.CVPT_ACP_NO(+)
+                   AND D1.ACP_YR      = D2.ACP_YR(+)
+                   AND D1.REQ_DVSN_CD = D3.REQ_DVSN_CD(+)
+                   AND D1.CVPT_ACP_NO = D3.CVPT_ACP_NO(+)
+                   AND D1.ACP_YR      = D3.ACP_YR(+)
+                   AND D1.REQ_DVSN_CD = D6.REQ_DVSN_CD(+)
+                   AND D1.CVPT_ACP_NO = D6.CVPT_ACP_NO(+)
+                   AND D1.ACP_YR      = D6.ACP_YR(+)
+                   AND D1.REQ_DVSN_CD = D9.REQ_DVSN_CD(+)
+                   AND D1.CVPT_ACP_NO = D9.CVPT_ACP_NO(+)
+                   AND D1.ACP_YR = D9.ACP_YR(+)
+                   AND D3.SRNO(+) = '1'
+                   
+                   AND  (D1.REQ_DVSN_CD, D1.ACP_YR, D1.CVPT_ACP_NO) NOT  IN ( SELECT ST.REQ_DVSN_CD, ST.ACP_YR, ST.CVPT_ACP_NO
+                                          FROM  TBCSPDCP105L ST, TBCSPDCP205L TT
+                                          WHERE 1=1
+                                          AND TT.REQ_DVSN_CD = '1'
+                                          AND ST.SUC_REQ_DVSN_CD =TT.REQ_DVSN_CD
+                                          AND ST.SUC_ACP_YR = TT.ACP_YR
+                                          AND ST.SUC_CVPT_ACP_NO = TT.CVPT_ACP_NO   
+                                          AND (TT.AUD_RFR_MTRL_TRNF_DPT_CD IN ('100000','100100') 
+                                          OR   TT.TRNF_DPT_CD  IN ('100000','100100'))
+                   )
+                   
+                   AND  (D3.AUD_RFR_MTRL_TRNF_DPT_CD NOT IN ('100000','100100') OR  D3.AUD_RFR_MTRL_TRNF_DPT_CD IS NULL)
+                   AND  (D3.TRNF_DPT_CD NOT IN ('100000','100100') OR D3.TRNF_DPT_CD IS NULL)
+                    ]]> 
+                  <if test='cvptKndDvsnCd != null and cvptKndDvsnCd != ""'>
+				   AND  NVL(D1.CVPT_KND_DVSN_CD,'1') = #{cvptKndDvsnCd}
+				 </if>
+				<![CDATA[
+                    )
+          SELECT AA.FNL_HNDL_YR AS YEAR
+               , AA.CNT_1 AS FNL_CNT1
+               , AA.CNT_2 AS FNL_CNT2
+               , AA.CNT_3 AS FNL_CNT3
+               , AA.CNT_4 AS FNL_CNT4
+               , AA.CNT_5 AS FNL_CNT5
+               , AA.CNT_6 AS FNL_CNT6
+               , AA.CNT_7 AS FNL_CNT7
+               , AA.CNT_ETC AS FNL_ETC_CNT
+               , AA.FNL_HNDL_YR_CNT AS FNL_TOT_CNT
+            FROM (SELECT A.FNL_HNDL_YR
+                       , SUM(CASE WHEN A.CVPT_HNDL_STA_CD = '60' AND A.CVPT_HNDL_DVSN_CD IN ('30','40','90') THEN 1 ELSE 0 END) AS CNT_1
+                       , SUM(CASE WHEN A.CVPT_HNDL_STA_CD = '60' AND A.CVPT_HNDL_DVSN_CD = '50' THEN 1 ELSE 0 END) AS CNT_2
+                       , SUM(CASE WHEN A.CVPT_HNDL_STA_CD = '60' AND A.CVPT_HNDL_DVSN_CD IN ('20','110') THEN 1 ELSE 0 END) AS CNT_3
+                       , SUM(CASE WHEN A.CVPT_HNDL_STA_CD = '60' AND A.CVPT_HNDL_DVSN_CD = '10' THEN 1 ELSE 0 END) CNT_4
+                       , SUM(CASE WHEN A.CVPT_HNDL_STA_CD = '70'  THEN 1 ELSE 0 END) AS CNT_5
+                       , SUM(CASE WHEN A.CVPT_HNDL_STA_CD = '60' AND A.CVPT_HNDL_DVSN_CD = '80' THEN 1 ELSE 0 END) AS CNT_6
+                       , SUM(CASE WHEN A.CVPT_HNDL_STA_CD = '60' AND A.CVPT_HNDL_DVSN_CD = '70' THEN 1 ELSE 0 END) AS CNT_7
+                       , SUM(CASE WHEN A.CVPT_HNDL_STA_CD = '60' AND A.CVPT_HNDL_DVSN_CD NOT IN ('10','20','30','40','50','70','80','90','110') THEN 1
+                                      WHEN A.CVPT_HNDL_STA_CD = '80'  THEN 1 ELSE 0 END) AS CNT_ETC
+                       , COUNT(1) AS FNL_HNDL_YR_CNT
+                    FROM C_DATE A
+                   WHERE ((A.CVPT_HNDL_STA_CD = '60' AND A.CVPT_HNDL_DVSN_CD IS NOT NULL) OR (A.CVPT_HNDL_STA_CD IN ('70','80')))
+                     AND A.FNL_HNDL_YR IS NOT NULL
+                     AND A.ACP_YR IS NOT NULL
+                  GROUP BY
+                        A.FNL_HNDL_YR ) AA
+
+		  ORDER BY 
+                AA.FNL_HNDL_YR
+		]]> 
+	</select>
+	
+	<!-- BEST20 연도별 감사제보 처리현황(접수) -->
+ 	<select id="CSPDCP618QSelectMainAcp" parameterType="paramMap" resultType="egovMap">
+ 				/* kr.go.bai.eip.csp.dcp.dao.CSPDCP618Mapper.CSPDCP618QSelectMainAcp */
+		<![CDATA[
+            WITH C_DATE AS
+            (
+             SELECT (CASE WHEN D1.CVPT_HNDL_STA_CD = '70' THEN NVL(TO_CHAR(D1.CVPT_WDW_DH, 'YYYY'),TO_CHAR(D2.FNL_HNDL_DH, 'YYYY'))
+                          WHEN D1.CVPT_HNDL_STA_CD = '80' THEN NVL(TO_CHAR(D1.ACP_DH, 'YYYY'),TO_CHAR(D2.FNL_HNDL_DH, 'YYYY'))
+                                                                        ELSE TO_CHAR(D2.FNL_HNDL_DH , 'YYYY') END) AS FNL_HNDL_YR /* 최종처리일시 */
+                      ,TO_CHAR(D1.ACP_DH, 'YYYY') AS ACP_YR
+                      ,D3.CVPT_HNDL_DVSN_CD  /* 민원처리구분코드 */
+                      ,F_CODE_NM('1000754', D3.CVPT_HNDL_DVSN_CD) AS CVPT_HNLD_DVSN_NM
+                      , D1.CVPT_HNDL_STA_CD        /* 민원처리상태코드  */
+                      ,F_CODE_NM('1000361',D1.CVPT_HNDL_STA_CD) AS CVPT_HNDL_STA_NM
+                      ,CASE WHEN D6.CNT > 0 THEN 'O' 
+                            WHEN D9.DOC_ID IS NOT NULL THEN 'O'
+                            ELSE 'X' END AS HNDL_YN
+
+                  FROM TBCSPDCP101M D1
+                      ,TBCSPDCP201M D2
+                      ,TBCSPDCP205L D3
+                      ,(SELECT	S5.REQ_DVSN_CD
+                                , S5.ACP_YR
+                                , S5.CVPT_ACP_NO
+                                , COUNT(*) AS CNT
+                        FROM	TBCSPDCP203M S5
+                        WHERE	S5.DGE IS NULL
+                        AND		S5.CVPT_DOC_DVSN_CD = 'A1'
+                        GROUP BY S5.REQ_DVSN_CD, S5.ACP_YR, S5.CVPT_ACP_NO ) D6
+                      ,(SELECT REQ_DVSN_CD, ACP_YR, CVPT_ACP_NO, MIN(DOC_ID) AS DOC_ID
+                        FROM TBCSPDCP603M 
+                        WHERE RPRT_CD IN ('B10200400','B10200600')
+                        GROUP BY REQ_DVSN_CD, ACP_YR, CVPT_ACP_NO
+                        ) D9
+                 WHERE D1.REQ_DVSN_CD = '1'
+                   AND D1.REQ_DVSN_CD = D2.REQ_DVSN_CD(+)
+                   AND D1.CVPT_ACP_NO = D2.CVPT_ACP_NO(+)
+                   AND D1.ACP_YR      = D2.ACP_YR(+)
+                   AND D1.REQ_DVSN_CD = D3.REQ_DVSN_CD(+)
+                   AND D1.CVPT_ACP_NO = D3.CVPT_ACP_NO(+)
+                   AND D1.ACP_YR      = D3.ACP_YR(+)
+                   AND D1.REQ_DVSN_CD = D6.REQ_DVSN_CD(+)
+                   AND D1.CVPT_ACP_NO = D6.CVPT_ACP_NO(+)
+                   AND D1.ACP_YR      = D6.ACP_YR(+)
+                   AND D1.REQ_DVSN_CD = D9.REQ_DVSN_CD(+)
+                   AND D1.CVPT_ACP_NO = D9.CVPT_ACP_NO(+)
+                   AND D1.ACP_YR = D9.ACP_YR(+)
+                   AND D3.SRNO(+) = '1'
+                   
+                   AND  (D1.REQ_DVSN_CD, D1.ACP_YR, D1.CVPT_ACP_NO) NOT  IN ( SELECT ST.REQ_DVSN_CD, ST.ACP_YR, ST.CVPT_ACP_NO
+                                          FROM  TBCSPDCP105L ST, TBCSPDCP205L TT
+                                          WHERE 1=1
+                                          AND TT.REQ_DVSN_CD = '1'
+                                          AND ST.SUC_REQ_DVSN_CD =TT.REQ_DVSN_CD
+                                          AND ST.SUC_ACP_YR = TT.ACP_YR
+                                          AND ST.SUC_CVPT_ACP_NO = TT.CVPT_ACP_NO   
+                                          AND (TT.AUD_RFR_MTRL_TRNF_DPT_CD IN ('100000','100100') 
+                                          OR   TT.TRNF_DPT_CD  IN ('100000','100100'))
+                   )
+                   
+                   AND  (D3.AUD_RFR_MTRL_TRNF_DPT_CD NOT IN ('100000','100100') OR  D3.AUD_RFR_MTRL_TRNF_DPT_CD IS NULL)
+                   AND  (D3.TRNF_DPT_CD NOT IN ('100000','100100') OR D3.TRNF_DPT_CD IS NULL)
+                   ]]> 
+                   <if test='cvptKndDvsnCd != null and cvptKndDvsnCd != ""'>
+				   AND  NVL(D1.CVPT_KND_DVSN_CD,'1') = #{cvptKndDvsnCd}
+				 </if>
+				<![CDATA[
+                    )
+          SELECT A.ACP_YR AS YEAR
+               , COUNT(1) AS ACP_CNT
+            FROM C_DATE A
+           WHERE A.ACP_YR IS NOT NULL
+              AND A.CVPT_HNDL_STA_CD IN ('20','30','40','41','50','60','70','80')
+           GROUP BY
+                 A.ACP_YR
+		  ORDER BY 
+                A.ACP_YR
+		]]> 
+	</select>
+
+</mapper> 

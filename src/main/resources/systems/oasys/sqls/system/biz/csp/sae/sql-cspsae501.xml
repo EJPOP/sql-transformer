@@ -1,0 +1,2908 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/sae/501">
+
+	<resultMap class="java.util.HashMap" id="hwpDocMap">
+		<result property="TXT" column="TXT" jdbcType="CLOB" javaType="java.lang.String"/>
+		<result property="APC_DT" column="APC_DT" jdbcType="VARCHAR2" javaType="java.lang.String"/>
+	</resultMap>
+	
+	<resultMap class="java.util.HashMap" id="splDocTxt">
+		<result property="CNB" column="CNB" jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="APL_DT" column="APL_DT" jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="SPL_DOC_TXT" column="SPL_DOC_TXT" jdbcType="CLOB" javaType="java.lang.String"/>
+	</resultMap>
+	
+	<resultMap class="java.util.HashMap" id="notiTxt">
+		<result property="SNO" column="SNO" jdbcType="NUMBER" javaType="java.lang.String"/>
+		<result property="TIT_NM" column="TIT_NM" jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="USE_STR_DT" column="USE_STR_DT" jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="USE_END_DT" column="USE_END_DT" jdbcType="VARCHAR2" javaType="java.lang.String"/>
+	</resultMap>
+	
+	<resultMap class="java.util.HashMap" id="notiTxt2">
+		<result property="SNO" column="SNO" jdbcType="NUMBER" javaType="java.lang.String"/>
+		<result property="TIT_NM" column="TIT_NM" jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="USE_STR_DT" column="USE_STR_DT" jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="USE_END_DT" column="USE_END_DT" jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="TXT" column="TXT" jdbcType="CLOB" javaType="java.lang.String"/>
+	</resultMap>	
+
+	<select id="CSPSAE501QSelectMain" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			WITH APL_DATE AS /* CSPSAE501QSelectMain */
+				(SELECT 
+					  T2.DT
+					, CASE						
+						WHEN T2.DT < TO_CHAR(TO_DATE(T5.END_DT), 'YYYYMMDD') THEN 'X'
+						WHEN T2.DT >= (CASE
+				                         WHEN TO_CHAR(SYSDATE, 'YYYYMMDD') < TO_CHAR(NEXT_DAY(LAST_DAY(SYSDATE)-7, '월'), 'YYYYMMDD') THEN TO_CHAR(LAST_DAY(SYSDATE)+1, 'YYYYMMDD')
+				                         ELSE TO_CHAR(LAST_DAY(SYSDATE+7)+1, 'YYYYMMDD')
+				                       END) THEN 'X'
+						WHEN T4.STR_DDL_DT IS NULL OR T4.END_DDL_DT IS NULL THEN 'X'
+						ELSE NVL(T4.CLSNG_YN, 'N') 
+					END AS CLSNG_YN
+					, ROWNUM AS ROW_SNO
+				FROM (
+					    SELECT TO_CHAR(TO_DATE(T1.STR_DT, 'YYYYMMDD') + (LEVEL-1), 'YYYYMMDD') AS DT
+					         , T1.END_DT
+				          FROM (
+				                SELECT #strFromY# || #strFromM# || '01' AS STR_DT
+                                     , TO_CHAR(LAST_DAY(#strToY# || #strToM# || '01'), 'YYYYMMDD') AS END_DT
+                                  FROM DUAL 
+				               ) T1
+				        CONNECT BY LEVEL <= (TO_DATE(T1.END_DT, 'YYYYMMDD')+1) - TO_DATE(T1.STR_DT, 'YYYYMMDD')
+				        ) T2
+				      , TBCSPSAE133B T3
+				      , TBCSPSAE134B T4
+				      , (
+				         SELECT MIN(DECODE(A.JUCHA, 1, MAX(A.ILJA), DECODE(A.JUCHA, 2, MAX(A.ILJA), DECODE(A.JUCHA, 3, MAX(A.ILJA), DECODE(A.JUCHA, 4, MAX(A.ILJA), DECODE(A.JUCHA, 5, MAX(A.ILJA),  DECODE(A.JUCHA, 6, MIN(A.ILJA), ''))))))) AS END_DT
+						   FROM (
+								 SELECT TO_CHAR(DT, 'yyyymmdd') AS ILJA
+								      , CEIL((DT - NEXT_DAY(TRUNC(DT, 'mm') - 7, '1') + 1)/7) AS JUCHA
+								      , CEIL((DT - NEXT_DAY(TRUNC(DT, 'yy') - 7, '1') + 1)/7) AS YY_JUCHA
+								      , CEIL((SYSDATE - NEXT_DAY(TRUNC(SYSDATE, 'yy') - 7, '1') + 1)/7) AS NOW_JUCHA
+								   FROM (
+										SELECT TO_DATE(#strFromY# || #strFromM# || '01', 'yyyymmdd') + (LEVEL -1) AS DT
+										 FROM DUAL
+										CONNECT BY LEVEL <= (LAST_DAY(#strToY# || #strToM# || '01')+1) - TO_DATE(#strFromY# || #strFromM# || '01', 'YYYYMMDD')
+										)
+								) A
+							   , TBCSPSAE132B B
+						 WHERE 1=1
+						   AND A.YY_JUCHA >= A.NOW_JUCHA
+						GROUP BY A.JUCHA, A.YY_JUCHA
+				        ) T5
+				 WHERE T2.DT = T3.APL_DT
+				   AND T2.DT = TO_CHAR(TO_DATE(T4.END_DDL_DT)-1,'YYYYMMDD')
+				),
+			
+			ROOM_BASE_CNT AS 
+			    (SELECT F2_WSRM_BOKG_POSS_CNT AS POSS_CNT ,
+			            '4' AS DMT_DVSN_CD ,
+			            STR_DDL_DT ,
+			            END_DDL_DT
+			       FROM TBCSPSAE134B
+			      WHERE TO_DATE(END_DDL_DT)-1 BETWEEN TO_DATE(#strFromY# || #strFromM# || '01', 'YYYYMMDD') AND LAST_DAY(#strToY# || #strToM# || '01')
+			      UNION ALL
+			     SELECT F3_WSRM_BOKG_POSS_CNT AS POSS_CNT ,
+			            '5' AS DMT_DVSN_CD ,
+			            STR_DDL_DT ,
+			            END_DDL_DT
+			       FROM TBCSPSAE134B
+			      WHERE TO_DATE(END_DDL_DT)-1 BETWEEN TO_DATE(#strFromY# || #strFromM# || '01', 'YYYYMMDD') AND LAST_DAY(#strToY# || #strToM# || '01')
+			      UNION ALL
+			     SELECT F3_KSRM_BOKG_POSS_CNT AS POSS_CNT ,
+			            '6' AS DMT_DVSN_CD ,
+			            STR_DDL_DT ,
+			            END_DDL_DT
+			       FROM TBCSPSAE134B
+			      WHERE TO_DATE(END_DDL_DT)-1 BETWEEN TO_DATE(#strFromY# || #strFromM# || '01', 'YYYYMMDD') AND LAST_DAY(#strToY# || #strToM# || '01')
+			      UNION ALL
+			     SELECT F4_WSRM_BOKG_POSS_CNT AS POSS_CNT ,
+			            '7' AS DMT_DVSN_CD ,
+			            STR_DDL_DT ,
+			            END_DDL_DT
+			       FROM TBCSPSAE134B
+			      WHERE TO_DATE(END_DDL_DT)-1 BETWEEN TO_DATE(#strFromY# || #strFromM# || '01', 'YYYYMMDD') AND LAST_DAY(#strToY# || #strToM# || '01')
+			      UNION ALL
+			     SELECT CAMP_BOKG_POSS_CNT AS POSS_CNT ,
+			            '8' AS DMT_DVSN_CD ,
+			            STR_DDL_DT ,
+			            END_DDL_DT
+			       FROM TBCSPSAE134B 
+			      WHERE TO_DATE(END_DDL_DT)-1 BETWEEN TO_DATE(#strFromY# || #strFromM# || '01', 'YYYYMMDD') AND LAST_DAY(#strToY# || #strToM# || '01'))
+			
+			
+			SELECT TB1.DMT_DVSN_CD,
+			       TB1.FLOOR,
+			       TB1.ROOM_TYPE,
+			       TB1.PERSON,
+			       CASE WHEN TB1.DATE_RESULT1 = '예약가능'
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE1,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                         WHEN SIGN((SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE1,'YYYYMMDD')+1) - 
+			                                   (SELECT COUNT(R2.CNB) AS RES_CNT FROM TBCSPSAE501D R2 WHERE R2.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R2.USE_STR_DT = TB1.DATE1)) <> 1 
+			                           THEN '대기가능'  
+			                           ELSE TB1.DATE_RESULT1 END)
+			              ELSE TB1.DATE_RESULT1 END AS DATE_RESULT1,
+			       CASE WHEN TB1.DATE_RESULT1 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE1,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                           ELSE TB1.DATE1 END)
+			              ELSE TB1.DATE1 END AS DATE1,
+			       CASE WHEN TB1.DATE_RESULT1 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE1,'YYYYMMDD')+1) = 0 
+			                           THEN 'F'
+			                           ELSE TB1.BOKG_YN1 END)
+			              ELSE TB1.BOKG_YN1 END AS BOKG_YN1,
+			       CASE WHEN TB1.DATE_RESULT2 = '예약가능'
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE2,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                         WHEN SIGN((SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE2,'YYYYMMDD')+1) - 
+			                                   (SELECT COUNT(R2.CNB) AS RES_CNT FROM TBCSPSAE501D R2 WHERE R2.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R2.USE_STR_DT = TB1.DATE2)) <> 1 
+			                           THEN '대기가능'  
+			                           ELSE TB1.DATE_RESULT2 END)
+			              ELSE TB1.DATE_RESULT2 END AS DATE_RESULT2,
+			       CASE WHEN TB1.DATE_RESULT2 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE2,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                           ELSE TB1.DATE2 END)
+			              ELSE TB1.DATE2 END AS DATE2,
+			       CASE WHEN TB1.DATE_RESULT2 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE2,'YYYYMMDD')+1) = 0 
+			                           THEN 'F'
+			                           ELSE TB1.BOKG_YN2 END)
+			              ELSE TB1.BOKG_YN2 END AS BOKG_YN2,
+			       CASE WHEN TB1.DATE_RESULT3 = '예약가능'
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE3,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                         WHEN SIGN((SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE3,'YYYYMMDD')+1) - 
+			                                   (SELECT COUNT(R2.CNB) AS RES_CNT FROM TBCSPSAE501D R2 WHERE R2.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R2.USE_STR_DT = TB1.DATE3)) <> 1 
+			                           THEN '대기가능'  
+			                           ELSE TB1.DATE_RESULT3 END)
+			              ELSE TB1.DATE_RESULT3 END AS DATE_RESULT3,
+			       CASE WHEN TB1.DATE_RESULT3 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE3,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                           ELSE TB1.DATE3 END)
+			              ELSE TB1.DATE3 END AS DATE3,
+			       CASE WHEN TB1.DATE_RESULT3 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE3,'YYYYMMDD')+1) = 0 
+			                           THEN 'F'
+			                           ELSE TB1.BOKG_YN3 END)
+			              ELSE TB1.BOKG_YN3 END AS BOKG_YN3,
+			       CASE WHEN TB1.DATE_RESULT4 = '예약가능'
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE4,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                         WHEN SIGN((SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE4,'YYYYMMDD')+1) - 
+			                                   (SELECT COUNT(R2.CNB) AS RES_CNT FROM TBCSPSAE501D R2 WHERE R2.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R2.USE_STR_DT = TB1.DATE4)) <> 1 
+			                           THEN '대기가능'  
+			                           ELSE TB1.DATE_RESULT4 END)
+			              ELSE TB1.DATE_RESULT4 END AS DATE_RESULT4,
+			       CASE WHEN TB1.DATE_RESULT4 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE4,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                           ELSE TB1.DATE4 END)
+			              ELSE TB1.DATE4 END AS DATE4,
+			       CASE WHEN TB1.DATE_RESULT4 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE4,'YYYYMMDD')+1) = 0 
+			                           THEN 'F'
+			                           ELSE TB1.BOKG_YN4 END)
+			              ELSE TB1.BOKG_YN4 END AS BOKG_YN4,
+			       CASE WHEN TB1.DATE_RESULT5 = '예약가능'
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE5,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                         WHEN SIGN((SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE5,'YYYYMMDD')+1) - 
+			                                   (SELECT COUNT(R2.CNB) AS RES_CNT FROM TBCSPSAE501D R2 WHERE R2.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R2.USE_STR_DT = TB1.DATE5)) <> 1 
+			                           THEN '대기가능'  
+			                           ELSE TB1.DATE_RESULT5 END)
+			              ELSE TB1.DATE_RESULT5 END AS DATE_RESULT5,
+			       CASE WHEN TB1.DATE_RESULT5 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE5,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                           ELSE TB1.DATE5 END)
+			              ELSE TB1.DATE5 END AS DATE5,
+			       CASE WHEN TB1.DATE_RESULT5 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE5,'YYYYMMDD')+1) = 0 
+			                           THEN 'F'
+			                           ELSE TB1.BOKG_YN5 END)
+			              ELSE TB1.BOKG_YN5 END AS BOKG_YN5,
+			       CASE WHEN TB1.DATE_RESULT6 = '예약가능'
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE6,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                         WHEN SIGN((SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE6,'YYYYMMDD')+1) - 
+			                                   (SELECT COUNT(R2.CNB) AS RES_CNT FROM TBCSPSAE501D R2 WHERE R2.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R2.USE_STR_DT = TB1.DATE6)) <> 1 
+			                           THEN '대기가능'  
+			                           ELSE TB1.DATE_RESULT6 END)
+			              ELSE TB1.DATE_RESULT6 END AS DATE_RESULT6,
+			       CASE WHEN TB1.DATE_RESULT6 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE6,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                           ELSE TB1.DATE6 END)
+			              ELSE TB1.DATE6 END AS DATE6,
+			       CASE WHEN TB1.DATE_RESULT6 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE6,'YYYYMMDD')+1) = 0 
+			                           THEN 'F'
+			                           ELSE TB1.BOKG_YN6 END)
+			              ELSE TB1.BOKG_YN6 END AS BOKG_YN6,
+			       CASE WHEN TB1.DATE_RESULT7 = '예약가능'
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE7,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                         WHEN SIGN((SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE7,'YYYYMMDD')+1) - 
+			                                   (SELECT COUNT(R2.CNB) AS RES_CNT FROM TBCSPSAE501D R2 WHERE R2.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R2.USE_STR_DT = TB1.DATE7)) <> 1 
+			                           THEN '대기가능'  
+			                           ELSE TB1.DATE_RESULT7 END)
+			              ELSE TB1.DATE_RESULT7 END AS DATE_RESULT7,
+			       CASE WHEN TB1.DATE_RESULT7 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE7,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                           ELSE TB1.DATE7 END)
+			              ELSE TB1.DATE7 END AS DATE7,
+			       CASE WHEN TB1.DATE_RESULT7 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE7,'YYYYMMDD')+1) = 0 
+			                           THEN 'F'
+			                           ELSE TB1.BOKG_YN7 END)
+			              ELSE TB1.BOKG_YN7 END AS BOKG_YN7,
+			       CASE WHEN TB1.DATE_RESULT8 = '예약가능'
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE8,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                         WHEN SIGN((SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE8,'YYYYMMDD')+1) - 
+			                                   (SELECT COUNT(R2.CNB) AS RES_CNT FROM TBCSPSAE501D R2 WHERE R2.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R2.USE_STR_DT = TB1.DATE8)) <> 1 
+			                           THEN '대기가능'  
+			                           ELSE TB1.DATE_RESULT8 END)
+			              ELSE TB1.DATE_RESULT8 END AS DATE_RESULT8,
+			       CASE WHEN TB1.DATE_RESULT8 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE8,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                           ELSE TB1.DATE8 END)
+			              ELSE TB1.DATE8 END AS DATE8,
+			       CASE WHEN TB1.DATE_RESULT8 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE8,'YYYYMMDD')+1) = 0 
+			                           THEN 'F'
+			                           ELSE TB1.BOKG_YN8 END)
+			              ELSE TB1.BOKG_YN8 END AS BOKG_YN8,
+			       CASE WHEN TB1.DATE_RESULT9 = '예약가능'
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE9,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                         WHEN SIGN((SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE9,'YYYYMMDD')+1) - 
+			                                   (SELECT COUNT(R2.CNB) AS RES_CNT FROM TBCSPSAE501D R2 WHERE R2.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R2.USE_STR_DT = TB1.DATE9)) <> 1 
+			                           THEN '대기가능'  
+			                           ELSE TB1.DATE_RESULT9 END)
+			              ELSE TB1.DATE_RESULT9 END AS DATE_RESULT9,
+			       CASE WHEN TB1.DATE_RESULT9 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE9,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                           ELSE TB1.DATE9 END)
+			              ELSE TB1.DATE9 END AS DATE9,
+			       CASE WHEN TB1.DATE_RESULT9 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE9,'YYYYMMDD')+1) = 0 
+			                           THEN 'F'
+			                           ELSE TB1.BOKG_YN9 END)
+			              ELSE TB1.BOKG_YN9 END AS BOKG_YN9,
+			       CASE WHEN TB1.DATE_RESULT10 = '예약가능'
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE10,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                         WHEN SIGN((SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE10,'YYYYMMDD')+1) - 
+			                                   (SELECT COUNT(R2.CNB) AS RES_CNT FROM TBCSPSAE501D R2 WHERE R2.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R2.USE_STR_DT = TB1.DATE10)) <> 1 
+			                           THEN '대기가능'  
+			                           ELSE TB1.DATE_RESULT10 END)
+			              ELSE TB1.DATE_RESULT10 END AS DATE_RESULT10,
+			       CASE WHEN TB1.DATE_RESULT10 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE10,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                           ELSE TB1.DATE10 END)
+			              ELSE TB1.DATE10 END AS DATE10,
+			       CASE WHEN TB1.DATE_RESULT10 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE10,'YYYYMMDD')+1) = 0 
+			                           THEN 'F'
+			                           ELSE TB1.BOKG_YN10 END)
+			              ELSE TB1.BOKG_YN10 END AS BOKG_YN10,
+			       CASE WHEN TB1.DATE_RESULT11 = '예약가능'
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE11,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                         WHEN SIGN((SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE11,'YYYYMMDD')+1) - 
+			                                   (SELECT COUNT(R2.CNB) AS RES_CNT FROM TBCSPSAE501D R2 WHERE R2.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R2.USE_STR_DT = TB1.DATE11)) <> 1 
+			                           THEN '대기가능'  
+			                           ELSE TB1.DATE_RESULT11 END)
+			              ELSE TB1.DATE_RESULT11 END AS DATE_RESULT11,
+			       CASE WHEN TB1.DATE_RESULT11 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE11,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                           ELSE TB1.DATE11 END)
+			              ELSE TB1.DATE11 END AS DATE11,
+			       CASE WHEN TB1.DATE_RESULT11 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE11,'YYYYMMDD')+1) = 0 
+			                           THEN 'F'
+			                           ELSE TB1.BOKG_YN11 END)
+			              ELSE TB1.BOKG_YN11 END AS BOKG_YN11,
+			       CASE WHEN TB1.DATE_RESULT12 = '예약가능'
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE12,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                         WHEN SIGN((SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE12,'YYYYMMDD')+1) - 
+			                                   (SELECT COUNT(R2.CNB) AS RES_CNT FROM TBCSPSAE501D R2 WHERE R2.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R2.USE_STR_DT = TB1.DATE12)) <> 1 
+			                           THEN '대기가능'  
+			                           ELSE TB1.DATE_RESULT12 END)
+			              ELSE TB1.DATE_RESULT12 END AS DATE_RESULT12,
+			       CASE WHEN TB1.DATE_RESULT12 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE12,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                           ELSE TB1.DATE12 END)
+			              ELSE TB1.DATE12 END AS DATE12,
+			       CASE WHEN TB1.DATE_RESULT12 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE12,'YYYYMMDD')+1) = 0 
+			                           THEN 'F'
+			                           ELSE TB1.BOKG_YN12 END)
+			              ELSE TB1.BOKG_YN12 END AS BOKG_YN12,
+			       CASE WHEN TB1.DATE_RESULT13 = '예약가능'
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE13,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                         WHEN SIGN((SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE13,'YYYYMMDD')+1) - 
+			                                   (SELECT COUNT(R2.CNB) AS RES_CNT FROM TBCSPSAE501D R2 WHERE R2.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R2.USE_STR_DT = TB1.DATE13)) <> 1 
+			                           THEN '대기가능'  
+			                           ELSE TB1.DATE_RESULT13 END)
+			              ELSE TB1.DATE_RESULT13 END AS DATE_RESULT13,
+			       CASE WHEN TB1.DATE_RESULT13 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE13,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                           ELSE TB1.DATE13 END)
+			              ELSE TB1.DATE13 END AS DATE13,
+			       CASE WHEN TB1.DATE_RESULT13 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE13,'YYYYMMDD')+1) = 0 
+			                           THEN 'F'
+			                           ELSE TB1.BOKG_YN13 END)
+			              ELSE TB1.BOKG_YN13 END AS BOKG_YN13,
+			       CASE WHEN TB1.DATE_RESULT14 = '예약가능'
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE14,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                         WHEN SIGN((SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE14,'YYYYMMDD')+1) - 
+			                                   (SELECT COUNT(R2.CNB) AS RES_CNT FROM TBCSPSAE501D R2 WHERE R2.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R2.USE_STR_DT = TB1.DATE14)) <> 1 
+			                           THEN '대기가능'  
+			                           ELSE TB1.DATE_RESULT14 END)
+			              ELSE TB1.DATE_RESULT14 END AS DATE_RESULT14,
+			       CASE WHEN TB1.DATE_RESULT14 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE14,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                           ELSE TB1.DATE14 END)
+			              ELSE TB1.DATE14 END AS DATE14,
+			       CASE WHEN TB1.DATE_RESULT14 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE14,'YYYYMMDD')+1) = 0 
+			                           THEN 'F'
+			                           ELSE TB1.BOKG_YN14 END)
+			              ELSE TB1.BOKG_YN14 END AS BOKG_YN14,
+			       CASE WHEN TB1.DATE_RESULT15 = '예약가능'
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE15,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                         WHEN SIGN((SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE15,'YYYYMMDD')+1) - 
+			                                   (SELECT COUNT(R2.CNB) AS RES_CNT FROM TBCSPSAE501D R2 WHERE R2.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R2.USE_STR_DT = TB1.DATE15)) <> 1 
+			                           THEN '대기가능'  
+			                           ELSE TB1.DATE_RESULT15 END)
+			              ELSE TB1.DATE_RESULT15 END AS DATE_RESULT15,
+			       CASE WHEN TB1.DATE_RESULT15 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE15,'YYYYMMDD')+1) = 0 
+			                           THEN '예약불가'
+			                           ELSE TB1.DATE15 END)
+			              ELSE TB1.DATE15 END AS DATE15,
+			       CASE WHEN TB1.DATE_RESULT15 = '예약가능' 
+			              THEN (CASE WHEN (SELECT POSS_CNT FROM ROOM_BASE_CNT R1 WHERE R1.DMT_DVSN_CD = TB1.DMT_DVSN_CD AND R1.END_DDL_DT = TO_DATE(TB1.DATE15,'YYYYMMDD')+1) = 0 
+			                           THEN 'F'
+			                           ELSE TB1.BOKG_YN15 END)
+			              ELSE TB1.BOKG_YN15 END AS BOKG_YN15					
+			FROM
+			(SELECT DD1.DMT_DVSN_CD
+			     , DD3.USR_DFN_TXT_1 FLOOR
+			     , DD3.USR_DFN_TXT_2 AS ROOM_TYPE
+			     , DD3.USR_DFN_TXT_3 AS PERSON
+			     , MAX(DECODE(DD1.DATE1, '예약종료', '예약종료', DECODE(DD1.DATE1, '예약불가', '예약불가', '예약가능' ) ) ) AS DATE_RESULT1
+				 , MAX(DECODE(DD1.DATE1, '예약종료', '예약종료', DECODE(DD1.DATE1, '예약불가', '예약불가', DD1.DATE1 ) ) ) AS DATE1
+			     , MAX(DECODE(DD1.DATE1, '예약종료', 'F', DECODE(DD1.DATE1, '예약불가', 'F', '' ) ) ) AS BOKG_YN1
+			     , MAX(DECODE(DD1.DATE2, '예약종료', '예약종료', DECODE(DD1.DATE2, '예약불가', '예약불가', '예약가능' ) ) )AS DATE_RESULT2
+				 , MAX(DECODE(DD1.DATE2, '예약종료', '예약종료', DECODE(DD1.DATE2, '예약불가', '예약불가', DD1.DATE2 ) ) )AS DATE2
+			     , MAX(DECODE(DD1.DATE2, '예약종료', 'F', DECODE(DD1.DATE2, '예약불가', 'F', '' ) ) )AS BOKG_YN2
+			     , MAX(DECODE(DD1.DATE3, '예약종료', '예약종료', DECODE(DD1.DATE3, '예약불가', '예약불가', '예약가능' ) ) ) AS DATE_RESULT3
+				 , MAX(DECODE(DD1.DATE3, '예약종료', '예약종료', DECODE(DD1.DATE3, '예약불가', '예약불가', DD1.DATE3 ) ) ) AS DATE3
+			     , MAX(DECODE(DD1.DATE3, '예약종료', 'F', DECODE(DD1.DATE3, '예약불가', 'F', '' ) ) ) AS BOKG_YN3
+			     , MAX(DECODE(DD1.DATE4, '예약종료', '예약종료', DECODE(DD1.DATE4, '예약불가', '예약불가', '예약가능' ) ) ) AS DATE_RESULT4
+				 , MAX(DECODE(DD1.DATE4, '예약종료', '예약종료', DECODE(DD1.DATE4, '예약불가', '예약불가', DD1.DATE4 ) ) ) AS DATE4
+			     , MAX(DECODE(DD1.DATE4, '예약종료', 'F', DECODE(DD1.DATE4, '예약불가', 'F', '' ) ) ) AS BOKG_YN4
+			     , MAX(DECODE(DD1.DATE5, '예약종료', '예약종료', DECODE(DD1.DATE5, '예약불가', '예약불가', '예약가능' ) ) ) AS DATE_RESULT5
+				 , MAX(DECODE(DD1.DATE5, '예약종료', '예약종료', DECODE(DD1.DATE5, '예약불가', '예약불가', DD1.DATE5 ) ) ) AS DATE5
+			     , MAX(DECODE(DD1.DATE5, '예약종료', 'F', DECODE(DD1.DATE5, '예약불가', 'F', '' ) ) ) AS BOKG_YN5
+			     , MAX(DECODE(DD1.DATE6, '예약종료', '예약종료', DECODE(DD1.DATE6, '예약불가', '예약불가', '예약가능' ) ) ) AS DATE_RESULT6
+				 , MAX(DECODE(DD1.DATE6, '예약종료', '예약종료', DECODE(DD1.DATE6, '예약불가', '예약불가', DD1.DATE6 ) ) ) AS DATE6
+			     , MAX(DECODE(DD1.DATE6, '예약종료', 'F', DECODE(DD1.DATE6, '예약불가', 'F', '' ) ) ) AS BOKG_YN6
+			     , MAX(DECODE(DD1.DATE7, '예약종료', '예약종료', DECODE(DD1.DATE7, '예약불가', '예약불가', '예약가능' ) ) ) AS DATE_RESULT7
+				 , MAX(DECODE(DD1.DATE7, '예약종료', '예약종료', DECODE(DD1.DATE7, '예약불가', '예약불가', DD1.DATE7 ) ) ) AS DATE7
+			     , MAX(DECODE(DD1.DATE7, '예약종료', 'F', DECODE(DD1.DATE7, '예약불가', 'F', '' ) ) ) AS BOKG_YN7
+			     , MAX(DECODE(DD1.DATE8, '예약종료', '예약종료', DECODE(DD1.DATE8, '예약불가', '예약불가', '예약가능' ) ) ) AS DATE_RESULT8
+				 , MAX(DECODE(DD1.DATE8, '예약종료', '예약종료', DECODE(DD1.DATE8, '예약불가', '예약불가', DD1.DATE8 ) ) ) AS DATE8
+			     , MAX(DECODE(DD1.DATE8, '예약종료', 'F', DECODE(DD1.DATE8, '예약불가', 'F', '' ) ) ) AS BOKG_YN8
+			     , MAX(DECODE(DD1.DATE9, '예약종료', '예약종료', DECODE(DD1.DATE9, '예약불가', '예약불가', '예약가능' ) ) ) AS DATE_RESULT9
+				 , MAX(DECODE(DD1.DATE9, '예약종료', '예약종료', DECODE(DD1.DATE9, '예약불가', '예약불가', DD1.DATE9 ) ) ) AS DATE9
+			     , MAX(DECODE(DD1.DATE9, '예약종료', 'F', DECODE(DD1.DATE9, '예약불가', 'F', '' ) ) ) AS BOKG_YN9
+			     , MAX(DECODE(DD1.DATE10, '예약종료', '예약종료', DECODE(DD1.DATE10, '예약불가', '예약불가', '예약가능' ) ) ) AS DATE_RESULT10
+				 , MAX(DECODE(DD1.DATE10, '예약종료', '예약종료', DECODE(DD1.DATE10, '예약불가', '예약불가', DD1.DATE10 ) ) ) AS DATE10
+			     , MAX(DECODE(DD1.DATE10, '예약종료', 'F', DECODE(DD1.DATE10, '예약불가', 'F', '' ) ) ) AS BOKG_YN10
+			     , MAX(DECODE(DD1.DATE11, '예약종료', '예약종료', DECODE(DD1.DATE11, '예약불가', '예약불가', '예약가능' ) ) ) AS DATE_RESULT11
+				 , MAX(DECODE(DD1.DATE11, '예약종료', '예약종료', DECODE(DD1.DATE11, '예약불가', '예약불가', DD1.DATE11 ) ) ) AS DATE11
+			     , MAX(DECODE(DD1.DATE11, '예약종료', 'F', DECODE(DD1.DATE11, '예약불가', 'F', '' ) ) ) AS BOKG_YN11
+			     , MAX(DECODE(DD1.DATE12, '예약종료', '예약종료', DECODE(DD1.DATE12, '예약불가', '예약불가', '예약가능' ) ) ) AS DATE_RESULT12
+				 , MAX(DECODE(DD1.DATE12, '예약종료', '예약종료', DECODE(DD1.DATE12, '예약불가', '예약불가', DD1.DATE12 ) ) ) AS DATE12
+			     , MAX(DECODE(DD1.DATE12, '예약종료', 'F', DECODE(DD1.DATE12, '예약불가', 'F', '' ) ) ) AS BOKG_YN12
+			     , MAX(DECODE(DD1.DATE13, '예약종료', '예약종료', DECODE(DD1.DATE13, '예약불가', '예약불가', '예약가능' ) ) ) AS DATE_RESULT13
+				 , MAX(DECODE(DD1.DATE13, '예약종료', '예약종료', DECODE(DD1.DATE13, '예약불가', '예약불가', DD1.DATE13 ) ) ) AS DATE13
+			     , MAX(DECODE(DD1.DATE13, '예약종료', 'F', DECODE(DD1.DATE13, '예약불가', 'F', '' ) ) ) AS BOKG_YN13
+			     , MAX(DECODE(DD1.DATE14, '예약종료', '예약종료', DECODE(DD1.DATE14, '예약불가', '예약불가', '예약가능' ) ) ) AS DATE_RESULT14
+				 , MAX(DECODE(DD1.DATE14, '예약종료', '예약종료', DECODE(DD1.DATE14, '예약불가', '예약불가', DD1.DATE14 ) ) ) AS DATE14
+			     , MAX(DECODE(DD1.DATE14, '예약종료', 'F', DECODE(DD1.DATE14, '예약불가', 'F', '' ) ) ) AS BOKG_YN14
+			     , MAX(DECODE(DD1.DATE15, '예약종료', '예약종료', DECODE(DD1.DATE15, '예약불가', '예약불가', '예약가능' ) ) ) AS DATE_RESULT15
+				 , MAX(DECODE(DD1.DATE15, '예약종료', '예약종료', DECODE(DD1.DATE15, '예약불가', '예약불가', DD1.DATE15 ) ) ) AS DATE15
+			     , MAX(DECODE(DD1.DATE15, '예약종료', 'F', DECODE(DD1.DATE15, '예약불가', 'F', '' ) ) ) AS BOKG_YN15			     
+			  FROM (
+					SELECT D2.DMT_DVSN_CD
+					     , D2.TOT_DMT_DVSN_CD
+					     , MAX(DECODE(D1.ROW_SNO, 1, DECODE(NVL(D1.CLSNG_YN, 'N'), 'Y', '예약종료', DECODE(NVL(D1.CLSNG_YN, 'N'), 'X', '예약불가' ,D1.DT)), NULL)) AS DATE1
+					     , MAX(DECODE(D1.ROW_SNO, 2, DECODE(NVL(D1.CLSNG_YN, 'N'), 'Y', '예약종료', DECODE(NVL(D1.CLSNG_YN, 'N'), 'X', '예약불가' ,D1.DT)), NULL)) AS DATE2
+					     , MAX(DECODE(D1.ROW_SNO, 3, DECODE(NVL(D1.CLSNG_YN, 'N'), 'Y', '예약종료', DECODE(NVL(D1.CLSNG_YN, 'N'), 'X', '예약불가' ,D1.DT)), NULL)) AS DATE3
+					     , MAX(DECODE(D1.ROW_SNO, 4, DECODE(NVL(D1.CLSNG_YN, 'N'), 'Y', '예약종료', DECODE(NVL(D1.CLSNG_YN, 'N'), 'X', '예약불가' ,D1.DT)), NULL)) AS DATE4
+					     , MAX(DECODE(D1.ROW_SNO, 5, DECODE(NVL(D1.CLSNG_YN, 'N'), 'Y', '예약종료', DECODE(NVL(D1.CLSNG_YN, 'N'), 'X', '예약불가' ,D1.DT)), NULL)) AS DATE5
+					     , MAX(DECODE(D1.ROW_SNO, 6, DECODE(NVL(D1.CLSNG_YN, 'N'), 'Y', '예약종료', DECODE(NVL(D1.CLSNG_YN, 'N'), 'X', '예약불가' ,D1.DT)), NULL)) AS DATE6
+					     , MAX(DECODE(D1.ROW_SNO, 7, DECODE(NVL(D1.CLSNG_YN, 'N'), 'Y', '예약종료', DECODE(NVL(D1.CLSNG_YN, 'N'), 'X', '예약불가' ,D1.DT)), NULL)) AS DATE7
+					     , MAX(DECODE(D1.ROW_SNO, 8, DECODE(NVL(D1.CLSNG_YN, 'N'), 'Y', '예약종료', DECODE(NVL(D1.CLSNG_YN, 'N'), 'X', '예약불가' ,D1.DT)), NULL)) AS DATE8
+					     , MAX(DECODE(D1.ROW_SNO, 9, DECODE(NVL(D1.CLSNG_YN, 'N'), 'Y', '예약종료', DECODE(NVL(D1.CLSNG_YN, 'N'), 'X', '예약불가' ,D1.DT)), NULL)) AS DATE9
+					     , MAX(DECODE(D1.ROW_SNO, 10, DECODE(NVL(D1.CLSNG_YN, 'N'), 'Y', '예약종료', DECODE(NVL(D1.CLSNG_YN, 'N'), 'X', '예약불가' ,D1.DT)), NULL)) AS DATE10
+					     , MAX(DECODE(D1.ROW_SNO, 11, DECODE(NVL(D1.CLSNG_YN, 'N'), 'Y', '예약종료', DECODE(NVL(D1.CLSNG_YN, 'N'), 'X', '예약불가' ,D1.DT)), NULL)) AS DATE11
+					     , MAX(DECODE(D1.ROW_SNO, 12, DECODE(NVL(D1.CLSNG_YN, 'N'), 'Y', '예약종료', DECODE(NVL(D1.CLSNG_YN, 'N'), 'X', '예약불가' ,D1.DT)), NULL)) AS DATE12
+					     , MAX(DECODE(D1.ROW_SNO, 13, DECODE(NVL(D1.CLSNG_YN, 'N'), 'Y', '예약종료', DECODE(NVL(D1.CLSNG_YN, 'N'), 'X', '예약불가' ,D1.DT)), NULL)) AS DATE13
+					     , MAX(DECODE(D1.ROW_SNO, 14, DECODE(NVL(D1.CLSNG_YN, 'N'), 'Y', '예약종료', DECODE(NVL(D1.CLSNG_YN, 'N'), 'X', '예약불가' ,D1.DT)), NULL)) AS DATE14
+					     , MAX(DECODE(D1.ROW_SNO, 15, DECODE(NVL(D1.CLSNG_YN, 'N'), 'Y', '예약종료', DECODE(NVL(D1.CLSNG_YN, 'N'), 'X', '예약불가' ,D1.DT)), NULL)) AS DATE15
+					  FROM APL_DATE D1
+					     , (SELECT DMT_DVSN_CD
+					             , COUNT(DMT_DVSN_CD) AS TOT_DMT_DVSN_CD FROM TBCSPSAE115B WHERE USE_YN = 'Y'
+					      GROUP BY DMT_DVSN_CD
+					      ORDER BY DMT_DVSN_CD) D2
+					GROUP BY D2.DMT_DVSN_CD, D2.TOT_DMT_DVSN_CD
+					ORDER BY D2.DMT_DVSN_CD
+					) DD1
+				 , (
+					SELECT B.DMT_DVSN_CD
+					     , B.DT AS DDT
+					     , CASE WHEN B.POSS_CNT = 0 THEN 'N'
+					     		WHEN NVL(B.POSS_CNT, 0) - NVL(A.CNT_DMT_DVSN_CD, 0) <= 0 THEN 'N'
+					     		WHEN B.DT >= TO_CHAR(SYSDATE + 35, 'YYYYMMDD') THEN 'N'
+                                ELSE 'Y' END AS RESULT                         
+					    FROM (
+							  SELECT  A.DMT_DVSN_CD
+								     , COUNT(A.WEK) AS CNT_DMT_DVSN_CD
+								     , A.STR_DDL_DT
+								     , A.END_DDL_DT
+								  FROM (
+										SELECT A.APL_DT
+										     , B.DMT_DVSN_CD
+										     , B.SEAT_NM
+										     , B.RMN_NM
+										     , B.USE_STR_DT
+										     , B.USE_END_DT
+										     , B.USE_STR_DT AS DDT
+										     , C.WEK
+										     , C.STR_DDL_DT
+										     , C.END_DDL_DT
+										  FROM TBCSPSAE501M A
+										     , TBCSPSAE501D B
+										     , TBCSPSAE134B C
+										 WHERE A.CNB = B.CNB
+										   AND A.APL_DT = B.APL_DT
+										   AND A.BSC_SRNO = B.BSC_SRNO
+										   AND B.USE_STR_DT = TO_CHAR(TO_DATE(C.END_DDL_DT)-1,'YYYYMMDD')
+										   AND B.COFM_STA_CD IN ('10', '30', '50', '60') 
+										   AND B.USE_STR_DT BETWEEN TO_DATE(#strFromY# || #strFromM# || '01', 'YYYYMMDD') AND LAST_DAY(#strToY# || #strToM# || '01')
+								    ) A
+								 WHERE A.DDT IN ( SELECT DT
+								                    FROM APL_DATE
+								   			     )
+								GROUP BY A.DMT_DVSN_CD, A.STR_DDL_DT, A.END_DDL_DT) A
+							  , (SELECT A.DMT_DVSN_CD
+							          , A.POSS_CNT
+							          , B.DT
+							       FROM ROOM_BASE_CNT A
+							          , APL_DATE B
+							      WHERE B.DT BETWEEN TO_CHAR(TRUNC(TO_DATE(A.END_DDL_DT)-1, 'IW'), 'YYYYMMDD') AND TO_CHAR(TRUNC(TO_DATE(A.END_DDL_DT)-1, 'IW')+6, 'YYYYMMDD')) B
+							 WHERE A.DMT_DVSN_CD(+) = B.DMT_DVSN_CD
+						       AND B.DT BETWEEN TO_CHAR(TRUNC(TO_DATE(A.END_DDL_DT(+))-1, 'IW'), 'YYYYMMDD') AND TO_CHAR(TRUNC(TO_DATE(A.END_DDL_DT(+))-1, 'IW')+6, 'YYYYMMDD')
+				   ) DD2
+				, (SELECT * FROM TBDCMACM013C  WHERE CMM_CD_DVSN_CD = '1000140' AND USE_YN = 'Y') DD3
+			WHERE DD1.DMT_DVSN_CD = DD2.DMT_DVSN_CD(+)
+			  AND DD1.DMT_DVSN_CD = DD3.CD
+     GROUP BY  DD1.DMT_DVSN_CD
+		     , DD3.USR_DFN_TXT_1
+		     , DD3.USR_DFN_TXT_2
+		     , DD3.USR_DFN_TXT_3
+		     , DD1.TOT_DMT_DVSN_CD		    
+			ORDER BY FLOOR DESC) TB1
+         ]]>
+	</select>
+
+	<select id="CSPSAE501QTitleHeader" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+		        SELECT  SUBSTR(T2.DT, 7,2) || '(' || SUBSTRING(UPPER(TO_CHAR(TO_DATE(T2.DT), 'DAY', 'NLS_DATE_LANGUAGE=KOREAN')), 0, 1) || ')' AS DT
+				  FROM (
+					    SELECT TO_CHAR(TO_DATE(T1.STR_DT, 'YYYYMMDD') + (LEVEL-1), 'YYYYMMDD') AS DT
+				          FROM (
+				                SELECT #strFromY# || #strFromM# || '01' AS STR_DT
+                                     , TO_CHAR(LAST_DAY(#strToY# || #strToM# || '01'), 'YYYYMMDD') AS END_DT
+                                  FROM DUAL 
+				               ) T1
+				        CONNECT BY LEVEL <= (TO_DATE(T1.END_DT, 'YYYYMMDD')+1) - TO_DATE(T1.STR_DT, 'YYYYMMDD')
+				        ) T2
+				      , TBCSPSAE133B T3
+				      , TBCSPSAE134B T4
+				 WHERE T2.DT = T3.APL_DT
+				   AND T2.DT = TO_CHAR(TO_DATE(T4.END_DDL_DT)-1,'YYYYMMDD')
+         ]]>
+	</select>
+	
+	<select id="CSPSAE501QSelectMyRe" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+        	WITH DATA AS (
+			    SELECT 
+			           ROW_NUMBER() OVER(PARTITION BY BB.USE_STR_DT, BB.DMT_DVSN_CD
+			                                 ORDER BY BB.FRT_REGI_DH ASC) AS SEQ           
+			         , BB.*                                 
+			      FROM TBCSPSAE501D BB                                                                                           
+			)
+                
+			SELECT A.CNB /* CSPSAE501QSelectMyRe */
+			     , A.APL_DT
+			     , A.BSC_SRNO
+			     , SUBSTR(B.USE_STR_DT, 0, 4) || '-' || SUBSTR(B.USE_STR_DT, 5, 2) || '-' || SUBSTR(B.USE_STR_DT, 7, 2) || '(' || SUBSTRING (UPPER(TO_CHAR(TO_DATE(B.USE_STR_DT), 'DAY', 'NLS_DATE_LANGUAGE=KOREAN') ), 0, 1) || ')' USE_DT
+			     , B.SEAT_NM
+			     , B.DMT_DVSN_CD
+			     , B.USE_FEE
+			     , B.PD_YN
+			     , B.USE_YN
+			     , B.COFM_STA_CD
+			     , A.USE_YN AS COK_USE_YN
+			     , B.BOKG_COFM_DT
+			     , C.DDL_DT AS ROM_ALC_DDL_DT
+			     , B.RMN_NM
+			     , B.SRNO
+			     , GREATEST((B.SEQ) - 
+					        (CASE WHEN B.DMT_DVSN_CD = '4' THEN C.F2_WSRM_BOKG_POSS_CNT 
+					              WHEN B.DMT_DVSN_CD = '5' THEN C.F3_WSRM_BOKG_POSS_CNT
+					              WHEN B.DMT_DVSN_CD = '6' THEN C.F3_KSRM_BOKG_POSS_CNT 
+					              WHEN B.DMT_DVSN_CD = '7' THEN C.F4_WSRM_BOKG_POSS_CNT 
+					              WHEN B.DMT_DVSN_CD = '8' THEN C.CAMP_BOKG_POSS_CNT
+					              ELSE 0 END), 0) AS WT_NUM
+			  FROM TBCSPSAE501M A
+			     , DATA B
+			     , TBCSPSAE134B C
+			 WHERE A.CNB = B.CNB
+			   AND A.APL_DT = B.APL_DT
+			   AND A.BSC_SRNO = B.BSC_SRNO
+			   AND B.USE_STR_DT = TO_CHAR(TO_DATE(C.END_DDL_DT)-1,'YYYYMMDD')
+			   AND A.CNB = #CNB#
+			   AND B.USE_STR_DT BETWEEN #strFromY# || #strFromM# || '01' AND #strToY# || #strToM# || '31'
+			ORDER BY A.APL_DT, B.USE_STR_DT
+         ]]>
+	</select>
+
+	<select id="CSPSAE501QSelectBasicInfo" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+        	WITH CURT_WEEK (STR_DT, END_DT) 
+			AS (
+			 SELECT A.STR_DT ,
+			        A.END_DT
+			   FROM (SELECT TO_CHAR(WEEK_START, 'YYYYMMDD') AS STR_DT ,
+			                TO_CHAR(WEEK_END, 'YYYYMMDD') AS END_DT
+			           FROM (SELECT TRUNC (START_DT + LEVEL, 'D') + 1 AS WEEK_START ,
+			                        TRUNC (START_DT + LEVEL, 'D') + 7 AS WEEK_END
+			                   FROM (SELECT TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD')) - 1 AS START_DT ,
+			                                ADD_MONTHS(TO_CHAR(SYSDATE, 'YYYYMMDD'), 1) AS END_DT
+			                           FROM DUAL ) CONNECT BY LEVEL <= END_DT - START_DT )
+			       GROUP BY WEEK_START,
+			                WEEK_END
+			       ORDER BY WEEK_START ) A
+			          WHERE ROWNUM = 1 )
+        
+			SELECT MAX(A.MN_BOKG_NBC) AS MN_BOKG_NBC
+			     , MAX(A.BOKG_POSS_RM_CNT) AS BOKG_POSS_RM_CNT
+			     , MAX(C.MN_BOKG_NBC) AS PRE_MN_BOKG_NBC
+			     , MAX(C.BOKG_POSS_RM_CNT) AS PRE_BOKG_POSS_RM_CNT
+			     , DECODE(MAX(B.LTD_STR_DT), NULL, '', SUBSTR(MAX(B.LTD_STR_DT), 0, 4) || '-' || SUBSTR(MAX(B.LTD_STR_DT), 5, 2) || '-' || SUBSTR(MAX(B.LTD_STR_DT), 7, 2) || ' ~ ' ||
+				   SUBSTR(MAX(B.LTD_END_DT), 0, 4) || '-' || SUBSTR(MAX(B.LTD_END_DT), 5, 2) || '-' || SUBSTR(MAX(B.LTD_END_DT), 7, 2)) AS LTD_DT
+			  FROM (
+					SELECT DECODE(MAX(A.CNB), '', 0, MAX(A.CNB)) || '/' || (SELECT MN_BOKG_NBC FROM TBCSPSAE132B) AS MN_BOKG_NBC
+					     , (SELECT BOKG_POSS_RM_CNT FROM TBCSPSAE132B) - COUNT(B.SRNO) AS BOKG_POSS_RM_CNT
+					     , '1' AS SEQ
+					  FROM (
+							SELECT COUNT(NVL(A.BSC_SRNO, 0)) AS CNB
+					          FROM (SELECT DISTINCT A.BSC_SRNO
+									  FROM TBCSPSAE501M A
+									     , TBCSPSAE501D B
+									 WHERE B.CNB = A.CNB
+									   AND B.APL_DT = A.APL_DT
+									   AND B.BSC_SRNO = A.BSC_SRNO
+									   AND A.CNB = #CNB#
+									   AND B.COFM_STA_CD IN ('10', '30', '50', '60')
+									   AND A.APL_DT BETWEEN TO_CHAR(SYSDATE, 'YYYYMM') || '01' AND TO_CHAR(LAST_DAY(SYSDATE), 'YYYYMMDD')
+								   ) A
+					       ) A
+					     , (
+					         SELECT B.SRNO
+					          FROM TBCSPSAE501D B
+					         WHERE B.CNB = #CNB#
+					          AND B.COFM_STA_CD IN('10', '30','50', '60')
+					          AND B.APL_DT BETWEEN (SELECT STR_DT FROM CURT_WEEK) AND (SELECT END_DT FROM CURT_WEEK)
+					       ) B
+			       ) A
+				  ,(
+			        SELECT  C.LTD_STR_DT
+					      , C.LTD_END_DT
+					      , '1' AS SEQ
+					   FROM TBCSPSAE502D C
+					  WHERE C.CNB = #CNB#
+					    AND C.UN_USE_DT BETWEEN TO_CHAR(SYSDATE, 'YYYYMM') || '01' AND TO_CHAR(LAST_DAY(SYSDATE), 'YYYYMMDD')
+					) B
+			      , (SELECT DECODE(MAX(A.CNB), '', 0, MAX(A.CNB)) || '/' || (SELECT MN_BOKG_NBC FROM TBCSPSAE132B) AS MN_BOKG_NBC
+					     , (SELECT BOKG_POSS_RM_CNT FROM TBCSPSAE132B) - COUNT(B.SRNO) AS BOKG_POSS_RM_CNT
+					     , '1' AS SEQ
+					  FROM (
+							SELECT COUNT(NVL(A.BSC_SRNO, 0)) AS CNB
+					          FROM (SELECT DISTINCT A.BSC_SRNO
+									  FROM TBCSPSAE501M A
+									     , TBCSPSAE501D B
+									 WHERE B.CNB = A.CNB
+									   AND B.APL_DT = A.APL_DT
+									   AND B.BSC_SRNO = A.BSC_SRNO
+									   AND A.CNB = #CNB#
+									   AND B.COFM_STA_CD IN ('10', '30', '50', '60')
+									   AND A.APL_DT BETWEEN TO_CHAR(SYSDATE, 'YYYYMM') || '01' AND TO_CHAR(LAST_DAY(SYSDATE), 'YYYYMMDD')
+								   ) A
+					       ) A
+					     , (
+					         SELECT B.SRNO
+					          FROM TBCSPSAE501D B
+					         WHERE B.CNB = #CNB#
+					          AND B.COFM_STA_CD IN('10', '30','50', '60')
+					          AND B.APL_DT BETWEEN (SELECT STR_DT FROM CURT_WEEK) AND (SELECT END_DT FROM CURT_WEEK)
+					       ) B
+			       ) C
+			  WHERE A.SEQ = B.SEQ(+)
+			    AND C.SEQ = A.SEQ
+         ]]>
+	</select>
+
+
+	<!-- <select id="CSPSAE501QSelectBasicInfo" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT MAX(A.MN_BOKG_NBC) AS MN_BOKG_NBC
+			     , MAX(A.BOKG_POSS_RM_CNT) AS BOKG_POSS_RM_CNT
+			     , MAX(C.MN_BOKG_NBC) AS PRE_MN_BOKG_NBC
+			     , MAX(C.BOKG_POSS_RM_CNT) AS PRE_BOKG_POSS_RM_CNT
+			     , DECODE(MAX(B.LTD_STR_DT), NULL, '', SUBSTR(MAX(B.LTD_STR_DT), 0, 4) || '-' || SUBSTR(MAX(B.LTD_STR_DT), 5, 2) || '-' || SUBSTR(MAX(B.LTD_STR_DT), 7, 2) || ' ~ ' ||
+				   SUBSTR(MAX(B.LTD_END_DT), 0, 4) || '-' || SUBSTR(MAX(B.LTD_END_DT), 5, 2) || '-' || SUBSTR(MAX(B.LTD_END_DT), 7, 2)) AS LTD_DT
+			  FROM (
+					SELECT DECODE(MAX(A.CNB), '', 0, MAX(A.CNB)) || '/' || (SELECT MN_BOKG_NBC FROM TBCSPSAE132B) AS MN_BOKG_NBC
+					     , (SELECT BOKG_POSS_RM_CNT FROM TBCSPSAE132B) - COUNT(B.SRNO) AS BOKG_POSS_RM_CNT
+					     , '1' AS SEQ
+					  FROM (
+							SELECT COUNT(NVL(A.BSC_SRNO, 0)) AS CNB
+					          FROM (SELECT DISTINCT A.BSC_SRNO
+									  FROM TBCSPSAE501M A
+									     , TBCSPSAE501D B
+									 WHERE B.CNB = A.CNB
+									   AND B.APL_DT = A.APL_DT
+									   AND B.BSC_SRNO = A.BSC_SRNO
+									   AND A.CNB = #CNB#
+									   AND B.COFM_STA_CD IN ('10', '30', '50', '60')
+									   AND A.APL_DT BETWEEN #strFromY# || #strFromM# || '01' AND #strToY# || #strToM# || '31'
+								   ) A
+					       ) A
+					     , (
+					         SELECT B.SRNO
+					          FROM TBCSPSAE501D B
+					         WHERE B.CNB = #CNB#
+					          AND B.COFM_STA_CD IN('10', '30','50', '60')
+					          AND B.APL_DT BETWEEN #strFromY# || #strFromM# || '01' AND #strToY# || #strToM# || '31'
+					          AND B.APL_DT >= TO_CHAR(SYSDATE,'YYYYMMDD')
+					       ) B
+			       ) A
+				  ,(
+			        SELECT  C.LTD_STR_DT
+					      , C.LTD_END_DT
+					      , '1' AS SEQ
+					   FROM TBCSPSAE502D C
+					  WHERE C.CNB = #CNB#
+					    AND C.UN_USE_DT BETWEEN #strFromY# || #strFromM# || '01' AND #strToY# || #strToM# || '31'
+					) B
+			      , (SELECT DECODE(MAX(A.CNB), '', 0, MAX(A.CNB)) || '/' || (SELECT MN_BOKG_NBC FROM TBCSPSAE132B) AS MN_BOKG_NBC
+					     , (SELECT BOKG_POSS_RM_CNT FROM TBCSPSAE132B) - COUNT(B.SRNO) AS BOKG_POSS_RM_CNT
+					     , '1' AS SEQ
+					  FROM (
+							SELECT COUNT(NVL(A.BSC_SRNO, 0)) AS CNB
+					          FROM (SELECT DISTINCT A.BSC_SRNO
+									  FROM TBCSPSAE501M A
+									     , TBCSPSAE501D B
+									 WHERE B.CNB = A.CNB
+									   AND B.APL_DT = A.APL_DT
+									   AND B.BSC_SRNO = A.BSC_SRNO
+									   AND A.CNB = #CNB#
+									   AND B.COFM_STA_CD IN ('10', '30', '50', '60')
+									   AND A.APL_DT BETWEEN #strFromY# || #strFromM# || '01' AND #strToY# || #strToM# || '31'
+								   ) A
+					       ) A
+					     , (
+					         SELECT B.SRNO
+					          FROM TBCSPSAE501D B
+					         WHERE B.CNB = #CNB#
+					          AND B.COFM_STA_CD IN('10', '30','50', '60')
+					          AND B.APL_DT BETWEEN #strFromY# || #strFromM# || '01' AND #strToY# || #strToM# || '31'
+					          AND B.APL_DT >= TO_CHAR(SYSDATE,'YYYYMMDD')
+					       ) B
+			       ) C
+			  WHERE A.SEQ = B.SEQ(+)
+			    AND C.SEQ = A.SEQ
+         ]]>
+	</select> -->
+
+	<delete id="CSPSAE501QDeleteMain" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE501M
+			 WHERE 1=1
+			   AND CNB = #CNB#
+			   AND APL_DT = #APL_DT#
+			   AND BSC_SRNO = #BSC_SRNO#
+		]]>  
+	</delete>
+	
+	<select id="CSPSAE501QSelectBokgCnt" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT NVL(COUNT(CNB), 0) AS CNT FROM TBCSPSAE501D
+			 WHERE 1=1
+			   AND CNB = #CNB#
+			   AND APL_DT = #APL_DT#
+			   AND BSC_SRNO = #BSC_SRNO#
+         ]]>
+	</select>
+	
+	<delete id="CSPSAE501QDeleteBokg" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE501D
+			 WHERE 1=1
+			   AND CNB = #CNB#
+			   AND APL_DT = #APL_DT#
+			   AND BSC_SRNO = #BSC_SRNO#
+			   AND SRNO = #SRNO#
+			   AND COFM_STA_CD = '10'
+		]]>  
+	</delete>
+	
+	<select id="CSPSAE502ESelectMain" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT B.CNB /* CSPSAE502ESelectMain */
+			     , B.USR_ID
+			     , B.USR_NAM
+			     , B.DPT_CD
+			     , C.DPT_NM
+			     , REPLACE(B.HOM_TNB, '-', '') AS CAL_TNB
+			     , '' AS UE_NOP_CNT
+			     , '' AS IO_CAR_TXT
+			     , '' AS UE_PPS_TXT
+			     , DECODE(D.CNT, '', 0, D.CNT) || '/' || (SELECT MN_BOKG_NBC FROM TBCSPSAE132B) AS MN_BOKG_NBC
+				 , (SELECT BOKG_POSS_RM_CNT FROM TBCSPSAE132B) - A.POSS_CNT AS BOKG_POSS_RM_CNT
+				 , (SELECT COK_PMS_CNT 
+			        FROM TBCSPSAE134B
+			        WHERE END_DDL_DT IN (SELECT TO_CHAR(TO_DATE(T1.STR_DT, 'YYYYMMDD') + (LEVEL-1), 'YYYYMMDD') AS DT
+					          						FROM (
+			                            						SELECT 	TO_CHAR(WEEK_START, 'YYYYMMDD') AS STR_DT
+						              							, TO_CHAR(WEEK_END, 'YYYYMMDD') AS END_DT
+						           						FROM  ( SELECT 	TRUNC (START_DT + LEVEL, 'D') + 1 AS WEEK_START
+						                        						, TRUNC (START_DT + LEVEL, 'D') + 7 AS WEEK_END
+						                     					FROM ( SELECT TO_DATE(#strDATE#) - 1 AS START_DT
+						                                 					, TO_DATE(#strDATE#) AS END_DT
+						                              					FROM DUAL
+					                          						)
+						                     					CONNECT BY LEVEL <= END_DT - START_DT
+						                     					)
+					               						) T1
+					CONNECT BY LEVEL <= (TO_DATE(T1.END_DT, 'YYYYMMDD')+1) - TO_DATE(T1.STR_DT, 'YYYYMMDD')) ) - E.COK_USE_CNT AS COK_PMS_CNT
+				 , DECODE(NVL(#strLENGTH#, 0), 0, (SUBSTR(#strDATE#, 0, 4) || '-' || SUBSTR(#strDATE#, 5, 2) || '-' || SUBSTR(#strDATE#, 7, 2) || '(' || SUBSTRING(UPPER(TO_CHAR(TO_DATE(#strDATE#), 'DAY', 'NLS_DATE_LANGUAGE=KOREAN')), 0, 1) || ')'),
+				  (SUBSTR(#strDATE#, 0, 4) || '-' || SUBSTR(#strDATE#, 5, 2) || '-' || SUBSTR(#strDATE#, 7, 2) || '(' || SUBSTRING(UPPER(TO_CHAR(TO_DATE(#strDATE#), 'DAY', 'NLS_DATE_LANGUAGE=KOREAN')), 0, 1) || ')'  || ', ' ||
+				   SUBSTR(TO_CHAR((TO_DATE(#strDATE#)+#strLENGTH#), 'YYYYMMDD'), 0, 4) || '-' || SUBSTR(TO_CHAR((TO_DATE(#strDATE#)+#strLENGTH#), 'YYYYMMDD'), 5, 2) || '-' || SUBSTR(TO_CHAR((TO_DATE(#strDATE#)+#strLENGTH#), 'YYYYMMDD'), 7, 2) || '(' || SUBSTRING(UPPER(TO_CHAR(TO_DATE(TO_CHAR((TO_DATE(#strDATE#)+#strLENGTH#), 'YYYYMMDD')), 'DAY', 'NLS_DATE_LANGUAGE=KOREAN')), 0, 1) || ')')) AS USE_DT
+				 , TO_CHAR(SYSDATE, 'YYYYMMDD') AS APL_DT
+				 , (SUBSTR(#strDATE#, 0, 4) || '년 ' || SUBSTR(#strDATE#, 5, 2) || '월 ' || SUBSTR(#strDATE#, 7, 2) || '일') AS USE_FROM_DT
+				 , (SUBSTR( TO_CHAR(TO_DATE(#strDATE#, 'YYYYMMDD')+NVL(#strLENGTH#, 0), 'YYYYMMDD'), 0, 4) || '년 ' || SUBSTR(TO_CHAR(TO_DATE(#strDATE#, 'YYYYMMDD')+NVL(#strLENGTH#, 0), 'YYYYMMDD'), 5, 2) || '월 ' || SUBSTR(TO_CHAR(TO_DATE(#strDATE#, 'YYYYMMDD')+NVL(#strLENGTH#, 0) + 1, 'YYYYMMDD'), 7, 2) || '일') AS USE_TO_DT
+				 , '' AS USE_FEE
+				 , '' AS BOKG_DT
+			  FROM (SELECT COUNT(B.CNB) AS POSS_CNT 
+			          FROM TBCSPSAE501D B
+			         WHERE B.CNB = #CNB# 
+			           AND B.COFM_STA_CD IN ('10', '30', '50', '60')
+			           AND B.USE_STR_DT BETWEEN TO_CHAR(TRUNC(TO_DATE(#strDATE#),'IW'),'YYYYMMDD') AND TO_CHAR(TRUNC(TO_DATE(#strDATE#),'IW')+6,'YYYYMMDD')) A
+				, TBDCMACM001M B
+			    , TBDCMACM002M C
+				, (
+			        SELECT COUNT(NVL(A.BSC_SRNO, 0)) AS CNT
+			          FROM (SELECT DISTINCT A.BSC_SRNO
+							  FROM TBCSPSAE501M A
+							     , TBCSPSAE501D B
+							 WHERE B.CNB = A.CNB
+							   AND B.APL_DT = A.APL_DT
+							   AND B.BSC_SRNO = A.BSC_SRNO
+							   AND B.COFM_STA_CD IN ('10', '30', '50', '60')
+							   AND B.APL_DT BETWEEN TO_CHAR(SYSDATE, 'YYYYMM') || '01' AND TO_CHAR(LAST_DAY(SYSDATE), 'YYYYMMDD')
+							   AND A.CNB = #CNB#
+						   ) A
+				) D
+			    , (SELECT COUNT(A.COK_USE_CNT) AS COK_USE_CNT
+				FROM 
+					(SELECT 
+						  A.DT AS COK_USE_CNT
+						, A.CNB
+					FROM
+						(SELECT	TO_DATE(B.USE_STR_DT, 'yyyymmdd') AS DT, B.CNB
+						FROM	TBCSPSAE501M A
+								, TBCSPSAE501D B
+						WHERE	B.CNB = A.CNB
+						AND		B.APL_DT = A.APL_DT
+						AND		B.BSC_SRNO = A.BSC_SRNO
+						AND		A.USE_YN = 'Y'
+						AND		B.USE_STR_DT IN (
+												SELECT TO_CHAR(TO_DATE(T1.STR_DT, 'YYYYMMDD') + (LEVEL-1), 'YYYYMMDD') AS DT
+				          						FROM (
+                              						SELECT 	TO_CHAR(WEEK_START, 'YYYYMMDD') AS STR_DT
+					              							, TO_CHAR(WEEK_END, 'YYYYMMDD') AS END_DT
+					           						FROM  ( SELECT 	TRUNC (START_DT + LEVEL, 'D') + 1 AS WEEK_START
+					                        						, TRUNC (START_DT + LEVEL, 'D') + 7 AS WEEK_END
+					                     					FROM ( SELECT TO_DATE(#strDATE#) - 1 AS START_DT
+					                                 					, TO_DATE(#strDATE#) AS END_DT
+					                              					FROM DUAL
+				                          						)
+					                     					CONNECT BY LEVEL <= END_DT - START_DT
+					                     					)
+				               						) T1
+				        						CONNECT BY LEVEL <= (TO_DATE(T1.END_DT, 'YYYYMMDD') + 1) - TO_DATE(T1.STR_DT, 'YYYYMMDD')
+												)
+						) A
+					GROUP BY A.DT, A.CNB
+					) A
+				) E
+			WHERE B.CNB = #CNB#
+			  AND C.DPT_CD = B.DPT_CD
+         ]]>
+	</select>
+
+	<select id="CSPSAE502ESelectBokgInfo2" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT S1.DMT_DVSN_CD,
+			       DECODE(S1.POSS_CNT - NVL(S2.CNT_DMT_DVSN_CD,0), 0, 'Y', 'N') AS FULL_YN
+			  FROM (SELECT A.DMT_DVSN_CD ,
+			               A.POSS_CNT,
+			               A.STR_DDL_DT ,
+			               A.END_DDL_DT
+			          FROM (SELECT F2_WSRM_BOKG_POSS_CNT AS POSS_CNT ,
+			                       '4' AS DMT_DVSN_CD ,
+			                       STR_DDL_DT ,
+			                       END_DDL_DT
+			                  FROM TBCSPSAE134B
+			                 WHERE F2_WSRM_BOKG_POSS_CNT > 0
+			                 UNION ALL
+							SELECT F3_WSRM_BOKG_POSS_CNT AS POSS_CNT ,
+							                       '5' AS DMT_DVSN_CD ,
+							                       STR_DDL_DT ,
+							                       END_DDL_DT
+							                  FROM TBCSPSAE134B
+							                 WHERE F3_WSRM_BOKG_POSS_CNT > 0
+							                 UNION ALL
+							SELECT F3_KSRM_BOKG_POSS_CNT AS POSS_CNT ,
+							                       '6' AS DMT_DVSN_CD ,
+							                       STR_DDL_DT ,
+							                       END_DDL_DT
+							                  FROM TBCSPSAE134B
+							                 WHERE F3_KSRM_BOKG_POSS_CNT > 0
+							                 UNION ALL
+							SELECT F4_WSRM_BOKG_POSS_CNT AS POSS_CNT ,
+							                       '7' AS DMT_DVSN_CD ,
+							                       STR_DDL_DT ,
+							                       END_DDL_DT
+							                  FROM TBCSPSAE134B
+							                 WHERE F4_WSRM_BOKG_POSS_CNT > 0
+							                 UNION ALL
+							SELECT CAMP_BOKG_POSS_CNT AS POSS_CNT ,
+							                       '8' AS DMT_DVSN_CD ,
+							                       STR_DDL_DT ,
+							                       END_DDL_DT
+							                  FROM TBCSPSAE134B
+							                 WHERE CAMP_BOKG_POSS_CNT > 0 ) A
+							         WHERE SYSDATE BETWEEN A.STR_DDL_DT AND A.END_DDL_DT) S1,
+			       	(SELECT T2.DMT_DVSN_CD,
+			               COUNT(T2.DMT_DVSN_CD) AS CNT_DMT_DVSN_CD
+			          FROM TBCSPSAE501M T1,
+			               TBCSPSAE501D T2
+			         WHERE T1.CNB = T2.CNB
+			           AND T1.APL_DT = T2.APL_DT
+			           AND T1.BSC_SRNO = T2.BSC_SRNO
+			           AND USE_STR_DT BETWEEN TO_CHAR(TRUNC(TO_DATE(#DDT#), 'IW'), 'YYYYMMDD') AND TO_CHAR(TRUNC(TO_DATE(#DDT#), 'IW')+6, 'YYYYMMDD')
+			         GROUP BY T2.DMT_DVSN_CD) S2
+			 WHERE S1.DMT_DVSN_CD = S2.DMT_DVSN_CD(+)
+			   AND S1.DMT_DVSN_CD = #DMT_DVSN_CD#
+         ]]>
+	</select>
+	
+	<select id="CSPSAE502ESelectBokgInfo" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			WITH APL_DATE AS /* CSPSAE502ESelectBokgInfo */
+				(SELECT  T2.DT
+                      , CASE WHEN T2.DT > T5.END_DT THEN 'X' ELSE NVL(T4.CLSNG_YN, 'N') END AS CLSNG_YN
+				      , ROWNUM AS ROW_SNO
+				  FROM (
+					    SELECT TO_CHAR(TO_DATE(T1.STR_DT, 'YYYYMMDD') + (LEVEL-1), 'YYYYMMDD') AS DT
+					         , T1.END_DT
+				          FROM (
+				                SELECT #strDATE# AS STR_DT
+                                      , TO_CHAR(LAST_DAY(#strDATE#), 'YYYYMMDD') AS END_DT
+                                  FROM DUAL
+				               ) T1
+				        CONNECT BY LEVEL <= (TO_DATE(T1.END_DT, 'YYYYMMDD')+1) - TO_DATE(T1.STR_DT, 'YYYYMMDD')
+				        ) T2
+				      , TBCSPSAE133B T3
+				      , TBCSPSAE134B T4
+				      , (
+				         SELECT MAX(DECODE(A.JUCHA, 1, MAX(A.ILJA), DECODE(A.JUCHA, 2, MAX(A.ILJA), DECODE(A.JUCHA, 3, MAX(A.ILJA), DECODE(A.JUCHA, 4, MAX(A.ILJA), DECODE(A.JUCHA, 5, MAX(A.ILJA),  DECODE(A.JUCHA, 6, MIN(A.ILJA), ''))))))) AS END_DT
+						   FROM (
+								 SELECT TO_CHAR(DT, 'yyyymmdd') AS ILJA
+								      , CEIL((DT - NEXT_DAY(TRUNC(DT, 'mm') - 7, '1') + 1)/7) AS JUCHA
+								      , CEIL((DT - NEXT_DAY(TRUNC(DT, 'yy') - 7, '1') + 1)/7) AS YY_JUCHA
+								      , CEIL((SYSDATE - NEXT_DAY(TRUNC(SYSDATE, 'yy') - 7, '1') + 1)/7) AS NOW_JUCHA
+								   FROM (
+										SELECT TO_DATE(#strDATE#, 'yyyymmdd') + (LEVEL -1) AS DT
+										 FROM DUAL
+										CONNECT BY LEVEL <= (LAST_DAY(#strDATE#)+1) - TO_DATE(#strDATE#, 'YYYYMMDD')
+										)
+								) A
+							   , TBCSPSAE132B B
+						 WHERE A.YY_JUCHA < A.NOW_JUCHA + TO_NUMBER(B.PRE_BOKG_WEK)
+						   AND A.YY_JUCHA >= A.NOW_JUCHA
+						GROUP BY A.JUCHA, A.YY_JUCHA
+				        ) T5
+				 WHERE T2.DT = T3.APL_DT
+				   AND T2.DT BETWEEN TO_CHAR(TRUNC(TO_DATE(T4.END_DDL_DT(+))-1, 'IW'), 'YYYYMMDD') AND TO_CHAR(TRUNC(TO_DATE(T4.END_DDL_DT(+))-1, 'IW')+6, 'YYYYMMDD')
+			)
+        
+			SELECT DISTINCT
+			       A.USR_DFN_TXT_1
+			     , A.USR_DFN_TXT_2
+			     , A.USR_DFN_TXT_3
+			     , 0 AS CNT
+			     , (CASE WHEN B.DMT_DVSN_CNT > 0 THEN B.DMT_DVSN_CNT ELSE 0 END) AS DMT_DVSN_CNT
+       			 , (CASE WHEN B.DMT_DVSN_CNT < 0 THEN ABS(B.DMT_DVSN_CNT) ELSE 0 END) AS WT_DVSN_CNT
+			     , B.RESULT AS FULL_YN
+			     , 0 AS USE_FEE
+			     , D.USE_FEE AS COST_USE_FEE
+			     , TO_CHAR(SYSDATE, 'YYYYMMDD') AS APL_DT
+			     , A.CD AS DMT_DVSN_CD
+			     , #strDATE# AS DDT
+			     , NVL(#strLENGTH#, 0) AS DDT_LENGTH
+			  FROM TBDCMACM013C A
+			     , (
+				     SELECT B.DMT_DVSN_CD
+						     , B.DT AS DDT
+						     , B.POSS_CNT - NVL(A.CNT_DMT_DVSN_CD, 0) AS DMT_DVSN_CNT
+						     , DECODE(B.POSS_CNT - A.CNT_DMT_DVSN_CD, 0, 'Y', 'N') AS RESULT
+						    FROM (
+								  SELECT  A.DMT_DVSN_CD
+									     , COUNT(A.WEK) AS CNT_DMT_DVSN_CD
+									     , A.STR_DDL_DT
+									     , A.END_DDL_DT
+									  FROM (
+											SELECT A.APL_DT
+											     , B.DMT_DVSN_CD
+											     , B.SEAT_NM
+											     , B.RMN_NM
+											     , B.USE_STR_DT
+											     , B.USE_END_DT
+											     , B.USE_STR_DT AS DDT
+											     , C.WEK
+											     , C.STR_DDL_DT
+											     , C.END_DDL_DT
+											  FROM TBCSPSAE501M A
+											     , TBCSPSAE501D B
+											     , TBCSPSAE134B C
+											 WHERE A.CNB = B.CNB
+											   AND A.APL_DT = B.APL_DT
+											   AND A.BSC_SRNO = B.BSC_SRNO
+											   AND B.USE_STR_DT BETWEEN TO_CHAR(TRUNC(TO_DATE(C.END_DDL_DT)-1, 'IW'), 'YYYYMMDD') AND TO_CHAR(TRUNC(TO_DATE(C.END_DDL_DT)-1, 'IW')+6, 'YYYYMMDD')
+											   AND B.COFM_STA_CD IN ('10', '30', '50', '60') 
+											   AND B.USE_STR_DT = TO_DATE(#strDATE#, 'YYYYMMDD')
+									    ) A
+									 WHERE A.DDT IN ( SELECT DT
+									                    FROM APL_DATE
+									   			     )
+									GROUP BY A.DMT_DVSN_CD, A.STR_DDL_DT, A.END_DDL_DT) A
+								  , (SELECT A.DMT_DVSN_CD
+								        , A.POSS_CNT
+								        , B.DT
+								     FROM (SELECT F2_WSRM_BOKG_POSS_CNT AS POSS_CNT
+								                , '4' AS DMT_DVSN_CD
+								                , STR_DDL_DT
+								                , END_DDL_DT
+								             FROM TBCSPSAE134B
+								             UNION ALL
+								           SELECT F3_WSRM_BOKG_POSS_CNT AS POSS_CNT
+								                , '5' AS DMT_DVSN_CD
+								                , STR_DDL_DT
+								                , END_DDL_DT
+								             FROM TBCSPSAE134B
+								             UNION ALL
+								           SELECT F3_KSRM_BOKG_POSS_CNT AS POSS_CNT
+								                , '6' AS DMT_DVSN_CD
+								                , STR_DDL_DT
+								                , END_DDL_DT
+								             FROM TBCSPSAE134B
+								             UNION ALL
+								           SELECT F4_WSRM_BOKG_POSS_CNT AS POSS_CNT
+								                , '7' AS DMT_DVSN_CD
+								                , STR_DDL_DT
+								                , END_DDL_DT
+								             FROM TBCSPSAE134B
+								             UNION ALL
+								           SELECT CAMP_BOKG_POSS_CNT AS POSS_CNT
+								                , '8' AS DMT_DVSN_CD
+								                , STR_DDL_DT
+								                , END_DDL_DT
+								             FROM TBCSPSAE134B
+								           ) A
+								         , APL_DATE B
+								     WHERE B.DT BETWEEN TO_CHAR(TRUNC(TO_DATE(A.END_DDL_DT(+))-1, 'IW'), 'YYYYMMDD') AND TO_CHAR(TRUNC(TO_DATE(A.END_DDL_DT(+))-1, 'IW')+6, 'YYYYMMDD')
+								       AND A.POSS_CNT > 0) B
+								 WHERE A.DMT_DVSN_CD(+) = B.DMT_DVSN_CD
+							       AND B.DT BETWEEN TO_CHAR(TRUNC(TO_DATE(A.END_DDL_DT(+))-1, 'IW'), 'YYYYMMDD') AND TO_CHAR(TRUNC(TO_DATE(A.END_DDL_DT(+))-1, 'IW')+6, 'YYYYMMDD')
+			       ) B
+			     , (SELECT DMT_DVSN_CD
+					             , COUNT(DMT_DVSN_CD) AS TOT_DMT_DVSN_CD FROM TBCSPSAE115B WHERE USE_YN = 'Y'
+					      GROUP BY DMT_DVSN_CD
+					      ORDER BY DMT_DVSN_CD) C
+                 , TBCSPSAE131B D
+			WHERE A.CMM_CD_DVSN_CD = '1000140'
+			  AND A.USE_YN = 'Y'
+			  AND B.DMT_DVSN_CD(+) = A.CD
+			  AND B.DDT = #strDATE#
+			  AND C.DMT_DVSN_CD(+) = A.CD
+			  AND D.DMT_DVSN_CD(+) = A.CD
+			ORDER BY A.USR_DFN_TXT_1 DESC
+         ]]>
+	</select>
+	
+	<select id="CSPSAE502ESelectContract" parameterClass="paramMap" resultMap="hwpDocMap">
+        <![CDATA[
+			SELECT APC_DT
+			     , TXT 
+			  FROM TBCSPSAE135B
+         ]]>
+	</select>
+
+	<select id="CSPSAE502ESelectMaxBscSrno" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT NVL(MAX(BSC_SRNO), 0)+1 AS BSC_SRNO FROM TBCSPSAE501M WHERE CNB = #CNB# AND APL_DT = #APL_DT# 
+         ]]>
+	</select>
+
+	<insert id="CSPSAE502EInsertMain" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBCSPSAE501M
+			(
+			      CNB
+			    , APL_DT
+			    , BSC_SRNO
+			    , CAL_TNB
+			    , UE_NOP_CNT
+			    , IO_CAR_TXT
+			    , UE_PPS_TXT
+			    , SPL_AGR_YN
+			    , SPL_DOC_TXT
+			    , USE_YN
+			    , FRT_USR_ID
+			    , FNL_USR_ID
+			    , FNL_DEAL_DPT_CD
+			    , FNL_MNU_ID
+			    , FRT_REGI_DH
+			    , FNL_MDF_DH
+			) VALUES (
+			      #S_CNB#
+			    , TO_CHAR(SYSDATE, 'YYYYMMDD')
+			    , #BSC_SRNO#
+			    , #CAL_TNB#
+			    , #UE_NOP_CNT#
+			    , #IO_CAR_TXT#
+			    , #UE_PPS_TXT#
+			    , 'Y'
+			    , #hwp#
+			    , NVL(#USE_YN#, 'N')
+			    , #FNL_USR_ID#
+			    , #FNL_USR_ID#
+			    , #FNL_DEAL_DPT_CD#
+			    , #FNL_MNU_ID#
+			    , SYSDATE
+			    , SYSDATE
+			)
+        ]]>
+	</insert>
+	
+	<select id="CSPSAE502ESelectBokgYn" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+	        SELECT ( CASE WHEN B.TOT_DMT_DVSN_CD - A.CNT >= 0 THEN 'Y' ELSE 'N' END ) AS BOKG_YN
+	  		  FROM (
+					SELECT #DMT_DVSN_CD# AS DMT_DVSN_CD
+					     , COUNT(A.SRNO) AS CNT
+					  FROM TBCSPSAE501D A
+					     , (SELECT * FROM TBDCMACM013C  WHERE CMM_CD_DVSN_CD = '1000140' AND USE_YN = 'Y') B
+					     , TBCSPSAE501M C
+					 WHERE B.CD = A.DMT_DVSN_CD(+)
+					   AND C.CNB(+) = A.CNB
+					   AND C.APL_DT(+) = A.APL_DT
+					   AND C.BSC_SRNO(+) = A.BSC_SRNO
+					   AND B.CD = #DMT_DVSN_CD#
+					   AND A.COFM_STA_CD IN ('10', '30', '50', '60')
+				       AND (A.USE_STR_DT IN( SELECT TO_CHAR(TO_DATE(#DDT#, 'YYYYMMDD') + (LEVEL-1), 'YYYYMMDD') AS DDT
+				                               FROM DUAL 
+				                         CONNECT BY LEVEL <= TO_DATE(#DDT#) + #DDT_LENGTH# - TO_DATE(#DDT#)
+				            ) OR A.USE_END_DT IN( SELECT TO_CHAR(TO_DATE(#DDT#, 'YYYYMMDD') + (LEVEL-1), 'YYYYMMDD') AS DDT
+				                                    FROM DUAL
+				                              CONNECT BY LEVEL <= TO_DATE(#DDT#) + #DDT_LENGTH# - TO_DATE(#DDT#) ) )
+				    ) A
+				  , (SELECT DMT_DVSN_CD
+				          , COUNT(DMT_DVSN_CD) AS TOT_DMT_DVSN_CD FROM TBCSPSAE115B WHERE USE_YN = 'Y'
+				      GROUP BY DMT_DVSN_CD
+				      ORDER BY DMT_DVSN_CD) B
+			WHERE A.DMT_DVSN_CD = B.DMT_DVSN_CD
+         ]]>
+	</select>
+
+
+	<select id="CSPSAE502EGetCokCnt" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+	       SELECT (	SELECT	COK_PMS_CNT 
+	       			FROM 	TBCSPSAE134B
+	       			WHERE STR_DDL_DT IN (
+										SELECT TO_CHAR(TO_DATE(T1.STR_DT, 'YYYYMMDD') + (LEVEL-1), 'YYYYMMDD') AS DT
+		          						FROM (
+                            						SELECT 	TO_CHAR(WEEK_START, 'YYYYMMDD') AS STR_DT
+			              							, TO_CHAR(WEEK_END, 'YYYYMMDD') AS END_DT
+			           						FROM  ( SELECT 	TRUNC (START_DT + LEVEL, 'D') + 1 AS WEEK_START
+			                        						, TRUNC (START_DT + LEVEL, 'D') + 7 AS WEEK_END
+			                     					FROM ( SELECT TO_DATE(#BOKG_DT#) - 1 AS START_DT
+			                                 					, TO_DATE(#BOKG_DT#) AS END_DT
+			                              					FROM DUAL
+		                          						)
+			                     					CONNECT BY LEVEL <= END_DT - START_DT
+			                     					)
+		               						) T1
+		        						CONNECT BY LEVEL <= (TO_DATE(T1.END_DT, 'YYYYMMDD')+1) - TO_DATE(T1.STR_DT, 'YYYYMMDD')
+										)
+	       			) - COUNT(A.DT) AS COK_USE_CNT
+			FROM (
+				SELECT	TO_DATE(B.USE_STR_DT, 'yyyymmdd') AS DT
+				FROM	TBCSPSAE501M A
+						, TBCSPSAE501D B
+				WHERE	B.CNB = A.CNB
+				AND		B.APL_DT = A.APL_DT
+				AND		B.BSC_SRNO = A.BSC_SRNO
+				AND		A.USE_YN = 'Y'
+				AND		B.USE_STR_DT IN (
+										SELECT TO_CHAR(TO_DATE(T1.STR_DT, 'YYYYMMDD') + (LEVEL-1), 'YYYYMMDD') AS DT
+		          						FROM (
+                            						SELECT 	TO_CHAR(WEEK_START, 'YYYYMMDD') AS STR_DT
+			              							, TO_CHAR(WEEK_END, 'YYYYMMDD') AS END_DT
+			           						FROM  ( SELECT 	TRUNC (START_DT + LEVEL, 'D') + 1 AS WEEK_START
+			                        						, TRUNC (START_DT + LEVEL, 'D') + 7 AS WEEK_END
+			                     					FROM ( SELECT TO_DATE(#BOKG_DT#) - 1 AS START_DT
+			                                 					, TO_DATE(#BOKG_DT#) AS END_DT
+			                              					FROM DUAL
+		                          						)
+			                     					CONNECT BY LEVEL <= END_DT - START_DT
+			                     					)
+		               						) T1
+		        						CONNECT BY LEVEL <= (TO_DATE(T1.END_DT, 'YYYYMMDD')+1) - TO_DATE(T1.STR_DT, 'YYYYMMDD')
+										)
+				) A
+         ]]>
+	</select>
+
+	<insert id="CSPSAE502EInsertBokg" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBCSPSAE501D
+			(
+			      CNB
+			    , APL_DT
+			    , BSC_SRNO
+			    , SRNO
+			    , DMT_DVSN_CD
+			    , SEAT_NM
+			    , RMN_NM
+			    , USE_STR_DT
+			    , USE_END_DT
+			    , USE_FEE
+			    , PD_YN
+			    , USE_YN
+			    , COFM_STA_CD
+			    , BOKG_COFM_DT
+			    , FRT_USR_ID
+			    , FNL_USR_ID
+			    , FNL_DEAL_DPT_CD
+			    , FNL_MNU_ID
+			    , FRT_REGI_DH
+			    , FNL_MDF_DH
+			) VALUES (
+			      #S_CNB#
+			    , #APL_DT#
+			    , #BSC_SRNO#
+			    , (SELECT NVL(MAX(SRNO), 0)+1 AS SRNO FROM TBCSPSAE501D WHERE CNB = #S_CNB# AND APL_DT = #APL_DT# AND BSC_SRNO = #BSC_SRNO#)
+			    , #DMT_DVSN_CD#
+			    , ''
+			    , ''
+			    , TO_CHAR((TO_DATE(#DDT#)+#DDT_LENGTH#), 'YYYYMMDD')
+			    , TO_CHAR((TO_DATE(#DDT#) + 1), 'YYYYMMDD')
+			    , #USE_FEE#
+			    , DECODE(#USE_FEE#, 0, 'P', 'N')
+			    , 'N'
+			    , '10'
+			    , ''
+			    , #FNL_USR_ID#
+			    , #FNL_USR_ID#
+			    , #FNL_DEAL_DPT_CD#
+			    , #FNL_MNU_ID#
+			    , SYSDATE
+			    , SYSDATE
+			)
+        ]]>
+	</insert>
+
+	<select id="CSPSAE503ERmNmList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT A.DMT_DVSN_CD 
+			     , A.RMN_NM 
+			     , A.SEAT_NM 
+			  FROM TBCSPSAE115B A
+			 WHERE 1=1
+			 AND A.USE_YN = 'Y'
+			 ORDER BY A.DMT_DVSN_CD
+			        , A.RMN_NM
+			        , A.USE_YN 
+         ]]>
+	</select>
+
+	<select id="CSPSAE503EGetWekDt" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT A.STR_DT
+			     , A.END_DT
+			  FROM ( SELECT TO_CHAR(WEEK_START, 'YYYYMMDD') AS STR_DT
+			              , TO_CHAR(WEEK_END, 'YYYYMMDD') AS END_DT
+			           FROM  ( SELECT TRUNC (START_DT + LEVEL, 'D') + 1 AS WEEK_START
+			                        , TRUNC (START_DT + LEVEL, 'D') + 7 AS WEEK_END
+			                     FROM ( SELECT TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD')) - 1 AS START_DT
+			                                 , ADD_MONTHS(TO_CHAR(SYSDATE, 'YYYYMMDD'), 1) AS END_DT
+			                              FROM DUAL
+			                          )
+			                     CONNECT BY LEVEL <= END_DT - START_DT )
+			           GROUP BY WEEK_START, WEEK_END
+			           ORDER BY WEEK_START
+			       ) A
+			  WHERE ROWNUM = 1
+         ]]>
+	</select>
+
+	<select id="CSPSAE503ESelectMain" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT /* CSPSAE503ESelectMain */
+				  A.CNB
+				, D.DPT_NM
+				, C.USR_NAM
+				, (SELECT CD_NM FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1000173' AND CD = C.RANK_CD) AS RANK_NM
+				, E.USR_DFN_TXT_1
+				, E.USR_DFN_TXT_2
+				, COUNT(B.SRNO) AS BOKG_RM_CNT
+				, B.DMT_DVSN_CD
+				, A.UE_NOP_CNT
+				, SUBSTR(A.APL_DT, 5, 2) || '-' || SUBSTR(A.APL_DT, 7, 2) AS APL_DT
+				, A.APL_DT AS HAPL_DT
+				, SUBSTR(B.USE_STR_DT, 5, 2) || '-' || SUBSTR(B.USE_STR_DT, 7, 2) AS USE_DT
+				, b.USE_STR_DT
+				, B.USE_FEE
+				, A.USE_YN AS COK_USE_YN
+				, B.PD_YN
+				, B.USE_YN
+				, B.COFM_STA_CD
+				, SUBSTR(F.DDL_DT, 5, 2) || '-' || SUBSTR(F.DDL_DT, 7, 2) AS DDL_DT
+				, B.RMN_NM
+				, B.SEAT_NM
+				, B.BSC_SRNO
+				, B.SRNO
+				, SUBSTR(F.ROM_ALC_OPEN_DT, 5, 2) || '-' || SUBSTR(F.ROM_ALC_OPEN_DT, 7, 2) AS ROM_ALC_OPEN_DT
+				, F.WEK
+				, (SELECT
+			              CASE
+			                WHEN COUNT(*) > 0 THEN 'Y'
+			                ELSE 'N'
+			              END 
+			         FROM TBCSPSAE501D T1
+			        WHERE T1.CNB = A.CNB
+			          AND T1.USE_STR_DT BETWEEN TO_CHAR(TO_DATE(B.USE_STR_DT), 'YYYYMM') || '01' AND TO_CHAR(LAST_DAY(TO_DATE(B.USE_STR_DT)), 'YYYYMMDD')
+			          AND T1.COFM_STA_CD = '30') AS RES_YN
+				, DECODE(MAX(G.LTD_STR_DT), NULL, '', SUBSTR(G.LTD_STR_DT, 5, 2) || '-' || SUBSTR(G.LTD_STR_DT, 7, 2) || ' ~ ' ||
+				   SUBSTR(G.LTD_END_DT, 5, 2) || '-' || SUBSTR(G.LTD_END_DT, 7, 2) ) AS LTD_DT
+			  FROM TBCSPSAE501M A
+			     , TBCSPSAE501D B
+			     , TBDCMACM001M C
+			     , TBDCMACM002M D
+			     , (SELECT * FROM TBDCMACM013C  WHERE CMM_CD_DVSN_CD = '1000140') E
+			     , TBCSPSAE134B F
+			     , TBCSPSAE502D G
+			 WHERE B.CNB = A.CNB
+			   AND B.APL_DT = A.APL_DT
+			   AND B.BSC_SRNO = A.BSC_SRNO  
+			   AND D.DPT_CD = C.DPT_CD
+			   AND C.CNB = A.CNB
+			   AND E.CD = B.DMT_DVSN_CD
+			   AND B.USE_STR_DT = TO_CHAR(TO_DATE(F.END_DDL_DT)-1,'YYYYMMDD')
+			   AND G.CNB(+) = A.CNB
+			   AND G.APL_DT(+) = A.APL_DT
+			   AND G.BSC_SRNO(+) = A.BSC_SRNO
+         ]]>
+         <dynamic>
+         	<isEqual property="strUseApl" compareValue="apl" >
+				AND A.APL_DT BETWEEN #strFromDt# AND #strToDt#
+	       	</isEqual>
+	       	<isEqual property="strUseApl" compareValue="use" >
+				AND B.USE_STR_DT BETWEEN #strFromDt# AND #strToDt#
+	       	</isEqual>
+        	<isNotEmpty property="strUSR_NAM">
+        		AND C.USR_NAM LIKE '%' || #strUSR_NAM# || '%'
+        	</isNotEmpty>
+        	<isNotEmpty property="strPD_YN">
+        		AND B.PD_YN = #strPD_YN#
+        	</isNotEmpty>
+        	<isNotEmpty property="strUSE_YN">
+        		AND B.USE_YN = #strUSE_YN#
+        	</isNotEmpty>
+        	<isNotEmpty property="strCOFM_STA_CD">
+        		AND B.COFM_STA_CD = #strCOFM_STA_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strDMT_DVSN_CD">
+        		 AND B.DMT_DVSN_CD = #strDMT_DVSN_CD#
+        	</isNotEmpty>
+        </dynamic>
+         <![CDATA[
+			GROUP BY A.CNB
+			       , D.DPT_NM
+			       , C.USR_NAM
+			       , C.RANK_CD
+			       , E.USR_DFN_TXT_1
+			       , E.USR_DFN_TXT_2
+			       , B.DMT_DVSN_CD
+			       , A.APL_DT
+			       , A.UE_NOP_CNT
+			       , B.USE_STR_DT
+			       , B.USE_END_DT
+			       , B.USE_FEE
+				   , A.USE_YN
+			       , B.PD_YN
+			       , B.USE_YN
+			       , B.COFM_STA_CD
+			       , F.DDL_DT
+			       , B.RMN_NM
+			       , B.SEAT_NM
+			       , B.BSC_SRNO
+			       , B.SRNO
+			       , F.ROM_ALC_OPEN_DT
+			       , F.WEK
+			       , G.LTD_STR_DT
+			       , G.LTD_END_DT
+			       , A.FRT_REGI_DH
+			ORDER BY A.FRT_REGI_DH, B.USE_STR_DT, D.DPT_NM, A.CNB, E.USR_DFN_TXT_1, E.USR_DFN_TXT_2
+         ]]>
+	</select>
+
+	<update id="CSPSAE503EUpdateMain" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPSAE501D
+			SET		SEAT_NM = #SEAT_NM#,
+			        RMN_NM = #RMN_NM#,
+			        USE_FEE = #USE_FEE#,
+			        PD_YN = #PD_YN#,
+			        USE_YN = #USE_YN#,
+			        COFM_STA_CD = #COFM_STA_CD#, 		
+			        BOKG_COFM_DT = DECODE(#COFM_STA_CD#, '30', TO_CHAR(SYSDATE, 'YYYYMMDD'), ''),
+					FNL_USR_ID = #FNL_USR_ID#,
+					FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#,
+					FNL_MNU_ID = #FNL_MNU_ID#,
+					FNL_MDF_DH = SYSDATE
+			WHERE	CNB = #CNB#
+			 AND    APL_DT = #HAPL_DT#
+			 AND    BSC_SRNO = #BSC_SRNO#
+			 AND    SRNO = #SRNO#
+		]]>
+	</update>
+	
+	<!-- 취사희망여부 변경 저장 추가 -->
+	<update id='CSPSAE503EUpdateCokUseChange' parameterClass="paramMap">
+		<![CDATA[
+			UPDATE TBCSPSAE501M
+			SET USE_YN = #COK_USE_YN#
+			WHERE	CNB = #CNB#
+			 AND    APL_DT = #HAPL_DT#
+			 AND    BSC_SRNO = #BSC_SRNO# 
+		]]>
+	</update>
+	
+
+	<select id="CSPSAE503ESelectLimitYn" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT
+			       CASE
+			         WHEN (SELECT MN_BOKG_NBC
+			          FROM TBCSPSAE132B) - A.CNT > 0 THEN 'O'
+			         ELSE 'X'
+			       END AS RESULT
+			  FROM (SELECT COUNT(NVL(A.CNB, 0)) AS CNT
+			          FROM(SELECT DISTINCT A.CNB
+			                  FROM TBCSPSAE501M A ,
+			                       TBCSPSAE501D B
+			                 WHERE B.CNB = A.CNB
+			                   AND B.APL_DT = A.APL_DT
+			                   AND B.BSC_SRNO = A.BSC_SRNO
+			                   AND A.CNB = #CNB#
+			                   AND B.USE_STR_DT BETWEEN TO_CHAR(TO_DATE(#USE_STR_DT#), 'YYYYMM') || '01' AND TO_CHAR(LAST_DAY(TO_DATE(#USE_STR_DT#)), 'YYYYMMDD')
+			                   AND B.COFM_STA_CD IN ('30')) A ) A
+
+         ]]>
+	</select>
+
+	<select id="CSPSAE503EGetCokCnt" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT	NVL(C.COK_PMS_CNT - A.COK_USE_CNT, C.COK_PMS_CNT) AS COK_CNT
+			FROM	(
+					SELECT CEIL((A.DT - NEXT_DAY(TRUNC(A.DT, 'yy') - 7, '1') + 1)/7) AS YY_JUCHA
+					  , COUNT(A.DT) AS COK_USE_CNT
+					FROM (
+						SELECT	TO_DATE(B.USE_STR_DT, 'yyyymmdd') AS DT
+						FROM	TBCSPSAE501M A
+								, TBCSPSAE501D B
+						WHERE	B.CNB = A.CNB
+						AND		B.APL_DT = A.APL_DT
+						AND		B.BSC_SRNO = A.BSC_SRNO
+						AND		A.USE_YN = 'Y'
+						AND		B.COFM_STA_CD = '60'
+						AND		TO_CHAR(TO_DATE(B.USE_STR_DT),'YYYY') = (	SELECT	TO_CHAR(TO_DATE(USE_STR_DT),'YYYY')
+																			FROM	TBCSPSAE501D
+																			WHERE	CNB = #CNB#
+																			AND		APL_DT = #HAPL_DT#
+																			AND		BSC_SRNO = #BSC_SRNO#
+																			AND		SRNO = #SRNO#)
+						) A
+					GROUP BY CEIL((A.DT - NEXT_DAY(TRUNC(A.DT, 'yy') - 7, '1') + 1)/7)
+					) A
+					,(
+					SELECT TO_CHAR(DT, 'yyyymmdd') AS ILJA
+					  , CEIL((DT - NEXT_DAY(TRUNC(DT, 'yy') - 7, '1') + 1)/7) AS YY_JUCHA
+					FROM (
+						SELECT	TO_DATE(USE_STR_DT, 'yyyymmdd') AS DT
+						FROM	TBCSPSAE501D
+						WHERE	CNB = #CNB#
+						AND		APL_DT = #HAPL_DT#
+						AND		BSC_SRNO = #BSC_SRNO#
+						AND		SRNO = #SRNO#
+						)
+					) B
+					, (SELECT   COK_PMS_CNT 
+                                , CEIL((to_date(STR_DDL_DT,'yyyymmdd') - NEXT_DAY(TRUNC(to_date(STR_DDL_DT,'yyyymmdd'), 'yy') - 7, '1') + 1)/7) AS YY_JUCHA
+                        FROM    TBCSPSAE134B
+                        WHERE STR_DDL_DT IN (
+										SELECT TO_CHAR(TO_DATE(T1.STR_DT, 'YYYYMMDD') + (LEVEL-1), 'YYYYMMDD') AS DT
+		          						FROM (
+                            						SELECT 	TO_CHAR(WEEK_START, 'YYYYMMDD') AS STR_DT
+			              							, TO_CHAR(WEEK_END, 'YYYYMMDD') AS END_DT
+			           						FROM  ( SELECT 	TRUNC (START_DT + LEVEL, 'D') + 1 AS WEEK_START
+			                        						, TRUNC (START_DT + LEVEL, 'D') + 7 AS WEEK_END
+			                     					FROM ( SELECT TO_DATE(#USE_STR_DT#) - 1 AS START_DT
+			                                 					, TO_DATE(#USE_STR_DT#) AS END_DT
+			                              					FROM DUAL
+		                          						)
+			                     					CONNECT BY LEVEL <= END_DT - START_DT
+			                     					)
+		               						) T1
+		        						CONNECT BY LEVEL <= (TO_DATE(T1.END_DT, 'YYYYMMDD')+1) - TO_DATE(T1.STR_DT, 'YYYYMMDD')
+										)) C
+			WHERE A.YY_JUCHA(+) = B.YY_JUCHA
+			AND   C.YY_JUCHA(+) = B.YY_JUCHA
+         ]]>
+	</select>
+
+	<select id="CSPSAE503EReceiptState" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT SUBSTR(A.USE_STR_DT, 0, 4) || '. ' || SUBSTR(A.USE_STR_DT, 5, 2) || '. ' || SUBSTR(A.USE_STR_DT, 7, 2) AS USE_STR_DT
+				 , A.CNB
+				 , B.USR_NAM
+				 , A.USE_FEE
+				 , NVL(A.RMN_NM, '-') AS RMN_NM
+			FROM TBCSPSAE501D A
+			   , TBDCMACM001M B
+			WHERE A.CNB = B.CNB
+			AND	  SUBSTR(A.USE_STR_DT, 5, 2) = SUBSTR(#strFromDt#, 5, 2)
+			AND	  A.USE_FEE > 0
+			AND	  A.PD_YN = 'Y'
+			ORDER BY A.USE_STR_DT
+         ]]>
+	</select>
+
+	<select id="CSPSAE504PApplyList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT DPT_NM || CHR(10) || (SELECT CD_NM FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1000173' AND CD = B.RANK_CD) || ' ' ||B.USR_NAM AS NAM
+			     , (SELECT CD_NM FROM TBDCMACM013C  WHERE CMM_CD_DVSN_CD = '1000140' AND CD = A.DMT_DVSN_CD) AS DMT
+			     , D.UE_PPS_TXT
+     			 , SUBSTR(A.APL_DT, 3, 2) || '.' || SUBSTR(A.APL_DT, 5, 2) || '.' || SUBSTR(A.APL_DT, 7, 2) AS APL_DT
+			     , SUBSTR(A.USE_STR_DT, 3, 2) || '.' || SUBSTR(A.USE_STR_DT, 5, 2) || '.' || SUBSTR(A.USE_STR_DT, 7, 2) || '~' ||
+			       SUBSTR(A.USE_END_DT, 3, 2) || '.' || SUBSTR(A.USE_END_DT, 5, 2) || '.' || SUBSTR(A.USE_END_DT, 7, 2) AS USE_DT
+			     , D.UE_NOP_CNT
+			     , A.RMN_NM
+			     , B.HOM_TNB
+			     , DECODE(A.USE_YN, 'Y', '사용', '미사용') AS USE_YN
+			  FROM TBCSPSAE501D A
+			     , TBDCMACM001M B
+			     , TBDCMACM002M C
+			     , TBCSPSAE501M D
+			 WHERE B.CNB = A.CNB
+			   AND C.DPT_CD = B.DPT_CD
+			   AND D.CNB = A.CNB
+			   AND D.APL_DT = A.APL_DT
+			   AND D.BSC_SRNO = A.BSC_SRNO
+			   AND A.USE_STR_DT BETWEEN #strFromDt# AND #strToDt#
+         ]]>
+	</select>
+
+	<select id="CSPSAE504PUseList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			WITH USE_INFO AS (
+			SELECT 
+			       A.RMN_NM
+			     , MIN(A.USE_STR_DT) AS USE_STR_DT
+			     , MAX(A.USE_END_DT) AS USE_END_DT
+			     , A.CNB
+			     , B.USR_NAM
+			  FROM TBCSPSAE501D A
+			     , TBDCMACM001M B
+			 WHERE A.COFM_STA_CD IN ('30', '50', '60')
+			   AND B.CNB = A.CNB
+			   AND A.USE_STR_DT BETWEEN #strFromDt# AND #strToDt#
+			 GROUP BY A.CNB, A.RMN_NM, B.USR_NAM
+			)
+			
+			SELECT A.FLOOR2
+			     , DECODE((SELECT USE_YN FROM TBCSPSAE115B WHERE RMN_NM = A.FLOOR2), 'N', '미사용', (SELECT USR_NAM FROM USE_INFO WHERE A.FLOOR2 IN RMN_NM)) AS USE_NAM_2
+			     , (SELECT SUBSTR(USE_STR_DT, 5, 2) || '.' || SUBSTR(USE_STR_DT, 7, 2) || '~' ||
+			        SUBSTR(USE_END_DT, 5, 2) || '.' || SUBSTR(USE_END_DT, 7, 2) FROM USE_INFO WHERE A.FLOOR2 IN RMN_NM) AS USE_DT_2
+			     , A.FLOOR3
+			     , DECODE((SELECT USE_YN FROM TBCSPSAE115B WHERE RMN_NM = A.FLOOR3), 'N', '미사용', (SELECT USR_NAM FROM USE_INFO WHERE A.FLOOR3 IN RMN_NM)) AS USE_NAM_3
+			     , (SELECT SUBSTR(USE_STR_DT, 5, 2) || '.' || SUBSTR(USE_STR_DT, 7, 2) || '~' ||
+			        SUBSTR(USE_END_DT, 5, 2) || '.' || SUBSTR(USE_END_DT, 7, 2) FROM USE_INFO WHERE A.FLOOR3 IN RMN_NM) AS USE_DT_3
+			     , A.FLOOR4
+			     , DECODE((SELECT USE_YN FROM TBCSPSAE115B WHERE RMN_NM = A.FLOOR4), 'N', '미사용', (SELECT USR_NAM FROM USE_INFO WHERE A.FLOOR4 IN RMN_NM)) AS USE_NAM_4
+			     , (SELECT SUBSTR(USE_STR_DT, 5, 2) || '.' || SUBSTR(USE_STR_DT, 7, 2) || '~' ||
+			        SUBSTR(USE_END_DT, 5, 2) || '.' || SUBSTR(USE_END_DT, 7, 2) FROM USE_INFO WHERE A.FLOOR4 IN RMN_NM) AS USE_DT_4
+			  FROM (
+					SELECT ROW_NO
+					     , MIN(DECODE(SEAT_NM, '2층', RMN_NM)) FLOOR2
+					     , MIN(DECODE(SEAT_NM, '3층', RMN_NM)) FLOOR3
+					     , MIN(DECODE(SEAT_NM, '4층', RMN_NM)) FLOOR4
+					  FROM (
+					        SELECT ROW_NUMBER() OVER (PARTITION BY SEAT_NM ORDER BY RMN_NM) ROW_NO
+					             , SEAT_NM
+					             , RMN_NM
+					        FROM TBCSPSAE115B
+					        ORDER BY RMN_NM
+					        )
+					  GROUP BY ROW_NO
+			       ) A
+         ]]>
+	</select>
+
+	<select id="CSPSAE504PPermitGuardList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[	   
+			WITH DATA AS /* CSPSAE504PPermitGuardList */
+				(SELECT 
+					  A.CNB
+					, C.DPT_NM
+					, B.RANK_CD
+					, B.USR_NAM
+					, A.BSC_SRNO
+					, COUNT(A.DMT_DVSN_CD) AS DMT_DVSN_CNT
+					, D.UE_PPS_TXT
+					, D.APL_DT
+					, A.USE_STR_DT
+					, A.USE_END_DT
+					, D.UE_NOP_CNT
+					, E.RMN_NM
+					, B.HOM_TNB
+					, D.USE_YN AS COK_USE_YN
+				FROM  
+					  TBCSPSAE501D A
+				    , TBDCMACM001M B
+				    , TBDCMACM002M C
+			   		, TBCSPSAE501M D
+			   		, (SELECT 
+			   			  AGGR_CONCAT(RMN_NM, ', ') AS RMN_NM
+			   			, CNB
+			   			, USE_STR_DT
+			   			, USE_END_DT
+					FROM TBCSPSAE501D
+					WHERE USE_STR_DT BETWEEN #strFromDt# AND #strToDt#
+					GROUP BY CNB, USE_STR_DT, USE_END_DT) E
+				WHERE B.CNB = A.CNB
+				AND C.DPT_CD = B.DPT_CD
+				AND D.CNB = A.CNB
+				AND D.APL_DT = A.APL_DT
+				AND D.BSC_SRNO = A.BSC_SRNO
+				AND A.CNB = E.CNB
+				AND A.USE_STR_DT = E.USE_STR_DT
+				AND A.USE_END_DT = E.USE_END_DT
+				AND A.COFM_STA_CD IN ('30', '50', '60')
+				AND A.USE_STR_DT BETWEEN #strFromDt# AND #strToDt#
+				GROUP BY 
+					  A.CNB
+					, C.DPT_NM
+					, B.RANK_CD
+					, B.USR_NAM
+					, A.BSC_SRNO
+					, D.UE_PPS_TXT
+					, D.APL_DT
+					, A.USE_STR_DT
+					, A.USE_END_DT
+					, D.UE_NOP_CNT
+					, E.RMN_NM
+					, B.HOM_TNB
+					, D.USE_YN
+				)
+				
+				SELECT 
+					  TO_CHAR(ROWNUM) AS SEQ
+					, A.DPT_NM || CHR(10) || (SELECT CD_NM FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1000173' AND CD = A.RANK_CD) || ' ' || A.USR_NAM AS NAM
+					, '생활관 ' || A.DMT_DVSN_CNT || '실' AS DMT
+					, A.UE_PPS_TXT
+					, SUBSTR(A.APL_DT, 5, 2) || '.' || SUBSTR(A.APL_DT, 7, 2) AS APL_DT
+					, SUBSTR(A.USE_STR_DT, 5, 2) || '.' || SUBSTR(A.USE_STR_DT, 7, 2) || ' ~ ' ||
+					  SUBSTR(A.USE_END_DT, 5, 2) || '.' || SUBSTR(A.USE_END_DT, 7, 2) AS USE_DT
+					, TO_CHAR(A.UE_NOP_CNT) AS UE_NOP_CNT
+					, '' AS RELATION_SHIP
+					, A.RMN_NM
+					, A.HOM_TNB || CHR(10) || DECODE(A.COK_USE_YN, 'Y', '(취사, 바베큐신청)', '') AS HOM_TNB
+					, '' AS USE_YN
+				FROM 
+					DATA A
+					, (SELECT 
+						  D2.CNB
+						, ROWNUM AS SEQ
+					FROM 
+						(SELECT DISTINCT D1.CNB
+						FROM DATA D1
+						ORDER BY D1.CNB) D2
+					) B
+				WHERE B.CNB = A.CNB
+				UNION ALL
+				SELECT 
+					  '' AS SEQ
+					, '계' AS NAM
+					, '총 ' || SUM(B.DMT_DVSN_CNT) || '실' AS DMT
+					, '' AS UE_PPS_TXT
+					, '' AS APL_DT
+					, '' AS USE_DT
+					, SUM(B.UE_NOP_CNT) || '명' AS UE_NOP_CNT
+					, '가족' AS RELATION_SHIP
+					, '' AS RMN_NM
+					, '' AS HOM_TNB
+					, '' AS USE_YN
+				FROM DATA B
+         ]]>
+	</select>
+
+	<select id="CSPSAE504PPermitList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[	   
+			WITH DATA AS /* CSPSAE504PPermitList */
+				(SELECT 
+					  A.CNB
+					, C.DPT_NM
+					, B.RANK_CD
+					, B.USR_NAM
+					, A.BSC_SRNO
+					, COUNT(A.DMT_DVSN_CD) AS DMT_DVSN_CNT
+					, D.UE_PPS_TXT
+					, D.APL_DT
+					, A.USE_STR_DT
+					, A.USE_END_DT
+					, D.UE_NOP_CNT
+					, SUM(A.USE_FEE) AS USE_FEE
+					, B.HOM_TNB
+					, D.USE_YN AS COK_USE_YN
+				FROM  
+					  TBCSPSAE501D A
+					, TBDCMACM001M B
+					, TBDCMACM002M C
+					, TBCSPSAE501M D
+				WHERE B.CNB = A.CNB
+				AND C.DPT_CD = B.DPT_CD
+				AND D.CNB = A.CNB
+				AND D.APL_DT = A.APL_DT
+				AND D.BSC_SRNO = A.BSC_SRNO
+				AND A.COFM_STA_CD IN ('30', '50', '60')
+				AND A.USE_STR_DT BETWEEN #strFromDt# AND #strToDt#
+				GROUP BY 
+					  A.CNB
+					, C.DPT_NM
+					, B.RANK_CD
+					, B.USR_NAM
+					, A.BSC_SRNO
+					, D.UE_PPS_TXT
+					, D.APL_DT
+					, A.USE_STR_DT
+					, A.USE_END_DT
+					, D.UE_NOP_CNT
+					, B.HOM_TNB
+					, D.USE_YN
+				)
+				
+				SELECT 
+					  TO_CHAR(ROWNUM) AS SEQ
+					, A.DPT_NM || CHR(10) || (SELECT CD_NM FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1000173' AND CD = A.RANK_CD) || ' ' || A.USR_NAM AS NAM
+					, '생활관 ' || A.DMT_DVSN_CNT || '실'  AS DMT
+					, A.UE_PPS_TXT
+					, SUBSTR(A.APL_DT, 5, 2) || '.' || SUBSTR(A.APL_DT, 7, 2) AS APL_DT
+					, SUBSTR(A.USE_STR_DT, 5, 2) || '.' || SUBSTR(A.USE_STR_DT, 7, 2) || ' ~ ' ||
+					  SUBSTR(A.USE_END_DT, 5, 2) || '.' || SUBSTR(A.USE_END_DT, 7, 2) AS USE_DT
+					, TO_CHAR(A.UE_NOP_CNT) AS UE_NOP_CNT
+					, '가족' AS RELATION_SHIP
+					, DECODE(A.USE_FEE, 0, '면제', A.USE_FEE) AS USE_FEE
+					, A.HOM_TNB || CHR(10) || DECODE( A.COK_USE_YN, 'Y', '(취사, 바베큐신청)', '') AS HOM_TNB
+				FROM 
+					  DATA A
+					, (SELECT 
+						  D2.CNB
+						, ROWNUM AS SEQ
+					FROM (SELECT DISTINCT D1.CNB
+						FROM    DATA D1
+						ORDER BY D1.CNB
+						) D2
+					) B
+				WHERE B.CNB = A.CNB
+				UNION ALL
+				SELECT 
+					  '' AS SEQ
+					, '계' AS NAM
+					, '총 ' || SUM(B.DMT_DVSN_CNT) || '실' AS DMT
+					, '' AS UE_PPS_TXT
+					, '' AS APL_DT
+					, '' AS USE_DT
+					, SUM(B.UE_NOP_CNT) || '명' AS UE_NOP_CNT
+					, '' AS RELATION_SHIP
+					, TO_CHAR(SUM(B.USE_FEE)) AS USE_FEE
+					, '' AS HOM_TNB
+				FROM 
+					  DATA B
+         ]]>
+	</select>
+
+	<select id="CSPSAE505ESelectDate" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT A.SUN
+			     , (SELECT DECODE(COUNT(*), 1, 'T', 'F')
+					  FROM TBCSPSAE133B A
+					 WHERE SUBSTR(A.APL_DT, 0, 6) =  #strYr# || #strM#  AND SUBSTR(A.APL_DT, 7, 2) = A.SUN) AS SUN_FLAG
+			     , A.MON
+			     , (SELECT DECODE(COUNT(*), 1, 'T', 'F')
+					  FROM TBCSPSAE133B A
+					 WHERE SUBSTR(A.APL_DT, 0, 6) =  #strYr# || #strM#  AND SUBSTR(A.APL_DT, 7, 2) = A.MON) AS MON_FLAG
+			     , A.TUES
+			     , (SELECT DECODE(COUNT(*), 1, 'T', 'F')
+					  FROM TBCSPSAE133B A
+					 WHERE SUBSTR(A.APL_DT, 0, 6) =  #strYr# || #strM# AND SUBSTR(A.APL_DT, 7, 2) = A.TUES) AS TUES_FLAG
+			     , A.WED
+			     , (SELECT DECODE(COUNT(*), 1, 'T', 'F')
+					  FROM TBCSPSAE133B A
+					 WHERE SUBSTR(A.APL_DT, 0, 6) =  #strYr# || #strM# AND SUBSTR(A.APL_DT, 7, 2) = A.WED) AS WED_FLAG
+			     , A.THUR
+			     , (SELECT DECODE(COUNT(*), 1, 'T', 'F')
+					  FROM TBCSPSAE133B A
+					 WHERE SUBSTR(A.APL_DT, 0, 6) =  #strYr# || #strM# AND SUBSTR(A.APL_DT, 7, 2) = A.THUR) AS THUR_FLAG
+			     , A.FRI
+			     , (SELECT DECODE(COUNT(*), 1, 'T', 'F')
+					  FROM TBCSPSAE133B A
+					 WHERE SUBSTR(A.APL_DT, 0, 6) =  #strYr# || #strM# AND SUBSTR(A.APL_DT, 7, 2) = A.FRI) AS FRI_FLAG
+			     , A.SAT
+			     , (SELECT DECODE(COUNT(*), 1, 'T', DECODE((SELECT COUNT(*) FROM TBBADDED013B WHERE YE = #strYr# AND MD = #strM# || A.SAT), 1, 'T', 'F'))
+					  FROM TBCSPSAE133B A
+					 WHERE SUBSTR(A.APL_DT, 0, 6) =  #strYr# || #strM# AND SUBSTR(A.APL_DT, 7, 2) = A.SAT) AS SAT_FLAG
+			     , #strYr# AS YR
+			     , #strM# AS MONTH
+			  FROM (
+				  SELECT      LPAD(MIN(DECODE(D1.D, '1', D1.DD)), 2, '0') AS SUN 
+					        , LPAD(MIN(DECODE(D1.D, '2', D1.DD)), 2, '0') AS MON
+					        , LPAD(MIN(DECODE(D1.D, '3', D1.DD)), 2, '0') AS TUES
+					        , LPAD(MIN(DECODE(D1.D, '4', D1.DD)), 2, '0') AS WED
+					        , LPAD(MIN(DECODE(D1.D, '5', D1.DD)), 2, '0') AS THUR
+					        , LPAD(MIN(DECODE(D1.D, '6', D1.DD)), 2, '0') AS FRI
+					        , LPAD(MIN(DECODE(D1.D, '7', D1.DD)), 2, '0') AS SAT
+					FROM    (
+					            SELECT LEVEL AS DD
+					                    , TO_CHAR(MAKE_DATES+ LEVEL -1, 'D') AS D
+					              FROM (SELECT TO_DATE( #strYr# || #strM# || '01', 'YYYYMMDD') MAKE_DATES FROM DUAL)
+					            CONNECT BY (MAKE_DATES+LEVEL-1) <= LAST_DAY(MAKE_DATES)
+					        ) D1
+					GROUP BY DD-D
+					ORDER BY SAT
+					) A
+         ]]>
+	</select>
+	
+	<select id="CSPSAE505ESelectClsng" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT A.WEK
+			     , A.STR_DDL_DT AS BF_STR_DDL_DT
+			     , A.STR_DDL_DT
+			     , A.END_DDL_DT
+			     , A.CLSNG_YN
+			     , A.DDL_DT
+			     , A.ROM_ALC_OPEN_DT
+			     , A.WSRM_2_BOKG_POSS_CNT
+			     , A.WSRM_4_BOKG_POSS_CNT
+			     , A.KSRM_4_BOKG_POSS_CNT
+			     , A.F2_WSRM_BOKG_POSS_CNT
+			     , A.F3_WSRM_BOKG_POSS_CNT
+				 , A.F3_KSRM_BOKG_POSS_CNT
+				 , A.F4_WSRM_BOKG_POSS_CNT
+				 , A.CAMP_BOKG_POSS_CNT
+			     , A.COK_PMS_CNT
+			  FROM TBCSPSAE134B A
+			 WHERE SUBSTR(TO_CHAR(TO_DATE(A.END_DDL_DT)-1,'YYYYMMDD'), 0, 6) = #strYr# || #strM#			   
+         ]]>
+         <dynamic>
+        	<isNotEmpty property="strCLSNG_YN">
+        		AND	A.CLSNG_YN = #strCLSNG_YN#
+        	</isNotEmpty>
+        </dynamic>
+         <![CDATA[
+         	ORDER BY WEK DESC;
+         ]]>
+	</select>
+
+	<select id="CSPSAE505ESelectJuchaInfo" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT A.STR_DT
+			     , A.END_DT
+			     , A.JUCHA
+			     , A.RES_STR_DT
+			  FROM ( SELECT TO_CHAR(WEEK_START, 'YYYYMMDD') AS STR_DT
+			              , TO_CHAR(WEEK_END, 'YYYYMMDD') AS END_DT
+			              , TO_CHAR(TO_DATE(WEEK_END)-1, 'W') AS JUCHA
+			              , TO_CHAR(NEXT_DAY((LAST_DAY((TRUNC(TO_DATE(WEEK_END)-1, 'mm')-1))-7),'월'), 'YYYYMMDD') AS RES_STR_DT
+			           FROM  ( SELECT TRUNC (START_DT + LEVEL, 'D') + 1 AS WEEK_START
+			                        , TRUNC (START_DT + LEVEL, 'D') + 7 AS WEEK_END
+			                     FROM ( SELECT TO_DATE(#strYr# || #strM# || '01') - 1 AS START_DT
+			                                 , ADD_MONTHS(#strYr# || #strM# || '01', 1) AS END_DT
+			                              FROM DUAL
+			                          )
+			                     CONNECT BY LEVEL <= END_DT - START_DT )
+			           GROUP BY WEEK_START, WEEK_END
+			           ORDER BY WEEK_START
+			       ) A
+			  WHERE TO_CHAR(TO_DATE(A.END_DT)-1, 'MM') = #strM#
+
+         ]]>
+	</select>
+
+	<select id="CSPSAE505EBasicInfo" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT PRE_BOKG_WEK AS PRE_BOKG_PRD
+			     , BOKG_POSS_RM_CNT
+			     , BOKG_DCN
+			     , MN_BOKG_NBC
+			     , UN_USR_LTD_WEK
+			 FROM TBCSPSAE132B
+         ]]>
+	</select>
+	
+	<select id="CSPSAE505EFeeInfo" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT APC_DT
+			     , APC_DT AS BF_APC_DT
+			     , DMT_DVSN_CD
+			     , DMT_DVSN_CD AS BF_DMT_DVSN_CD
+			     , USE_FEE
+			  FROM TBCSPSAE131B
+  			 WHERE APC_DT = (SELECT MAX(APC_DT) FROM TBCSPSAE131B)
+			ORDER BY DMT_DVSN_CD
+         ]]>
+	</select>
+
+	<select id="CSPSAE505EExistDateYn" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT DECODE(COUNT(*), 1, 'Y', 'N') AS EXIST_YN
+			   FROM TBCSPSAE133B
+			  WHERE APL_DT = #APL_DT#
+         ]]>
+	</select>
+
+	<insert id="CSPSAE505EInsertDate" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBCSPSAE133B
+			(
+			      APL_DT
+			    , FRT_USR_ID
+			    , FNL_USR_ID
+			    , FNL_DEAL_DPT_CD
+			    , FNL_MNU_ID
+			    , FRT_REGI_DH
+			    , FNL_MDF_DH
+			) VALUES (
+			      #APL_DT#
+			    , #FRT_USR_ID#
+			    , #FNL_USR_ID#
+			    , #FNL_DEAL_DPT_CD#
+			    , #FNL_MNU_ID#
+			    , SYSDATE
+			    , SYSDATE
+			)
+        ]]>
+	</insert>
+	
+	<delete id="CSPSAE505EDeleteDate" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE133B
+			 WHERE 1=1
+			   AND APL_DT = #APL_DT#
+		]]>  
+	</delete>
+	
+	<insert id="CSPSAE505EInsertClsng" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBCSPSAE134B
+			(
+			      STR_DDL_DT
+			    , END_DDL_DT
+			    , WEK
+			    , CLSNG_YN
+			    , DDL_DT
+			    , ROM_ALC_OPEN_DT
+			    , WSRM_2_BOKG_POSS_CNT
+			    , WSRM_4_BOKG_POSS_CNT
+			    , KSRM_4_BOKG_POSS_CNT
+			    , F2_WSRM_BOKG_POSS_CNT
+			    , F3_WSRM_BOKG_POSS_CNT
+				, F3_KSRM_BOKG_POSS_CNT
+				, F4_WSRM_BOKG_POSS_CNT
+				, CAMP_BOKG_POSS_CNT
+			    , COK_PMS_CNT
+			    , FRT_USR_ID
+			    , FNL_USR_ID
+			    , FNL_DEAL_DPT_CD
+			    , FNL_MNU_ID
+			    , FRT_REGI_DH
+			    , FNL_MDF_DH
+			) VALUES (
+			      #STR_DDL_DT#
+			    , #END_DDL_DT#
+			    , #WEK#
+			    , #CLSNG_YN#
+			    , #DDL_DT#
+			    , #ROM_ALC_OPEN_DT#
+			    , #WSRM_2_BOKG_POSS_CNT#
+			    , #WSRM_4_BOKG_POSS_CNT#
+			    , #KSRM_4_BOKG_POSS_CNT#
+			    , #F2_WSRM_BOKG_POSS_CNT#
+			    , #F3_WSRM_BOKG_POSS_CNT#
+			    , #F3_KSRM_BOKG_POSS_CNT#
+			    , #F4_WSRM_BOKG_POSS_CNT#
+			    , #CAMP_BOKG_POSS_CNT#
+			    , #COK_PMS_CNT#
+			    , #FRT_USR_ID#
+			    , #FNL_USR_ID#
+			    , #FNL_DEAL_DPT_CD#
+			    , #FNL_MNU_ID#
+			    , SYSDATE
+			    , SYSDATE
+			)
+        ]]>
+	</insert>
+	
+	<update id="CSPSAE505EUpdateClsng" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPSAE134B
+			SET		STR_DDL_DT = #STR_DDL_DT#,
+					END_DDL_DT = #END_DDL_DT#,
+					WEK = #WEK#,
+					CLSNG_YN = #CLSNG_YN#,
+					DDL_DT = #DDL_DT#,
+					ROM_ALC_OPEN_DT = #ROM_ALC_OPEN_DT#,
+					WSRM_2_BOKG_POSS_CNT = #WSRM_2_BOKG_POSS_CNT#,
+					WSRM_4_BOKG_POSS_CNT = #WSRM_4_BOKG_POSS_CNT#,
+					KSRM_4_BOKG_POSS_CNT = #KSRM_4_BOKG_POSS_CNT#,
+					F2_WSRM_BOKG_POSS_CNT = #F2_WSRM_BOKG_POSS_CNT#,
+					F3_WSRM_BOKG_POSS_CNT = #F3_WSRM_BOKG_POSS_CNT#,
+					F3_KSRM_BOKG_POSS_CNT = #F3_KSRM_BOKG_POSS_CNT#,
+					F4_WSRM_BOKG_POSS_CNT = #F4_WSRM_BOKG_POSS_CNT#,
+					CAMP_BOKG_POSS_CNT = #CAMP_BOKG_POSS_CNT#,
+					COK_PMS_CNT = #COK_PMS_CNT#,
+					FNL_USR_ID = #FNL_USR_ID#,
+					FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#,
+					FNL_MNU_ID = #FNL_MNU_ID#,
+					FNL_MDF_DH = SYSDATE
+			WHERE	STR_DDL_DT = #BF_STR_DDL_DT# AND END_DDL_DT = #END_DDL_DT#
+		]]>
+	</update>
+	
+	<select id="CSPSAE505EClsngUpdateYn" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT DECODE(COUNT(CNB), 0, 'Y', 'N') AS UPDATE_YN
+			 FROM TBCSPSAE501D
+			WHERE COFM_STA_CD IN ('30', '50', '60')
+			  AND USE_STR_DT BETWEEN #STR_DDL_DT# AND #END_DDL_DT#
+         ]]>
+	</select>
+
+	<delete id="CSPSAE505EDeleteClsng" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE134B
+			 WHERE 1=1
+			   AND STR_DDL_DT = #BF_STR_DDL_DT#
+			   AND END_DDL_DT = #END_DDL_DT#
+		]]>  
+	</delete>
+	
+	
+	<select id="CSPSAE505EExistYnBasicInfo" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT DECODE(TO_CHAR(COUNT(PRE_BOKG_WEK)), 0, 'N', 'Y') FROM TBCSPSAE132B
+         ]]>
+	</select>
+	
+	<insert id="CSPSAE505EInsertBasic" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBCSPSAE132B
+			(
+			      PRE_BOKG_WEK
+			    , BOKG_POSS_RM_CNT
+			    , MN_BOKG_NBC
+			    , UN_USR_LTD_WEK
+			    , FRT_USR_ID
+			    , FNL_USR_ID
+			    , FNL_DEAL_DPT_CD
+			    , FNL_MNU_ID
+			    , FRT_REGI_DH
+			    , FNL_MDF_DH
+			) VALUES (
+				  #PRE_BOKG_PRD#
+			    , #BOKG_POSS_RM_CNT#
+			    , #MN_BOKG_NBC#
+			    , #UN_USR_LTD_WEK#
+			    , #FRT_USR_ID#
+			    , #FNL_USR_ID#
+			    , #FNL_DEAL_DPT_CD#
+			    , #FNL_MNU_ID#
+			    , SYSDATE
+			    , SYSDATE
+			)
+        ]]>
+	</insert>
+	
+	
+	<update id="CSPSAE505EUpdateBasic" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPSAE132B
+			SET		PRE_BOKG_WEK = #PRE_BOKG_PRD#,
+					BOKG_POSS_RM_CNT = #BOKG_POSS_RM_CNT#,
+					MN_BOKG_NBC = #MN_BOKG_NBC#,
+					UN_USR_LTD_WEK = #UN_USR_LTD_WEK#,
+					FNL_USR_ID = #FNL_USR_ID#,
+					FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#,
+					FNL_MNU_ID = #FNL_MNU_ID#,
+					FNL_MDF_DH = SYSDATE
+		]]>
+	</update>
+	
+	<insert id="CSPSAE505EInsertFee" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBCSPSAE131B
+			(
+			      APC_DT
+			    , DMT_DVSN_CD
+			    , USE_FEE
+			    , FRT_USR_ID
+			    , FNL_USR_ID
+			    , FNL_DEAL_DPT_CD
+			    , FNL_MNU_ID
+			    , FRT_REGI_DH
+			    , FNL_MDF_DH
+			) VALUES (
+			      #APC_DT#
+			    , #DMT_DVSN_CD#
+			    , #USE_FEE#
+			    , #FRT_USR_ID#
+			    , #FNL_USR_ID#
+			    , #FNL_DEAL_DPT_CD#
+			    , #FNL_MNU_ID#
+			    , SYSDATE
+			    , SYSDATE
+			)
+        ]]>
+	</insert>
+	
+	<update id="CSPSAE505EUpdateFee" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPSAE131B
+			SET		APC_DT = #APC_DT#,
+					DMT_DVSN_CD = #DMT_DVSN_CD#,
+					USE_FEE = #USE_FEE#,	
+					FNL_USR_ID = #FNL_USR_ID#,
+					FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#,
+					FNL_MNU_ID = #FNL_MNU_ID#,
+					FNL_MDF_DH = SYSDATE
+			WHERE APC_DT = #BF_APC_DT#
+			  AND DMT_DVSN_CD = #BF_DMT_DVSN_CD#
+		]]>
+	</update>
+	
+	<delete id="CSPSAE505EDeleteFee" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE131B
+			 WHERE 1=1
+			   AND APC_DT = #BF_APC_DT#
+			   AND DMT_DVSN_CD = #BF_DMT_DVSN_CD#
+		]]>  
+	</delete>
+
+	<select id="CSPSAE506ESelectMain" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT A.CNB
+			     , A.APL_DT
+			     , A.BSC_SRNO
+			     , A.SRNO
+			     , C.DPT_CD
+			     , C.DPT_NM
+			     , B.USR_NAM
+			     , A.UN_USE_DT
+			     , A.LTD_STR_DT
+			     , A.LTD_END_DT
+			     , A.LTD_RSN_TXT
+			  FROM TBCSPSAE502D A
+			     , TBDCMACM001M B
+			     , TBDCMACM002M C
+			 WHERE B.CNB = A.CNB
+			   AND B.DPT_CD = C.DPT_CD
+         ]]>
+         <dynamic>
+        	<isNotEmpty property="strFromDt">
+        		<isNotEmpty property="strToDt">
+        			AND A.UN_USE_DT BETWEEN #strFromDt# AND #strToDt#
+        		</isNotEmpty>
+        	</isNotEmpty>
+        	<isNotEmpty property="strUSR_NAM">
+        	    AND B.USR_NAM LIKE '%' || #strUSR_NAM# || '%'
+        	</isNotEmpty>
+        	<isNotEmpty property="strDPT_CD">
+        	    AND C.DPT_CD = #strDPT_CD#
+        	</isNotEmpty>
+        </dynamic>
+         <![CDATA[
+         	ORDER BY A.UN_USE_DT, C.DPT_NM, B.USR_NAM
+         ]]>
+	</select>
+
+	<select id="CSPSAE506ESelectUnUser" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			
+			SELECT A.CNB
+			     , A.APL_DT
+			     , A.BSC_SRNO
+			     , A.SRNO
+			     , C.DPT_CD
+			     , C.DPT_NM
+			     , B.USR_NAM
+			     , A.USE_STR_DT AS UN_USE_DT
+			     , TO_CHAR(TO_DATE(A.USE_STR_DT, 'YYYYMMDD')+1, 'YYYYMMDD') AS LTD_STR_DT
+			     , TO_CHAR(ADD_MONTHS(TO_DATE(A.USE_STR_DT), 3), 'YYYYMMDD') AS LTD_END_DT			     
+			     , '' AS LTD_RSN_TXT
+			  FROM TBCSPSAE501D A
+			     , TBDCMACM001M B
+			     , TBDCMACM002M C
+			     , TBCSPSAE132B D
+			 WHERE B.CNB = A.CNB
+			   AND B.DPT_CD = C.DPT_CD
+			   AND A.USE_YN = 'N'
+			   AND A.COFM_STA_CD IN ('30','50')
+         ]]>
+         <dynamic>
+        	<isNotEmpty property="strFromDt">
+        		<isNotEmpty property="strToDt">
+        			AND A.USE_STR_DT BETWEEN #strFromDt# AND #strToDt#
+        		</isNotEmpty>
+        	</isNotEmpty>
+        </dynamic>
+         <![CDATA[
+         	ORDER BY A.USE_STR_DT, C.DPT_NM, B.USR_NAM
+         ]]>
+	</select>
+
+	<select id="CSPSAE506EExistYn" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			 SELECT DECODE(COUNT(CNB), 0, 'N', 'Y') EXIST_YN
+			  FROM TBCSPSAE502D
+			 WHERE CNB = #CNB#
+			   AND APL_DT = #APL_DT#
+			   AND BSC_SRNO = #BSC_SRNO#
+			   AND SRNO = #SRNO#
+			   AND UN_USE_DT = #UN_USE_DT#
+         ]]>
+	</select>
+
+	<insert id="CSPSAE506EInsertMain" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBCSPSAE502D
+			(
+			      CNB
+			    , APL_DT
+			    , BSC_SRNO
+			    , SRNO
+			    , UN_USE_DT
+			    , LTD_STR_DT
+			    , LTD_END_DT
+			    , LTD_RSN_TXT
+			    , FRT_USR_ID
+			    , FNL_USR_ID
+			    , FNL_DEAL_DPT_CD
+			    , FNL_MNU_ID
+			    , FRT_REGI_DH
+			    , FNL_MDF_DH
+			) VALUES (
+			      #CNB#
+			    , #APL_DT#
+			    , #BSC_SRNO#
+			    , #SRNO#
+			    , #UN_USE_DT#
+			    , #LTD_STR_DT#
+			    , #LTD_END_DT#
+			    , #LTD_RSN_TXT#
+			    , #FRT_USR_ID#
+			    , #FNL_USR_ID#
+			    , #FNL_DEAL_DPT_CD#
+			    , #FNL_MNU_ID#
+			    , SYSDATE
+			    , SYSDATE
+			)
+        ]]>
+	</insert>
+	
+	<update id="CSPSAE506EUpdateMain" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPSAE502D
+			SET		LTD_STR_DT = #LTD_STR_DT#,
+					LTD_END_DT = #LTD_END_DT#,
+					LTD_RSN_TXT = #LTD_RSN_TXT#,
+					FNL_USR_ID = #FNL_USR_ID#,
+					FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#,
+					FNL_MNU_ID = #FNL_MNU_ID#,
+					FNL_MDF_DH = SYSDATE
+			 WHERE CNB = #CNB#
+			   AND APL_DT = #APL_DT#
+			   AND BSC_SRNO = #BSC_SRNO#
+			   AND SRNO = #SRNO#
+			   AND UN_USE_DT = #UN_USE_DT#
+		]]>
+	</update>
+	
+	<delete id="CSPSAE506EDeleteMain" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE502D
+			 WHERE CNB = #CNB#
+			   AND APL_DT = #APL_DT#
+			   AND BSC_SRNO = #BSC_SRNO#
+			   AND SRNO = #SRNO#
+			   AND UN_USE_DT = #UN_USE_DT#
+		]]>  
+	</delete>
+	
+	<select id="CSPSAE507ECbbApcDt" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT SUBSTR(APC_DT, 0, 4) || '-' || SUBSTR(APC_DT, 5, 2) || '-' || SUBSTR(APC_DT, 7, 2) AS APC_DT_NM
+			     , APC_DT
+			  FROM TBCSPSAE135B
+			 ORDER BY APC_DT ASC
+         ]]>
+	</select>
+	
+	<select id="CSPSAE507ESelectMain" parameterClass="paramMap" resultMap ="hwpDocMap">
+        <![CDATA[
+			SELECT APC_DT
+			     , TXT
+			  FROM TBCSPSAE135B
+			 WHERE 1=1
+			   AND USE_YN = 'Y'
+			   AND APC_DT IS NOT NULL
+         ]]>
+	</select>
+	
+	<select id="CSPSAE507EExistYn" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT DECODE(TO_CHAR(COUNT(APC_DT)), '0', 'N', 'Y') 
+			  FROM TBCSPSAE135B
+         ]]>
+	</select>
+	
+	<insert id="CSPSAE507EInsertMain" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBCSPSAE135B
+			(
+			      APC_DT
+			    , USE_YN
+			    , TXT
+			    , FRT_USR_ID
+			    , FNL_USR_ID
+			    , FNL_DEAL_DPT_CD
+			    , FNL_MNU_ID
+			    , FRT_REGI_DH
+			    , FNL_MDF_DH
+			) VALUES (
+			      TO_CHAR(SYSDATE, 'YYYYMMDD')
+			    , 'Y'
+			    , #hwp#
+			    , #FNL_USR_ID#
+			    , #FNL_USR_ID#
+			    , #FNL_DEAL_DPT_CD#
+			    , #FNL_MNU_ID#
+			    , SYSDATE
+			    , SYSDATE
+			)
+        ]]>
+	</insert>
+	
+	<update id="CSPSAE507EUpdateMain" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPSAE135B
+			SET		APC_DT = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+					TXT = #hwp#,
+					FNL_USR_ID = #FNL_USR_ID#,
+					FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#,
+					FNL_MNU_ID = #FNL_MNU_ID#,
+					FNL_MDF_DH = SYSDATE
+		]]>
+	</update>
+	
+	<delete id="CSPSAE507EDeleteMain" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE135B
+			 WHERE APC_DT = #BF_APC_DT#
+		]]>  
+	</delete>
+	
+	<select id="CSPSAE508QSelectMain" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			WITH
+			DATA AS /* CSPSAE508QSelectMain */
+			(
+			    SELECT TO_CHAR(TO_DATE(A.END_DDL_DT)-1, 'YYYY') AS YR
+               		 , TO_CHAR(TO_DATE(A.END_DDL_DT)-1, 'MM') AS M
+			         , A.WEK
+			         , B.CNB
+			         , B.UE_NOP_CNT
+			         , B.USE_YN AS COK_USE_YN
+			         , C.DMT_DVSN_CD
+			         , C.RMN_NM
+			         , B.APL_DT
+			         , C.USE_STR_DT
+			         , C.USE_END_DT
+			         , C.USE_YN
+			         , C.USE_FEE
+			         , C.SRNO
+			         , B.BSC_SRNO
+			    FROM TBCSPSAE134B A
+			         , TBCSPSAE501M B
+			         , TBCSPSAE501D C
+				     , TBDCMACM001M D
+				     , TBDCMACM002M E
+			    WHERE C.CNB = B.CNB
+			    AND C.APL_DT = B.APL_DT
+			    AND C.BSC_SRNO = B.BSC_SRNO
+			    AND C.USE_STR_DT = TO_CHAR(TO_DATE(A.END_DDL_DT)-1,'YYYYMMDD')
+			    AND D.CNB = B.CNB
+			    AND E.DPT_CD = D.DPT_CD
+         ]]>
+         <dynamic>
+        	<isNotEmpty property="strFromDt">
+        		<isNotEmpty property="strToDt">
+        			AND C.USE_STR_DT BETWEEN #strFromDt# AND #strToDt#
+        		</isNotEmpty>
+        	</isNotEmpty>
+        	<isNotEmpty property="strDPT_CD">
+        		AND E.DPT_CD = #strDPT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strToDt">
+        		AND D.USR_NAM LIKE '%' || #strUSR_NAM# || '%'
+        	</isNotEmpty>
+        	<isNotEmpty property="strDMT_DVSN_CD">
+        		AND C.DMT_DVSN_CD = #strDMT_DVSN_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strCOFM_STA_CD">
+        		AND C.COFM_STA_CD = #strCOFM_STA_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strUSE_YN">
+        		AND C.USE_YN = #strUSE_YN#
+        	</isNotEmpty>
+        </dynamic>
+         <![CDATA[
+	         )
+			SELECT NVL2(D1.YR, D1.YR, '합계') AS YR
+			     , DECODE(NVL2(D1.YR, D1.YR, '합계'), '합계', '', NVL2(D1.M, D1.M, '소계')) AS M
+				 , DECODE(NVL2(D1.M, D1.M, '소계'), '소계', '', NVL2(TO_CHAR(D1.WEK), TO_CHAR(D1.WEK), '소계')) AS WEK
+				 , DECODE(NVL2(TO_CHAR(D1.WEK), TO_CHAR(D1.WEK), '소계'), '소계', '', NVL2(B.DPT_NM, B.DPT_NM, '소계')) AS DPT_NM
+			     , A.USR_NAM
+			     , (SELECT CD_NM FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1000173' AND CD = A.RANK_CD) AS RANK_CD
+			     , (SELECT CD_NM FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1000140' AND CD = D1.DMT_DVSN_CD) AS DMT_DVSN_CD
+			     , D1.RMN_NM
+			     , DECODE(D1.COK_USE_YN, 'Y', '사용', DECODE(D1.COK_USE_YN, 'N', '미사용', '') ) AS COK_USE_YN
+				 , D1.APL_DT
+				 , DECODE(D1.USE_STR_DT, NULL, '', SUBSTR(D1.USE_STR_DT, 0, 4) || '-' || SUBSTR(D1.USE_STR_DT, 5, 2) || '-' || SUBSTR(D1.USE_STR_DT, 7, 2) || ' ~ ' ||
+				   SUBSTR(D1.USE_END_DT, 0, 4) || '-' ||  SUBSTR(D1.USE_END_DT, 5, 2) || '-' ||  SUBSTR(D1.USE_END_DT, 7, 2)) AS USE_DT
+			     , D1.USE_FEE
+			     , NVL(D1.UE_NOP_CNT, D1.UE_NOP_CNT_TOT) AS UE_NOP_CNT
+				 , DECODE(D1.USE_YN, 'Y', '사용', DECODE(D1.USE_YN, 'N', '미사용', '')) AS USE_YN
+				 , A.HOM_TNB
+				 , C.IO_CAR_TXT
+			  FROM 
+					(
+					SELECT    X.YR
+					        , X.M
+					        , X.WEK
+					        , X.CNB
+					        , X.UE_NOP_CNT_TOT
+					        , Y.UE_NOP_CNT
+					        , Y.USE_FEE
+					        , Y.DMT_DVSN_CD
+					        , Y.RMN_NM
+					        , Y.COK_USE_YN
+					        , Y.APL_DT
+			                , Y.USE_STR_DT
+			                , Y.USE_END_DT
+			                , Y.USE_YN
+			                , Y.BSC_SRNO
+					FROM    (
+					            SELECT    D1.YR
+					                    , D1.M
+					                    , D1.WEK
+					                    , D1.CNB
+					                    , GROUPING(D1.YR) || GROUPING(D1.M)|| GROUPING(D1.WEK) || GROUPING(D1.CNB) AS GRP
+					                    , SUM(D1.UE_NOP_CNT) AS UE_NOP_CNT_TOT
+					            FROM    (
+					                        SELECT    DISTINCT D1.YR
+					                                , D1.M
+					                                , D1.WEK
+					                                , D1.CNB
+					                                , D1.UE_NOP_CNT
+					                        FROM    DATA D1
+					                    ) D1
+					            GROUP BY ROLLUP ( D1.YR
+					                    , D1.M
+					                    , D1.WEK
+					                    , D1.CNB
+					                    )
+					        ) X
+					        , (
+					                SELECT    D2.YR
+					                        , D2.M
+					                        , D2.WEK
+					                        , D2.CNB
+					                        , GROUPING(D2.YR) || GROUPING(D2.M)|| GROUPING(D2.WEK) || GROUPING(D2.CNB) AS GRP
+					                        , D2.DMT_DVSN_CD
+					                        , D2.RMN_NM
+					                        , D2.COK_USE_YN
+					                        , D2.APL_DT
+					                        , D2.USE_STR_DT
+					                        , D2.USE_END_DT
+					                        , D2.USE_YN
+					                        , SUM(D2.USE_FEE) AS USE_FEE
+					                        , D2.UE_NOP_CNT
+					                        , D2.BSC_SRNO
+					                FROM    DATA D2
+					                GROUP BY ROLLUP (
+					                          D2.YR
+					                        , D2.M
+					                        , D2.WEK
+					                        , (D2.CNB
+					                        , D2.DMT_DVSN_CD
+					                        , D2.RMN_NM
+					                        , D2.COK_USE_YN
+					                        , D2.APL_DT
+					                        , D2.USE_STR_DT
+					                        , D2.USE_END_DT
+					                        , D2.USE_YN
+					                        , D2.SRNO
+					                        , D2.UE_NOP_CNT
+					                        , D2.BSC_SRNO)
+					                        )
+					        )Y
+					WHERE    X.GRP = Y.GRP
+					AND        NVL(X.YR, '999') = NVL(Y.YR, '999')
+					AND        NVL(X.M, '999') = NVL(Y.M, '999')
+					AND        NVL(X.WEK, '999') = NVL(Y.WEK, '999')
+					AND        NVL(X.CNB, '999') = NVL(Y.CNB, '999')
+					) D1
+			     , TBDCMACM001M A
+			     , TBDCMACM002M B
+			     , TBCSPSAE501M C
+			  WHERE A.CNB(+) = D1.CNB
+			    AND B.DPT_CD(+) = A.DPT_CD
+			    AND C.CNB(+) = D1.CNB
+			    AND C.BSC_SRNO(+) = D1.BSC_SRNO
+			    AND C.APL_DT(+) = D1.APL_DT
+			ORDER BY D1.YR, D1.M, D1.WEK, B.DPT_CD, A.USR_NAM, RANK_CD, DMT_DVSN_CD, D1.BSC_SRNO, D1.RMN_NM, D1.APL_DT, USE_DT
+         ]]>
+	</select>
+	
+	<select id="CSPSAE508QReportData" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT NVL2(A.END_DDL_DT, TO_CHAR(TO_DATE(A.END_DDL_DT)-1, 'YYYY'), '합계') AS YR
+			     , DECODE(NVL2(A.END_DDL_DT, TO_CHAR(TO_DATE(A.END_DDL_DT)-1, 'YYYY'), '합계'), '합계', '', NVL2(A.END_DDL_DT, TO_CHAR(TO_DATE(A.END_DDL_DT)-1, 'MM'), '소계')) AS M
+			     , DECODE(NVL2(A.END_DDL_DT, TO_CHAR(TO_DATE(A.END_DDL_DT)-1, 'MM'), '소계'), '소계', '', NVL2(TO_CHAR(A.WEK), TO_CHAR(A.WEK), '소계')) AS WEK
+			     , DECODE(NVL2(TO_CHAR(A.WEK), TO_CHAR(A.WEK), '소계'), '소계', '', NVL2(E.DPT_NM, E.DPT_NM, '소계')) AS DPT_NM
+			     , D.USR_NAM
+			     , (SELECT CD_NM FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1000173' AND CD = D.RANK_CD) AS RANK_CD
+			     , (SELECT CD_NM FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1000140' AND CD = C.DMT_DVSN_CD) AS DMT_DVSN_CD
+			     , C.RMN_NM
+			     , B.BSC_SRNO
+			     , SUBSTR(B.APL_DT, 0, 4) || '-' || SUBSTR(B.APL_DT, 5, 2) || '-' || SUBSTR(B.APL_DT, 7, 2) AS APL_DT
+			     , SUBSTR(C.USE_STR_DT, 0, 4) || '-' || SUBSTR(C.USE_STR_DT, 5, 2) || '-' || SUBSTR(C.USE_STR_DT, 7, 2) || ' ~ ' ||
+			       SUBSTR(C.USE_END_DT, 0, 4) || '-' ||  SUBSTR(C.USE_END_DT, 5, 2) || '-' ||  SUBSTR(C.USE_END_DT, 7, 2) AS USE_DT
+			     , C.USE_FEE
+			     , CASE WHEN C.USE_FEE = 0 THEN 
+			     			CASE
+			     			WHEN F.CNT <> 1 THEN 0
+			     			ELSE B.UE_NOP_CNT
+			     			END
+	          		ELSE B.UE_NOP_CNT
+	          		END AS UE_NOP_CNT
+			     , DECODE(C.USE_YN, 'Y', '사용', DECODE(C.USE_YN, 'N', '미사용', '')) AS USE_YN
+			     , D.HOM_TNB
+			     , B.IO_CAR_TXT
+			  FROM TBCSPSAE134B A
+			     , TBCSPSAE501M B
+			     , TBCSPSAE501D C
+			     , TBDCMACM001M D
+			     , TBDCMACM002M E
+			     , (
+             	    SELECT	COUNT(SRNO) AS CNT
+	        	    		, CNB
+	        	    		, APL_DT
+	        	    		, USE_STR_DT
+	        	    		, BSC_SRNO
+	        	    FROM	TBCSPSAE501D
+	        	    WHERE	USE_STR_DT BETWEEN #strFromDt# AND #strToDt#
+	        	    GROUP BY CNB, APL_DT, BSC_SRNO, USE_STR_DT
+			       ) F
+			 WHERE C.CNB = B.CNB
+			   AND C.APL_DT = B.APL_DT
+			   AND C.BSC_SRNO = B.BSC_SRNO
+			   AND C.USE_STR_DT = TO_CHAR(TO_DATE(A.END_DDL_DT)-1,'YYYYMMDD')
+			   AND D.CNB = B.CNB
+			   AND E.DPT_CD = D.DPT_CD
+			   AND F.CNB = B.CNB
+			   AND F.APL_DT = B.APL_DT
+			   AND F.USE_STR_DT = C.USE_STR_DT
+			   AND F.BSC_SRNO = B.BSC_SRNO
+         ]]>
+         <dynamic>
+        	<isNotEmpty property="strFromDt">
+        		<isNotEmpty property="strToDt">
+        			AND C.USE_STR_DT BETWEEN #strFromDt# AND #strToDt#
+        		</isNotEmpty>
+        	</isNotEmpty>
+        	<isNotEmpty property="strDPT_CD">
+        		AND E.DPT_CD = #strDPT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strToDt">
+        		AND D.USR_NAM LIKE '%' || #strUSR_NAM# || '%'
+        	</isNotEmpty>
+        	<isNotEmpty property="strDMT_DVSN_CD">
+        		AND C.DMT_DVSN_CD = #strDMT_DVSN_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strCOFM_STA_CD">
+        		AND C.COFM_STA_CD = #strCOFM_STA_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strUSE_YN">
+        		AND C.USE_YN = #strUSE_YN#
+        	</isNotEmpty>
+        </dynamic>
+        <![CDATA[
+        	    ORDER BY YR, M, WEK, E.DPT_CD, USR_NAM, RANK_CD, DMT_DVSN_CD, RMN_NM, APL_DT, USE_DT
+       ]]>
+	</select>
+	
+	<select id="CSPSAE509QSelectMain" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			WITH BOKG_INFO AS (
+			SELECT MIN(DECODE(A.USE_STR_DT, B.USE_STR_DT, DECODE(A.DMT_DVSN_CD, B.DMT_DVSN_CD, A.BOKG_CNT, ''), '')) AS BOKG_CNT
+			     , MIN(DECODE(A.USE_STR_DT, B.USE_STR_DT, DECODE(A.DMT_DVSN_CD, B.DMT_DVSN_CD, A.CNB_CNT, ''), '')) AS CNB_CNT
+			     , MIN(DECODE(A.USE_STR_DT, B.USE_STR_DT, DECODE(A.DMT_DVSN_CD, B.DMT_DVSN_CD, A.USE_CNT, ''), '')) AS USE_CNT
+			     , MIN(DECODE(A.USE_STR_DT, B.USE_STR_DT, DECODE(A.DMT_DVSN_CD, B.DMT_DVSN_CD, A.TOT_USE_FEE, ''), '')) AS TOT_USE_FEE
+			     , A.USE_STR_DT
+			     , A.DMT_DVSN_CD
+			  FROM (
+					SELECT TO_CHAR(COUNT(DMT_DVSN_CD)) AS BOKG_CNT
+					     , '' AS CNB_CNT
+					     , '' AS USE_CNT
+					     , '' AS TOT_USE_FEE
+			             , USE_STR_DT
+			             , DMT_DVSN_CD
+			          FROM TBCSPSAE501D
+			         WHERE COFM_STA_CD IN ('30', '50', '60')
+			        GROUP BY USE_STR_DT, DMT_DVSN_CD
+			        UNION 
+					SELECT '' AS BOKG_CNT
+					     , '' AS CNB_CNT
+					     , '' AS USE_CNT
+					     , TO_CHAR(SUM(USE_FEE)) AS TOT_USE_FEE
+			             , USE_STR_DT
+			             , DMT_DVSN_CD
+			          FROM TBCSPSAE501D
+			         WHERE COFM_STA_CD IN ('30', '50', '60')
+			        GROUP BY USE_STR_DT, DMT_DVSN_CD
+			        ) A
+			      , (SELECT USE_STR_DT
+			             , DMT_DVSN_CD
+			          FROM TBCSPSAE501D
+			        GROUP BY USE_STR_DT, DMT_DVSN_CD) B
+			   WHERE A.USE_STR_DT = B.USE_STR_DT
+			     AND A.DMT_DVSN_CD = B.DMT_DVSN_CD
+			 GROUP BY A.USE_STR_DT, A.DMT_DVSN_CD
+			)
+			SELECT NVL2(A.YR, A.YR, '총계') AS YR
+			     , DECODE(NVL2(A.YR, A.YR, '총계'), '총계', '', NVL2(A.M, A.M, '합계')) AS M
+			     , DECODE(NVL2(A.M, A.M, '합계'), '합계', '', NVL2(TO_CHAR(A.WEK), TO_CHAR(A.WEK), '소계')) AS WEK
+			     , DECODE(NVL2(TO_CHAR(A.WEK), TO_CHAR(A.WEK), '소계'), '소계', '', NVL2(A.USE_STR_DT, 
+			       SUBSTR(A.USE_STR_DT, 0, 4) || '-' || SUBSTR(A.USE_STR_DT, 5, 2) || '-' || SUBSTR(A.USE_STR_DT, 7, 2) || '(' || SUBSTRING(UPPER(TO_CHAR(TO_DATE(A.USE_STR_DT), 'DAY', 'NLS_DATE_LANGUAGE=KOREAN')), 0, 1) || ')'
+			       , '소계')) AS USE_STR_DT
+			     , DECODE(NVL2(A.USE_STR_DT, A.USE_STR_DT, '소계'), '소계', '', NVL2(TO_CHAR(A.FLOOR), TO_CHAR(A.FLOOR), '소계')) AS FLOOR
+			     , DECODE(NVL2(TO_CHAR(A.FLOOR), TO_CHAR(A.FLOOR), '소계'), '소계', '', NVL2(A.ROOM_TYPE, A.ROOM_TYPE, '소계')) AS ROOM_TYPE
+			     , NVL(SUM(A.BOKG_CNT), 0) AS BOKG_CNT
+			     , NVL(SUM(TOT_USE_FEE), 0) AS TOT_USE_FEE
+			  FROM (
+					SELECT DISTINCT
+					       TO_CHAR(TO_DATE(A.END_DDL_DT)-1, 'YYYY') AS YR
+                         , TO_CHAR(TO_DATE(A.END_DDL_DT)-1, 'MM') AS M
+					     , A.WEK
+					     , C.USE_STR_DT
+					     , D.USR_DFN_TXT_1 AS FLOOR
+					     , D.USR_DFN_TXT_2 AS ROOM_TYPE
+					     , (SELECT BOKG_CNT FROM BOKG_INFO WHERE USE_STR_DT = C.USE_STR_DT AND DMT_DVSN_CD = D.CD) AS BOKG_CNT
+					     , (SELECT TOT_USE_FEE FROM BOKG_INFO WHERE USE_STR_DT = C.USE_STR_DT AND DMT_DVSN_CD = D.CD) AS TOT_USE_FEE
+					  FROM TBCSPSAE134B A
+					     , TBCSPSAE501M B
+					     , TBCSPSAE501D C
+					     , TBDCMACM013C D
+					 WHERE C.CNB = B.CNB
+					   AND C.APL_DT = B.APL_DT
+					   AND C.BSC_SRNO = B.BSC_SRNO
+					   AND C.COFM_STA_CD IN ('30', '50', '60')
+					   AND C.USE_STR_DT = TO_CHAR(TO_DATE(A.END_DDL_DT)-1,'YYYYMMDD')
+					   AND D.CMM_CD_DVSN_CD = '1000140'
+					   AND D.USE_YN = 'Y'
+         ]]>
+         <dynamic>
+        	<isNotEmpty property="strFromDt">
+        		<isNotEmpty property="strToDt">
+        			AND C.USE_STR_DT BETWEEN #strFromDt# AND #strToDt#
+        		</isNotEmpty>
+        	</isNotEmpty>
+        </dynamic>
+         <![CDATA[
+				   ) A
+			GROUP BY ROLLUP(A.YR
+			             , A.M
+			             , A.WEK
+			             , A.USE_STR_DT
+			             , ( A.FLOOR
+						     , A.ROOM_TYPE
+			               )
+			              )
+         ]]>
+	</select>
+	
+	<select id="CSPSAE510PSplDocTxt" parameterClass="paramMap" resultMap="splDocTxt">
+        <![CDATA[
+				SELECT A.CNB
+				     , A.APL_DT
+				     , A.SPL_DOC_TXT
+				  FROM TBCSPSAE501M A
+				  WHERE 1=1
+				  AND A.CNB = #CNB#
+				  AND A.APL_DT = #APL_DT#
+         ]]>
+	</select>
+	
+	<select id="CSPSAE511EYrCBB" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+	            SELECT YYYY AS YR_CD, 
+                 YYYY AS YR_NM 
+            FROM (
+                  SELECT YR - LEVEL +2 YYYY 
+                    FROM (
+                 			SELECT TO_CHAR(SYSDATE, 'YYYY') AS YR
+							  FROM DUAL
+                         ) 
+                  CONNECT BY TO_CHAR(SYSDATE,'YYYY') - LEVEL + 2 >= 2014
+                 )
+         ]]>
+	</select>
+
+	<select id="CSPSAE511ESelectMain" parameterClass="paramMap" resultMap="notiTxt">
+        <![CDATA[
+			SELECT	SNO
+					, TIT_NM
+					, USE_STR_DT
+					, USE_END_DT
+			FROM	TBCSPSAE136B
+			WHERE 1=1
+         ]]>
+         <dynamic>
+        	<isNotEmpty property="strTIT_NM">
+         	AND TIT_NM LIKE '%' || #strTIT_NM# || '%'
+         	</isNotEmpty>
+        	<isNotEmpty property="strFromY">
+        		<isNotEmpty property="strFromM">
+	 			AND		(
+	   						( SUBSTR(USE_STR_DT, 0, 6) BETWEEN #strFromY# || #strFromM# AND #strToY# || #strToM#
+								OR SUBSTR(USE_END_DT, 0, 6) BETWEEN #strFromY# AND #strToY#
+							)
+	   						OR (#strFromY# || #strFromM# BETWEEN SUBSTR(USE_STR_DT, 0, 6) AND SUBSTR(USE_END_DT, 0, 6)
+	   							OR #strToY# || #strToM# BETWEEN SUBSTR(USE_STR_DT, 0, 6) AND SUBSTR(USE_END_DT, 0, 6)
+	   					     )
+	   					 )
+        		</isNotEmpty>
+        	</isNotEmpty>
+        </dynamic>
+         <![CDATA[
+			ORDER BY SNO
+         ]]>
+	</select>
+	
+	<delete id="CSPSAE511EDeleteMain" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE136B
+			 WHERE SNO = #SNO#
+		]]>  
+	</delete>
+	
+	<select id="CSPSAE512PSelectMain" parameterClass="paramMap" resultMap="notiTxt2">
+        <![CDATA[
+			SELECT	SNO
+					, TIT_NM
+					, TXT
+					, USE_STR_DT
+					, USE_END_DT
+			FROM	TBCSPSAE136B
+			WHERE 1=1
+			  AND SNO = #strSrno#
+         ]]>
+	</select>	
+	
+	<insert id="CSPSAE512PInsertMain" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBCSPSAE136B
+			(
+			      SNO
+			    , TIT_NM
+			    , TXT
+			    , USE_STR_DT
+			    , USE_END_DT
+			    , FRT_USR_ID
+			    , FNL_USR_ID
+			    , FNL_DEAL_DPT_CD
+			    , FNL_MNU_ID
+			    , FRT_REGI_DH
+			    , FNL_MDF_DH
+			) VALUES (
+			      (SELECT NVL(MAX(SNO), 0)+1 FROM	TBCSPSAE136B)
+			    , #TIT_NM#
+			    , #TXT#
+			    , #USE_STR_DT#
+			    , #USE_END_DT#
+			    , #FNL_USR_ID#
+			    , #FNL_USR_ID#
+			    , #FNL_DEAL_DPT_CD#
+			    , #FNL_MNU_ID#
+			    , SYSDATE
+			    , SYSDATE
+			)
+        ]]>
+	</insert>
+	
+	<update id="CSPSAE512PUpdateMain" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPSAE136B
+			SET		TIT_NM		= #TIT_NM#
+			      , TXT			= #TXT#
+			      , USE_STR_DT	= #USE_STR_DT#
+			      , USE_END_DT	= #USE_END_DT#
+				  , FNL_USR_ID = #FNL_USR_ID#
+				  , FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+			      , FNL_MNU_ID = #FNL_MNU_ID#
+				  , FNL_MDF_DH = SYSDATE
+			WHERE	SNO = #SNO#
+		]]>
+	</update>
+	
+	<select id="CSPSAE511ENotiInfo" parameterClass="paramMap" resultMap="notiTxt">
+        <![CDATA[
+			SELECT	SNO
+					, TIT_NM					
+					, USE_STR_DT
+					, USE_END_DT
+			FROM	TBCSPSAE136B
+			WHERE	TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN USE_STR_DT AND USE_END_DT
+			ORDER BY SNO
+         ]]>
+	</select>
+	
+	<select id="CSPSAE501QSelectResvCount" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT	
+				COUNT(A.BSC_SRNO)|| '/' || (SELECT MN_BOKG_NBC FROM TBCSPSAE132B) AS resvCnt
+			FROM
+				(SELECT 
+						  DISTINCT A.BSC_SRNO
+				FROM 
+						  TBCSPSAE501M A
+						, TBCSPSAE501D B
+				WHERE B.CNB = A.CNB
+				AND B.APL_DT = A.APL_DT
+				AND B.BSC_SRNO = A.BSC_SRNO
+				AND B.COFM_STA_CD IN ('10', '30', '50', '60')
+				AND B.APL_DT BETWEEN TO_CHAR(SYSDATE, 'YYYYMM') || '01' AND TO_CHAR(LAST_DAY(SYSDATE), 'YYYYMMDD')
+				AND A.CNB = #CNB#) A
+         ]]>
+	</select>
+	
+	<delete id="CSPSAE501QDeleteMain2" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE501M
+			 WHERE 1=1
+			   AND CNB = #CNB#
+			   AND APL_DT = #HAPL_DT#
+			   AND BSC_SRNO = #BSC_SRNO#
+		]]>  
+	</delete>
+	
+	<select id="CSPSAE501QSelectBokgCnt2" parameterClass="paramMap" resultClass="String">
+        <![CDATA[
+			SELECT NVL(COUNT(CNB), 0) AS CNT FROM TBCSPSAE501D
+			 WHERE 1=1
+			   AND CNB = #CNB#
+			   AND APL_DT = #HAPL_DT#
+			   AND BSC_SRNO = #BSC_SRNO#
+         ]]>
+	</select>
+	
+	<delete id="CSPSAE501QDeleteBokg2" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBCSPSAE501D
+			 WHERE 1=1
+			   AND CNB = #CNB#
+			   AND APL_DT = #HAPL_DT#
+			   AND BSC_SRNO = #BSC_SRNO#
+			   AND SRNO = #SRNO#
+		]]>  
+	</delete>
+	
+	<select id="CSPSAE501QSelectHoliDayCheck" parameterClass="paramMap" resultClass="Integer">
+        <![CDATA[
+			SELECT COUNT(MD)
+			  FROM TBBADDED013B
+			 WHERE YE = TO_CHAR(TO_DATE(#strHDchk#), 'YYYY')
+			   AND MD = TO_CHAR(TO_DATE(#strHDchk#), 'MMDD')
+         ]]>
+	</select>
+</sqlMap> 

@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/bii/411">
+	<!-- 기본정보 조회 -->   
+	<select id="CSPBII411QMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		<include refid="include.pageSelct" />
+		<![CDATA[       
+			SELECT A.YE || '-' || LPAD(A.SRNO, 5, '0') AS MTRL_NO
+			     , A.ACP_DT
+			     , A.CLC_RUT_NM
+			     , (SELECT B.ORG_NM
+			          FROM TBDCMACM015M B
+			         WHERE B.ORG_CD = A.REL_ORG_CD) AS REL_ORG_NM
+			     , A.TIT_NM
+			     , A.YE
+			     , A.SRNO
+			     , (SELECT C.CD_NM
+			          FROM TBDCMACM013C C
+			         WHERE C.CD = A.INSP_INFO_STAT_CD AND CMM_CD_DVSN_CD = '1000865') AS STAT_NM
+			     , (SELECT D.DPT_NM
+			          FROM TBDCMACM002M D
+			         WHERE D.DPT_CD = A.CHAR_DEPT_CD ) AS DPT_NM
+			     , A.CHAR_DEPT_CD
+			     , (SELECT E.USR_NAM
+			          FROM TBDCMACM001M E
+			         WHERE E.CNB = A.CHAR_CNB ) AS USR_NM
+			     , (SELECT  SUBSTR(XMLAGG(XMLELEMENT(X,',',REL_PEN_NM) ORDER BY SRNO).EXTRACT('//text()'),2) REL_PEN_NM_LIST     
+           				FROM TBCSPBII401L 
+           				WHERE YE   = A.YE AND SRNO = A.SRNO
+           				GROUP BY YE, SRNO) AS REL_PEN_NM_LIST
+           		,  (SELECT C.CD_NM
+			          FROM TBDCMACM013C C
+			         WHERE C.CD = A.INF_TYP AND CMM_CD_DVSN_CD = '1000875') AS INF_TYP /*정보유형*/
+			     , (SELECT C.CD_NM
+			          FROM TBDCMACM013C C
+			         WHERE C.CD = A.HNDL_DIRC AND CMM_CD_DVSN_CD = '1000876') AS HNDL_DIRC /*처리방향*/
+           		,  (SELECT C.CD_NM
+			          FROM TBDCMACM013C C
+			         WHERE C.CD = A.HNDL_RSLT AND CMM_CD_DVSN_CD = '1000877') AS HNDL_RSLT /*처리결과*/
+           		, A.FRT_USR_ID /*등록자*/
+			  FROM TBCSPBII400L A  /* 기타감찰자료정보내역 */
+			 WHERE 1=1	
+			  AND (A.CHAR_DEPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #strDptAuth#, '', #strDptCd#))) OR A.CHAR_DEPT_CD IS NULL)
+		]]>
+			
+        	
+                
+			<isNotEmpty property="strDptCd2">
+                AND  (A.CHAR_DEPT_CD = #strDptCd2# OR A.CHAR_DEPT_CD IS NULL)
+            </isNotEmpty> 
+        	
+        	
+        	
+        	
+			<isNotEmpty property="strStrAcpDt">
+				AND A.ACP_DT >= #strStrAcpDt#
+			</isNotEmpty>
+			<isNotEmpty property="strEndAcpDt">
+				AND A.ACP_DT &lt;= #strEndAcpDt#
+			</isNotEmpty>
+			<isNotEmpty property="strRelOrgCd">
+				AND A.REL_ORG_CD = #strRelOrgCd#
+			</isNotEmpty>
+			<isNotEmpty property="strEtcInspMtrlClcDvsnCd">
+				AND A.ETC_INSP_MTRL_CLC_DVSN_CD = #strEtcInspMtrlClcDvsnCd#
+			</isNotEmpty>
+			<isNotEmpty property="strChrCnb">
+				AND A.CHAR_CNB = #strChrCnb#
+			</isNotEmpty>
+			<isNotEmpty property="strEtcInspInfoStatCd">
+				AND A.INSP_INFO_STAT_CD = #strEtcInspInfoStatCd#
+			</isNotEmpty>
+			<isNotEmpty property="strInfTyp">
+				AND A.INF_TYP = #strInfTyp#
+			</isNotEmpty>
+			<isNotEmpty property="strHndlDirc">
+				AND A.HNDL_DIRC = #strHndlDirc#
+			</isNotEmpty>
+			<isNotEmpty property="strHndlRslt">
+				AND A.HNDL_RSLT = #strHndlRslt#
+			</isNotEmpty>
+			<isNotEmpty property="strSchTxt">
+				AND (A.YE, A.SRNO) IN (SELECT B.YE
+				                            , B.SRNO
+				                         FROM TBCSPBII400L B 
+				                        WHERE B.CLC_RUT_NM LIKE '%' || #strSchTxt# || '%'
+				                       
+				                       UNION ALL
+				                       
+				                       SELECT B.YE
+				                            , B.SRNO
+				                         FROM TBCSPBII400L B 
+				                        WHERE B.TIT_NM LIKE '%' || #strSchTxt# || '%'
+				                        
+				                       UNION ALL
+				                       
+				                       SELECT B.YE
+				                            , B.SRNO
+				                         FROM TBCSPBII401L B
+				                        WHERE B.REL_PEN_NM LIKE #strSchTxt# || '%')
+			</isNotEmpty>
+		<include refid="include.pageOrder" />  
+	</select>
+	
+	<!-- 담당부서 조회(화면에서 바로 호출)-->
+	<select id="CSPBII411QCharDeptSelect" parameterClass="paramMap" resultClass="resultMap">	
+		 		
+		SELECT  DPT_CD AS CD, 
+				DPT_NM AS CD_NM 
+		FROM TBDCMACM002M 
+		WHERE HIRK_DPT_CD = '070000' AND USE_YN = 'Y' 
+		ORDER BY DPT_CD	
+	</select>
+	
+	
+	<select id="CSPBII411QCharCnbSelect" parameterClass="paramMap" resultClass="resultMap">	
+		SELECT CNB AS CD, USR_NAM AS CD_NM 
+			FROM TBDCMACM001M 
+			WHERE WOK_DVSN_CD='AAA' /*재직중*/
+	
+			<isNotEmpty property="strDptCd2">
+				AND DPT_CD = #strDptCd2#
+			</isNotEmpty>
+			<isEmpty property="strDptCd2">	
+				<isNotEmpty property="strDptCd">		
+				AND SUBSTR(DPT_CD,0,3)||'000' = #strDptCd#
+				</isNotEmpty>
+			</isEmpty>
+			
+		ORDER BY DPT_CD,INN_RANK_CD
+	</select>
+	
+	
+	
+	<select id="CSPBII411QExcelExportSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[       
+			SELECT A.YE || '-' || LPAD(A.SRNO, 5, '0') AS MTRL_NO
+			     , TO_CHAR(TO_DATE(A.ACP_DT),'YYYY-MM-DD') AS ACP_DT
+			     , A.CLC_RUT_NM
+			     , (SELECT B.ORG_NM
+			          FROM TBDCMACM015M B
+			         WHERE B.ORG_CD = A.REL_ORG_CD) AS REL_ORG_NM
+			     , A.TIT_NM
+			     , A.YE
+			     , A.SRNO
+			     , (SELECT C.CD_NM
+			          FROM TBDCMACM013C C
+			         WHERE C.CD = A.INSP_INFO_STAT_CD AND CMM_CD_DVSN_CD = '1000865') AS STAT_NM
+			     , (SELECT D.DPT_NM
+			          FROM TBDCMACM002M D
+			         WHERE D.DPT_CD = A.CHAR_DEPT_CD ) AS DPT_NM
+			     , A.CHAR_DEPT_CD
+			     , (SELECT E.USR_NAM
+			          FROM TBDCMACM001M E
+			         WHERE E.CNB = A.CHAR_CNB ) AS USR_NM
+			     , (SELECT  SUBSTR(XMLAGG(XMLELEMENT(X,',',REL_PEN_NM) ORDER BY SRNO).EXTRACT('//text()'),2) REL_PEN_NM_LIST     
+           				FROM TBCSPBII401L 
+           				WHERE YE   = A.YE AND SRNO = A.SRNO
+           				GROUP BY YE, SRNO) AS REL_PEN_NM_LIST
+           		,  (SELECT C.CD_NM
+			          FROM TBDCMACM013C C
+			         WHERE C.CD = A.INF_TYP AND CMM_CD_DVSN_CD = '1000875') AS INF_TYP /*정보유형*/
+			     , (SELECT C.CD_NM
+			          FROM TBDCMACM013C C
+			         WHERE C.CD = A.HNDL_DIRC AND CMM_CD_DVSN_CD = '1000876') AS HNDL_DIRC /*처리방향*/
+           		,  (SELECT C.CD_NM
+			          FROM TBDCMACM013C C
+			         WHERE C.CD = A.HNDL_RSLT AND CMM_CD_DVSN_CD = '1000877') AS HNDL_RSLT /*처리결과*/
+           		, A.FRT_USR_ID /*등록자*/
+			  FROM TBCSPBII400L A  /* 기타감찰자료정보내역 */
+			 WHERE 1=1	
+		]]>
+			<isNotEqual property="strAuthCd" compareValue="ALL">
+        		AND (A.CHAR_DEPT_CD = #strDptCd2# OR A.CHAR_DEPT_CD IS NULL)	 /* 담당부서가 본인의 과인것만 표시되도록 */
+        	</isNotEqual>
+			<isNotEmpty property="strStrAcpDt">
+				AND A.ACP_DT >= #strStrAcpDt#
+			</isNotEmpty>
+			<isNotEmpty property="strEndAcpDt">
+				AND A.ACP_DT &lt;= #strEndAcpDt#
+			</isNotEmpty>
+			<isNotEmpty property="strRelOrgCd">
+				AND A.REL_ORG_CD = #strRelOrgCd#
+			</isNotEmpty>
+			<isNotEmpty property="strEtcInspMtrlClcDvsnCd">
+				AND A.ETC_INSP_MTRL_CLC_DVSN_CD = #strEtcInspMtrlClcDvsnCd#
+			</isNotEmpty>
+			<isNotEmpty property="strChrCnb">
+				AND A.CHAR_CNB = #strChrCnb#
+			</isNotEmpty>
+			<isNotEmpty property="strEtcInspInfoStatCd">
+				AND A.INSP_INFO_STAT_CD = #strEtcInspInfoStatCd#
+			</isNotEmpty>
+			<isNotEmpty property="strInfTyp">
+				AND A.INF_TYP = #strInfTyp#
+			</isNotEmpty>
+			<isNotEmpty property="strHndlDirc">
+				AND A.HNDL_DIRC = #strHndlDirc#
+			</isNotEmpty>
+			<isNotEmpty property="strHndlRslt">
+				AND A.HNDL_RSLT = #strHndlRslt#
+			</isNotEmpty>
+			<isNotEmpty property="strSchTxt">
+				AND (A.YE, A.SRNO) IN (SELECT B.YE
+				                            , B.SRNO
+				                         FROM TBCSPBII400L B 
+				                        WHERE B.CLC_RUT_NM LIKE '%' || #strSchTxt# || '%'
+				                       
+				                       UNION ALL
+				                       
+				                       SELECT B.YE
+				                            , B.SRNO
+				                         FROM TBCSPBII400L B 
+				                        WHERE B.TIT_NM LIKE '%' || #strSchTxt# || '%'
+				                        
+				                       UNION ALL
+				                       
+				                       SELECT B.YE
+				                            , B.SRNO
+				                         FROM TBCSPBII401L B
+				                        WHERE B.REL_PEN_NM LIKE #strSchTxt# || '%')
+			</isNotEmpty>
+	</select>
+	
+</sqlMap> 

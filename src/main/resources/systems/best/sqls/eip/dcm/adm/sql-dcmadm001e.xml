@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.dcm.adm.dao.DCMADM001EMapper">
+
+	<!-- 감사자료 제출 요구 목록 조회 -->
+	<select id="selectMainList" parameterType="paramMap"
+		resultType="egovMap">
+		/* DCMADM001EMapper.selectMainList 감사자료 제출 요구 목록 조회 */
+		<include refid="include.pageSelct"/>
+		<![CDATA[
+			SELECT T1.ADMN_INF_HNDL_NO
+			      ,T1.ONR_DOC_MNG_CRD_ID
+			      ,TO_CHAR(TO_DATE(T1.RQ_DT),'YYYY-MM-DD') AS RQ_DT
+			      ,T1.TIT_NM
+			      ,T1.RCPT_ORG_NM
+			      ,T1.APV_STA_CD
+			      ,F_CODE_NM('1000773',T1.APV_STA_CD) AS APV_STA_NM
+			      ,T1.CHGR_CNB
+			      ,T1.RPRT_CD
+			      ,T1.FRT_REGI_DH
+			  FROM TBDCMADM001M T1 
+			 WHERE 1=1
+			  AND CHGR_CNB = #{sCnb}
+			
+		]]>
+		<if test='schRqDts != null and schRqDts != ""'>
+				<![CDATA[
+				   AND T1.RQ_DT >= #{schRqDts}
+				]]>
+			</if>
+			
+		<if test='schRqDte != null and schRqDte != ""'>
+				<![CDATA[
+				   AND T1.RQ_DT <= #{schRqDte}
+				]]>
+			</if>
+		<if test='schTitNm != null and schTitNm != ""'>
+			<![CDATA[
+			   AND T1.TIT_NM LIKE '%'||#{schTitNm}||'%'
+			]]>
+		</if>
+		<if test='schRcptOrgNm != null and schRcptOrgNm != ""'>
+			<![CDATA[
+			   AND T1.RCPT_ORG_NM LIKE '%'||#{schRcptOrgNm}||'%'
+			]]>
+		</if>
+		
+		<if test='schApvStaCd != null and schApvStaCd != ""'>
+			<![CDATA[
+			   AND T1.APV_STA_CD = #{schApvStaCd}
+			]]>
+		</if>
+		ORDER BY T1.FRT_REGI_DH DESC
+		<include refid="include.pageOrder" />
+	</select>
+	
+	<update id="insertInfo" parameterType="paramMap">
+		<![CDATA[
+			INSERT INTO TBDCMADM001M
+			( ADMN_INF_HNDL_NO
+			      ,ONR_DOC_MNG_CRD_ID
+			      ,RQ_DT
+			      ,TIT_NM
+			      ,APV_STA_CD
+			      ,CHGR_CNB
+			      ,RPRT_CD
+			      ,FRT_USR_ID
+		        					,FNL_USR_ID
+		        					,FNL_DEAL_DPT_CD
+		        					,FNL_MNU_ID
+		        					,FRT_REGI_DH
+		        					,FNL_MDF_DH
+		   ) VALUES (
+		   		#{administrativeNum}
+		   		,#{exId}
+		   		,TO_CHAR(SYSDATE,'YYYYMMDD')
+		   		,#{title}
+		   		,'10'
+		   		,F_USR_INFO_BY_ID(#{usrId},'1')
+		   		,#{audDocCd}
+		   		, #{usrId}
+									, #{usrId}
+									, #{dptCd}
+									, #{menuNo}
+									,SYSDATE
+									,SYSDATE
+		   )
+		]]>
+		
+	</update>
+	
+	<update id="save" parameterType="paramMap">
+	/* DCMADM001EMapper.save 감사자료 제출 요구 저장 */
+		<![CDATA[
+			UPDATE TBDCMADM001M
+       			SET	RCPT_ORG_NM = #{rcptOrgNm}
+       					,FNL_USR_ID = #{fnlUsrId}
+       					,FNL_DEAL_DPT_CD = #{fnlDealDptCd}
+       					,FNL_MNU_ID = #{fnlMnuId}
+       					,FNL_MDF_DH = SYSDATE
+       		 WHERE ADMN_INF_HNDL_NO = #{admnInfHndlNo}
+		]]>
+	</update>
+	
+	
+	<select id="selectDocumentList" parameterType="paramMap" resultType="egovMap">
+        /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.selectDocumentList*/
+        /*문서함(결재정보)*/
+        <![CDATA[
+        SELECT
+            RPRT_NM,
+           APV_STA_CD,
+           APV_RQS_ID,
+           DOC_ID,
+           APV_SRNO,
+           PST_NM,
+           APVR_NM,
+           APV_DH ,
+           CASE
+                WHEN ROW_NUMBER() OVER(PARTITION BY DOC_ID ORDER BY APV_SRNO) = 1 THEN COUNT(*) OVER(PARTITION BY DOC_ID)
+                ELSE 0
+           END ROWSPAN_CNT
+      FROM (
+           SELECT
+                  A.TIT_NM AS RPRT_NM ,       /*보고서명 */
+                  A.APV_STA_CD ,    /*결재상태코드 */
+                  A.ADMN_INF_HNDL_NO AS  DOC_ID ,        /*결재문서번호 */
+                  A.ONR_DOC_MNG_CRD_ID AS APV_RQS_ID,     /*결재요청ID */
+                  B.APV_SRNO ,      /*결재순번 */
+                  B.PST_NM ,        /*결재자직위코드 */
+                  B.APVR_NM ,       /*결재자전산번호 */
+                  B.APV_DH          /*결재일시 */
+             FROM TBDCMADM001M A,
+                  (
+                  SELECT DH1.APV_RQS_ID,
+                         DH1.APV_SRNO,
+                         (SELECT H2.PST_NM AS PST_NM
+                            FROM TBDCMACM111H H1,
+                                 TBDCMACM112H H2
+                           WHERE 1=1
+                             AND H1.RCPT_DT = H2.RCPT_DT
+                             AND H1.RCPT_ID = H2.RCPT_ID
+                             AND H1.ONR_DOC_MNG_CRD_ID = DH1.APV_RQS_ID
+                             AND H2.APVR_ID = DH1.APVR_ID
+                           GROUP BY H2.PST_NM ) AS PST_NM,
+                         DH1.APVR_NM,
+                         DH1.APV_DH
+                    FROM
+                         (SELECT ONR_DOC_MNG_CRD_ID AS APV_RQS_ID,
+                                 APV_HIS_SRNO AS APV_SRNO,
+                                 APVR_ID,
+                                 APVR_NM AS APVR_NM,
+                                 TO_CHAR(APV_DH, 'YYYY.MM.DD') AS APV_DH
+                            FROM TBDCMACM102L D2
+                           WHERE 1=1
+                             AND ONR_APV_DVSN_CD <> '10' --(기안자 제외)
+                               AND NVL(ONR_APV_RSLT_CD,'hh') <>'50'
+                               AND D2.ONR_DOC_MNG_CRD_ID  = #{onrDocMngCrdId}
+                           ORDER BY APV_RQS_ID,APV_SRNO
+                         ) DH1
+                  ) B
+            WHERE A.ADMN_INF_HNDL_NO = #{admnInfHndlNo}
+              AND A.ONR_DOC_MNG_CRD_ID = B.APV_RQS_ID
+        ]]>
+        )
+    </select>
+    
+    <select id="selectDocumentList2" parameterType="paramMap" resultType="egovMap" >
+        /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.selectDocumentList2*/
+        /*문서함(문서자체정보)*/
+        <![CDATA[
+          SELECT
+                  A.TIT_NM AS RPRT_NM, 
+               A.RPRT_CD ,       /*보고서코드*/
+               A.APV_STA_CD,    /*결재상태코드 */
+               F_CODE_NM('1000773',A.APV_STA_CD) AS APV_STA_NM ,    /*결재상태코드 */
+               A.ADMN_INF_HNDL_NO AS DOC_ID,         /*결재문서번호 */
+               A.ONR_DOC_MNG_CRD_ID AS APV_RQS_ID     /*결재ID*/
+          FROM TBDCMADM001M A
+         WHERE A.ADMN_INF_HNDL_NO = #{admnInfHndlNo}
+        ]]>
+    </select>
+    
+    <delete id="delete" parameterType="paramMap" >
+    	<![CDATA[
+    		delete 
+    		FROM TBDCMADM001M A
+         WHERE A.ADMN_INF_HNDL_NO = #{admnInfHndlNo}
+    	]]>
+    </delete>
+	
+</mapper>

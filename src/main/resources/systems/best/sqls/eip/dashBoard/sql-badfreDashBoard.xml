@@ -1,0 +1,3198 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.dashBoard.dao.BadFreDashBoardMapper">
+
+	<select id="selectBadFreDashBoardList1" parameterType="paramMap" resultType="egovMap">
+	/*kr.go.bai.eip.dashBoard.dao.BadFreDashBoardMapper.selectBadFreDashBoardList1*/
+	<![CDATA[
+	WITH FRE_MAIN_TABLE AS (
+    SELECT ACP_YR
+            , ACP_DVSN_CD
+            , ACP_SRNO
+            , DPT_CD
+            , ACP_DT
+            , VT_KND_CD
+            , BAI_DSP_YN
+            , CASE WHEN TO_DATE(SBCN_DT) >= SYSDATE THEN '' ELSE SBCN_DT END AS SBCN_DT
+    FROM (
+        SELECT D1.ACP_YR
+            , D1.ACP_DVSN_CD
+            , D1.ACP_SRNO
+            , D1.DPT_CD
+            , NVL(D3.RLS_DT, D1.ACP_DT) AS ACP_DT
+            , NVL(D1.VT_KND_CD, NVL(D2.VT_KND_CD, D1.HNDL_OPNN_CD)) AS VT_KND_CD
+            , D1.BAI_DSP_YN
+            , CASE WHEN D1.VT_KND_CD IN ('7','8') THEN D3.ENF_DT 
+                   ELSE 
+                    (CASE WHEN D1.ACP_DVSN_CD = '1' AND REFER_ENT = 'Y' THEN 
+                        NVL(( SELECT
+                              TO_CHAR(B.FNL_APV_DH,'YYYYMMDD')
+                         FROM TBBADFRE103M A
+                         LEFT OUTER JOIN TBDCMACM022L B ON(A.APV_RQS_ID = B.APV_DOC_NO)
+                         WHERE (A.ACP_YR, A.ACP_DVSN_CD, A.ACP_SRNO) IN (SELECT NVL(MG_ACP_YR, ACP_YR), NVL(MG_ACP_DVSN_CD, ACP_DVSN_CD), NVL(MG_ACP_SRNO, ACP_SRNO) 
+                                                                           FROM TBBADFRE012M 
+                                                                          WHERE ACP_YR = D1.ACP_YR 
+                                                                            AND ACP_DVSN_CD = D1.ACP_DVSN_CD 
+                                                                            AND ACP_SRNO = D1.ACP_SRNO)
+                         AND A.RPRT_CD = ('D10200200')
+                         AND B.APV_STA_CD = '3'
+                         AND ROWNUM = 1
+                      ), D3.ENF_DT)
+                      WHEN D1.ACP_DVSN_CD = '1' AND (REFER_ENT IS NULL OR REFER_ENT = 'N') AND 
+                          (  SELECT
+                                  ACP_YR
+                             FROM TBBADFRE101M A
+                             WHERE A.ACP_YR = D1.ACP_YR
+                             AND A.ACP_DVSN_CD = D1.ACP_DVSN_CD
+                             AND A.ACP_SRNO = D1.ACP_SRNO
+                             AND ROWNUM = 1
+                          ) IS NOT NULL THEN NVL(NVL(D4.SBCN_DY, D2.SBCN_DT), D3.ENF_DT)
+                      WHEN D1.ACP_DVSN_CD = '1' AND (REFER_ENT IS NULL OR REFER_ENT = 'N') AND 
+                          (  SELECT
+                                  ACP_YR
+                             FROM TBBADFRE101M A
+                             WHERE A.ACP_YR = D1.ACP_YR
+                             AND A.ACP_DVSN_CD = D1.ACP_DVSN_CD
+                             AND A.ACP_SRNO = D1.ACP_SRNO
+                             AND ROWNUM = 1
+                          ) IS NULL THEN NVL(NVL(NVL(D4.SBCN_DY, D2.SBCN_DT), D2.BRUCHF_APV_DT), D3.ENF_DT)
+                      WHEN D1.ACP_DVSN_CD = '2' THEN NVL(NVL(D4.SBCN_DY, D2.SBCN_DT), D3.ENF_DT) END) END AS SBCN_DT
+        FROM TBBADFRE012M D1
+                LEFT OUTER JOIN TBBADFRE012D D2 ON (D1.ACP_YR      = D2.ACP_YR
+                                                     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+                                                     AND D1.ACP_SRNO    = D2.ACP_SRNO)
+                LEFT OUTER JOIN TBBADFRE013D D3 ON (D1.ACP_YR      = D3.ACP_YR
+                                                     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+                                                     AND D1.ACP_SRNO    = D3.ACP_SRNO
+                                                    )
+                LEFT OUTER JOIN (SELECT ACP_YR
+                        , ACP_DVSN_CD
+                        , ACP_SRNO 
+                        , MAX(SBCN_DY) AS SBCN_DY
+                    FROM(
+                        SELECT ACP_YR
+                               , ACP_DVSN_CD
+                               , ACP_SRNO 
+                               , SBCN_DY
+                        FROM TBBADFRE113M
+                        WHERE SBCN_VT_CD <> '90'
+                        UNION ALL
+                        SELECT REL_AUD_YR AS ACP_YR
+                               , DECODE(WORK_DVSN_CD, 'D10', '1', 'E10','2','9') AS ACP_DVSN_CD
+                               , TO_NUMBER(REL_AUD_NO) AS ACP_SRNO
+                               , CMT_DY AS SBCN_DY
+                        FROM TBBADDED121M
+                        WHERE CMT_DVSN_CD = '10'
+                          AND WORK_DVSN_CD IN ('D10','E10')
+                        UNION ALL
+                        SELECT ACP_YR AS ACP_YR
+                               , ACP_DVSN_CD
+                               , ACP_SRNO
+                               , SBCN_DT AS SBCN_DY
+                        FROM TBBADFRE012D
+                    ) GROUP BY ACP_YR, ACP_DVSN_CD, ACP_SRNO) D4 ON (D4.ACP_YR      = D1.ACP_YR
+                                                                                 AND D4.ACP_DVSN_CD = D1.ACP_DVSN_CD
+                                                                                 AND D4.ACP_SRNO    = D1.ACP_SRNO)
+                   WHERE D3.DF_DT IS NULL OR (D3.DF_DT IS NOT NULL AND D3.RLS_DT IS NOT NULL)
+          )                 
+    ) 
+    
+    SELECT TO_CHAR(SYSDATE,'YYYY') AS YR
+        , '' AS DPT_CD
+                   , '합계' AS GUBUN
+                   , SUM(1) AS TOT_MAKE                                /* 청구건수 계 */
+                   , SUM(
+                       CASE WHEN D1.ACP_YR < TO_CHAR(SYSDATE, 'YYYY')
+                            THEN 1 ELSE 0 END
+                   ) AS PAST_MAKE                               /* 청구건수 이월 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ACP_YR,0,4) = TO_CHAR(SYSDATE, 'YYYY') THEN 1
+                            ELSE 0 END
+                   ) AS NOW_MAKE                                /* 청구건수 신규 */
+                   , SUM(
+                       CASE WHEN D1.SBCN_DT IS NOT NULL
+                            THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_TOT                               /* 처리결과 계 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')
+                             AND D1.VT_KND_CD IN ('1', '2', '3', '4', '5') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_1                               /* 처리결과 인용 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')
+                             AND D1.VT_KND_CD IN ('6') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_2                               /* 처리결과 기각 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')
+                             AND D1.VT_KND_CD IN ('8') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_3                               /* 처리결과 각하 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')
+                             AND D1.VT_KND_CD IN ('7') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_4                               /* 처리결과 취하 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')
+                             AND (D1.VT_KND_CD IN ('9') OR D1.VT_KND_CD IS NULL) THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_ETC                               /* 처리결과 기타 */
+                   , SUM(DECODE(D1.SBCN_DT, NULL, 1, 0)) AS CURRENT_CNT
+    FROM FRE_MAIN_TABLE D1
+    WHERE 1 = 1
+                 AND ((D1.ACP_YR = TO_CHAR(SYSDATE, 'YYYY')) /*올해접수건*/
+                       OR   /*이전년도접수건 이월 - 전년도 미처리 OR 올해 처리된 건(시행일 기준)*/
+                      (D1.ACP_YR < TO_CHAR(SYSDATE, 'YYYY') AND (D1.SBCN_DT IS NULL OR TO_CHAR(TO_DATE(D1.SBCN_DT, 'YYYYMMDD'),'YYYY') = TO_CHAR(SYSDATE, 'YYYY'))))
+                 AND D1.ACP_DVSN_CD = #{acpDvsnCd}
+                 AND D1.DPT_CD IN (SELECT DISTINCT A.DPT_CD FROM TBBADFRE012M A INNER JOIN TBBADFRE101M B ON B.ACP_YR = A.ACP_YR AND B.ACP_DVSN_CD = A.ACP_DVSN_CD AND B.ACP_SRNO = A.ACP_SRNO)
+    UNION ALL
+    SELECT TO_CHAR(SYSDATE,'YYYY') AS YR
+                   , D1.DPT_CD
+                   , (SELECT DPT_NM FROM TBDCMACM002M WHERE DPT_CD = D1.DPT_CD) AS GUBUN
+                   , SUM(1) AS TOT_MAKE                                /* 청구건수 계 */
+                   , SUM(
+                       CASE WHEN D1.ACP_YR < TO_CHAR(SYSDATE, 'YYYY')
+                            THEN 1 ELSE 0 END
+                   ) AS PAST_MAKE                               /* 청구건수 이월 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ACP_YR,0,4) = TO_CHAR(SYSDATE, 'YYYY') THEN 1
+                            ELSE 0 END
+                   ) AS NOW_MAKE                                /* 청구건수 신규 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')
+                            THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_TOT                               /* 처리결과 계 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')
+                             AND D1.VT_KND_CD IN ('1', '2', '3', '4', '5') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_1                               /* 처리결과 인용 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')
+                             AND D1.VT_KND_CD IN ('6') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_2                               /* 처리결과 기각 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')
+                             AND D1.VT_KND_CD IN ('8') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_3                               /* 처리결과 각하 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')
+                             AND D1.VT_KND_CD IN ('7') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_4                               /* 처리결과 취하 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')
+                             AND (D1.VT_KND_CD IN ('9') OR D1.VT_KND_CD IS NULL) THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_ETC                               /* 처리결과 기타 */
+                   , SUM(DECODE(D1.SBCN_DT, NULL, 1, 0)) AS CURRENT_CNT
+    FROM FRE_MAIN_TABLE D1
+    WHERE 1 = 1
+                 AND ((D1.ACP_YR = TO_CHAR(SYSDATE, 'YYYY')) /*올해접수건*/
+                       OR   /*이전년도접수건 이월 - 전년도 미처리 OR 올해 처리된 건(시행일 기준)*/
+                      (D1.ACP_YR < TO_CHAR(SYSDATE, 'YYYY') AND (D1.SBCN_DT IS NULL OR TO_CHAR(TO_DATE(D1.SBCN_DT, 'YYYYMMDD'),'YYYY') = TO_CHAR(SYSDATE, 'YYYY'))))
+                 AND D1.ACP_DVSN_CD = #{acpDvsnCd}
+                 AND D1.DPT_CD IN (SELECT DISTINCT A.DPT_CD FROM TBBADFRE012M A INNER JOIN TBBADFRE101M B ON B.ACP_YR = A.ACP_YR AND B.ACP_DVSN_CD = A.ACP_DVSN_CD AND B.ACP_SRNO = A.ACP_SRNO)
+               GROUP BY D1.DPT_CD
+     /*우리원처분요구 관련*/
+     UNION ALL
+     SELECT 
+                    TO_CHAR(SYSDATE,'YYYY') AS YR
+                   , '' DPT_CD
+                   , '우리원 처분요구 관련' AS GUBUN
+                   , SUM(1) AS TOT_MAKE                                /* 청구건수 계 */
+                   , SUM(
+                       CASE WHEN D1.ACP_YR < TO_CHAR(SYSDATE, 'YYYY')
+                            THEN 1 ELSE 0 END
+                   ) AS PAST_MAKE                               /* 청구건수 이월 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ACP_YR,0,4) = TO_CHAR(SYSDATE, 'YYYY') THEN 1
+                            ELSE 0 END
+                   ) AS NOW_MAKE                                /* 청구건수 신규 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')
+                            THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_TOT                               /* 처리결과 계 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')
+                             AND D1.VT_KND_CD IN ('1', '2', '3', '4', '5') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_1                               /* 처리결과 인용 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')
+                             AND D1.VT_KND_CD IN ('6') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_2                               /* 처리결과 기각 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')
+                             AND D1.VT_KND_CD IN ('8') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_3                               /* 처리결과 각하 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')
+                             AND D1.VT_KND_CD IN ('7') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_4                               /* 처리결과 취하 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')
+                             AND (D1.VT_KND_CD IN ('9') OR D1.VT_KND_CD IS NULL) THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_ETC                               /* 처리결과 기타 */
+                   , SUM(DECODE(D1.SBCN_DT, NULL, 1, 0)) AS CURRENT_CNT
+    FROM FRE_MAIN_TABLE D1
+    WHERE 1 = 1
+                 AND ((D1.ACP_YR = TO_CHAR(SYSDATE, 'YYYY')) /*올해접수건*/
+                       OR   /*이전년도접수건 이월 - 전년도 미처리 OR 올해 처리된 건(시행일 기준)*/
+                      (D1.ACP_YR < TO_CHAR(SYSDATE, 'YYYY') AND (D1.SBCN_DT IS NULL OR TO_CHAR(TO_DATE(D1.SBCN_DT, 'YYYYMMDD'),'YYYY') = TO_CHAR(SYSDATE, 'YYYY'))))
+                 AND D1.ACP_DVSN_CD = #{acpDvsnCd}
+                 AND D1.DPT_CD IN (SELECT DISTINCT A.DPT_CD FROM TBBADFRE012M A INNER JOIN TBBADFRE101M B ON B.ACP_YR = A.ACP_YR AND B.ACP_DVSN_CD = A.ACP_DVSN_CD AND B.ACP_SRNO = A.ACP_SRNO)
+                 AND NVL(D1.BAI_DSP_YN, 'N') = 'Y'
+    /*작년이월건*/
+    UNION ALL
+    
+    SELECT TO_CHAR(SYSDATE,'YYYY')-1 || '' AS YR
+                   , '' AS DPT_CD
+                   , '합계' AS GUBUN
+                   , SUM(1) AS TOT_MAKE                                /* 청구건수 계 */
+                   , SUM(
+                       CASE WHEN TO_CHAR(TO_DATE(D1.ACP_DT),'YYYY') <= TO_CHAR(SYSDATE, 'YYYY')-2
+                            THEN 1 ELSE 0 END
+                   ) AS PAST_MAKE                               /* 청구건수 이월 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ACP_YR,0,4) = TO_CHAR(SYSDATE, 'YYYY')-1 THEN 1
+                            ELSE 0 END
+                   ) AS NOW_MAKE                                 /* 청구건수 신규 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-1
+                            THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_TOT                               /* 처리결과 계 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-1
+                             AND D1.VT_KND_CD IN ('1', '2', '3', '4', '5') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_1                               /* 처리결과 인용 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-1
+                             AND D1.VT_KND_CD IN ('6') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_2                               /* 처리결과 기각 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-1
+                             AND D1.VT_KND_CD IN ('8') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_3                               /* 처리결과 각하 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-1
+                             AND D1.VT_KND_CD IN ('7') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_4                               /* 처리결과 취하 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-1
+                             AND (D1.VT_KND_CD IN ('9') OR D1.VT_KND_CD IS NULL) THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_ETC                               /* 처리결과 기타 */
+                   , SUM(CASE WHEN D1.SBCN_DT IS NULL THEN 1
+                              WHEN TO_CHAR(TO_DATE(D1.SBCN_DT, 'YYYYMMDD'), 'YYYY') = TO_CHAR(SYSDATE, 'YYYY') THEN 1
+                              ELSE 0 END) AS CURRENT_CNT
+    FROM FRE_MAIN_TABLE D1
+    WHERE 1 = 1
+                 AND ((D1.ACP_YR = TO_CHAR(SYSDATE, 'YYYY')-1) /*올해접수건*/
+                       OR   /*이전년도접수건 이월 - 전년도 미처리 OR 이월 후 처리된 건(시행일 기준)*/
+                      (D1.ACP_YR < TO_CHAR(SYSDATE, 'YYYY')-1 AND (D1.SBCN_DT IS NULL OR TO_CHAR(TO_DATE(D1.SBCN_DT, 'YYYYMMDD'),'YYYY') > TO_CHAR(SYSDATE, 'YYYY')-2)))
+                 AND D1.ACP_DVSN_CD = #{acpDvsnCd}
+                 AND D1.DPT_CD IN (SELECT DISTINCT A.DPT_CD FROM TBBADFRE012M A INNER JOIN TBBADFRE101M B ON B.ACP_YR = A.ACP_YR AND B.ACP_DVSN_CD = A.ACP_DVSN_CD AND B.ACP_SRNO = A.ACP_SRNO)
+    /*작년이월 우리원처분*/
+    UNION ALL
+    SELECT TO_CHAR(SYSDATE,'YYYY')-1 || '' AS YR
+                   , '' AS DPT_CD
+                   , '우리원 처분요구 관련' AS GUBUN
+                   , SUM(1) AS TOT_MAKE                                /* 청구건수 계 */
+                   , SUM(
+                       CASE WHEN TO_CHAR(TO_DATE(D1.ACP_DT),'YYYY') <= TO_CHAR(SYSDATE, 'YYYY')-2
+                            THEN 1 ELSE 0 END
+                   ) AS PAST_MAKE                               /* 청구건수 이월 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ACP_YR,0,4) = TO_CHAR(SYSDATE, 'YYYY')-1 THEN 1
+                            ELSE 0 END
+                   ) AS NOW_MAKE                                 /* 청구건수 신규 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-1
+                            THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_TOT                               /* 처리결과 계 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-1
+                             AND D1.VT_KND_CD IN ('1', '2', '3', '4', '5') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_1                               /* 처리결과 인용 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-1
+                             AND D1.VT_KND_CD IN ('6') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_2                               /* 처리결과 기각 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-1
+                             AND D1.VT_KND_CD IN ('8') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_3                               /* 처리결과 각하 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-1
+                             AND D1.VT_KND_CD IN ('7') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_4                               /* 처리결과 취하 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.SBCN_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-1
+                             AND (D1.VT_KND_CD IN ('9') OR D1.VT_KND_CD IS NULL) THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_ETC                               /* 처리결과 기타 */
+                   , SUM(CASE WHEN D1.SBCN_DT IS NULL THEN 1
+                              WHEN TO_CHAR(TO_DATE(D1.SBCN_DT, 'YYYYMMDD'), 'YYYY') = TO_CHAR(SYSDATE, 'YYYY') THEN 1
+                              ELSE 0 END) AS CURRENT_CNT
+    FROM FRE_MAIN_TABLE D1
+    WHERE 1 = 1
+                 AND ((D1.ACP_YR = TO_CHAR(SYSDATE, 'YYYY')-1) /*올해접수건*/
+                       OR   /*이전년도접수건 이월 - 전년도 미처리 OR 이월 후 처리된 건(시행일 기준)*/
+                      (D1.ACP_YR < TO_CHAR(SYSDATE, 'YYYY')-1 AND (D1.SBCN_DT IS NULL OR TO_CHAR(TO_DATE(D1.SBCN_DT, 'YYYYMMDD'),'YYYY') > TO_CHAR(SYSDATE, 'YYYY')-2)))
+                 AND D1.ACP_DVSN_CD = #{acpDvsnCd}
+                 AND D1.DPT_CD IN (SELECT DISTINCT A.DPT_CD FROM TBBADFRE012M A INNER JOIN TBBADFRE101M B ON B.ACP_YR = A.ACP_YR AND B.ACP_DVSN_CD = A.ACP_DVSN_CD AND B.ACP_SRNO = A.ACP_SRNO)
+                 AND NVL(D1.BAI_DSP_YN, 'N') = 'Y' 
+           ]]>
+	</select>
+
+	<select id="selectBadFreDashBoardNewList1" parameterType="paramMap" resultType="egovMap">
+	/*kr.go.bai.eip.dashBoard.dao.BadFreDashBoardMapper.selectBadFreDashBoardNewList1*/
+	<![CDATA[
+	WITH FRE_MAIN_TABLE AS (
+    SELECT ACP_YR
+            , ATH_RE_RVW_YN
+            , ACP_DVSN_CD
+            , ACP_SRNO
+            , ACP_DT
+            , VT_KND_CD
+            , BAI_DSP_YN
+            , ENF_DT
+    FROM (
+        SELECT D1.ACP_YR
+            , NVL(D1.ATH_RE_RVW_YN, 'N') AS ATH_RE_RVW_YN
+            , D1.ACP_DVSN_CD
+            , D1.ACP_SRNO
+            , D1.DPT_CD
+            , NVL(D3.RLS_DT, D1.ACP_DT) AS ACP_DT
+            , NVL(D1.VT_KND_CD, NVL(D2.VT_KND_CD, D1.HNDL_OPNN_CD)) AS VT_KND_CD
+            , D1.BAI_DSP_YN
+            , D3.ENF_DT 
+        FROM TBBADFRE012M D1
+                LEFT OUTER JOIN TBBADFRE012D D2 ON (D1.ACP_YR      = D2.ACP_YR
+                                                     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+                                                     AND D1.ACP_SRNO    = D2.ACP_SRNO)
+                LEFT OUTER JOIN TBBADFRE013D D3 ON (D1.ACP_YR      = D3.ACP_YR
+                                                     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+                                                     AND D1.ACP_SRNO    = D3.ACP_SRNO
+                                                    )
+                LEFT OUTER JOIN (SELECT ACP_YR
+                        , ACP_DVSN_CD
+                        , ACP_SRNO 
+                    FROM(
+                        SELECT ACP_YR
+                               , ACP_DVSN_CD
+                               , ACP_SRNO 
+                        FROM TBBADFRE113M
+                        WHERE SBCN_VT_CD <> '90'
+                        UNION ALL
+                        SELECT REL_AUD_YR AS ACP_YR
+                               , DECODE(WORK_DVSN_CD, 'D10', '1', 'E10','2','9') AS ACP_DVSN_CD
+                               , TO_NUMBER(REL_AUD_NO) AS ACP_SRNO
+                        FROM TBBADDED121M
+                        WHERE CMT_DVSN_CD = '10'
+                          AND WORK_DVSN_CD IN ('D10','E10')
+                        UNION ALL
+                        SELECT ACP_YR AS ACP_YR
+                               , ACP_DVSN_CD
+                               , ACP_SRNO
+                        FROM TBBADFRE012D
+                    ) GROUP BY ACP_YR, ACP_DVSN_CD, ACP_SRNO) D4 ON (D4.ACP_YR      = D1.ACP_YR
+                                                                                 AND D4.ACP_DVSN_CD = D1.ACP_DVSN_CD
+                                                                                 AND D4.ACP_SRNO    = D1.ACP_SRNO)
+                   WHERE D3.DF_DT IS NULL OR (D3.DF_DT IS NOT NULL AND D3.RLS_DT IS NOT NULL)
+          )
+    ) 
+    
+    
+    	SELECT * FROM (
+               ]]>
+               <if test='thisYearYy !=null and thisYearYy=="thisYearYy"'>
+               <![CDATA[ 
+               
+	    SELECT #{xYear} AS YR
+				]]>               
+               <include refid="dashBoardList1" />
+               <![CDATA[
+        UNION ALL
+        ]]>
+               </if>
+               <if test='thisYearNn !=null and thisYearNn=="thisYearNn"'>
+               <![CDATA[ 
+               
+	    SELECT #{xYear} AS YR
+				]]>               
+               <include refid="dashBoardList2" />
+               <![CDATA[
+        UNION ALL
+        ]]>
+        </if>
+               <if test='thisYearYy !=null and thisYearYy=="thisYearYy" and thisYearNn !=null and thisYearNn=="thisYearNn"'>
+               <![CDATA[ 
+               
+	    SELECT #{xYear} AS YR
+				]]>               
+               <include refid="dashBoardList3" />
+               <![CDATA[
+        UNION ALL
+        ]]>
+               </if>
+                <![CDATA[
+        SELECT #{xYear} AS YR
+                   , CASE 
+                        WHEN D1.ATH_RE_RVW_YN = 'Y' THEN '직권재심의' 
+                        WHEN GROUPING(D1.ATH_RE_RVW_YN) = '1' THEN '합계' 
+                            ELSE '청구재심의' END GUBUN
+                   , SUM(1) AS TOT_MAKE                                /* 청구건수 계 */
+                   , SUM(
+                       CASE WHEN D1.ACP_YR < #{xYear}
+                            THEN 1
+                            ELSE 0 END
+                   ) AS PAST_MAKE                               /* 청구건수 이월 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ACP_YR,0,4) = #{xYear}
+                            THEN 1
+                            ELSE 0 END
+                   ) AS NOW_MAKE                                /* 청구건수 신규 */
+                   , SUM(
+                       CASE WHEN D1.ENF_DT <= #{selectDt}
+                            THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_TOT                               /* 처리결과 계 */
+                   , SUM(
+                       CASE WHEN D1.ENF_DT <= #{selectDt}
+                             AND D1.VT_KND_CD IN ('1', '2', '3', '4', '5') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_1                               /* 처리결과 인용 */
+                   , SUM(
+                       CASE WHEN D1.ENF_DT <= #{selectDt}
+                             AND D1.VT_KND_CD IN ('6') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_2                               /* 처리결과 기각 */
+                   , SUM(
+                       CASE WHEN D1.ENF_DT <= #{selectDt}
+                             AND D1.VT_KND_CD IN ('8') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_3                               /* 처리결과 각하 */
+                   , SUM(
+                       CASE WHEN D1.ENF_DT <= #{selectDt}
+                             AND D1.VT_KND_CD IN ('7') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_4                               /* 처리결과 취하 */
+                   , SUM(
+                       CASE WHEN D1.ENF_DT IS NULL
+                             OR D1.ENF_DT > #{selectDt} THEN 1
+                            ELSE 0 END
+                   ) AS CURRENT_CNT                               /* 처리중 */
+    FROM FRE_MAIN_TABLE D1
+    WHERE 1 = 1
+                 AND ((D1.ACP_YR = #{xYear}) /*올해접수건*/
+                       OR   /*이전년도접수건 이월 - 전년도 미처리 OR 올해 처리된 건(시행일 기준)*/
+                      (D1.ACP_YR < #{xYear} AND (D1.ENF_DT IS NULL OR TO_CHAR(TO_DATE(D1.ENF_DT, 'YYYYMMDD'),'YYYY') = #{xYear})))
+                 AND D1.ACP_DVSN_CD = '2'
+                 AND D1.ACP_DT <= #{selectDt} /* 당해연도만 날짜 지정 가능 */
+               GROUP BY ROLLUP (D1.ATH_RE_RVW_YN)
+                ]]>
+               <if test='oneYearAgoYy !=null and oneYearAgoYy=="oneYearAgoYy"'>
+               <![CDATA[
+               UNION ALL
+	    SELECT #{xYear}-1 AS YR
+               ]]>
+               <include refid="dashBoardList1" />
+               </if>
+               <![CDATA[
+	UNION ALL
+	    SELECT #{xYear}-1 AS YR
+                   , CASE 
+                        WHEN D1.ATH_RE_RVW_YN = 'Y' THEN '직권재심의' 
+                        WHEN GROUPING(D1.ATH_RE_RVW_YN) = '1' THEN '합계' 
+                            ELSE '청구재심의' END GUBUN
+                   , SUM(1) AS TOT_MAKE                                /* 청구건수 계 */
+                   , SUM(
+                       CASE WHEN D1.ACP_YR < #{xYear}-1
+                            THEN 1
+                            ELSE 0 END
+                   ) AS PAST_MAKE                               /* 청구건수 이월 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ACP_YR,0,4) = #{xYear}-1
+                            THEN 1
+                            ELSE 0 END
+                   ) AS NOW_MAKE                                /* 청구건수 신규 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ENF_DT,0,4) = #{xYear}-1
+                            THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_TOT                               /* 처리결과 계 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ENF_DT,0,4) = #{xYear}-1
+                             AND D1.VT_KND_CD IN ('1', '2', '3', '4', '5') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_1                               /* 처리결과 인용 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ENF_DT,0,4) = #{xYear}-1
+                             AND D1.VT_KND_CD IN ('6') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_2                               /* 처리결과 기각 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ENF_DT,0,4) = #{xYear}-1
+                             AND D1.VT_KND_CD IN ('8') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_3                               /* 처리결과 각하 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ENF_DT,0,4) = #{xYear}-1
+                             AND D1.VT_KND_CD IN ('7') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_4                               /* 처리결과 취하 */
+                   , SUM(
+                       CASE WHEN D1.ENF_DT IS NULL
+                             OR SUBSTR(D1.ENF_DT,0,4) > #{xYear}-1 THEN 1
+                            ELSE 0 END
+                   ) AS CURRENT_CNT                               /* 처리중 */
+    FROM FRE_MAIN_TABLE D1
+    WHERE 1 = 1
+                 AND ((D1.ACP_YR = #{xYear}-1) /*올해접수건*/
+                       OR   /*이전년도접수건 이월 - 전년도 미처리 OR 올해 처리된 건(시행일 기준)*/
+                      (D1.ACP_YR < #{xYear}-1 AND (D1.ENF_DT IS NULL OR TO_CHAR(TO_DATE(D1.ENF_DT, 'YYYYMMDD'),'YYYY') >= #{xYear}-1)))
+                 AND D1.ACP_DVSN_CD = '2'
+               GROUP BY ROLLUP (D1.ATH_RE_RVW_YN)
+               ]]>
+               <if test='twoYearsAgoYy !=null and twoYearsAgoYy=="twoYearsAgoYy"'>
+               <![CDATA[
+               UNION ALL
+	    SELECT #{xYear}-2 AS YR
+               ]]>
+               
+               <include refid="dashBoardList1" />
+               </if>
+               <![CDATA[
+	UNION ALL
+	    SELECT #{xYear}-2 AS YR
+                   , CASE 
+                        WHEN D1.ATH_RE_RVW_YN = 'Y' THEN '직권재심의' 
+                        WHEN GROUPING(D1.ATH_RE_RVW_YN) = '1' THEN '합계' 
+                            ELSE '청구재심의' END GUBUN
+                   , SUM(1) AS TOT_MAKE                                /* 청구건수 계 */
+                   , SUM(
+                       CASE WHEN D1.ACP_YR < #{xYear}-2
+                            THEN 1
+                            ELSE 0 END
+                   ) AS PAST_MAKE                               /* 청구건수 이월 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ACP_YR,0,4) = #{xYear}-2
+                            THEN 1
+                            ELSE 0 END
+                   ) AS NOW_MAKE                                /* 청구건수 신규 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ENF_DT,0,4) = #{xYear}-2
+                            THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_TOT                               /* 처리결과 계 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ENF_DT,0,4) = #{xYear}-2
+                             AND D1.VT_KND_CD IN ('1', '2', '3', '4', '5') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_1                               /* 처리결과 인용 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ENF_DT,0,4) = #{xYear}-2
+                             AND D1.VT_KND_CD IN ('6') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_2                               /* 처리결과 기각 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ENF_DT,0,4) = #{xYear}-2
+                             AND D1.VT_KND_CD IN ('8') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_3                               /* 처리결과 각하 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ENF_DT,0,4) = #{xYear}-2
+                             AND D1.VT_KND_CD IN ('7') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_4                               /* 처리결과 취하 */
+                   , SUM(
+                       CASE WHEN D1.ENF_DT IS NULL
+                             OR SUBSTR(D1.ENF_DT,0,4) > #{xYear}-2 THEN 1
+                            ELSE 0 END
+                   ) AS CURRENT_CNT                               /* 처리중 */
+    FROM FRE_MAIN_TABLE D1
+    WHERE 1 = 1
+                 AND ((D1.ACP_YR = #{xYear}-2) /*올해접수건*/
+                       OR   /*이전년도접수건 이월 - 전년도 미처리 OR 올해 처리된 건(시행일 기준)*/
+                      (D1.ACP_YR < #{xYear}-2 AND (D1.ENF_DT IS NULL OR TO_CHAR(TO_DATE(D1.ENF_DT, 'YYYYMMDD'),'YYYY') >= #{xYear}-2)))
+                 AND D1.ACP_DVSN_CD = '2'
+               GROUP BY ROLLUP (D1.ATH_RE_RVW_YN)
+               ]]>
+               <if test='threeYearsAgoYy !=null and threeYearsAgoYy=="threeYearsAgoYy"'>
+               <![CDATA[
+               UNION ALL
+	    SELECT #{xYear}-3 AS YR
+               ]]>
+               
+               <include refid="dashBoardList1" />
+               </if>
+               <![CDATA[
+	UNION ALL
+	    SELECT #{xYear}-3 AS YR
+                   , CASE 
+                        WHEN D1.ATH_RE_RVW_YN = 'Y' THEN '직권재심의' 
+                        WHEN GROUPING(D1.ATH_RE_RVW_YN) = '1' THEN '합계' 
+                            ELSE '청구재심의' END GUBUN
+                   , SUM(1) AS TOT_MAKE                                /* 청구건수 계 */
+                   , SUM(
+                       CASE WHEN D1.ACP_YR < #{xYear}-3
+                            THEN 1
+                            ELSE 0 END
+                   ) AS PAST_MAKE                               /* 청구건수 이월 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ACP_YR,0,4) = #{xYear}-3
+                            THEN 1
+                            ELSE 0 END
+                   ) AS NOW_MAKE                                /* 청구건수 신규 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ENF_DT,0,4) = #{xYear}-3
+                            THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_TOT                               /* 처리결과 계 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ENF_DT,0,4) = #{xYear}-3
+                             AND D1.VT_KND_CD IN ('1', '2', '3', '4', '5') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_1                               /* 처리결과 인용 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ENF_DT,0,4) = #{xYear}-3
+                             AND D1.VT_KND_CD IN ('6') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_2                               /* 처리결과 기각 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ENF_DT,0,4) = #{xYear}-3
+                             AND D1.VT_KND_CD IN ('8') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_3                               /* 처리결과 각하 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ENF_DT,0,4) = #{xYear}-3
+                             AND D1.VT_KND_CD IN ('7') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_4                               /* 처리결과 취하 */
+                   , SUM(
+                       CASE WHEN D1.ENF_DT IS NULL
+                             OR SUBSTR(D1.ENF_DT,0,4) > #{xYear}-3 THEN 1
+                            ELSE 0 END
+                   ) AS CURRENT_CNT                               /* 처리중 */
+    FROM FRE_MAIN_TABLE D1
+    WHERE 1 = 1
+                 AND ((D1.ACP_YR = #{xYear}-3) /*올해접수건*/
+                       OR   /*이전년도접수건 이월 - 전년도 미처리 OR 올해 처리된 건(시행일 기준)*/
+                      (D1.ACP_YR < #{xYear}-3 AND (D1.ENF_DT IS NULL OR TO_CHAR(TO_DATE(D1.ENF_DT, 'YYYYMMDD'),'YYYY') >= #{xYear}-3)))
+                 AND D1.ACP_DVSN_CD = '2'
+               GROUP BY ROLLUP (D1.ATH_RE_RVW_YN)
+               ]]>
+               <if test='fourYearsAgoYy !=null and fourYearsAgoYy=="fourYearsAgoYy"'>
+               <![CDATA[
+               UNION ALL
+	    SELECT #{xYear}-4 AS YR
+               ]]>
+               
+               <include refid="dashBoardList1" />
+               </if>
+               <![CDATA[ 
+	UNION ALL
+	    SELECT #{xYear}-4 AS YR
+                   , CASE 
+                        WHEN D1.ATH_RE_RVW_YN = 'Y' THEN '직권재심의' 
+                        WHEN GROUPING(D1.ATH_RE_RVW_YN) = '1' THEN '합계' 
+                            ELSE '청구재심의' END GUBUN
+                   , SUM(1) AS TOT_MAKE                                /* 청구건수 계 */
+                   , SUM(
+                       CASE WHEN D1.ACP_YR < #{xYear}-4
+                            THEN 1
+                            ELSE 0 END
+                   ) AS PAST_MAKE                               /* 청구건수 이월 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ACP_YR,0,4) = #{xYear}-4
+                            THEN 1
+                            ELSE 0 END
+                   ) AS NOW_MAKE                                /* 청구건수 신규 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ENF_DT,0,4) = #{xYear}-4
+                            THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_TOT                               /* 처리결과 계 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ENF_DT,0,4) = #{xYear}-4
+                             AND D1.VT_KND_CD IN ('1', '2', '3', '4', '5') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_1                               /* 처리결과 인용 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ENF_DT,0,4) = #{xYear}-4
+                             AND D1.VT_KND_CD IN ('6') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_2                               /* 처리결과 기각 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ENF_DT,0,4) = #{xYear}-4
+                             AND D1.VT_KND_CD IN ('8') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_3                               /* 처리결과 각하 */
+                   , SUM(
+                       CASE WHEN SUBSTR(D1.ENF_DT,0,4) = #{xYear}-4
+                             AND D1.VT_KND_CD IN ('7') THEN 1
+                            ELSE 0 END
+                   ) AS RESULT_4                               /* 처리결과 취하 */
+                   , SUM(
+                       CASE WHEN D1.ENF_DT IS NULL
+                             OR SUBSTR(D1.ENF_DT,0,4) > #{xYear}-4 THEN 1
+                            ELSE 0 END
+                   ) AS CURRENT_CNT                               /* 처리중 */
+    FROM FRE_MAIN_TABLE D1
+    WHERE 1 = 1
+    AND ((D1.ACP_YR = #{xYear}-4) /*올해접수건*/
+                       OR   /*이전년도접수건 이월 - 전년도 미처리 OR 올해 처리된 건(시행일 기준)*/
+                      (D1.ACP_YR < #{xYear}-4 AND (D1.ENF_DT IS NULL OR TO_CHAR(TO_DATE(D1.ENF_DT, 'YYYYMMDD'),'YYYY') >= #{xYear}-4)))
+                 AND D1.ACP_DVSN_CD = '2'
+               GROUP BY ROLLUP (D1.ATH_RE_RVW_YN))
+    ORDER BY YR DESC, GUBUN
+           ]]>
+	</select>
+
+	<select resultType="egovMap" parameterType="paramMap" id="selectAthReRvwYnCnt">
+	<![CDATA[
+	/*kr.go.bai.eip.dashBoard.dao.BadFreDashBoardMapper.selectAthReRvwYnCnt*/
+	WITH FRE_MAIN_TABLE AS (
+	    SELECT ACP_YR
+	         , ATH_RE_RVW_YN
+	         , SBCN_DT
+	         , ACP_DVSN_CD
+	         , VT_KND_CD
+	         , ACP_DT
+	         , ENF_DT
+	    FROM (
+	        SELECT D1.ACP_YR
+	            , NVL(D1.ATH_RE_RVW_YN, 'N') AS ATH_RE_RVW_YN
+	            , SBCN_DY AS SBCN_DT
+	            , D1.ACP_DVSN_CD
+	            , NVL(D1.VT_KND_CD, NVL(D2.VT_KND_CD, D1.HNDL_OPNN_CD)) AS VT_KND_CD
+	            , NVL(D3.RLS_DT, D1.ACP_DT) AS ACP_DT
+	            , D3.ENF_DT
+	        FROM TBBADFRE012M D1
+	                LEFT OUTER JOIN TBBADFRE012D D2 ON (D1.ACP_YR      = D2.ACP_YR
+	                                                     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+	                                                     AND D1.ACP_SRNO    = D2.ACP_SRNO)
+	                LEFT OUTER JOIN TBBADFRE013D D3 ON (D1.ACP_YR      = D3.ACP_YR
+	                                                     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+	                                                     AND D1.ACP_SRNO    = D3.ACP_SRNO
+	                                                    )
+	                LEFT OUTER JOIN (SELECT ACP_YR
+	                        , ACP_DVSN_CD
+	                        , ACP_SRNO 
+	                        , MAX(SBCN_DY) AS SBCN_DY
+	                    FROM(
+	                        SELECT ACP_YR
+	                               , ACP_DVSN_CD
+	                               , ACP_SRNO 
+	                               , SBCN_DY
+	                        FROM TBBADFRE113M
+	                        WHERE SBCN_VT_CD <> '90'
+	                        UNION ALL
+	                        SELECT REL_AUD_YR AS ACP_YR
+	                               , DECODE(WORK_DVSN_CD, 'D10', '1', 'E10','2','9') AS ACP_DVSN_CD
+	                               , TO_NUMBER(REL_AUD_NO) AS ACP_SRNO
+	                               , CMT_DY AS SBCN_DY
+	                        FROM TBBADDED121M
+	                        WHERE CMT_DVSN_CD = '10'
+	                          AND WORK_DVSN_CD IN ('D10','E10')
+	                        UNION ALL
+	                        SELECT ACP_YR AS ACP_YR
+	                               , ACP_DVSN_CD
+	                               , ACP_SRNO
+	                               , SBCN_DT AS SBCN_DY
+	                        FROM TBBADFRE012D
+	                    ) GROUP BY ACP_YR, ACP_DVSN_CD, ACP_SRNO) D4 ON (D4.ACP_YR      = D1.ACP_YR
+	                                                                                 AND D4.ACP_DVSN_CD = D1.ACP_DVSN_CD
+	                                                                                 AND D4.ACP_SRNO    = D1.ACP_SRNO)
+	                   WHERE D3.DF_DT IS NULL OR (D3.DF_DT IS NOT NULL AND D3.RLS_DT IS NOT NULL)
+	          )     
+	    ) 
+	    
+			      SELECT #{xxYear} AS YR
+			      		,COUNT(ATH_RE_RVW_YY) AS YY_CNT
+              		    ,COUNT(ATH_RE_RVW_NN) AS NN_CNT
+	                FROM 
+				      (SELECT CASE WHEN NVL(D1.ATH_RE_RVW_YN, 'N') = 'Y' THEN 'Y'
+	                        ELSE '' END ATH_RE_RVW_YY
+	                        ,CASE WHEN NVL(D1.ATH_RE_RVW_YN, 'N') = 'N' THEN 'N'
+	                        ELSE '' END ATH_RE_RVW_NN
+	                        ,D1.ENF_DT
+	                        ,D1.ACP_DT
+				       FROM FRE_MAIN_TABLE D1
+				      WHERE 1 = 1
+		                 AND ((D1.ACP_YR = #{xxYear}) /*올해접수건*/
+		                       OR   /*이전년도접수건 이월 - 전년도 미처리 OR 올해 처리된 건(시행일 기준)*/
+		                      (D1.ACP_YR < #{xxYear} AND (D1.ENF_DT IS NULL OR TO_CHAR(TO_DATE(D1.ENF_DT, 'YYYYMMDD'),'YYYY') >= #{xxYear})))
+		                 AND D1.ACP_DVSN_CD = '2')
+		                 ]]>
+		                 <if test='selectDt !=""'>
+		                  <![CDATA[
+		                 WHERE ACP_DT <= #{selectDt}
+		                  ]]>
+		                 </if>
+	</select>
+	
+	
+	<select id="selectEndListCnt" parameterType="paramMap" resultType="egovMap">
+	/*kr.go.bai.eip.dashBoard.dao.BadFreDashBoardMapper.selectEndListCnt*/
+	<![CDATA[
+		SELECT COUNT(*) AS CNT
+			  FROM (
+			  SELECT SUBSTR(D3.ENF_DT,0,4)                                   AS GUBUN
+			       , TO_DATE(D3.ENF_DT) - TO_DATE(NVL(D3.RLS_DT, D1.ACP_DT)) AS TERM_DT
+			    FROM TBBADFRE012M D1
+			    LEFT OUTER JOIN TBBADFRE012D D2 ON (D1.ACP_YR      = D2.ACP_YR
+                                                     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+                                                     AND D1.ACP_SRNO    = D2.ACP_SRNO)
+                LEFT OUTER JOIN TBBADFRE013D D3 ON (D1.ACP_YR      = D3.ACP_YR
+                                                     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+                                                     AND D1.ACP_SRNO    = D3.ACP_SRNO)
+                LEFT OUTER JOIN (SELECT ACP_YR
+                        , ACP_DVSN_CD
+                        , ACP_SRNO 
+                        , MAX(SBCN_DY) AS SBCN_DY
+                    FROM(
+                        SELECT ACP_YR
+                               , ACP_DVSN_CD
+                               , ACP_SRNO 
+                               , SBCN_DY
+                        FROM TBBADFRE113M
+                        WHERE SBCN_VT_CD <> '90'
+                        UNION ALL
+                        SELECT REL_AUD_YR AS ACP_YR
+                               , DECODE(WORK_DVSN_CD, 'D10', '1', 'E10','2','9') AS ACP_DVSN_CD
+                               , TO_NUMBER(REL_AUD_NO) AS ACP_SRNO
+                               , CMT_DY AS SBCN_DY
+                        FROM TBBADDED121M
+                        WHERE CMT_DVSN_CD = '10'
+                          AND WORK_DVSN_CD IN ('D10','E10')
+                        UNION ALL
+                        SELECT ACP_YR AS ACP_YR
+                               , ACP_DVSN_CD
+                               , ACP_SRNO
+                               , SBCN_DT AS SBCN_DY
+                        FROM TBBADFRE012D
+                    ) GROUP BY ACP_YR, ACP_DVSN_CD, ACP_SRNO) D4 ON (D4.ACP_YR      = D1.ACP_YR
+                                                                                 AND D4.ACP_DVSN_CD = D1.ACP_DVSN_CD
+                                                                                 AND D4.ACP_SRNO    = D1.ACP_SRNO)
+			   WHERE 1 = 1
+                 AND D1.DPT_CD IN (SELECT DISTINCT A.DPT_CD FROM TBBADFRE012M A INNER JOIN TBBADFRE101M B ON B.ACP_YR = A.ACP_YR AND B.ACP_DVSN_CD = A.ACP_DVSN_CD AND B.ACP_SRNO = A.ACP_SRNO)
+			     AND D1.ACP_DVSN_CD = #{acpDvsnCd}
+			     AND TO_CHAR(TO_DATE(D3.ENF_DT), 'YYYY') = TO_CHAR(SYSDATE,'YYYY')
+			     AND TO_CHAR(D3.ENF_DT) <= TO_CHAR(#{endSelectDt})
+			     AND (D1.VT_KND_CD <> '9' OR D1.VT_KND_CD IS NULL) /*재심의 : 완결에서 기타 건 제외*/
+                 AND (D2.VT_KND_CD <> '9' OR D2.VT_KND_CD IS NULL) /*재심의 : 완결에서 기타 건 제외*/
+                 AND NVL(D1.ATH_RE_RVW_YN, 'N') = 'N'
+			) M1
+	]]>
+	</select>
+	
+	
+	
+	<sql id = "dashBoardList1">
+      <![CDATA[
+                   , '직권재심의' AS GUBUN
+                   , 0 AS TOT_MAKE                                /* 청구건수 계 */
+                   , 0 AS PAST_MAKE                               /* 청구건수 이월 */
+                   , 0 AS NOW_MAKE                                /* 청구건수 신규 */
+                   , 0 AS RESULT_TOT                               /* 처리결과 계 */
+                   , 0 AS RESULT_1                               /* 처리결과 인용 */
+                   , 0 AS RESULT_2                               /* 처리결과 기각 */
+                   , 0 AS RESULT_3                               /* 처리결과 각하 */
+                   , 0 AS RESULT_4                               /* 처리결과 취하 */
+                   , 0 AS CURRENT_CNT
+    FROM FRE_MAIN_TABLE D1
+    WHERE 1 = 1
+     AND ROWNUM = 1
+		]]>
+     </sql>
+
+	<sql id = "dashBoardList2">
+      <![CDATA[
+                   , '청구재심의' AS GUBUN
+                   , 0 AS TOT_MAKE                                /* 청구건수 계 */
+                   , 0 AS PAST_MAKE                               /* 청구건수 이월 */
+                   , 0 AS NOW_MAKE                                /* 청구건수 신규 */
+                   , 0 AS RESULT_TOT                               /* 처리결과 계 */
+                   , 0 AS RESULT_1                               /* 처리결과 인용 */
+                   , 0 AS RESULT_2                               /* 처리결과 기각 */
+                   , 0 AS RESULT_3                               /* 처리결과 각하 */
+                   , 0 AS RESULT_4                               /* 처리결과 취하 */
+                   , 0 AS CURRENT_CNT
+    FROM FRE_MAIN_TABLE D1
+    WHERE 1 = 1
+     AND ROWNUM = 1
+		]]>
+     </sql>
+     
+     <sql id = "dashBoardList3">
+      <![CDATA[
+                   , '합계' AS GUBUN
+                   , 0 AS TOT_MAKE                                /* 청구건수 계 */
+                   , 0 AS PAST_MAKE                               /* 청구건수 이월 */
+                   , 0 AS NOW_MAKE                                /* 청구건수 신규 */
+                   , 0 AS RESULT_TOT                               /* 처리결과 계 */
+                   , 0 AS RESULT_1                               /* 처리결과 인용 */
+                   , 0 AS RESULT_2                               /* 처리결과 기각 */
+                   , 0 AS RESULT_3                               /* 처리결과 각하 */
+                   , 0 AS RESULT_4                               /* 처리결과 취하 */
+                   , 0 AS CURRENT_CNT
+    FROM FRE_MAIN_TABLE D1
+    WHERE 1 = 1
+     AND ROWNUM = 1
+		]]>
+     </sql>
+     
+     <sql id = "dashBoardEndList">
+      <![CDATA[
+              SELECT #{xxYear} || '년' AS GUBUN                  /* 구분*/
+                   , 0 AS RESULT_TOT                            /* 총처리건수 */
+                   , 0 AS IN3MONTH                              /* 기간(2월)내 처리건수 */
+                   , 0 AS OUT3MONTH                             /* 소계 */
+                   , 0 AS BETWEEN4_6                            /* 3~6월 */
+                   , 0 AS BETWEEN6_9                            /* 7~9월 */
+                   , 0 AS BETWEEN9_12                           /* 10~12월 */
+                   , 0 AS OVER_1                                /* 1년 초과 */
+                   , 0 AS TERM_AVG                              /* 평균처리 일수 */
+                   , 0 AS EX_YN_CNT                             /* 통계제외 건수 */
+    FROM TBBADFRE012M
+    WHERE 1 = 1
+     AND ROWNUM = 1
+		]]>
+     </sql>
+     
+	<select id="selectBadFreDashBoardList2" parameterType="paramMap" resultType="egovMap">
+	<![CDATA[
+		/*kr.go.bai.eip.dashBoard.dao.BadFreDashBoardMapper.selectBadFreDashBoardList2*/
+		SELECT GUBUN            /* 구분*/  
+               , RESULT_TOT     /* 총처리건수 */
+               , IN3MONTH       /* 기간(2월)내 처리건수 */
+               , OUT3MONTH      /* 소계 */
+               , BETWEEN4_6     /* 3~6월 */
+               , BETWEEN6_9     /* 7~9월 */
+               , BETWEEN9_12    /* 10~12월 */
+               , OVER1          /* 1년 초과 */
+               , TERM_AVG       /* 평균처리 일수 */
+        FROM (
+            SELECT SUBSTR(M1.SBCN_DT,0,4) || '년'     AS GUBUN /* 구분*/
+			     , SUM(1)     AS RESULT_TOT /* 총처리건수 */
+			     , NVL(SUM(
+			            CASE WHEN M1.TERM_DT BETWEEN 0 AND 90 THEN 1
+			                 ELSE 0 END
+			     ), 0)                          AS IN3MONTH /* 기간(2월)내 처리건수 */
+			     , NVL(SUM(
+			            CASE WHEN M1.TERM_DT > 90 THEN 1
+			                 ELSE 0 END
+			     ), 0)                          AS OUT3MONTH /* 소계 */
+			     , NVL(SUM(
+			            CASE WHEN M1.TERM_DT BETWEEN 91 AND 180 THEN 1
+			                 ELSE 0 END
+			     ), 0)                          AS BETWEEN4_6 /* 3~6월 */
+			     , NVL(SUM(
+			            CASE WHEN M1.TERM_DT BETWEEN 181 AND 270 THEN 1
+			                 ELSE 0 END
+			     ), 0)                          AS BETWEEN6_9 /* 7~9월 */
+			     , NVL(SUM(
+			            CASE WHEN M1.TERM_DT BETWEEN 271 AND 365 THEN 1
+			                 ELSE 0 END
+			     ), 0)                          AS BETWEEN9_12 /* 10~12월 */
+			     , NVL(SUM(
+			            CASE WHEN M1.TERM_DT > 365 THEN 1
+			                 ELSE 0 END
+			     ), 0)                          AS OVER1 /* 1년 초과 */
+			     , NVL(ROUND(SUM(M1.TERM_DT * 1)/SUM(1), 0), 0)
+			                                    AS TERM_AVG /* 평균처리 일수 */
+			  FROM (
+				  SELECT TO_DATE(NVL(D4.SBCN_DY, D3.ENF_DT)) - TO_DATE(NVL(D3.RLS_DT, D1.ACP_DT)) AS TERM_DT
+	                   , CASE WHEN D1.VT_KND_CD IN ('7','8') THEN D3.ENF_DT 
+	                   ELSE 
+	                    (CASE WHEN D1.ACP_DVSN_CD = '1' AND REFER_ENT = 'Y' THEN 
+	                        NVL(( SELECT
+	                              TO_CHAR(B.FNL_APV_DH,'YYYYMMDD')
+	                         FROM TBBADFRE103M A
+	                         LEFT OUTER JOIN TBDCMACM022L B ON(A.APV_RQS_ID = B.APV_DOC_NO)
+	                         WHERE (A.ACP_YR, A.ACP_DVSN_CD, A.ACP_SRNO) IN (SELECT NVL(MG_ACP_YR, ACP_YR), NVL(MG_ACP_DVSN_CD, ACP_DVSN_CD), NVL(MG_ACP_SRNO, ACP_SRNO) 
+                                                                               FROM TBBADFRE012M 
+                                                                              WHERE ACP_YR = D1.ACP_YR 
+                                                                                AND ACP_DVSN_CD = D1.ACP_DVSN_CD 
+                                                                                AND ACP_SRNO = D1.ACP_SRNO)
+	                         AND A.RPRT_CD = ('D10200200')
+	                         AND B.APV_STA_CD = '3'
+	                         AND ROWNUM = 1
+	                      ), D3.ENF_DT)
+	                      WHEN D1.ACP_DVSN_CD = '1' AND (REFER_ENT IS NULL OR REFER_ENT = 'N') AND 
+	                          (  SELECT
+	                                  ACP_YR
+	                             FROM TBBADFRE101M A
+	                             WHERE A.ACP_YR = D1.ACP_YR
+	                             AND A.ACP_DVSN_CD = D1.ACP_DVSN_CD
+	                             AND A.ACP_SRNO = D1.ACP_SRNO
+	                             AND ROWNUM = 1
+	                          ) IS NOT NULL THEN NVL(NVL(D4.SBCN_DY, D2.SBCN_DT), D3.ENF_DT)
+	                      WHEN D1.ACP_DVSN_CD = '1' AND (REFER_ENT IS NULL OR REFER_ENT = 'N') AND 
+	                          (  SELECT
+	                                  ACP_YR
+	                             FROM TBBADFRE101M A
+	                             WHERE A.ACP_YR = D1.ACP_YR
+	                             AND A.ACP_DVSN_CD = D1.ACP_DVSN_CD
+	                             AND A.ACP_SRNO = D1.ACP_SRNO
+	                             AND ROWNUM = 1
+	                          ) IS NULL THEN NVL(NVL(NVL(D4.SBCN_DY, D2.SBCN_DT), D2.BRUCHF_APV_DT), D3.ENF_DT)
+	                      WHEN D1.ACP_DVSN_CD = '2' THEN NVL(NVL(D4.SBCN_DY, D2.SBCN_DT), D3.ENF_DT) END) END AS SBCN_DT
+				    FROM TBBADFRE012M D1
+	                LEFT OUTER JOIN TBBADFRE012D D2 ON (D1.ACP_YR      = D2.ACP_YR
+	                                                     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+	                                                     AND D1.ACP_SRNO    = D2.ACP_SRNO)
+	                LEFT OUTER JOIN TBBADFRE013D D3 ON (D1.ACP_YR      = D3.ACP_YR
+	                                                     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+	                                                     AND D1.ACP_SRNO    = D3.ACP_SRNO)
+	                LEFT OUTER JOIN (SELECT ACP_YR
+	                        , ACP_DVSN_CD
+	                        , ACP_SRNO 
+	                        , MAX(SBCN_DY) AS SBCN_DY
+	                    FROM(
+	                        SELECT ACP_YR
+	                               , ACP_DVSN_CD
+	                               , ACP_SRNO 
+	                               , SBCN_DY
+	                        FROM TBBADFRE113M
+	                        WHERE SBCN_VT_CD <> '90'
+	                        UNION ALL
+	                        SELECT REL_AUD_YR AS ACP_YR
+	                               , DECODE(WORK_DVSN_CD, 'D10', '1', 'E10','2','9') AS ACP_DVSN_CD
+	                               , TO_NUMBER(REL_AUD_NO) AS ACP_SRNO
+	                               , CMT_DY AS SBCN_DY
+	                        FROM TBBADDED121M
+	                        WHERE CMT_DVSN_CD = '10'
+	                          AND WORK_DVSN_CD IN ('D10','E10')
+	                        UNION ALL
+	                        SELECT ACP_YR AS ACP_YR
+	                               , ACP_DVSN_CD
+	                               , ACP_SRNO
+	                               , SBCN_DT AS SBCN_DY
+	                        FROM TBBADFRE012D
+	                    ) GROUP BY ACP_YR, ACP_DVSN_CD, ACP_SRNO) D4 ON (D4.ACP_YR      = D1.ACP_YR
+	                                                                                 AND D4.ACP_DVSN_CD = D1.ACP_DVSN_CD
+	                                                                                 AND D4.ACP_SRNO    = D1.ACP_SRNO)
+				   WHERE 1 = 1
+	                 AND D1.DPT_CD IN (SELECT DISTINCT A.DPT_CD FROM TBBADFRE012M A INNER JOIN TBBADFRE101M B ON B.ACP_YR = A.ACP_YR AND B.ACP_DVSN_CD = A.ACP_DVSN_CD AND B.ACP_SRNO = A.ACP_SRNO)
+				     AND D1.ACP_DVSN_CD = #{acpDvsnCd}
+	                 AND (D3.DF_DT IS NULL OR (D3.DF_DT IS NOT NULL AND D3.RLS_DT IS NOT NULL))
+				) M1
+	            WHERE TO_CHAR(TO_DATE(M1.SBCN_DT), 'YYYY') > TO_CHAR(SYSDATE,'YYYY')-2
+	            AND TO_DATE(SBCN_DT) <= SYSDATE
+				GROUP BY SUBSTR(M1.SBCN_DT,0,4)
+                ORDER BY SUBSTR(M1.SBCN_DT,0,4) DESC
+            )
+	]]>
+	</select>
+	
+	<select id="selectBadFreDashBoardListTwo" parameterType="paramMap" resultType="egovMap">
+	/*kr.go.bai.eip.dashBoard.dao.BadFreDashBoardMapper.selectBadFreDashBoardListTwo*/
+	<![CDATA[
+		SELECT NVL(M1.GUBUN, 0) || '년'     AS GUBUN /* 구분*/
+			     , SUM(1)     AS RESULT_TOT /* 총처리건수 */
+			     , NVL(SUM(
+			            CASE WHEN M1.TERM_DT BETWEEN 0 AND 60 THEN 1
+			                 ELSE 0 END
+			     ), 0)                          AS IN3MONTH /* 기간(2월)내 처리건수 */
+			     , NVL(SUM(
+			            CASE WHEN M1.TERM_DT > 60 THEN 1
+			                 ELSE 0 END
+			     ), 0)                          AS OUT3MONTH /* 소계 */
+			     , NVL(SUM(
+			            CASE WHEN M1.TERM_DT BETWEEN 61 AND 180 THEN 1
+			                 ELSE 0 END
+			     ), 0)                          AS BETWEEN4_6 /* 3~6월 */
+			     , NVL(SUM(
+			            CASE WHEN M1.TERM_DT BETWEEN 181 AND 270 THEN 1
+			                 ELSE 0 END
+			     ), 0)                          AS BETWEEN6_9 /* 7~9월 */
+			     , NVL(SUM(
+			            CASE WHEN M1.TERM_DT BETWEEN 271 AND 365 THEN 1
+			                 ELSE 0 END
+			     ), 0)                          AS BETWEEN9_12 /* 10~12월 */
+			     , NVL(SUM(
+			            CASE WHEN M1.TERM_DT > 365 THEN 1
+			                 ELSE 0 END
+			     ), 0)                          AS OVER1 /* 1년 초과 */
+			     , NVL(ROUND(SUM(M1.TERM_DT * 1)/SUM(1), 0), 0)
+			                                    AS TERM_AVG /* 평균처리 일수 */
+			  FROM (
+			  SELECT SUBSTR(NVL(D4.SBCN_DY, D3.ENF_DT),0,4)                                   AS GUBUN
+			       , TO_DATE(NVL(D4.SBCN_DY, D3.ENF_DT)) - TO_DATE(NVL(D3.RLS_DT, D1.ACP_DT)) AS TERM_DT
+			    FROM TBBADFRE012M D1
+			    LEFT OUTER JOIN TBBADFRE012D D2 ON (D1.ACP_YR      = D2.ACP_YR
+                                                     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+                                                     AND D1.ACP_SRNO    = D2.ACP_SRNO)
+                LEFT OUTER JOIN TBBADFRE013D D3 ON (D1.ACP_YR      = D3.ACP_YR
+                                                     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+                                                     AND D1.ACP_SRNO    = D3.ACP_SRNO)
+                LEFT OUTER JOIN (SELECT ACP_YR
+                        , ACP_DVSN_CD
+                        , ACP_SRNO 
+                        , MAX(SBCN_DY) AS SBCN_DY
+                    FROM(
+                        SELECT ACP_YR
+                               , ACP_DVSN_CD
+                               , ACP_SRNO 
+                               , SBCN_DY
+                        FROM TBBADFRE113M
+                        WHERE SBCN_VT_CD <> '90'
+                        UNION ALL
+                        SELECT REL_AUD_YR AS ACP_YR
+                               , DECODE(WORK_DVSN_CD, 'D10', '1', 'E10','2','9') AS ACP_DVSN_CD
+                               , TO_NUMBER(REL_AUD_NO) AS ACP_SRNO
+                               , CMT_DY AS SBCN_DY
+                        FROM TBBADDED121M
+                        WHERE CMT_DVSN_CD = '10'
+                          AND WORK_DVSN_CD IN ('D10','E10')
+                        UNION ALL
+                        SELECT ACP_YR AS ACP_YR
+                               , ACP_DVSN_CD
+                               , ACP_SRNO
+                               , SBCN_DT AS SBCN_DY
+                        FROM TBBADFRE012D
+                    ) GROUP BY ACP_YR, ACP_DVSN_CD, ACP_SRNO) D4 ON (D4.ACP_YR      = D1.ACP_YR
+                                                                                 AND D4.ACP_DVSN_CD = D1.ACP_DVSN_CD
+                                                                                 AND D4.ACP_SRNO    = D1.ACP_SRNO)
+			   WHERE 1 = 1
+                 AND D1.DPT_CD IN (SELECT DISTINCT A.DPT_CD FROM TBBADFRE012M A INNER JOIN TBBADFRE101M B ON B.ACP_YR = A.ACP_YR AND B.ACP_DVSN_CD = A.ACP_DVSN_CD AND B.ACP_SRNO = A.ACP_SRNO)
+			     AND D1.ACP_DVSN_CD = #{acpDvsnCd}
+			     AND TO_CHAR(TO_DATE(NVL(D4.SBCN_DY, D3.ENF_DT)), 'YYYY') > TO_CHAR(SYSDATE,'YYYY')-2
+			     AND (D1.VT_KND_CD <> '9' OR D1.VT_KND_CD IS NULL) /*재심의 : 완결에서 기타 건 제외*/
+                 AND (D2.VT_KND_CD <> '9' OR D2.VT_KND_CD IS NULL) /*재심의 : 완결에서 기타 건 제외*/
+			) M1
+			GROUP BY GUBUN
+			ORDER BY GUBUN DESC
+	]]>
+	</select>
+	
+	<select id="selectBadFreDashBoardNewListTwo" parameterType="paramMap" resultType="egovMap">
+	/*kr.go.bai.eip.dashBoard.dao.BadFreDashBoardMapper.selectBadFreDashBoardNewListTwo*/
+		<if test='thisYear !=null and thisYear=="thisYear"'>
+               <include refid="dashBoardEndList" />
+               <![CDATA[
+        UNION ALL
+        ]]>
+               </if>
+	
+	<![CDATA[
+		SELECT NVL(M1.GUBUN, 0) || '년'     AS GUBUN /* 구분*/
+			     , SUM(1)     AS RESULT_TOT /* 총처리건수 */
+			     , NVL(SUM(
+			            CASE WHEN M1.TERM_DT BETWEEN 0 AND 60 THEN 1
+			                 ELSE 0 END
+			     ), 0)                          AS IN3MONTH /* 기간(2월)내 처리건수 */
+			     , NVL(SUM(
+			            CASE WHEN M1.TERM_DT > 60 THEN 1
+			                 ELSE 0 END
+			     ), 0)                          AS OUT3MONTH /* 소계 */
+			     , NVL(SUM(
+			            CASE WHEN M1.TERM_DT BETWEEN 61 AND 180 THEN 1
+			                 ELSE 0 END
+			     ), 0)                          AS BETWEEN4_6 /* 3~6월 */
+			     , NVL(SUM(
+			            CASE WHEN M1.TERM_DT BETWEEN 181 AND 270 THEN 1
+			                 ELSE 0 END
+			     ), 0)                          AS BETWEEN6_9 /* 7~9월 */
+			     , NVL(SUM(
+			            CASE WHEN M1.TERM_DT BETWEEN 271 AND 365 THEN 1
+			                 ELSE 0 END
+			     ), 0)                          AS BETWEEN9_12 /* 10~12월 */
+			     , NVL(SUM(
+			            CASE WHEN M1.TERM_DT > 365 THEN 1
+			                 ELSE 0 END
+			     ), 0)                          AS OVER1 /* 1년 초과 */
+			     , ROUND(NVL(SUM(CASE WHEN NVL(M1.EX_YN, 'N') = 'N' THEN M1.TERM_DT
+                             ELSE 0 END
+               
+			     ), 0) /SUM(1), 0)                              AS TERM_AVG /* 평균처리 일수 */
+			     , SUM(CASE WHEN M1.EX_YN = 'Y' THEN 1 ELSE 0 END) AS EX_YN_CNT
+			  FROM (
+			  SELECT SUBSTR(D3.ENF_DT,0,4)                                   AS GUBUN
+			       , TO_DATE(D3.ENF_DT) - TO_DATE(NVL(D3.RLS_DT, D1.ACP_DT)) AS TERM_DT
+			       , D1.EX_YN AS EX_YN
+			    FROM TBBADFRE012M D1
+			    LEFT OUTER JOIN TBBADFRE012D D2 ON (D1.ACP_YR      = D2.ACP_YR
+                                                     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+                                                     AND D1.ACP_SRNO    = D2.ACP_SRNO)
+                LEFT OUTER JOIN TBBADFRE013D D3 ON (D1.ACP_YR      = D3.ACP_YR
+                                                     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+                                                     AND D1.ACP_SRNO    = D3.ACP_SRNO)
+                LEFT OUTER JOIN (SELECT ACP_YR
+                        , ACP_DVSN_CD
+                        , ACP_SRNO 
+                        , MAX(SBCN_DY) AS SBCN_DY
+                    FROM(
+                        SELECT ACP_YR
+                               , ACP_DVSN_CD
+                               , ACP_SRNO 
+                               , SBCN_DY
+                        FROM TBBADFRE113M
+                        WHERE SBCN_VT_CD <> '90'
+                        UNION ALL
+                        SELECT REL_AUD_YR AS ACP_YR
+                               , DECODE(WORK_DVSN_CD, 'D10', '1', 'E10','2','9') AS ACP_DVSN_CD
+                               , TO_NUMBER(REL_AUD_NO) AS ACP_SRNO
+                               , CMT_DY AS SBCN_DY
+                        FROM TBBADDED121M
+                        WHERE CMT_DVSN_CD = '10'
+                          AND WORK_DVSN_CD IN ('D10','E10')
+                        UNION ALL
+                        SELECT ACP_YR AS ACP_YR
+                               , ACP_DVSN_CD
+                               , ACP_SRNO
+                               , SBCN_DT AS SBCN_DY
+                        FROM TBBADFRE012D
+                    ) GROUP BY ACP_YR, ACP_DVSN_CD, ACP_SRNO) D4 ON (D4.ACP_YR      = D1.ACP_YR
+                                                                                 AND D4.ACP_DVSN_CD = D1.ACP_DVSN_CD
+                                                                                 AND D4.ACP_SRNO    = D1.ACP_SRNO)
+			   WHERE 1 = 1
+                 AND D1.DPT_CD IN (SELECT DISTINCT A.DPT_CD FROM TBBADFRE012M A INNER JOIN TBBADFRE101M B ON B.ACP_YR = A.ACP_YR AND B.ACP_DVSN_CD = A.ACP_DVSN_CD AND B.ACP_SRNO = A.ACP_SRNO)
+			     AND D1.ACP_DVSN_CD = #{acpDvsnCd}
+			     AND TO_CHAR(TO_DATE(D3.ENF_DT), 'YYYY') > TO_CHAR(SYSDATE,'YYYY')-5
+			     AND TO_CHAR(D3.ENF_DT) <= TO_CHAR(#{endSelectDt})
+			     AND (D1.VT_KND_CD <> '9' OR D1.VT_KND_CD IS NULL) /*재심의 : 완결에서 기타 건 제외*/
+                 AND (D2.VT_KND_CD <> '9' OR D2.VT_KND_CD IS NULL) /*재심의 : 완결에서 기타 건 제외*/
+                 AND NVL(D1.ATH_RE_RVW_YN, 'N') = 'N'
+			) M1
+			GROUP BY GUBUN
+			ORDER BY GUBUN DESC
+	]]>
+	</select>
+	
+	
+	
+	<select id="selectBadFreDashBoardList3" parameterType="paramMap" resultType="egovMap">
+	<![CDATA[
+		/*kr.go.bai.eip.dashBoard.dao.BadFreDashBoardMapper.selectBadFreDashBoardList3*/
+	WITH FRE_MAIN_TABLE AS (
+    SELECT ACP_YR
+            , ACP_DVSN_CD
+            , ACP_SRNO
+            , DPT_CD
+            , ACP_DT
+            , VT_KND_CD
+            , BAI_DSP_YN
+            , CASE WHEN TO_DATE(SBCN_DT) >= SYSDATE THEN '' ELSE SBCN_DT END AS SBCN_DT
+    FROM (
+        SELECT D1.ACP_YR
+            , D1.ACP_DVSN_CD
+            , D1.ACP_SRNO
+            , D1.DPT_CD
+            , NVL(D3.RLS_DT, D1.ACP_DT) AS ACP_DT
+            , NVL(D1.VT_KND_CD, NVL(D2.VT_KND_CD, D1.HNDL_OPNN_CD)) AS VT_KND_CD
+            , D1.BAI_DSP_YN
+            , CASE WHEN D1.VT_KND_CD IN ('7','8') THEN D3.ENF_DT 
+                   ELSE 
+                    (CASE WHEN D1.ACP_DVSN_CD = '1' AND REFER_ENT = 'Y' THEN 
+                        NVL(( SELECT
+                              TO_CHAR(B.FNL_APV_DH,'YYYYMMDD')
+                         FROM TBBADFRE103M A
+                         LEFT OUTER JOIN TBDCMACM022L B ON(A.APV_RQS_ID = B.APV_DOC_NO)
+                         WHERE (A.ACP_YR, A.ACP_DVSN_CD, A.ACP_SRNO) IN (SELECT NVL(MG_ACP_YR, ACP_YR), NVL(MG_ACP_DVSN_CD, ACP_DVSN_CD), NVL(MG_ACP_SRNO, ACP_SRNO) 
+                                                                           FROM TBBADFRE012M 
+                                                                          WHERE ACP_YR = D1.ACP_YR 
+                                                                            AND ACP_DVSN_CD = D1.ACP_DVSN_CD 
+                                                                            AND ACP_SRNO = D1.ACP_SRNO)
+                         AND A.RPRT_CD = ('D10200200')
+                         AND B.APV_STA_CD = '3'
+                         AND ROWNUM = 1
+                      ), D3.ENF_DT)
+                      WHEN D1.ACP_DVSN_CD = '1' AND (REFER_ENT IS NULL OR REFER_ENT = 'N') AND 
+                          (  SELECT
+                                  ACP_YR
+                             FROM TBBADFRE101M A
+                             WHERE A.ACP_YR = D1.ACP_YR
+                             AND A.ACP_DVSN_CD = D1.ACP_DVSN_CD
+                             AND A.ACP_SRNO = D1.ACP_SRNO
+                             AND ROWNUM = 1
+                          ) IS NOT NULL THEN NVL(NVL(D4.SBCN_DY, D2.SBCN_DT), D3.ENF_DT)
+                      WHEN D1.ACP_DVSN_CD = '1' AND (REFER_ENT IS NULL OR REFER_ENT = 'N') AND 
+                          (  SELECT
+                                  ACP_YR
+                             FROM TBBADFRE101M A
+                             WHERE A.ACP_YR = D1.ACP_YR
+                             AND A.ACP_DVSN_CD = D1.ACP_DVSN_CD
+                             AND A.ACP_SRNO = D1.ACP_SRNO
+                             AND ROWNUM = 1
+                          ) IS NULL THEN NVL(NVL(NVL(D4.SBCN_DY, D2.SBCN_DT), D2.BRUCHF_APV_DT), D3.ENF_DT)
+                      WHEN D1.ACP_DVSN_CD = '2' THEN NVL(NVL(D4.SBCN_DY, D2.SBCN_DT), D3.ENF_DT) END) END AS SBCN_DT
+        FROM TBBADFRE012M D1
+                LEFT OUTER JOIN TBBADFRE012D D2 ON (D1.ACP_YR      = D2.ACP_YR
+                                                     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+                                                     AND D1.ACP_SRNO    = D2.ACP_SRNO)
+                LEFT OUTER JOIN TBBADFRE013D D3 ON (D1.ACP_YR      = D3.ACP_YR
+                                                     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+                                                     AND D1.ACP_SRNO    = D3.ACP_SRNO
+                                                    )
+                LEFT OUTER JOIN (SELECT ACP_YR
+                        , ACP_DVSN_CD
+                        , ACP_SRNO 
+                        , MAX(SBCN_DY) AS SBCN_DY
+                    FROM(
+                        SELECT ACP_YR
+                               , ACP_DVSN_CD
+                               , ACP_SRNO 
+                               , SBCN_DY
+                        FROM TBBADFRE113M
+                        WHERE SBCN_VT_CD <> '90'
+                        UNION ALL
+                        SELECT REL_AUD_YR AS ACP_YR
+                               , DECODE(WORK_DVSN_CD, 'D10', '1', 'E10','2','9') AS ACP_DVSN_CD
+                               , TO_NUMBER(REL_AUD_NO) AS ACP_SRNO
+                               , CMT_DY AS SBCN_DY
+                        FROM TBBADDED121M
+                        WHERE CMT_DVSN_CD = '10'
+                          AND WORK_DVSN_CD IN ('D10','E10')
+                        UNION ALL
+                        SELECT ACP_YR AS ACP_YR
+                               , ACP_DVSN_CD
+                               , ACP_SRNO
+                               , SBCN_DT AS SBCN_DY
+                        FROM TBBADFRE012D
+                    ) GROUP BY ACP_YR, ACP_DVSN_CD, ACP_SRNO) D4 ON (D4.ACP_YR      = D1.ACP_YR
+                                                                                 AND D4.ACP_DVSN_CD = D1.ACP_DVSN_CD
+                                                                                 AND D4.ACP_SRNO    = D1.ACP_SRNO)
+                   WHERE D3.DF_DT IS NULL OR (D3.DF_DT IS NOT NULL AND D3.RLS_DT IS NOT NULL)
+          )                 
+    ) 
+    
+	SELECT TO_CHAR(SYSDATE,'YYYY') || '년' AS GUBUN
+                       , SUM(1) RESULT_TOT
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +3) >= SYSDATE THEN 1
+                             ELSE 0 END) IN3MONTH
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +3) < SYSDATE THEN 1
+                             ELSE 0 END) OUT3MONTH
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +3) < SYSDATE AND ADD_MONTHS(TO_DATE(D1.ACP_DT), +6) >= SYSDATE THEN 1
+                             ELSE 0 END) BETWEEN4_6
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +6) < SYSDATE AND ADD_MONTHS(TO_DATE(D1.ACP_DT), +9) >= SYSDATE THEN 1
+                             ELSE 0 END) BETWEEN6_9    
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +9) < SYSDATE AND ADD_MONTHS(TO_DATE(D1.ACP_DT), +12) >= SYSDATE  THEN 1
+                             ELSE 0 END) BETWEEN9_12
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +12) < SYSDATE THEN 1
+                             ELSE 0 END) OVER1
+               FROM FRE_MAIN_TABLE D1
+               WHERE 1 = 1
+                 AND ((D1.ACP_YR <= TO_CHAR(SYSDATE, 'YYYY') AND (D1.SBCN_DT IS NULL))) /*올해접수건*/
+                 AND D1.ACP_DVSN_CD = '1'
+                  AND D1.DPT_CD IN (SELECT DISTINCT A.DPT_CD FROM TBBADFRE012M A INNER JOIN TBBADFRE101M B ON B.ACP_YR = A.ACP_YR AND B.ACP_DVSN_CD = A.ACP_DVSN_CD AND B.ACP_SRNO = A.ACP_SRNO)
+                  
+                  
+                UNION ALL
+                SELECT TO_CHAR(SYSDATE,'YYYY')-1 || '년' AS GUBUN
+                       , SUM(1) RESULT_TOT
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +3) >= SYSDATE THEN 1
+                             ELSE 0 END) IN3MONTH
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +3) < SYSDATE THEN 1
+                             ELSE 0 END) OUT3MONTH
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +3) < SYSDATE AND ADD_MONTHS(TO_DATE(D1.ACP_DT), +6) >= SYSDATE THEN 1
+                             ELSE 0 END) BETWEEN4_6
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +6) < SYSDATE AND ADD_MONTHS(TO_DATE(D1.ACP_DT), +9) >= SYSDATE THEN 1
+                             ELSE 0 END) BETWEEN6_9    
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +9) < SYSDATE AND ADD_MONTHS(TO_DATE(D1.ACP_DT), +12) >= SYSDATE  THEN 1
+                             ELSE 0 END) BETWEEN9_12
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +12) < SYSDATE THEN 1
+                             ELSE 0 END) OVER1
+                FROM FRE_MAIN_TABLE D1
+                WHERE 1 = 1
+                 AND (D1.ACP_YR < TO_CHAR(SYSDATE, 'YYYY') AND (D1.SBCN_DT IS NULL OR TO_CHAR(TO_DATE(D1.SBCN_DT), 'YYYY') = TO_CHAR(SYSDATE, 'YYYY')))
+                 AND D1.ACP_DVSN_CD = '1'
+                 AND D1.DPT_CD IN (SELECT DISTINCT A.DPT_CD FROM TBBADFRE012M A INNER JOIN TBBADFRE101M B ON B.ACP_YR = A.ACP_YR AND B.ACP_DVSN_CD = A.ACP_DVSN_CD AND B.ACP_SRNO = A.ACP_SRNO)
+	]]>
+	</select>
+
+	<select id="selectBadFreDashBoardListThree" parameterType="paramMap" resultType="egovMap">
+	<![CDATA[
+		/*kr.go.bai.eip.dashBoard.dao.BadFreDashBoardMapper.selectBadFreDashBoardListThree*/
+			WITH FRE_MAIN_TABLE AS (
+    SELECT ACP_YR
+            , ACP_DVSN_CD
+            , ACP_SRNO
+            , DPT_CD
+            , ACP_DT
+            , VT_KND_CD
+            , BAI_DSP_YN
+            , CASE WHEN TO_DATE(SBCN_DT) >= SYSDATE THEN '' ELSE SBCN_DT END AS SBCN_DT
+    FROM (
+        SELECT D1.ACP_YR
+            , D1.ACP_DVSN_CD
+            , D1.ACP_SRNO
+            , D1.DPT_CD
+            , NVL(D3.RLS_DT, D1.ACP_DT) AS ACP_DT
+            , NVL(D1.VT_KND_CD, NVL(D2.VT_KND_CD, D1.HNDL_OPNN_CD)) AS VT_KND_CD
+            , D1.BAI_DSP_YN
+            , CASE WHEN D1.VT_KND_CD IN ('7','8') THEN D3.ENF_DT 
+                   ELSE 
+                    (CASE WHEN D1.ACP_DVSN_CD = '1' AND REFER_ENT = 'Y' THEN 
+                        NVL(( SELECT
+                              TO_CHAR(B.FNL_APV_DH,'YYYYMMDD')
+                         FROM TBBADFRE103M A
+                         LEFT OUTER JOIN TBDCMACM022L B ON(A.APV_RQS_ID = B.APV_DOC_NO)
+                         WHERE (A.ACP_YR, A.ACP_DVSN_CD, A.ACP_SRNO) IN (SELECT NVL(MG_ACP_YR, ACP_YR), NVL(MG_ACP_DVSN_CD, ACP_DVSN_CD), NVL(MG_ACP_SRNO, ACP_SRNO) 
+                                                                           FROM TBBADFRE012M 
+                                                                          WHERE ACP_YR = D1.ACP_YR 
+                                                                            AND ACP_DVSN_CD = D1.ACP_DVSN_CD 
+                                                                            AND ACP_SRNO = D1.ACP_SRNO)
+                         AND A.RPRT_CD = ('D10200200')
+                         AND B.APV_STA_CD = '3'
+                         AND ROWNUM = 1
+                      ), D3.ENF_DT)
+                      WHEN D1.ACP_DVSN_CD = '1' AND (REFER_ENT IS NULL OR REFER_ENT = 'N') AND 
+                          (  SELECT
+                                  ACP_YR
+                             FROM TBBADFRE101M A
+                             WHERE A.ACP_YR = D1.ACP_YR
+                             AND A.ACP_DVSN_CD = D1.ACP_DVSN_CD
+                             AND A.ACP_SRNO = D1.ACP_SRNO
+                             AND ROWNUM = 1
+                          ) IS NOT NULL THEN NVL(NVL(D4.SBCN_DY, D2.SBCN_DT), D3.ENF_DT)
+                      WHEN D1.ACP_DVSN_CD = '1' AND (REFER_ENT IS NULL OR REFER_ENT = 'N') AND 
+                          (  SELECT
+                                  ACP_YR
+                             FROM TBBADFRE101M A
+                             WHERE A.ACP_YR = D1.ACP_YR
+                             AND A.ACP_DVSN_CD = D1.ACP_DVSN_CD
+                             AND A.ACP_SRNO = D1.ACP_SRNO
+                             AND ROWNUM = 1
+                          ) IS NULL THEN NVL(NVL(NVL(D4.SBCN_DY, D2.SBCN_DT), D2.BRUCHF_APV_DT), D3.ENF_DT)
+                      WHEN D1.ACP_DVSN_CD = '2' THEN NVL(NVL(D4.SBCN_DY, D2.SBCN_DT), D3.ENF_DT) END) END AS SBCN_DT
+        FROM TBBADFRE012M D1
+                LEFT OUTER JOIN TBBADFRE012D D2 ON (D1.ACP_YR      = D2.ACP_YR
+                                                     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+                                                     AND D1.ACP_SRNO    = D2.ACP_SRNO)
+                LEFT OUTER JOIN TBBADFRE013D D3 ON (D1.ACP_YR      = D3.ACP_YR
+                                                     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+                                                     AND D1.ACP_SRNO    = D3.ACP_SRNO
+                                                    )
+                LEFT OUTER JOIN (SELECT ACP_YR
+                        , ACP_DVSN_CD
+                        , ACP_SRNO 
+                        , MAX(SBCN_DY) AS SBCN_DY
+                    FROM(
+                        SELECT ACP_YR
+                               , ACP_DVSN_CD
+                               , ACP_SRNO 
+                               , SBCN_DY
+                        FROM TBBADFRE113M
+                        WHERE SBCN_VT_CD <> '90'
+                        UNION ALL
+                        SELECT REL_AUD_YR AS ACP_YR
+                               , DECODE(WORK_DVSN_CD, 'D10', '1', 'E10','2','9') AS ACP_DVSN_CD
+                               , TO_NUMBER(REL_AUD_NO) AS ACP_SRNO
+                               , CMT_DY AS SBCN_DY
+                        FROM TBBADDED121M
+                        WHERE CMT_DVSN_CD = '10'
+                          AND WORK_DVSN_CD IN ('D10','E10')
+                        UNION ALL
+                        SELECT ACP_YR AS ACP_YR
+                               , ACP_DVSN_CD
+                               , ACP_SRNO
+                               , SBCN_DT AS SBCN_DY
+                        FROM TBBADFRE012D
+                    ) GROUP BY ACP_YR, ACP_DVSN_CD, ACP_SRNO) D4 ON (D4.ACP_YR      = D1.ACP_YR
+                                                                                 AND D4.ACP_DVSN_CD = D1.ACP_DVSN_CD
+                                                                                 AND D4.ACP_SRNO    = D1.ACP_SRNO)
+                   WHERE D3.DF_DT IS NULL OR (D3.DF_DT IS NOT NULL AND D3.RLS_DT IS NOT NULL)
+          )                 
+    ) 
+    
+	SELECT TO_CHAR(SYSDATE,'YYYY') || '년' AS GUBUN
+                       , SUM(1) RESULT_TOT
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +2) >= SYSDATE THEN 1
+                             ELSE 0 END) IN3MONTH
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +2) < SYSDATE THEN 1
+                             ELSE 0 END) OUT3MONTH
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +2) < SYSDATE AND ADD_MONTHS(TO_DATE(D1.ACP_DT), +6) >= SYSDATE THEN 1
+                             ELSE 0 END) BETWEEN4_6
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +6) < SYSDATE AND ADD_MONTHS(TO_DATE(D1.ACP_DT), +9) >= SYSDATE THEN 1
+                             ELSE 0 END) BETWEEN6_9    
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +9) < SYSDATE AND ADD_MONTHS(TO_DATE(D1.ACP_DT), +12) >= SYSDATE  THEN 1
+                             ELSE 0 END) BETWEEN9_12
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +12) < SYSDATE THEN 1
+                             ELSE 0 END) OVER1
+               FROM FRE_MAIN_TABLE D1
+               WHERE 1 = 1
+                 AND ((D1.ACP_YR <= TO_CHAR(SYSDATE, 'YYYY') AND (D1.SBCN_DT IS NULL))) /*올해접수건*/
+                 AND D1.ACP_DVSN_CD = '2'
+                  AND D1.DPT_CD IN (SELECT DISTINCT A.DPT_CD FROM TBBADFRE012M A INNER JOIN TBBADFRE101M B ON B.ACP_YR = A.ACP_YR AND B.ACP_DVSN_CD = A.ACP_DVSN_CD AND B.ACP_SRNO = A.ACP_SRNO)
+                  
+                  
+                UNION ALL
+                SELECT TO_CHAR(SYSDATE,'YYYY')-1 || '년' AS GUBUN
+                       , SUM(1) RESULT_TOT
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +2) >= SYSDATE THEN 1
+                             ELSE 0 END) IN3MONTH
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +2) < SYSDATE THEN 1
+                             ELSE 0 END) OUT3MONTH
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +2) < SYSDATE AND ADD_MONTHS(TO_DATE(D1.ACP_DT), +6) >= SYSDATE THEN 1
+                             ELSE 0 END) BETWEEN4_6
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +6) < SYSDATE AND ADD_MONTHS(TO_DATE(D1.ACP_DT), +9) >= SYSDATE THEN 1
+                             ELSE 0 END) BETWEEN6_9    
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +9) < SYSDATE AND ADD_MONTHS(TO_DATE(D1.ACP_DT), +12) >= SYSDATE  THEN 1
+                             ELSE 0 END) BETWEEN9_12
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +12) < SYSDATE THEN 1
+                             ELSE 0 END) OVER1
+                FROM FRE_MAIN_TABLE D1
+                WHERE 1 = 1
+                 AND (D1.ACP_YR < TO_CHAR(SYSDATE, 'YYYY') AND (D1.SBCN_DT IS NULL OR TO_CHAR(TO_DATE(D1.SBCN_DT), 'YYYY') = TO_CHAR(SYSDATE, 'YYYY')))
+                 AND D1.ACP_DVSN_CD = '2'
+                 AND D1.DPT_CD IN (SELECT DISTINCT A.DPT_CD FROM TBBADFRE012M A INNER JOIN TBBADFRE101M B ON B.ACP_YR = A.ACP_YR AND B.ACP_DVSN_CD = A.ACP_DVSN_CD AND B.ACP_SRNO = A.ACP_SRNO)
+	]]>
+	</select>
+	
+	<select id="selectBadFreDashBoardNewListThree" parameterType="paramMap" resultType="egovMap">
+	<![CDATA[
+		/*kr.go.bai.eip.dashBoard.dao.BadFreDashBoardMapper.selectBadFreDashBoardNewListThree*/
+			WITH FRE_MAIN_TABLE AS (
+    SELECT ACP_YR
+            , ACP_DVSN_CD
+            , ACP_SRNO
+            , DPT_CD
+            , ACP_DT
+            , VT_KND_CD
+            , BAI_DSP_YN
+            , CASE WHEN TO_DATE(SBCN_DT) >= SYSDATE THEN '' ELSE SBCN_DT END AS SBCN_DT
+            , ENF_DT
+    FROM (
+        SELECT D1.ACP_YR
+            , D1.ACP_DVSN_CD
+            , D1.ACP_SRNO
+            , D1.DPT_CD
+            , NVL(D3.RLS_DT, D1.ACP_DT) AS ACP_DT
+            , NVL(D1.VT_KND_CD, NVL(D2.VT_KND_CD, D1.HNDL_OPNN_CD)) AS VT_KND_CD
+            , D1.BAI_DSP_YN
+            , D3.ENF_DT
+            , CASE WHEN D1.VT_KND_CD IN ('7','8') THEN D3.ENF_DT 
+                   ELSE 
+                    (CASE WHEN D1.ACP_DVSN_CD = '1' AND REFER_ENT = 'Y' THEN 
+                        NVL(( SELECT
+                              TO_CHAR(B.FNL_APV_DH,'YYYYMMDD')
+                         FROM TBBADFRE103M A
+                         LEFT OUTER JOIN TBDCMACM022L B ON(A.APV_RQS_ID = B.APV_DOC_NO)
+                         WHERE (A.ACP_YR, A.ACP_DVSN_CD, A.ACP_SRNO) IN (SELECT NVL(MG_ACP_YR, ACP_YR), NVL(MG_ACP_DVSN_CD, ACP_DVSN_CD), NVL(MG_ACP_SRNO, ACP_SRNO) 
+                                                                           FROM TBBADFRE012M 
+                                                                          WHERE ACP_YR = D1.ACP_YR 
+                                                                            AND ACP_DVSN_CD = D1.ACP_DVSN_CD 
+                                                                            AND ACP_SRNO = D1.ACP_SRNO)
+                         AND A.RPRT_CD = ('D10200200')
+                         AND B.APV_STA_CD = '3'
+                         AND ROWNUM = 1
+                      ), D3.ENF_DT)
+                      WHEN D1.ACP_DVSN_CD = '1' AND (REFER_ENT IS NULL OR REFER_ENT = 'N') AND 
+                          (  SELECT
+                                  ACP_YR
+                             FROM TBBADFRE101M A
+                             WHERE A.ACP_YR = D1.ACP_YR
+                             AND A.ACP_DVSN_CD = D1.ACP_DVSN_CD
+                             AND A.ACP_SRNO = D1.ACP_SRNO
+                             AND ROWNUM = 1
+                          ) IS NOT NULL THEN NVL(NVL(D4.SBCN_DY, D2.SBCN_DT), D3.ENF_DT)
+                      WHEN D1.ACP_DVSN_CD = '1' AND (REFER_ENT IS NULL OR REFER_ENT = 'N') AND 
+                          (  SELECT
+                                  ACP_YR
+                             FROM TBBADFRE101M A
+                             WHERE A.ACP_YR = D1.ACP_YR
+                             AND A.ACP_DVSN_CD = D1.ACP_DVSN_CD
+                             AND A.ACP_SRNO = D1.ACP_SRNO
+                             AND ROWNUM = 1
+                          ) IS NULL THEN NVL(NVL(NVL(D4.SBCN_DY, D2.SBCN_DT), D2.BRUCHF_APV_DT), D3.ENF_DT)
+                      WHEN D1.ACP_DVSN_CD = '2' THEN NVL(NVL(D4.SBCN_DY, D2.SBCN_DT), D3.ENF_DT) END) END AS SBCN_DT
+        FROM TBBADFRE012M D1
+                LEFT OUTER JOIN TBBADFRE012D D2 ON (D1.ACP_YR      = D2.ACP_YR
+                                                     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+                                                     AND D1.ACP_SRNO    = D2.ACP_SRNO)
+                LEFT OUTER JOIN TBBADFRE013D D3 ON (D1.ACP_YR      = D3.ACP_YR
+                                                     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+                                                     AND D1.ACP_SRNO    = D3.ACP_SRNO
+                                                    )
+                LEFT OUTER JOIN (SELECT ACP_YR
+                        , ACP_DVSN_CD
+                        , ACP_SRNO 
+                        , MAX(SBCN_DY) AS SBCN_DY
+                    FROM(
+                        SELECT ACP_YR
+                               , ACP_DVSN_CD
+                               , ACP_SRNO 
+                               , SBCN_DY
+                        FROM TBBADFRE113M
+                        WHERE SBCN_VT_CD <> '90'
+                        UNION ALL
+                        SELECT REL_AUD_YR AS ACP_YR
+                               , DECODE(WORK_DVSN_CD, 'D10', '1', 'E10','2','9') AS ACP_DVSN_CD
+                               , TO_NUMBER(REL_AUD_NO) AS ACP_SRNO
+                               , CMT_DY AS SBCN_DY
+                        FROM TBBADDED121M
+                        WHERE CMT_DVSN_CD = '10'
+                          AND WORK_DVSN_CD IN ('D10','E10')
+                        UNION ALL
+                        SELECT ACP_YR AS ACP_YR
+                               , ACP_DVSN_CD
+                               , ACP_SRNO
+                               , SBCN_DT AS SBCN_DY
+                        FROM TBBADFRE012D
+                    ) GROUP BY ACP_YR, ACP_DVSN_CD, ACP_SRNO) D4 ON (D4.ACP_YR      = D1.ACP_YR
+                                                                                 AND D4.ACP_DVSN_CD = D1.ACP_DVSN_CD
+                                                                                 AND D4.ACP_SRNO    = D1.ACP_SRNO)
+                   WHERE D3.DF_DT IS NULL OR (D3.DF_DT IS NOT NULL AND D3.RLS_DT IS NOT NULL)
+                     AND NVL(D1.ATH_RE_RVW_YN, 'N') = 'N'
+          )       
+    ) 
+    
+	SELECT TO_CHAR(SYSDATE,'YYYY') || '년' AS GUBUN
+                       , NVL(SUM(1), '0') RESULT_TOT
+                       , NVL(SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +2) >= NVL(D1.ENF_DT, #{ingSelectDt}) THEN 1
+                             ELSE 0 END), '0') IN3MONTH
+                       , NVL(SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +2) < NVL(D1.ENF_DT, #{ingSelectDt}) THEN 1
+                             ELSE 0 END), '0') OUT3MONTH
+                       , NVL(SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +2) < NVL(D1.ENF_DT, #{ingSelectDt}) AND ADD_MONTHS(TO_DATE(D1.ACP_DT), +6) >= NVL(D1.ENF_DT, #{ingSelectDt}) THEN 1
+                             ELSE 0 END), '0') BETWEEN4_6
+                       , NVL(SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +6) < NVL(D1.ENF_DT, #{ingSelectDt}) AND ADD_MONTHS(TO_DATE(D1.ACP_DT), +9) >= NVL(D1.ENF_DT, #{ingSelectDt}) THEN 1
+                             ELSE 0 END), '0') BETWEEN6_9    
+                       , NVL(SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +9) < NVL(D1.ENF_DT, #{ingSelectDt}) AND ADD_MONTHS(TO_DATE(D1.ACP_DT), +12) >= NVL(D1.ENF_DT, #{ingSelectDt})  THEN 1
+                             ELSE 0 END), '0') BETWEEN9_12
+                       , NVL(SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +12) < NVL(D1.ENF_DT, #{ingSelectDt}) THEN 1
+                             ELSE 0 END), '0') OVER1
+               FROM FRE_MAIN_TABLE D1
+               WHERE 1 = 1
+                 AND ((D1.ACP_YR <= TO_CHAR(SYSDATE, 'YYYY') AND (D1.ENF_DT IS NULL OR (TO_CHAR(TO_DATE(D1.ENF_DT), 'YYYY') = TO_CHAR(SYSDATE, 'YYYY') AND D1.ENF_DT > #{ingSelectDt})))) /*올해접수건*/
+                 AND D1.ACP_DT <= #{ingSelectDt}
+                 AND D1.ACP_DVSN_CD = '2'
+                  AND D1.DPT_CD IN (SELECT DISTINCT A.DPT_CD FROM TBBADFRE012M A INNER JOIN TBBADFRE101M B ON B.ACP_YR = A.ACP_YR AND B.ACP_DVSN_CD = A.ACP_DVSN_CD AND B.ACP_SRNO = A.ACP_SRNO)
+                  
+                  
+                UNION ALL
+                SELECT TO_CHAR(SYSDATE,'YYYY')-1 || '년' AS GUBUN
+                       , SUM(1) RESULT_TOT
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +2) >= NVL(D1.ENF_DT, #{ingSelectDt}) THEN 1
+                             ELSE 0 END) IN3MONTH
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +2) < NVL(D1.ENF_DT, #{ingSelectDt}) THEN 1
+                             ELSE 0 END) OUT3MONTH
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +2) < NVL(D1.ENF_DT, #{ingSelectDt}) AND ADD_MONTHS(TO_DATE(D1.ACP_DT), +6) >= NVL(D1.ENF_DT, #{ingSelectDt}) THEN 1
+                             ELSE 0 END) BETWEEN4_6
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +6) < NVL(D1.ENF_DT, #{ingSelectDt}) AND ADD_MONTHS(TO_DATE(D1.ACP_DT), +9) >= NVL(D1.ENF_DT, #{ingSelectDt}) THEN 1
+                             ELSE 0 END) BETWEEN6_9    
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +9) < NVL(D1.ENF_DT, #{ingSelectDt}) AND ADD_MONTHS(TO_DATE(D1.ACP_DT), +12) >= NVL(D1.ENF_DT, #{ingSelectDt})  THEN 1
+                             ELSE 0 END) BETWEEN9_12
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +12) < NVL(D1.ENF_DT, #{ingSelectDt}) THEN 1
+                             ELSE 0 END) OVER1
+                FROM FRE_MAIN_TABLE D1
+                WHERE 1 = 1
+                 AND (D1.ACP_YR < TO_CHAR(SYSDATE, 'YYYY') AND (D1.ENF_DT IS NULL OR TO_CHAR(TO_DATE(D1.ENF_DT), 'YYYY') = TO_CHAR(SYSDATE, 'YYYY')))
+                 AND D1.ACP_DVSN_CD = '2'
+                 AND D1.DPT_CD IN (SELECT DISTINCT A.DPT_CD FROM TBBADFRE012M A INNER JOIN TBBADFRE101M B ON B.ACP_YR = A.ACP_YR AND B.ACP_DVSN_CD = A.ACP_DVSN_CD AND B.ACP_SRNO = A.ACP_SRNO)
+                 
+                UNION ALL
+                SELECT '2년 이전(합계)' AS GUBUN
+                       , SUM(1) RESULT_TOT
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +2) >= NVL(D1.ENF_DT, #{ingSelectDt}) THEN 1
+                             ELSE 0 END) IN3MONTH
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +2) < NVL(D1.ENF_DT, #{ingSelectDt}) THEN 1
+                             ELSE 0 END) OUT3MONTH
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +2) < NVL(D1.ENF_DT, #{ingSelectDt}) AND ADD_MONTHS(TO_DATE(D1.ACP_DT), +6) >= NVL(D1.ENF_DT, #{ingSelectDt}) THEN 1
+                             ELSE 0 END) BETWEEN4_6
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +6) < NVL(D1.ENF_DT, #{ingSelectDt}) AND ADD_MONTHS(TO_DATE(D1.ACP_DT), +9) >= NVL(D1.ENF_DT, #{ingSelectDt}) THEN 1
+                             ELSE 0 END) BETWEEN6_9    
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +9) < NVL(D1.ENF_DT, #{ingSelectDt}) AND ADD_MONTHS(TO_DATE(D1.ACP_DT), +12) >= NVL(D1.ENF_DT, #{ingSelectDt})  THEN 1
+                             ELSE 0 END) BETWEEN9_12
+                       , SUM(CASE WHEN ADD_MONTHS(TO_DATE(D1.ACP_DT), +12) < NVL(D1.ENF_DT, #{ingSelectDt}) THEN 1
+                             ELSE 0 END) OVER1
+                FROM FRE_MAIN_TABLE D1
+                WHERE 1 = 1
+                 AND (D1.ACP_YR < TO_CHAR(SYSDATE, 'YYYY')-1)
+                 AND D1.ACP_DVSN_CD = '2'
+                 AND D1.DPT_CD IN (SELECT DISTINCT A.DPT_CD FROM TBBADFRE012M A INNER JOIN TBBADFRE101M B ON B.ACP_YR = A.ACP_YR AND B.ACP_DVSN_CD = A.ACP_DVSN_CD AND B.ACP_SRNO = A.ACP_SRNO)
+	]]>
+	</select>
+	
+	<select id="selectBadFreDashBoardListForUser" parameterType="paramMap" resultType="egovMap">
+	/*kr.go.bai.eip.dashBoard.dao.BadFreDashBoardMapper.selectBadFreDashBoardListForUser*/
+	<![CDATA[
+	SELECT ACP_NO
+           , ACP_NO_HD
+           , HST_NA
+           , HST_DE
+           , WRTANS_SEN_YN
+           , ACP_HNDL_STA_CD
+           , ACP_HNDL_STA_NM
+           , ACP_DT
+           , DSP_OFC_ACP_DT
+           , ORG_NM
+           , DSP_OFC_UP_INSTT_CD
+           , DSP_OFC_UP_INSTT_NAM
+           , DSPTCH_INSTT_NAM
+           , REQR_NM
+           , TIT_NM
+           , JDG_REQ_DVSN_CD
+           , JDG_REQ_DVSN_NM
+           , DPT_CD
+           , DPT_NM
+           , HNDL_DDLN_DT
+           , HNDL_DT
+           , HNDL_CHGR_NM
+           , VT_KND_CD
+           , VT_KND_NM
+           , DCS_DT
+           , ACP_YR
+           , ACP_DVSN_CD
+           , ACP_SRNO
+           , ORG_ACP_SRNO
+           , MG_ACP_YR
+           , MG_ACP_DVSN_CD
+           , MG_ACP_SRNO
+           , MG_DPT_CD
+           , MG_DIV_CD
+           , MG_DIV_NM
+           , MG_COUNT
+           , LINK_URL
+           , ACP_STEP_CD
+           , ACP_STEP_NM
+           , PRC_CNT
+           , ZCD
+		   , AD
+		   , DTL_AD
+           , MG_ALL
+           , ORG_DSP_KWA_OPIN_SRCH_DT
+           , ORG_DSP_KWA_OPIN_RCPT_DT
+           , SOWI_RPRT_KWA
+           , SOWI_RPRT_KUK
+           , SOWI_RPRT_CHA
+           , SOWI_RPRT_CHONG
+           , SOWI_RPRT_WON
+           , SOWI_APV
+           , SBMT_FIX_DT
+           , FRE_RPRT_KWA
+           , FRE_RPRT_KUK
+           , FRE_RPRT_CHA
+           , FRE_RPRT_CHONG
+           , FRE_RPRT_WON
+           , WI_APV
+           , SBCN_DY
+           , GAKHA_RPRT_KWA
+           , GAKHA_RPRT_KUK
+           , CNCL_DT
+           , GAKHA_DT
+           , ENF_DT
+           , CASE WHEN ACP_DVSN_CD = '1' THEN 
+                      CASE WHEN ENF_DT IS NOT NULL THEN 'D1040'
+                          WHEN SBCN_DY IS NOT NULL THEN 'D1031'
+                          WHEN WI_APV IS NOT NULL THEN 'D1030'
+                          WHEN FRE_RPRT_WON IS NOT NULL THEN 'D1024'
+                          WHEN FRE_RPRT_CHONG IS NOT NULL THEN 'D1023'
+                          WHEN FRE_RPRT_CHA IS NOT NULL THEN 'D1022'
+                          WHEN FRE_RPRT_KUK IS NOT NULL THEN 'D1021'
+                          WHEN FRE_RPRT_KWA IS NOT NULL THEN 'D1020'
+                      ELSE '' END
+                  ELSE
+                      CASE WHEN ENF_DT IS NOT NULL THEN 'E1060'
+                            WHEN SBCN_DY IS NOT NULL THEN 'E1051'
+                            WHEN WI_APV IS NOT NULL THEN 'E1050'
+                            WHEN FRE_RPRT_WON IS NOT NULL THEN 'E1044'
+                            WHEN FRE_RPRT_CHONG IS NOT NULL THEN 'E1043'
+                            WHEN FRE_RPRT_CHA IS NOT NULL THEN 'E1042'
+                            WHEN FRE_RPRT_KUK IS NOT NULL THEN 'E1041'
+                            WHEN FRE_RPRT_KWA IS NOT NULL THEN 'E1040'
+                            WHEN SBMT_FIX_DT IS NOT NULL THEN 'E1031'
+                            WHEN SOWI_APV IS NOT NULL THEN 'E1030'
+                            WHEN SOWI_RPRT_CHONG IS NOT NULL THEN 'E1023'
+                            WHEN SOWI_RPRT_CHA IS NOT NULL THEN 'E1022'
+                            WHEN SOWI_RPRT_KUK IS NOT NULL THEN 'E1021'
+                            WHEN SOWI_RPRT_KWA IS NOT NULL THEN 'E1020'
+                            WHEN ORG_DSP_KWA_OPIN_RCPT_DT IS NOT NULL THEN 'E1011'
+                            WHEN ORG_DSP_KWA_OPIN_SRCH_DT IS NOT NULL THEN 'E1010'
+                        ELSE '' END
+                  END AS HNDL_STA_CD
+          , DOC_TYPE
+          , (CASE WHEN (SELECT COUNT(T1.WDW_RQS_STA_CD)
+                                FROM TBBADFRE012M T1
+                               WHERE NVL(T1.MG_ACP_YR, T1.ACP_YR) = T2_ACP_YR
+                                 AND NVL(T1.MG_ACP_DVSN_CD, T1.ACP_DVSN_CD) = T2_ACP_DVSN_CD
+                                 AND NVL(T1.MG_ACP_SRNO, T1.ACP_SRNO) = T2_ACP_SRNO
+                                 AND T1.WDW_RQS_STA_CD = 'Y') > 0 THEN 'Y'
+                   ELSE ''
+                END ) WDW_RQS_STA_CD
+    FROM (
+	        SELECT A.ACP_YR || '-' || DECODE(A.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || DECODE(A.ORG_ACP_SRNO, null, A.ACP_SRNO, A.ORG_ACP_SRNO) AS ACP_NO /* 분류번호 */
+		         , A.ACP_YR || '-' || DECODE(A.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || DECODE(A.ORG_ACP_SRNO, null, A.ACP_SRNO, A.ORG_ACP_SRNO) AS ACP_NO_HD
+		         ,(SELECT
+		               APV_RQS_ID      /*결재ID*/
+		          FROM TBBADFRE103M 
+		          WHERE ACP_YR = A.ACP_YR
+		             AND ACP_DVSN_CD = A.ACP_DVSN_CD
+		             AND ACP_SRNO = A.ACP_SRNO
+		             AND APV_RQS_ID IS NOT NULL
+		             AND RPRT_CD = DECODE('1','1','D10100001','2','E10100001')) as HST_NA /* 결재이력-선람전 (국) */
+		         ,(SELECT
+		               APV_RQS_ID      
+		          FROM TBBADFRE103M 
+		          WHERE ACP_YR = A.ACP_YR
+		             AND ACP_DVSN_CD = A.ACP_DVSN_CD
+		             AND ACP_SRNO = A.ACP_SRNO
+		             AND APV_RQS_ID IS NOT NULL
+		             AND RPRT_CD = DECODE('1','1','D10100002','2','E10100002')) as HST_DE /* 결재이력-선람전 (과) */
+		         ,
+		         decode(A.WRTANS_SEN_YN,'Y','발송','N','미발송') as WRTANS_SEN_YN /* 부본 발송 여부 */    
+		         ,A.ACP_HNDL_STA_CD /* 진행단계코드 */
+			     ,F_CODE_NM('1000807', A.ACP_HNDL_STA_CD) AS ACP_HNDL_STA_NM /* 진행단계명 */
+			     ,to_char(to_date(A.ACP_DT), 'YYYY-MM-DD') AS ACP_DT		/* 접수일 */
+			     ,to_char(to_date(A.DSP_OFC_ACP_DT), 'YYYY-MM-DD') AS DSP_OFC_ACP_DT		/* 처분청접수일자 */
+			     ,A.ORG_NM /* 처분청 */
+			     ,A.DSP_OFC_UP_INSTT_CD /* 처분청상급기관코드 */
+			     ,A.DSP_OFC_UP_INSTT_NAM  /* 처분청상급기관명 */
+			     ,A.DSPTCH_INSTT_NAM /* 발신기관명 */
+			     ,DECODE(A.AGT_NM, NULL, A.REQR_NM, A.REQR_NM || '(代:' || A.AGT_NM || ')' ) AS REQR_NM/* 청구인명 */
+			     ,A.TIT_NM /* 청구내용 */
+			     ,A.JDG_REQ_DVSN_CD /* 심사청구부분코드 */
+			     ,F_CODE_NM('1000043', A.JDG_REQ_DVSN_CD) AS JDG_REQ_DVSN_NM /* 심사청구구분명 */
+			     ,A.DPT_CD /* 부서코드 */
+			     ,F_DPT_INFO (A.DPT_CD, '1') AS DPT_NM /* 처리과 */
+			     ,to_char(to_date(A.HNDL_DDLN_DT), 'YYYY-MM-DD') AS HNDL_DDLN_DT /* 처리기한 */
+			     ,CASE WHEN B.ENF_DT IS NULL THEN to_char(TO_DATE(SYSDATE) - TO_DATE(A.ACP_DT))
+			     	   WHEN B.ENF_DT IS NOT NULL THEN to_char(TO_DATE(B.ENF_DT) - TO_DATE(A.ACP_DT))
+			      END AS HNDL_DT /*처리기간*/
+			     ,A.HNDL_CHGR_NM /* 담당자 */
+			     ,A.VT_KND_CD /* 의결종류 */
+			     ,F_CODE_NM('1000045', A.VT_KND_CD) AS VT_KND_NM /* 의결종류명 */
+			     ,to_char(to_date(A.DCS_DT), 'YYYY-MM-DD') AS DCS_DT /* 결정일자 */
+			     ,A.ACP_YR /* 접수년도 */
+			     ,A.ACP_DVSN_CD /* 접수구분코드 */
+			     ,A.ACP_SRNO /* 접수일련번호 */
+			     ,A.ORG_ACP_SRNO /* 기존접수���련번호 */
+			     ,A.MG_ACP_YR /* 병합접수년도 */
+			     ,A.MG_ACP_DVSN_CD /* 병합접수구분코드 */
+			     ,A.MG_ACP_SRNO /* 병합접수일련번호 */
+			     ,A.MG_DPT_CD /* 병합부서코드 */
+			     ,A.MG_DIV_CD /* 병합병행구분코드 */
+			     ,A.ATH_RE_RVW_YN /* 직권재심의 여부 */
+			     ,CASE WHEN (A.ACP_YR = A.MG_ACP_YR AND A.ACP_DVSN_CD = A.MG_ACP_DVSN_CD AND A.ACP_SRNO = A.MG_ACP_SRNO) THEN '대표'
+			             WHEN A.MG_DIV_CD IS NULL AND A.MG_ACP_YR IS NULL THEN '대표'
+			             WHEN A.MG_DIV_CD IS NULL THEN '대표'
+			             WHEN A.MG_DIV_CD = '10' THEN '병합'
+			             WHEN A.MG_DIV_CD = '20' THEN '병행'
+			      END AS MG_DIV_NM /* 병합병행구분명 */
+			     ,(CASE WHEN A.MG_ACP_YR IS NULL THEN ''
+                        WHEN A.MG_DIV_CD = '10' THEN '병합(' || (SELECT COUNT(MG_ACP_YR)
+                                                                   FROM TBBADFRE012M
+                                                                  WHERE MG_ACP_YR = A.MG_ACP_YR
+                                                                    AND MG_ACP_DVSN_CD = A.MG_ACP_DVSN_CD
+                                                                    AND MG_ACP_SRNO = A.MG_ACP_SRNO) || ')'
+                        WHEN A.MG_DIV_CD = '20' THEN '병행(' || (SELECT COUNT(MG_ACP_YR)
+                                                                   FROM TBBADFRE012M
+                                                                  WHERE MG_ACP_YR = A.MG_ACP_YR
+                                                                    AND MG_ACP_DVSN_CD = A.MG_ACP_DVSN_CD
+                                                                    AND MG_ACP_SRNO = A.MG_ACP_SRNO) || ')'
+                   ELSE '병합(' || (SELECT COUNT(D.MG_ACP_YR)
+                                      FROM TBBADFRE012M D
+                                     WHERE D.MG_ACP_YR = A.MG_ACP_YR
+                                       AND D.MG_ACP_DVSN_CD = A.MG_ACP_DVSN_CD
+                                       AND D.MG_ACP_SRNO = A.MG_ACP_SRNO
+                                       AND D.MG_DPT_CD = A.MG_DPT_CD) || ')' END) AS MG_COUNT
+                 ,DECODE(C.LINK_URL, null, (SELECT MAX(LINK_URL)
+                                                   FROM TBBADFRE101M
+                                                  WHERE ACP_YR = A.ACP_YR
+                                                     AND ACP_DVSN_CD = A.ACP_DVSN_CD
+                                                     AND ACP_SRNO = A.ACP_SRNO
+                                                     AND NECES_YN ='Y'), C.LINK_URL) AS LINK_URL /* 페이지 URL */
+                 ,DECODE(C.ACP_STEP_CD, null, (SELECT MAX(ACP_STEP_CD)
+                                                        FROM TBBADFRE101M
+                                                       WHERE ACP_YR = A.ACP_YR
+                                                          AND ACP_DVSN_CD = A.ACP_DVSN_CD
+                                                          AND ACP_SRNO = A.ACP_SRNO
+                                                          AND NECES_YN ='Y'), C.ACP_STEP_CD) AS ACP_STEP_CD /* 프로세스 단계 코드 */
+                 ,C.ACP_STEP_NM /* 프로세스 단계명 */
+			     ,(SELECT COUNT(ACP_YR)
+			       FROM TBBADFRE102M
+			      WHERE ACP_YR = A.ACP_YR
+			         AND ACP_DVSN_CD = A.ACP_DVSN_CD
+			         AND ACP_SRNO = A.ACP_SRNO) AS PRC_CNT /* 프로세스 갯수 */
+				,A.ZCD
+				,A.AD
+				,A.DTL_AD
+                , (SELECT AGGR_CONCAT(ACP_YR || '-' || DECODE(ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || DECODE(ORG_ACP_SRNO, null, ACP_SRNO, ORG_ACP_SRNO), ', ')
+				 			   FROM TBBADFRE012M 
+				 			  WHERE MG_ACP_YR = A.MG_ACP_YR
+				 			  AND MG_ACP_DVSN_CD = A.MG_ACP_DVSN_CD
+				 			  AND MG_ACP_SRNO = A.MG_ACP_SRNO 
+				 			  AND ROWNUM < 200
+				 ) AS MG_ALL
+				, TO_CHAR(TO_DATE(A.ORG_DSP_KWA_OPIN_SRCH_DT),'YYYY-MM-DD') AS ORG_DSP_KWA_OPIN_SRCH_DT     /*원처분 의견조회일*/
+                , TO_CHAR(TO_DATE(A.ORG_DSP_KWA_OPIN_RCPT_DT),'YYYY-MM-DD') AS ORG_DSP_KWA_OPIN_RCPT_DT   /*원처분 의견회신일*/
+                , D.SOWI_RPRT_KWA   /*소위원회 심의안 결재일*/
+                , D.SOWI_RPRT_KUK
+                , D.SOWI_RPRT_CHA
+                , D.SOWI_RPRT_CHONG
+                , D.SOWI_RPRT_WON
+                , (SELECT 
+                        MIN(DECODE(ST2.APVR_PST_CD,'0010600',TO_CHAR(ST2.APV_DH, 'YYYY-MM-DD'),'')) 
+                   FROM TBBADFRE103M ST1
+                   INNER JOIN TBDCMACM023l ST2 ON (ST1.APV_RQS_ID = ST2.APV_DOC_NO)
+                   WHERE ST1.RPRT_CD IN('E10300150')
+                   AND ST1.ACP_YR = A.ACP_YR
+                   AND ST1.ACP_DVSN_CD = A.ACP_DVSN_CD
+                   AND ST1.ACP_SRNO = A.ACP_SRNO) AS SOWI_APV  /* 소위원회 주심위원 결재일 */
+                , (SELECT TO_CHAR(TO_DATE(MIN(SBMT_FIX_DT)),'YYYY-MM-DD')
+                   FROM TBBADFRE114M
+                   WHERE ACP_YR = A.ACP_YR
+                   AND ACP_DVSN_CD = A.ACP_DVSN_CD
+                   AND ACP_SRNO = A.ACP_SRNO) AS SBMT_FIX_DT /*소위원회 확정일*/
+                , E.FRE_RPRT_KWA    /*결정문 결재일*/
+                , E.FRE_RPRT_KUK
+                , E.FRE_RPRT_CHA
+                , E.FRE_RPRT_CHONG
+                , E.FRE_RPRT_WON
+                , (SELECT 
+                        MIN(DECODE(ST2.APVR_PST_CD,'0010600',TO_CHAR(ST2.APV_DH, 'YYYY-MM-DD'),'')) 
+                   FROM TBBADFRE103M ST1
+                   INNER JOIN TBDCMACM023l ST2 ON (ST1.APV_RQS_ID = ST2.APV_DOC_NO)
+                   WHERE ST1.RPRT_CD IN('D10300200', 'E10500200')
+                   AND ST1.ACP_YR = A.ACP_YR
+                   AND ST1.ACP_DVSN_CD = A.ACP_DVSN_CD
+                   AND ST1.ACP_SRNO = A.ACP_SRNO) AS WI_APV  /* 주심위원 결재일 */
+                , (SELECT TO_CHAR(TO_DATE(MIN(SBCN_DY)),'YYYY-MM-DD')
+                   FROM TBBADFRE113M
+                   WHERE ACP_YR = A.ACP_YR
+                   AND ACP_DVSN_CD = A.ACP_DVSN_CD
+                   AND ACP_SRNO = A.ACP_SRNO) AS SBCN_DY /*부의일*/
+                , F.GAKHA_RPRT_KWA						/*각하검토보고서 결재일*/
+                , F.GAKHA_RPRT_KUK
+                , DECODE(A.VT_KND_CD, 7, to_char(to_date(B.ENF_DT), 'YYYY-MM-DD'), NULL) AS CNCL_DT /*취하(시행일)*/ 
+                , DECODE(A.VT_KND_CD, 8, to_char(to_date(B.ENF_DT), 'YYYY-MM-DD'), NULL) AS GAKHA_DT /*각하(시행일)*/ 
+                , TO_CHAR(TO_DATE(B.ENF_DT), 'YYYY-MM-DD') AS ENF_DT    /*시행일*/
+                , F_CODE_NM('1000894', DOC_WRIT_KND_CD) AS DOC_TYPE    /*편집기구분*/
+                , A.ACP_YR AS T2_ACP_YR
+                , A.ACP_DVSN_CD AS T2_ACP_DVSN_CD
+                , A.ACP_SRNO AS T2_ACP_SRNO
+		 FROM TBBADFRE012M A
+		         ,TBBADFRE013D B
+		         ,(SELECT ACP_YR
+                           ,ACP_DVSN_CD
+                           ,ACP_SRNO
+                           ,LINK_URL
+                           ,ACP_STEP_CD
+                           ,ACP_STEP_NM
+                     FROM TBBADFRE101M
+                    WHERE STEP_CMPT_YN = 'P'
+                       AND NECES_YN ='Y') C
+                 ,(SELECT A.ACP_YR
+	                    , A.ACP_DVSN_CD
+	                    , A.ACP_SRNO
+	                    , MIN(DECODE(C.USR_DFN_TXT_5,'30',TO_CHAR(B.APV_DH, 'YYYY-MM-DD'),'')) AS SOWI_RPRT_KWA  /* 과장 결재일 */
+	                    , MIN(DECODE(C.USR_DFN_TXT_5,'20',TO_CHAR(B.APV_DH, 'YYYY-MM-DD'),'25',TO_CHAR(B.APV_DH, 'YYYY-MM-DD'),'')) AS SOWI_RPRT_KUK  /* 국장 결재일 */
+	                    , MIN(DECODE(C.USR_DFN_TXT_5,'14',TO_CHAR(B.APV_DH, 'YYYY-MM-DD'),'')) AS SOWI_RPRT_CHA                   /* 차장 결재일 */
+	                    , MIN(DECODE(C.USR_DFN_TXT_5,'13',TO_CHAR(B.APV_DH, 'YYYY-MM-DD'),'')) AS SOWI_RPRT_CHONG  /* 총장 결재일 */
+	                    , MIN(DECODE(C.USR_DFN_TXT_5,'11',TO_CHAR(B.APV_DH, 'YYYY-MM-DD'),'')) AS SOWI_RPRT_WON  /* 원장 결재일 */
+	             FROM TBBADFRE103M A
+	             INNER JOIN TBDCMACM023l B ON (A.APV_RQS_ID = B.APV_DOC_NO)
+	             INNER JOIN TBDCMACM013C C ON (C.USR_DFN_TXT_1 = B.APVR_PST_CD AND C.CMM_CD_DVSN_CD = '1000659' AND C.CD <> '24') 
+	             WHERE A.RPRT_CD IN ('E10200200')    /*소위원회 심의안*/
+	             GROUP BY A.ACP_YR, A.ACP_DVSN_CD, A.ACP_SRNO) D
+	             ,(SELECT A.ACP_YR
+	                    , A.ACP_DVSN_CD
+	                    , A.ACP_SRNO
+	                    , MIN(DECODE(C.USR_DFN_TXT_5,'30',TO_CHAR(B.APV_DH, 'YYYY-MM-DD'),'')) AS FRE_RPRT_KWA  /* 과장 결재일 */
+	                    , MIN(DECODE(C.USR_DFN_TXT_5,'20',TO_CHAR(B.APV_DH, 'YYYY-MM-DD'),'25',TO_CHAR(B.APV_DH, 'YYYY-MM-DD'),'')) AS FRE_RPRT_KUK  /* 국장 결재일 */
+	                    , MIN(DECODE(C.USR_DFN_TXT_5,'14',TO_CHAR(B.APV_DH, 'YYYY-MM-DD'),'')) AS FRE_RPRT_CHA                   /* 차장 결재일 */
+	                    , MIN(DECODE(C.USR_DFN_TXT_5,'13',TO_CHAR(B.APV_DH, 'YYYY-MM-DD'),'')) AS FRE_RPRT_CHONG  /* 총장 결재일 */
+	                    , MIN(DECODE(C.USR_DFN_TXT_5,'11',TO_CHAR(B.APV_DH, 'YYYY-MM-DD'),'')) AS FRE_RPRT_WON  /* 원장 결재일 */
+	             FROM TBBADFRE103M A
+	             INNER JOIN TBDCMACM023l B ON (A.APV_RQS_ID = B.APV_DOC_NO)
+	             INNER JOIN TBDCMACM013C C ON (C.USR_DFN_TXT_1 = B.APVR_PST_CD AND C.CMM_CD_DVSN_CD = '1000659' AND C.CD <> '24') 
+	             WHERE A.RPRT_CD IN ('D10200200', 'E10400200')    /*결정문*/
+	             GROUP BY A.ACP_YR, A.ACP_DVSN_CD, A.ACP_SRNO) E
+	             ,(SELECT A.ACP_YR
+	                    , A.ACP_DVSN_CD
+	                    , A.ACP_SRNO
+	                    , MIN(DECODE(C.USR_DFN_TXT_5,'30',TO_CHAR(B.APV_DH, 'YYYY-MM-DD'),'')) AS GAKHA_RPRT_KWA  /* 각하검토 - 과장 결재일 */
+	                    , MIN(DECODE(C.USR_DFN_TXT_5,'20',TO_CHAR(B.APV_DH, 'YYYY-MM-DD'),'25',TO_CHAR(B.APV_DH, 'YYYY-MM-DD'),'')) AS GAKHA_RPRT_KUK  /* 각하검토 - 국장 결재일 */
+	             FROM TBBADFRE103M A
+	             INNER JOIN TBDCMACM023l B ON (A.APV_RQS_ID = B.APV_DOC_NO)
+	             INNER JOIN TBDCMACM013C C ON (C.USR_DFN_TXT_1 = B.APVR_PST_CD AND C.CMM_CD_DVSN_CD = '1000659' AND C.CD <> '24') 
+	             WHERE A.RPRT_CD IN ('D10100200', 'E10100200')    /*각하검토보고서*/
+	             GROUP BY A.ACP_YR, A.ACP_DVSN_CD, A.ACP_SRNO) F
+	    WHERE 1=1
+		   AND A.ACP_YR 		= B.ACP_YR(+)
+		   AND A.ACP_DVSN_CD 	= B.ACP_DVSN_CD(+)
+		   AND A.ACP_SRNO 		= B.ACP_SRNO(+)
+		   AND A.ACP_YR 		= C.ACP_YR(+)
+		   AND A.ACP_DVSN_CD 	= C.ACP_DVSN_CD(+)
+		   AND A.ACP_SRNO 		= C.ACP_SRNO(+)
+		   AND A.ACP_YR 		= D.ACP_YR(+)
+		   AND A.ACP_DVSN_CD 	= D.ACP_DVSN_CD(+)
+		   AND A.ACP_SRNO 		= D.ACP_SRNO(+)
+		   AND A.ACP_YR 		= E.ACP_YR(+)
+		   AND A.ACP_DVSN_CD 	= E.ACP_DVSN_CD(+)
+		   AND A.ACP_SRNO 		= E.ACP_SRNO(+)
+		   AND A.ACP_YR 		= F.ACP_YR(+)
+		   AND A.ACP_DVSN_CD 	= F.ACP_DVSN_CD(+)
+		   AND A.ACP_SRNO 		= F.ACP_SRNO(+)
+		   AND A.DEL_YN IS NULL
+		   AND A.ACP_DVSN_CD = #{acpDvsnCd}
+		   AND A.HNDL_CHGR_CD  = #{hndlChgrCd}
+		   AND A.ACP_HNDL_STA_CD <> '420'
+		   ]]>
+			<if test='viewYn != "Y"'>
+				<if test='acpDvsnCd == "1"'>
+				   AND ACP_STEP_CD IN ('D1040','D1050','D1060','D1070')
+			    </if>
+			    <if test='acpDvsnCd == "2"'>
+			    	AND ACP_STEP_CD IN ('E1060','E1070','E1080')
+			    </if>
+			</if>
+		) WHERE MG_DIV_NM = '대표'
+        ORDER BY ACP_YR DESC, ACP_SRNO DESC 
+	</select>
+	
+	
+	<select id="selectFreUsrList" parameterType="paramMap" resultType="egovMap">
+        /*kr.go.bai.eip.dashBoard.dao.DashBoardMapper.selectFreUsrList*/
+       <![CDATA[
+        SELECT 	A.CNB
+				, A.USR_ID
+				, A.USR_NAM
+				, A.DPT_CD
+				, F_CODE_NM('1000173', A.RANK_CD)
+				, A.RANK_CD
+		FROM TBDCMACM001M A
+		WHERE A.DPT_CD = #{dptCd}
+		AND 	RSG_DT IS NULL
+		AND 	PST_CD IS NULL
+		AND 	USR_DVSN_CD <> '3'
+        AND 	NOT REGEXP_LIKE(A.RANK_NM_2,'행정')
+		AND		RQS_STA_CD = '3'
+		AND		BAI_USR_YN = 'Y'
+        AND (A.RANK_CD <> '013' OR A.RANK_CD IS NULL)
+
+        ORDER BY A.RAL_BLT_DIV_CD, NVL(A.INN_RANK_CD,'50') ASC , A.RANK_SRT_SEQ_NM, A.CRNT_RANK_APM_DT, A.SRT_KY_NO, A.CRNT_DPT_APM_DT, A.EIN
+        ]]>
+        </select>
+        
+        
+        
+	<select id="selectEval2MainListForPopup" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.dashBoard.dao.DashBoardMapper.selectEval2MainListForPopup*/
+		<![CDATA[
+		SELECT   T1.ACP_YR || '-' || DECODE(T1.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || DECODE(T1.ORG_ACP_SRNO, null, T1.ACP_SRNO, T1.ORG_ACP_SRNO) AS ACP_NO /* 분류번호 */
+	      , (CASE WHEN T1.MG_ACP_YR IS NULL THEN ''
+	              WHEN T1.MG_DIV_CD = '10' THEN '병합(' || T1.MG_COUNT || ')'
+	              WHEN T1.MG_DIV_CD = '20' THEN '병행(' || T1.MG_COUNT || ')'
+	              ELSE '' END) AS MG_COUNT  /* 병합/병행 */
+	      , T1.ATH_RE_RVW_YN /*재심의구분*/
+	      , DECODE(T1.ATH_RE_RVW_YN ,'Y','직권재심의','청구재심의') AS ATH_RE_RVW_YN_NM
+	      , T1.ACP_HNDL_STA_NM /*진행단계*/
+	      , TO_CHAR(TO_DATE(T1.ACP_DT), 'YYYY-MM-DD') AS  ACP_DT  /* 접수일 */
+	      , T1.ORG_NM  /* 관계기관 */ 
+	      , T1.REQR_NM /* 발신기관(청구인) */
+	      , T1.DSPTCH_INSTT_NAM /* 관계자 */
+	      , T1.TIT_NM /*청구내용*/
+	      , T1.JDG_REQ_DVSN_NM /*원처분요구*/
+	      , T1.HNDL_CHGR_NM /*담당자*/
+	      , T1.VT_KND_NM /*처리결과*/
+	      , T1.SBCN_DY /*감사위원회의일자*/
+	      , T1.ENF_DT /*시행일*/
+	      , T1.ENF_DT2 
+	      , TO_CHAR(TO_DATE(T1.ENF_DT), 'YYYY') AS ENF_YR /*시행연도*/
+	      , T1.ACP_YR
+	      , CASE WHEN T1.ACP_HNDL_STA_CD = 420 THEN TO_CHAR(TO_DATE(T1.ACP_DT), 'YYYY-MM-DD') || '-' || T1.ENF_DT /*처리기간(완결건만, 접수일~시행일)*/
+  				ELSE '' END AS ACP_ENF
+  		  , DECODE(T1.SEC_AUD_YN ,'Y','Y','N') AS SEC_AUD_YN
+	      , T1.ACP_DVSN_CD
+	      , T1.ACP_SRNO
+	      , T1.DPT_CD
+	      , T1.ACP_DT
+	      , T1.VT_KND_CD
+	      , T1.MG_ACP_YR
+	      , T1.MG_ACP_DVSN_CD
+	      , T1.MG_ACP_SRNO
+	      , DECODE(T2.LINK_URL, null, (
+	                 	SELECT ST1.LINK_URL
+	                    FROM TBBADFRE101M ST1
+	                   WHERE ST1.ACP_YR = T1.ACP_YR
+	                      AND ST1.ACP_DVSN_CD = T1.ACP_DVSN_CD
+	                      AND ST1.ACP_SRNO = T1.ACP_SRNO
+	                      AND ST1.NECES_YN ='Y'
+	                      AND ST1.ACP_STEP_CD = (SELECT MAX(ST2.ACP_STEP_CD)
+	                      						  FROM TBBADFRE101M ST2 
+	                      						  WHERE ST2.ACP_YR = ST1.ACP_YR
+							                      AND ST2.ACP_DVSN_CD = ST1.ACP_DVSN_CD
+							                      AND ST2.ACP_SRNO = ST1.ACP_SRNO
+							                      AND ST2.NECES_YN ='Y')
+	                 ), T2.LINK_URL) AS LINK_URL /* 페이지 URL */
+	      , CASE WHEN TO_DATE(T1.SBCN_DT) >= SYSDATE THEN '' ELSE T1.SBCN_DT END AS SBCN_DT
+	      , DECODE(T2.ACP_STEP_CD, null, (SELECT MAX(ACP_STEP_CD)
+                                           FROM TBBADFRE101M
+                                          WHERE ACP_YR = T1.ACP_YR
+                                            AND ACP_DVSN_CD = T1.ACP_DVSN_CD
+                                            AND ACP_SRNO = T1.ACP_SRNO
+                                            AND NECES_YN ='Y'), T2.ACP_STEP_CD) AS ACP_STEP_CD /* 프로세스 단계 코드 */
+          , T2.ACP_STEP_NM 			   /* 프로세스 단계명 */
+	      , T1.BAI_DSP_YN
+	      , PRC_CNT                    /*전자감사여부구분값*/
+	      , PRC_CNT2                   /*전자감사여부구분값*/
+	      , T1.DOC_TYPE   			   /* 편집기 구분  */ 
+	      , T1.HST_NA                  /*결재코드(국)*/
+	      , T1.HST_DE                  /*결재코드(과)*/
+	      , T1.ACP_HNDL_STA_CD         /*진행단계코드*/
+	    FROM (
+	        SELECT  D1.ACP_YR
+	        		, D1.ATH_RE_RVW_YN
+	        		, D1.SEC_AUD_YN
+	            	, D1.ACP_DVSN_CD
+		            , D1.ACP_SRNO
+		            , D1.DPT_CD
+		            , NVL(D3.RLS_DT, D1.ACP_DT) AS ACP_DT
+		            , NVL(D1.VT_KND_CD, NVL(D2.VT_KND_CD, D1.HNDL_OPNN_CD)) AS VT_KND_CD
+		            , D1.BAI_DSP_YN
+		            , CASE WHEN D1.VT_KND_CD IN ('7','8') THEN D3.ENF_DT 
+		                   ELSE 
+		                    (CASE WHEN D1.ACP_DVSN_CD = '1' AND REFER_ENT = 'Y' THEN 
+		                        NVL(( SELECT
+		                              TO_CHAR(B.FNL_APV_DH,'YYYYMMDD')
+		                         FROM TBBADFRE103M A
+		                         LEFT OUTER JOIN TBDCMACM022L B ON(A.APV_RQS_ID = B.APV_DOC_NO)
+		                         WHERE (A.ACP_YR, A.ACP_DVSN_CD, A.ACP_SRNO) IN (SELECT NVL(MG_ACP_YR, ACP_YR), NVL(MG_ACP_DVSN_CD, ACP_DVSN_CD), NVL(MG_ACP_SRNO, ACP_SRNO) 
+		                                                                           FROM TBBADFRE012M 
+		                                                                          WHERE ACP_YR = D1.ACP_YR 
+		                                                                            AND ACP_DVSN_CD = D1.ACP_DVSN_CD 
+		                                                                            AND ACP_SRNO = D1.ACP_SRNO)
+		                         AND A.RPRT_CD = ('D10200200')
+		                         AND B.APV_STA_CD = '3'
+		                         AND ROWNUM = 1
+		                      ), D3.ENF_DT)
+		                      WHEN D1.ACP_DVSN_CD = '1' AND (REFER_ENT IS NULL OR REFER_ENT = 'N') AND 
+		                          (  SELECT
+		                                  ACP_YR
+		                             FROM TBBADFRE101M A
+		                             WHERE A.ACP_YR = D1.ACP_YR
+		                             AND A.ACP_DVSN_CD = D1.ACP_DVSN_CD
+		                             AND A.ACP_SRNO = D1.ACP_SRNO
+		                             AND ROWNUM = 1
+		                          ) IS NOT NULL THEN NVL(NVL(D4.SBCN_DY, D2.SBCN_DT), D3.ENF_DT)
+		                      WHEN D1.ACP_DVSN_CD = '1' AND (REFER_ENT IS NULL OR REFER_ENT = 'N') AND 
+		                          (  SELECT
+		                                  ACP_YR
+		                             FROM TBBADFRE101M A
+		                             WHERE A.ACP_YR = D1.ACP_YR
+		                             AND A.ACP_DVSN_CD = D1.ACP_DVSN_CD
+		                             AND A.ACP_SRNO = D1.ACP_SRNO
+		                             AND ROWNUM = 1
+		                          ) IS NULL THEN NVL(NVL(NVL(D4.SBCN_DY, D2.SBCN_DT), D2.BRUCHF_APV_DT), D3.ENF_DT)
+		                      WHEN D1.ACP_DVSN_CD = '2' THEN NVL(NVL(D4.SBCN_DY, D2.SBCN_DT), D3.ENF_DT) END) END AS SBCN_DT
+		                        ,(SELECT COUNT(ST.MG_ACP_YR)
+		                     FROM TBBADFRE012M ST
+		                    WHERE ST.MG_ACP_YR = D1.MG_ACP_YR
+		                      AND ST.MG_ACP_DVSN_CD = D1.MG_ACP_DVSN_CD
+		                      AND ST.MG_ACP_SRNO = D1.MG_ACP_SRNO) AS MG_COUNT
+                    ,D1.ORG_ACP_SRNO
+                    ,D1.MG_ACP_YR /* 병합접수년도 */
+			        ,D1.MG_ACP_DVSN_CD /* 병합접수구분코드 */
+			        ,D1.MG_ACP_SRNO /* 병합접수일련번호 */
+			        ,D1.MG_DPT_CD /* 병합부서코드 */
+			        ,D1.MG_DIV_CD /* 병합병행구분코드 */
+			        ,D1.FRT_REGI_DH
+			        ,D1.ORG_NM
+			        ,DECODE(D1.AGT_NM, NULL, D1.REQR_NM, D1.REQR_NM  ) AS REQR_NM /* 청구인명 */
+			        ,D1.DSPTCH_INSTT_NAM
+			        ,D1.TIT_NM /* 청구내용 */
+			        ,F_CODE_NM('1000043', D1.JDG_REQ_DVSN_CD) AS JDG_REQ_DVSN_NM
+			        ,D1.HNDL_CHGR_NM /* 담당자 */
+			        ,F_CODE_NM('1000807', D1.ACP_HNDL_STA_CD) AS ACP_HNDL_STA_NM
+			        ,F_CODE_NM('1000045', D1.VT_KND_CD) AS VT_KND_NM
+			        ,NVL((SELECT TO_CHAR(TO_DATE(MAX(ST.SBCN_DY)),'YYYY-MM-DD')
+                           FROM TBBADFRE113M ST
+                           WHERE ST.ACP_YR = D1.ACP_YR
+                             AND ST.ACP_DVSN_CD = D1.ACP_DVSN_CD
+                             AND ST.ACP_SRNO = D1.ACP_SRNO), TO_CHAR(TO_DATE(D2.SBCN_DT), 'YYYY-MM-DD')) AS SBCN_DY /*부의일*/
+                   	,TO_CHAR(TO_DATE(D3.ENF_DT), 'YYYY-MM-DD') AS ENF_DT /* 시행일 */
+                   	,ENF_DT AS ENF_DT2
+                   	,(SELECT COUNT(ACP_YR)
+				       	FROM TBBADFRE103M
+				       WHERE ACP_YR = D1.ACP_YR
+				         AND ACP_DVSN_CD = D1.ACP_DVSN_CD
+				         AND ACP_SRNO = D1.ACP_SRNO) AS PRC_CNT /* 프로세스 갯수 */
+			     	,(SELECT COUNT(ACP_YR)
+				       	FROM TBBADFRE102M
+				       WHERE ACP_YR = D1.ACP_YR
+				         AND ACP_DVSN_CD = D1.ACP_DVSN_CD
+				         AND ACP_SRNO = D1.ACP_SRNO) AS PRC_CNT2  /* 프로세스 갯수 */
+                 	, F_CODE_NM('1000894', D1.DOC_WRIT_KND_CD) AS DOC_TYPE /* 편집기 구분  */ 
+                 	,(SELECT APV_RQS_ID      /*결재ID*/
+	         		    FROM TBBADFRE103M 
+			           WHERE ACP_YR = D1.ACP_YR
+			             AND ACP_DVSN_CD = D1.ACP_DVSN_CD
+			             AND ACP_SRNO = D1.ACP_SRNO
+			             AND APV_RQS_ID IS NOT NULL
+			             AND RPRT_CD = DECODE('1','1','D10100001','2','E10100001')) as HST_NA /* 결재이력-선람전 (국) */
+		         	,(SELECT APV_RQS_ID      
+			          	FROM TBBADFRE103M 
+			           WHERE ACP_YR = D1.ACP_YR
+			             AND ACP_DVSN_CD = D1.ACP_DVSN_CD
+			             AND ACP_SRNO = D1.ACP_SRNO
+			             AND APV_RQS_ID IS NOT NULL
+			             AND RPRT_CD = DECODE('1','1','D10100002','2','E10100002')) as HST_DE /* 결재이력-선람전 (과) */
+		         	, D1.ACP_HNDL_STA_CD     
+	        FROM TBBADFRE012M D1
+	                LEFT OUTER JOIN TBBADFRE012D D2 ON (D1.ACP_YR      = D2.ACP_YR
+	                                                     AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+	                                                     AND D1.ACP_SRNO    = D2.ACP_SRNO)
+	                LEFT OUTER JOIN TBBADFRE013D D3 ON (D1.ACP_YR      = D3.ACP_YR
+	                                                     AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+	                                                     AND D1.ACP_SRNO    = D3.ACP_SRNO
+	                                                    )
+	                LEFT OUTER JOIN 
+	                    (SELECT ACP_YR
+		                        , ACP_DVSN_CD
+		                        , ACP_SRNO 
+		                        , MAX(SBCN_DY) AS SBCN_DY
+	                    FROM(
+	                        SELECT ACP_YR
+	                               , ACP_DVSN_CD
+	                               , ACP_SRNO 
+	                               , SBCN_DY
+	                        FROM TBBADFRE113M
+	                        WHERE SBCN_VT_CD <> '90'
+	                        UNION ALL
+	                        SELECT REL_AUD_YR AS ACP_YR
+	                               , DECODE(WORK_DVSN_CD, 'D10', '1', 'E10','2','9') AS ACP_DVSN_CD
+	                               , TO_NUMBER(REL_AUD_NO) AS ACP_SRNO
+	                               , CMT_DY AS SBCN_DY
+	                        FROM TBBADDED121M
+	                        WHERE CMT_DVSN_CD = '10'
+	                          AND WORK_DVSN_CD IN ('D10','E10')
+	                        UNION ALL
+	                        SELECT ACP_YR AS ACP_YR
+	                               , ACP_DVSN_CD
+	                               , ACP_SRNO
+	                               , SBCN_DT AS SBCN_DY
+	                        FROM TBBADFRE012D
+	                    ) GROUP BY ACP_YR, ACP_DVSN_CD, ACP_SRNO) D4 ON (D4.ACP_YR = D1.ACP_YR
+                                                                         AND D4.ACP_DVSN_CD = D1.ACP_DVSN_CD
+                                                                         AND D4.ACP_SRNO    = D1.ACP_SRNO)
+	                   WHERE D1.ACP_DVSN_CD = '2'
+	                   AND D3.DF_DT IS NULL OR (D3.DF_DT IS NOT NULL AND D3.RLS_DT IS NOT NULL)
+	          ) T1
+	          LEFT OUTER JOIN (SELECT   ACP_YR
+		                               ,ACP_DVSN_CD
+		                               ,ACP_SRNO
+		                               ,LINK_URL
+		                               ,ACP_STEP_CD
+		                               ,ACP_STEP_NM
+	                         	FROM TBBADFRE101M
+	                       	   WHERE STEP_CMPT_YN = 'P'
+	                         	 AND NECES_YN ='Y') T2 ON (T2.ACP_YR = T1.ACP_YR
+	                                                    AND T2.ACP_DVSN_CD 	= T1.ACP_DVSN_CD
+	                                                    AND T2.ACP_SRNO = T1.ACP_SRNO)
+			  WHERE 1=1
+	    ]]>
+	    
+	    <if test='rowId == "1" or rowId == "4" or rowId == "7" or rowId == "10" or rowId == "13"'>
+	    <![CDATA[
+	    	AND NVL(T1.ATH_RE_RVW_YN, 'N') = 'Y'
+	    ]]>
+	    </if>
+	    <if test='rowId == "2" or rowId == "5" or rowId == "8" or rowId == "11" or rowId == "14"'>
+	    <![CDATA[
+	    	AND NVL(T1.ATH_RE_RVW_YN, 'N') = 'N'
+	    ]]>
+	    </if>
+	    <if test='yrGubun == "nowYear"'>
+	    <![CDATA[
+			AND ((T1.ACP_YR = TO_CHAR(SYSDATE, 'YYYY')) /*올해접수건*/
+            OR   /*이전년도접수건 이월 - 전년도 미처리 OR 이월 후 처리된 건(시행일 기준)*/
+            (T1.ACP_YR < TO_CHAR(SYSDATE, 'YYYY') AND (T1.ENF_DT IS NULL OR TO_CHAR(TO_DATE(T1.ENF_DT),'YYYY') > TO_CHAR(SYSDATE, 'YYYY')-1)))
+	        AND T1.ACP_DVSN_CD = '2'
+	        ]]>
+	        <if test='selectDt != null'>
+	        <![CDATA[
+			AND T1.ACP_DT <= TO_CHAR(TO_DATE(#{selectDt}), 'YYYYMMDD')
+	        ]]>
+	        </if>
+		</if>
+		<if test='yrGubun == "lastYear"'>
+		<![CDATA[
+			AND ((T1.ACP_YR = TO_CHAR(SYSDATE, 'YYYY')-1) /*올해접수건*/
+            OR   /*이전년도접수건 이월 - 전년도 미처리 OR 이월 후 처리된 건(시행일 기준)*/
+            (T1.ACP_YR < TO_CHAR(SYSDATE, 'YYYY')-1 AND (T1.ENF_DT IS NULL OR TO_CHAR(TO_DATE(T1.ENF_DT),'YYYY') > TO_CHAR(SYSDATE, 'YYYY')-2)))
+		    AND T1.ACP_DVSN_CD = '2'
+		    ]]>
+		</if>
+		<if test='yrGubun == "twoYearsAgo"'>
+		<![CDATA[
+			AND ((T1.ACP_YR = TO_CHAR(SYSDATE, 'YYYY')-2) /*올해접수건*/
+            OR   /*이전년도접수건 이월 - 전년도 미처리 OR 이월 후 처리된 건(시행일 기준)*/
+            (T1.ACP_YR < TO_CHAR(SYSDATE, 'YYYY')-2 AND (T1.ENF_DT IS NULL OR TO_CHAR(TO_DATE(T1.ENF_DT),'YYYY') > TO_CHAR(SYSDATE, 'YYYY')-3)))
+		    AND T1.ACP_DVSN_CD = '2'
+		    ]]>
+		</if>
+		<if test='yrGubun == "threeYearsAgo"'>
+		<![CDATA[
+			AND ((T1.ACP_YR = TO_CHAR(SYSDATE, 'YYYY')-3) /*올해접수건*/
+            OR   /*이전년도접수건 이월 - 전년도 미처리 OR 이월 후 처리된 건(시행일 기준)*/
+            (T1.ACP_YR < TO_CHAR(SYSDATE, 'YYYY')-3 AND (T1.ENF_DT IS NULL OR TO_CHAR(TO_DATE(T1.ENF_DT),'YYYY') > TO_CHAR(SYSDATE, 'YYYY')-4)))
+		    AND T1.ACP_DVSN_CD = '2'
+		    ]]>
+		</if>
+		<if test='yrGubun == "fourYearsAgo"'>
+		<![CDATA[
+			AND ((T1.ACP_YR = TO_CHAR(SYSDATE, 'YYYY')-4) /*올해접수건*/
+            OR   /*이전년도접수건 이월 - 전년도 미처리 OR 이월 후 처리된 건(시행일 기준)*/
+            (T1.ACP_YR < TO_CHAR(SYSDATE, 'YYYY')-4 AND (T1.ENF_DT IS NULL OR TO_CHAR(TO_DATE(T1.ENF_DT),'YYYY') > TO_CHAR(SYSDATE, 'YYYY')-5)))
+		    AND T1.ACP_DVSN_CD = '2'
+		    ]]>
+		</if>
+		
+		
+	    <if test='yrGubun == "nowYear" and searchGubun == "pastMake"'>
+		<![CDATA[
+			AND T1.ACP_YR < TO_CHAR(SYSDATE, 'YYYY')
+		    ]]>
+		</if>
+	    <if test='yrGubun == "nowYear" and searchGubun == "nowMake"'>
+		<![CDATA[
+			AND T1.ACP_YR = TO_CHAR(SYSDATE, 'YYYY')
+		    ]]>
+		</if>
+		<if test='yrGubun == "nowYear" and searchGubun == "resultTot"'>
+		<![CDATA[
+			AND T1.ENF_DT2 <= TO_CHAR(TO_DATE(#{selectDt}), 'YYYYMMDD')
+		    ]]>
+		</if>
+		<if test='yrGubun == "nowYear" and searchGubun == "result1"'>
+		<![CDATA[
+			AND T1.ENF_DT2 <= TO_CHAR(TO_DATE(#{selectDt}), 'YYYYMMDD')
+		    AND T1.VT_KND_CD IN ('1', '2', '3', '4', '5')
+		    ]]>
+		</if>
+		<if test='yrGubun == "nowYear" and searchGubun == "result2"'>
+		<![CDATA[
+			AND T1.ENF_DT2 <= TO_CHAR(TO_DATE(#{selectDt}), 'YYYYMMDD')
+			AND T1.VT_KND_CD IN ('6')
+		    ]]>
+		</if>
+		<if test='yrGubun == "nowYear" and searchGubun == "result3"'>
+		<![CDATA[
+			AND T1.ENF_DT2 <= TO_CHAR(TO_DATE(#{selectDt}), 'YYYYMMDD')
+		    AND T1.VT_KND_CD IN ('8') 
+		    ]]>
+		</if>
+		<if test='yrGubun == "nowYear" and searchGubun == "result4"'>
+		<![CDATA[
+			AND T1.ENF_DT2 <= TO_CHAR(TO_DATE(#{selectDt}), 'YYYYMMDD')
+		    AND T1.VT_KND_CD IN ('7')
+		    ]]>
+		</if>
+	    <if test='yrGubun == "nowYear" and searchGubun == "resultEtc"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')
+			AND (T1.VT_KND_CD IN ('9') OR T1.VT_KND_CD IS NULL)
+		    ]]>
+		</if>
+		<if test='yrGubun == "nowYear" and searchGubun == "currentCnt"'>
+		<![CDATA[
+			AND (T1.ENF_DT IS NULL  OR T1.ENF_DT2 > TO_CHAR(TO_DATE(#{selectDt}), 'YYYYMMDD'))
+		    ]]>
+		</if>
+		
+		<if test='yrGubun == "lastYear" and searchGubun == "pastMake"'>
+		<![CDATA[
+			AND T1.ACP_YR <= TO_CHAR(SYSDATE, 'YYYY')-2
+		    ]]>
+		</if>
+	    <if test='yrGubun == "lastYear" and searchGubun == "nowMake"'>
+		<![CDATA[
+			AND SUBSTR(T1.ACP_YR,0,4) = TO_CHAR(SYSDATE, 'YYYY')-1
+		    ]]>
+		</if>
+		<if test='yrGubun == "lastYear" and searchGubun == "resultTot"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-1
+		    ]]>
+		</if>
+		<if test='yrGubun == "lastYear" and searchGubun == "result1"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-1
+			AND T1.VT_KND_CD IN ('1', '2', '3', '4', '5')
+		    ]]>
+		</if>
+		<if test='yrGubun == "lastYear" and searchGubun == "result2"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-1
+			AND T1.VT_KND_CD IN ('6')
+		    ]]>
+		</if>
+		<if test='yrGubun == "lastYear" and searchGubun == "result3"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-1
+			AND T1.VT_KND_CD IN ('8') 
+		    ]]>
+		</if>
+	    <if test='yrGubun == "lastYear" and searchGubun == "result4"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-1
+		    AND T1.VT_KND_CD IN ('7')
+		    ]]>
+		</if>
+		<if test='yrGubun == "lastYear" and searchGubun == "resultEtc"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-1
+			AND (T1.VT_KND_CD IN ('9') OR T1.VT_KND_CD IS NULL)
+		    ]]>
+		</if>
+		<if test='yrGubun == "lastYear" and searchGubun == "currentCnt"'>
+		<![CDATA[
+			AND (T1.ENF_DT IS NULL  OR TO_CHAR(TO_DATE(T1.ENF_DT), 'YYYY') = TO_CHAR(SYSDATE, 'YYYY'))
+		    ]]>
+		</if>
+		
+		<if test='yrGubun == "twoYearsAgo" and searchGubun == "pastMake"'>
+		<![CDATA[
+			AND T1.ACP_YR <= TO_CHAR(SYSDATE, 'YYYY')-3
+		    ]]>
+		</if>
+	    <if test='yrGubun == "twoYearsAgo" and searchGubun == "nowMake"'>
+		<![CDATA[
+			AND SUBSTR(T1.ACP_YR,0,4) = TO_CHAR(SYSDATE, 'YYYY')-2
+		    ]]>
+		</if>
+		<if test='yrGubun == "twoYearsAgo" and searchGubun == "resultTot"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-2
+		    ]]>
+		</if>
+		<if test='yrGubun == "twoYearsAgo" and searchGubun == "result1"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-2
+			AND T1.VT_KND_CD IN ('1', '2', '3', '4', '5')
+		    ]]>
+		</if>
+		<if test='yrGubun == "twoYearsAgo" and searchGubun == "result2"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-2
+			AND T1.VT_KND_CD IN ('6')
+		    ]]>
+		</if>
+		<if test='yrGubun == "twoYearsAgo" and searchGubun == "result3"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-2
+			AND T1.VT_KND_CD IN ('8') 
+		    ]]>
+		</if>
+	    <if test='yrGubun == "twoYearsAgo" and searchGubun == "result4"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-2
+		    AND T1.VT_KND_CD IN ('7')
+		    ]]>
+		</if>
+		<if test='yrGubun == "twoYearsAgo" and searchGubun == "resultEtc"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-2
+			AND (T1.VT_KND_CD IN ('9') OR T1.VT_KND_CD IS NULL)
+		    ]]>
+		</if>
+		<if test='yrGubun == "twoYearsAgo" and searchGubun == "currentCnt"'>
+		<![CDATA[
+			AND (T1.ENF_DT IS NULL  OR TO_CHAR(TO_DATE(T1.ENF_DT), 'YYYY') > TO_CHAR(SYSDATE, 'YYYY')-2)
+		    ]]>
+		</if>
+		
+		<if test='yrGubun == "threeYearsAgo" and searchGubun == "pastMake"'>
+		<![CDATA[
+			AND T1.ACP_YR <= TO_CHAR(SYSDATE, 'YYYY')-4
+		    ]]>
+		</if>
+	    <if test='yrGubun == "threeYearsAgo" and searchGubun == "nowMake"'>
+		<![CDATA[
+			AND SUBSTR(T1.ACP_YR,0,4) = TO_CHAR(SYSDATE, 'YYYY')-3
+		    ]]>
+		</if>
+		<if test='yrGubun == "threeYearsAgo" and searchGubun == "resultTot"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-3
+		    ]]>
+		</if>
+		<if test='yrGubun == "threeYearsAgo" and searchGubun == "result1"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-3
+			AND T1.VT_KND_CD IN ('1', '2', '3', '4', '5')
+		    ]]>
+		</if>
+		<if test='yrGubun == "threeYearsAgo" and searchGubun == "result2"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-3
+			AND T1.VT_KND_CD IN ('6')
+		    ]]>
+		</if>
+		<if test='yrGubun == "threeYearsAgo" and searchGubun == "result3"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-3
+			AND T1.VT_KND_CD IN ('8') 
+		    ]]>
+		</if>
+	    <if test='yrGubun == "threeYearsAgo" and searchGubun == "result4"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-3
+		    AND T1.VT_KND_CD IN ('7')
+		    ]]>
+		</if>
+		<if test='yrGubun == "threeYearsAgo" and searchGubun == "resultEtc"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-3
+			AND (T1.VT_KND_CD IN ('9') OR T1.VT_KND_CD IS NULL)
+		    ]]>
+		</if>
+		<if test='yrGubun == "threeYearsAgo" and searchGubun == "currentCnt"'>
+		<![CDATA[
+			AND (T1.ENF_DT IS NULL  OR TO_CHAR(TO_DATE(T1.ENF_DT), 'YYYY') > TO_CHAR(SYSDATE, 'YYYY')-3)
+		    ]]>
+		</if>
+		
+		<if test='yrGubun == "fourYearsAgo" and searchGubun == "pastMake"'>
+		<![CDATA[
+			AND T1.ACP_YR <= TO_CHAR(SYSDATE, 'YYYY')-5
+		    ]]>
+		</if>
+	    <if test='yrGubun == "fourYearsAgo" and searchGubun == "nowMake"'>
+		<![CDATA[
+			AND SUBSTR(T1.ACP_YR,0,4) = TO_CHAR(SYSDATE, 'YYYY')-4
+		    ]]>
+		</if>
+		<if test='yrGubun == "fourYearsAgo" and searchGubun == "resultTot"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-4
+		    ]]>
+		</if>
+		<if test='yrGubun == "fourYearsAgo" and searchGubun == "result1"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-4
+			AND T1.VT_KND_CD IN ('1', '2', '3', '4', '5')
+		    ]]>
+		</if>
+		<if test='yrGubun == "fourYearsAgo" and searchGubun == "result2"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-4
+			AND T1.VT_KND_CD IN ('6')
+		    ]]>
+		</if>
+		<if test='yrGubun == "fourYearsAgo" and searchGubun == "result3"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-4
+			AND T1.VT_KND_CD IN ('8') 
+		    ]]>
+		</if>
+	    <if test='yrGubun == "fourYearsAgo" and searchGubun == "result4"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-4
+		    AND T1.VT_KND_CD IN ('7')
+		    ]]>
+		</if>
+		<if test='yrGubun == "fourYearsAgo" and searchGubun == "resultEtc"'>
+		<![CDATA[
+			AND SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE, 'YYYY')-4
+			AND (T1.VT_KND_CD IN ('9') OR T1.VT_KND_CD IS NULL)
+		    ]]>
+		</if>
+		<if test='yrGubun == "fourYearsAgo" and searchGubun == "currentCnt"'>
+		<![CDATA[
+			AND (T1.ENF_DT IS NULL  OR TO_CHAR(TO_DATE(T1.ENF_DT), 'YYYY') > TO_CHAR(SYSDATE, 'YYYY')-4)
+		    ]]>
+		</if>
+		
+	    ORDER BY T1.FRT_REGI_DH DESC
+	    
+	    </select>
+        
+        
+        <select id="selectBadFreDashBoardListPart1" parameterType="paramMap" resultType="egovMap">
+		/*kr.go.bai.eip.dashBoard.dao.BadFreDashBoardMapper.selectBadFreDashBoardListPart1*/
+		<![CDATA[
+	
+		WITH DATA 
+			  AS (  
+			        SELECT T1.*
+			               ,CASE WHEN SUBSTR(T1.JDG_REQ_DVSN_CD,0,1) = '1' THEN '101' 
+			             WHEN SUBSTR(T1.JDG_REQ_DVSN_CD,0,1) = '2' THEN '102'
+			             WHEN T1.JDG_REQ_DVSN_CD = '31' THEN '103'
+			             ELSE '104' END JDG_REQ_DVSN_NM
+			              ,CASE WHEN T1.MG_ACP_YR IS NULL THEN T2.ENF_DT
+			                    ELSE ( SELECT S1.ENF_DT FROM TBBADFRE013D S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO )
+			                    END AS ENF_DT
+			              ,CASE WHEN T1.MG_ACP_YR IS NULL THEN T1.VT_KND_CD
+			                    ELSE ( SELECT S1.VT_KND_CD FROM TBBADFRE012M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO )
+			                    END AS D_VT_KND_CD
+			              ,(SELECT TO_CHAR(MIN(TRUNC(SYSDATE,'IW')+LEVEL-1 ),'YYYYMMDD')
+			                                    FROM DUAL
+			                                    CONNECT BY LEVEL<=7)  AS WEEK_ST,
+			               ( SELECT TO_CHAR(MAX(TRUNC(SYSDATE,'IW')+LEVEL-1 ),'YYYYMMDD')
+			                    FROM DUAL
+			                    CONNECT BY LEVEL<=7) AS WEEK_END
+			              ,CASE WHEN VT_KND_CD = '8' AND T1.MG_ACP_YR IS NULL THEN ( SELECT MAX(S1.APV_RQS_ID) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.ACP_YR AND S1.ACP_DVSN_CD = T1.ACP_DVSN_CD AND S1.ACP_SRNO = T1.ACP_SRNO AND S1.RPRT_CD = 'D10100200')
+			                    WHEN VT_KND_CD = '8' AND T1.MG_ACP_YR IS NOT NULL THEN ( SELECT MAX(S1.APV_RQS_ID) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO  AND S1.RPRT_CD = 'D10100200' )
+			                    ELSE NULL END AS K_APV_RQS_ID
+			              ,CASE WHEN VT_KND_CD = '8' AND T1.MG_ACP_YR IS NULL THEN ( SELECT MAX(S1.APV_STA_CD) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.ACP_YR AND S1.ACP_DVSN_CD = T1.ACP_DVSN_CD AND S1.ACP_SRNO = T1.ACP_SRNO AND S1.RPRT_CD = 'D10100200')
+			                    WHEN VT_KND_CD = '8' AND T1.MG_ACP_YR IS NOT NULL THEN ( SELECT MAX(S1.APV_STA_CD) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO  AND S1.RPRT_CD = 'D10100200' )
+			                    ELSE NULL END AS K_APV_STA_CD
+			              ,CASE WHEN ( VT_KND_CD IN ('1','2','3','4','5','6','9') OR VT_KND_CD IS NULL ) AND T1.MG_ACP_YR IS NULL THEN ( SELECT MAX(S1.APV_RQS_ID) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.ACP_YR AND S1.ACP_DVSN_CD = T1.ACP_DVSN_CD AND S1.ACP_SRNO = T1.ACP_SRNO AND S1.RPRT_CD = 'D10200200')
+			                    WHEN ( VT_KND_CD IN ('1','2','3','4','5','6','9') OR VT_KND_CD IS NULL ) AND T1.MG_ACP_YR IS NOT NULL THEN ( SELECT MAX(S1.APV_RQS_ID) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO AND S1.RPRT_CD = 'D10200200')
+			                    ELSE NULL END AS D_APV_RQS_ID
+			              ,CASE WHEN ( VT_KND_CD IN ('1','2','3','4','5','6','9') OR VT_KND_CD IS NULL ) AND T1.MG_ACP_YR IS NULL THEN ( SELECT MAX(S1.APV_STA_CD) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.ACP_YR AND S1.ACP_DVSN_CD = T1.ACP_DVSN_CD AND S1.ACP_SRNO = T1.ACP_SRNO AND S1.RPRT_CD = 'D10200200')
+			                    WHEN ( VT_KND_CD IN ('1','2','3','4','5','6','9') OR VT_KND_CD IS NULL ) AND T1.MG_ACP_YR IS NOT NULL THEN ( SELECT MAX(S1.APV_STA_CD) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO AND S1.RPRT_CD = 'D10200200')
+			                    ELSE NULL END AS D_APV_STA_CD
+			              ,CASE WHEN T1.MG_ACP_YR IS NULL THEN T1.PRE_REFER_ENT
+			                    ELSE ( SELECT S1.PRE_REFER_ENT FROM TBBADFRE012M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO )
+			                    END AS D_PRE_REFER_ENT
+			              ,CASE WHEN T1.MG_ACP_YR IS NULL THEN T1.REFER_ENT
+			                    ELSE ( SELECT S1.REFER_ENT FROM TBBADFRE012M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO )
+			                    END AS D_REFER_ENT
+			              ,CASE WHEN T1.MG_ACP_YR IS NULL THEN T1.REFER_ENT_RSN
+			                    ELSE ( SELECT S1.REFER_ENT_RSN FROM TBBADFRE012M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO )
+			                    END AS D_REFER_ENT_RSN
+			              ,CASE WHEN T1.MG_ACP_YR IS NULL THEN ( SELECT MAX(S1.APV_RQS_ID) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.ACP_YR AND S1.ACP_DVSN_CD = T1.ACP_DVSN_CD AND S1.ACP_SRNO = T1.ACP_SRNO AND S1.RPRT_CD = 'D10300200')
+			                    WHEN T1.MG_ACP_YR IS NOT NULL THEN ( SELECT MAX(S1.APV_RQS_ID) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO  AND S1.RPRT_CD = 'D10300200' )
+			                    ELSE NULL END AS U_APV_RQS_ID
+			         FROM TBBADFRE012M T1
+			              ,TBBADFRE013D T2 
+			              
+			         WHERE T1.ACP_YR = T2.ACP_YR
+			           AND T1.ACP_DVSN_CD = T2.ACP_DVSN_CD
+			           AND T1.ACP_SRNO = T2.ACP_SRNO
+			           AND T1.ACP_DVSN_CD = '1'
+			           AND T1.DPT_CD <> '170330'
+			     )
+	             
+	        SELECT 
+	         T1.DPT_NM, T1.JDG_REQ_DVSN_NM, T1.ACP_DT_WEEK, T1.ACP_DT_YEAR, T1.ACP_DT_YEAR2, T1.ENF_DT_WEEK, T1.ENF_DT_YEAR,
+	            CASE WHEN T1.ING_MG_SUM > 0 THEN  TO_CHAR(T1.ING_SUM)||CHR(13)||CHR(10)||'('||T1.ING_MG_SUM||')'
+	        ELSE TO_CHAR(T1.ING_SUM) END AS ING_SUM, T1.ING_STEP1, T1.ING_STEP2, T1.ING_STEP3, T1.ING_STEP4, T1.ING_STEP5, T1.ING_STEP6, T1.ING_STEP7
+	          FROM (
+			SELECT  F_DPT_INFO(T1.DPT_CD,'1') AS DPT_NM
+			       ,NVL2(JDG_REQ_DVSN_NM,
+			       
+			        CASE WHEN JDG_REQ_DVSN_NM = '101' THEN '국세'
+			             WHEN JDG_REQ_DVSN_NM = '102' THEN '지방세'
+			             WHEN JDG_REQ_DVSN_NM = '103' THEN '산재' 
+			             ELSE '기타' END ,'소계') AS JDG_REQ_DVSN_NM
+			       
+			       ,T1.DPT_CD
+			
+			     ,SUM(CASE WHEN T1.ACP_DT BETWEEN T1.WEEK_ST AND T1.WEEK_END THEN 1 ELSE 0 END) AS ACP_DT_WEEK
+			      ,SUM(CASE WHEN T1.ACP_YR = TO_CHAR(SYSDATE,'YYYY') THEN 1 ELSE 0 END ) AS ACP_DT_YEAR
+			      ,SUM(CASE WHEN T1.ACP_YR = TO_CHAR(SYSDATE,'YYYY') THEN 1 
+			                WHEN  T1.ACP_YR < TO_CHAR(SYSDATE,'YYYY')   AND ( T1.ENF_DT IS NULL OR T1.ENF_DT >= TO_CHAR(SYSDATE,'YYYY')||'0101') THEN 1 
+			                ELSE 0 END 
+			      ) AS ACP_DT_YEAR2
+			      ,SUM(CASE WHEN T1.ENF_DT BETWEEN T1.WEEK_ST AND T1.WEEK_END THEN 1 ELSE 0 END) AS ENF_DT_WEEK
+			      ,SUM(CASE WHEN SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE,'YYYY')  THEN 1 ELSE 0 END) AS ENF_DT_YEAR
+			      ,SUM(CASE WHEN T1.ENF_DT IS NULL THEN 1 ELSE 0 END) AS ING_SUM
+			      ,SUM(CASE WHEN T1.MG_ACP_YR IS NOT NULL AND  T1.ENF_DT IS NULL THEN 1 ELSE 0 END) AS ING_MG_SUM
+			      ,SUM(CASE WHEN T1.D_VT_KND_CD = '8' AND T1.ENF_DT IS NULL  AND ( T1.K_APV_RQS_ID IS NULL OR T1.K_APV_STA_CD = '10' ) THEN 1 
+			                WHEN ( T1.D_VT_KND_CD IN ('1','2','3','4','5','6','9') OR T1.D_VT_KND_CD IS NULL ) AND T1.ENF_DT IS NULL AND ( T1.D_APV_RQS_ID IS NULL OR T1.D_APV_STA_CD = '10' ) THEN 1
+			                WHEN ( T1.D_VT_KND_CD IN ('1','2','3','4','5','6','9') OR T1.D_VT_KND_CD IS NULL ) AND T1.ENF_DT IS NULL AND ( T1.D_APV_RQS_ID IS NULL OR T1.D_APV_STA_CD = '10' ) THEN 1
+			                WHEN  T1.ENF_DT IS NULL AND D_APV_RQS_ID IS NULL AND K_APV_RQS_ID IS NULL THEN 1 
+			      ELSE 0 END) AS ING_STEP1
+			      ,SUM(CASE WHEN T1.D_VT_KND_CD = '8' AND T1.ENF_DT IS NULL  AND (SELECT S1.APV_STA_CD FROM TBDCMACM022L S1 WHERE S1.APV_DOC_NO = T1.K_APV_RQS_ID) = '3' THEN 0
+			                WHEN T1.D_VT_KND_CD = '8' AND T1.ENF_DT IS NULL  AND (SELECT S1.APV_STA_CD FROM TBDCMACM022L S1 WHERE S1.APV_DOC_NO = T1.K_APV_RQS_ID) = '2' THEN 1
+			                WHEN ( T1.D_VT_KND_CD IN ('1','2','3','4','5','6','9') OR T1.D_VT_KND_CD IS NULL ) AND T1.ENF_DT IS NULL AND (SELECT S1.APV_STA_CD FROM TBDCMACM022L S1 WHERE S1.APV_DOC_NO = T1.D_APV_RQS_ID) = '3' THEN 0
+			                WHEN ( T1.D_VT_KND_CD IN ('1','2','3','4','5','6','9') OR T1.D_VT_KND_CD IS NULL ) AND T1.ENF_DT IS NULL 
+			                       AND (SELECT SUBSTR(MIN(S2.APVR_STA_CD),0,1) FROM TBDCMACM022L S1, TBDCMACM023L S2, TBDCMACM013C S3 
+			                             WHERE S1.APV_DOC_NO = T1.D_APV_RQS_ID AND S1.APV_DOC_NO = S2.APV_DOC_NO AND S3.USR_DFN_TXT_1 = S2.APVR_PST_CD
+			                               AND S3.CMM_CD_DVSN_CD = '1000659' AND S3.CD <> '24'
+			                               AND S3.USR_DFN_TXT_5 IN ('25','20', '30')
+			                               )  = '1' THEN 1
+			      ELSE 0 END) AS ING_STEP2
+			      ,SUM(CASE WHEN ( T1.D_VT_KND_CD IN ('1','2','3','4','5','6','9') OR T1.D_VT_KND_CD IS NULL ) AND T1.ENF_DT IS NULL AND (SELECT S1.APV_STA_CD FROM TBDCMACM022L S1 WHERE S1.APV_DOC_NO = T1.D_APV_RQS_ID) = '3' THEN 0
+			                WHEN ( T1.D_VT_KND_CD IN ('1','2','3','4','5','6','9') OR T1.D_VT_KND_CD IS NULL ) AND T1.ENF_DT IS NULL 
+			                       AND (SELECT SUBSTR(MIN(S2.APVR_STA_CD),0,1) FROM TBDCMACM022L S1, TBDCMACM023L S2, TBDCMACM013C S3 
+			                             WHERE S1.APV_DOC_NO = T1.D_APV_RQS_ID AND S1.APV_DOC_NO = S2.APV_DOC_NO AND S3.USR_DFN_TXT_1 = S2.APVR_PST_CD
+			                               AND S3.CMM_CD_DVSN_CD = '1000659' AND S3.CD <> '24'
+			                               AND S3.USR_DFN_TXT_5 = '14'
+			                               )  = '1' THEN 1
+			      ELSE 0 END) AS ING_STEP3
+			      
+			      ,SUM(CASE WHEN ( T1.D_VT_KND_CD IN ('1','2','3','4','5','6','9') OR T1.D_VT_KND_CD IS NULL ) AND T1.ENF_DT IS NULL AND (SELECT S1.APV_STA_CD FROM TBDCMACM022L S1 WHERE S1.APV_DOC_NO = T1.D_APV_RQS_ID) = '3' THEN 0
+			                WHEN ( T1.D_VT_KND_CD IN ('1','2','3','4','5','6','9') OR T1.D_VT_KND_CD IS NULL ) AND T1.ENF_DT IS NULL 
+			                       AND (SELECT SUBSTR(MIN(S2.APVR_STA_CD),0,1) FROM TBDCMACM022L S1, TBDCMACM023L S2, TBDCMACM013C S3 
+			                             WHERE S1.APV_DOC_NO = T1.D_APV_RQS_ID AND S1.APV_DOC_NO = S2.APV_DOC_NO AND S3.USR_DFN_TXT_1 = S2.APVR_PST_CD
+			                               AND S3.CMM_CD_DVSN_CD = '1000659' AND S3.CD <> '24'
+			                               AND S3.USR_DFN_TXT_5 = '13'
+			                               )  = '1' THEN 1
+			      
+			      ELSE 0 END) AS ING_STEP4 
+			     ,SUM(CASE WHEN ( T1.D_VT_KND_CD IN ('1','2','3','4','5','6','9') OR T1.D_VT_KND_CD IS NULL ) AND T1.ENF_DT IS NULL AND (SELECT S1.APV_STA_CD FROM TBDCMACM022L S1 WHERE S1.APV_DOC_NO = T1.D_APV_RQS_ID) = '3' THEN 0
+			                WHEN ( T1.D_VT_KND_CD IN ('1','2','3','4','5','6','9') OR T1.D_VT_KND_CD IS NULL ) AND T1.ENF_DT IS NULL 
+			                       AND (SELECT SUBSTR(MIN(S2.APVR_STA_CD),0,1) FROM TBDCMACM022L S1, TBDCMACM023L S2, TBDCMACM013C S3 
+			                             WHERE S1.APV_DOC_NO = T1.D_APV_RQS_ID AND S1.APV_DOC_NO = S2.APV_DOC_NO AND S3.USR_DFN_TXT_1 = S2.APVR_PST_CD
+			                               AND S3.CMM_CD_DVSN_CD = '1000659' AND S3.CD <> '24'
+			                               AND S3.USR_DFN_TXT_5 = '11'
+			                               )  = '1' THEN 1
+			      
+			      ELSE 0 END) AS ING_STEP5
+			     ,SUM(CASE WHEN (D_REFER_ENT ='Y' OR D_PRE_REFER_ENT = 'Y' ) AND T1.ENF_DT IS NULL AND T1.U_APV_RQS_ID IS NOT NULL 
+			                     AND (SELECT S1.APV_STA_CD FROM TBDCMACM022L S1 WHERE S1.APV_DOC_NO = T1.U_APV_RQS_ID) = '3' THEN 0
+			                WHEN (D_REFER_ENT ='Y' OR D_PRE_REFER_ENT = 'Y' ) AND T1.ENF_DT IS NULL AND T1.U_APV_RQS_ID IS NOT NULL
+			                       AND (SELECT SUBSTR(MIN(S2.APVR_STA_CD),0,1) FROM TBDCMACM022L S1, TBDCMACM023L S2, TBDCMACM013C S3 
+			                             WHERE S1.APV_DOC_NO = T1.U_APV_RQS_ID AND S1.APV_DOC_NO = S2.APV_DOC_NO AND S3.USR_DFN_TXT_1 = S2.APVR_PST_CD
+			                               AND S3.CMM_CD_DVSN_CD = '1000659' AND S3.CD <> '24'
+			                               AND S3.USR_DFN_TXT_5 IN ('12','30')
+			                               )  = '1' THEN 1
+			           
+			      ELSE 0 END) AS ING_STEP6
+			      ,SUM(CASE WHEN (D_REFER_ENT ='N' OR D_PRE_REFER_ENT = 'N' )  AND T1.ENF_DT IS NULL 
+			                       AND (SELECT SUBSTR(MIN(S2.APVR_STA_CD),0,1) FROM TBDCMACM022L S1, TBDCMACM023L S2, TBDCMACM013C S3 
+			                             WHERE S1.APV_DOC_NO = T1.U_APV_RQS_ID AND S1.APV_DOC_NO = S2.APV_DOC_NO AND S3.USR_DFN_TXT_1 = S2.APVR_PST_CD
+			                               AND S3.CMM_CD_DVSN_CD = '1000659' AND S3.CD <> '24'
+			                               AND S3.USR_DFN_TXT_5 IN ('12','30')
+			                               )  = '1' THEN 1
+			                 WHEN (D_REFER_ENT ='N' OR D_PRE_REFER_ENT = 'N' ) AND T1.ENF_DT IS NULL AND T1.U_APV_RQS_ID IS NOT NULL AND (SELECT S1.APV_STA_CD FROM TBDCMACM022L S1 WHERE S1.APV_DOC_NO = T1.U_APV_RQS_ID) = '3' THEN 0
+			      ELSE 0 END) AS ING_STEP7      
+			  FROM DATA T1
+			  
+			 GROUP BY ROLLUP( JDG_REQ_DVSN_NM) , T1.DPT_CD
+			   
+			 UNION ALL 
+			 SELECT  '합계' AS DPT_NM
+			       ,NVL2(JDG_REQ_DVSN_NM,
+			       
+			        CASE WHEN JDG_REQ_DVSN_NM = '101' THEN '국세'
+			             WHEN JDG_REQ_DVSN_NM = '102' THEN '지방세'
+			             WHEN JDG_REQ_DVSN_NM = '103' THEN '산재' 
+			             ELSE '기타' END ,'합계') AS JDG_REQ_DVSN_NM
+			       
+			       ,'' DPT_CD
+			
+			     ,SUM(CASE WHEN T1.ACP_DT BETWEEN T1.WEEK_ST AND T1.WEEK_END THEN 1 ELSE 0 END) AS ACP_DT_WEEK
+			      ,SUM(CASE WHEN T1.ACP_YR = TO_CHAR(SYSDATE,'YYYY') THEN 1 ELSE 0 END ) AS ACP_DT_YEAR
+			      ,SUM(CASE WHEN T1.ACP_YR = TO_CHAR(SYSDATE,'YYYY') THEN 1 
+			                WHEN  T1.ACP_YR < TO_CHAR(SYSDATE,'YYYY')   AND ( T1.ENF_DT IS NULL OR T1.ENF_DT >= TO_CHAR(SYSDATE,'YYYY')||'0101') THEN 1 
+			                ELSE 0 END 
+			      ) AS ACP_DT_YEAR2
+			      ,SUM(CASE WHEN T1.ENF_DT BETWEEN T1.WEEK_ST AND T1.WEEK_END THEN 1 ELSE 0 END) AS ENF_DT_WEEK
+			      ,SUM(CASE WHEN SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE,'YYYY')  THEN 1 ELSE 0 END) AS ENF_DT_YEAR
+			      ,SUM(CASE WHEN T1.ENF_DT IS NULL THEN 1 ELSE 0 END) AS ING_SUM
+			      ,SUM(CASE WHEN T1.MG_ACP_YR IS NOT NULL AND  T1.ENF_DT IS NULL THEN 1 ELSE 0 END) AS ING_MG_SUM
+			      ,SUM(CASE WHEN T1.D_VT_KND_CD = '8' AND T1.ENF_DT IS NULL  AND ( T1.K_APV_RQS_ID IS NULL OR T1.K_APV_STA_CD = '10' ) THEN 1 
+			                WHEN ( T1.D_VT_KND_CD IN ('1','2','3','4','5','6','9') OR T1.D_VT_KND_CD IS NULL ) AND T1.ENF_DT IS NULL AND ( T1.D_APV_RQS_ID IS NULL OR T1.D_APV_STA_CD = '10' ) THEN 1
+			                WHEN ( T1.D_VT_KND_CD IN ('1','2','3','4','5','6','9') OR T1.D_VT_KND_CD IS NULL ) AND T1.ENF_DT IS NULL AND ( T1.D_APV_RQS_ID IS NULL OR T1.D_APV_STA_CD = '10' ) THEN 1
+			                WHEN  T1.ENF_DT IS NULL AND D_APV_RQS_ID IS NULL AND K_APV_RQS_ID IS NULL THEN 1 
+			      ELSE 0 END) AS ING_STEP1
+			      ,SUM(CASE WHEN T1.D_VT_KND_CD = '8' AND T1.ENF_DT IS NULL  AND (SELECT S1.APV_STA_CD FROM TBDCMACM022L S1 WHERE S1.APV_DOC_NO = T1.K_APV_RQS_ID) = '3' THEN 0
+			                WHEN T1.D_VT_KND_CD = '8' AND T1.ENF_DT IS NULL  AND (SELECT S1.APV_STA_CD FROM TBDCMACM022L S1 WHERE S1.APV_DOC_NO = T1.K_APV_RQS_ID) = '2' THEN 1
+			                WHEN ( T1.D_VT_KND_CD IN ('1','2','3','4','5','6','9') OR T1.D_VT_KND_CD IS NULL ) AND T1.ENF_DT IS NULL AND (SELECT S1.APV_STA_CD FROM TBDCMACM022L S1 WHERE S1.APV_DOC_NO = T1.D_APV_RQS_ID) = '3' THEN 0
+			                WHEN ( T1.D_VT_KND_CD IN ('1','2','3','4','5','6','9') OR T1.D_VT_KND_CD IS NULL ) AND T1.ENF_DT IS NULL 
+			                       AND (SELECT SUBSTR(MIN(S2.APVR_STA_CD),0,1) FROM TBDCMACM022L S1, TBDCMACM023L S2, TBDCMACM013C S3 
+			                             WHERE S1.APV_DOC_NO = T1.D_APV_RQS_ID AND S1.APV_DOC_NO = S2.APV_DOC_NO AND S3.USR_DFN_TXT_1 = S2.APVR_PST_CD
+			                               AND S3.CMM_CD_DVSN_CD = '1000659' AND S3.CD <> '24'
+			                               AND S3.USR_DFN_TXT_5 IN ('25','20', '30')
+			                               )  = '1' THEN 1
+			      ELSE 0 END) AS ING_STEP2
+			      ,SUM(CASE WHEN ( T1.D_VT_KND_CD IN ('1','2','3','4','5','6','9') OR T1.D_VT_KND_CD IS NULL ) AND T1.ENF_DT IS NULL AND (SELECT S1.APV_STA_CD FROM TBDCMACM022L S1 WHERE S1.APV_DOC_NO = T1.D_APV_RQS_ID) = '3' THEN 0
+			                WHEN ( T1.D_VT_KND_CD IN ('1','2','3','4','5','6','9') OR T1.D_VT_KND_CD IS NULL ) AND T1.ENF_DT IS NULL 
+			                       AND (SELECT SUBSTR(MIN(S2.APVR_STA_CD),0,1) FROM TBDCMACM022L S1, TBDCMACM023L S2, TBDCMACM013C S3 
+			                             WHERE S1.APV_DOC_NO = T1.D_APV_RQS_ID AND S1.APV_DOC_NO = S2.APV_DOC_NO AND S3.USR_DFN_TXT_1 = S2.APVR_PST_CD
+			                               AND S3.CMM_CD_DVSN_CD = '1000659' AND S3.CD <> '24'
+			                               AND S3.USR_DFN_TXT_5 = '14'
+			                               )  = '1' THEN 1
+			      ELSE 0 END) AS ING_STEP3
+			      
+			      ,SUM(CASE WHEN ( T1.D_VT_KND_CD IN ('1','2','3','4','5','6','9') OR T1.D_VT_KND_CD IS NULL ) AND T1.ENF_DT IS NULL AND (SELECT S1.APV_STA_CD FROM TBDCMACM022L S1 WHERE S1.APV_DOC_NO = T1.D_APV_RQS_ID) = '3' THEN 0
+			                WHEN ( T1.D_VT_KND_CD IN ('1','2','3','4','5','6','9') OR T1.D_VT_KND_CD IS NULL ) AND T1.ENF_DT IS NULL 
+			                       AND (SELECT SUBSTR(MIN(S2.APVR_STA_CD),0,1) FROM TBDCMACM022L S1, TBDCMACM023L S2, TBDCMACM013C S3 
+			                             WHERE S1.APV_DOC_NO = T1.D_APV_RQS_ID AND S1.APV_DOC_NO = S2.APV_DOC_NO AND S3.USR_DFN_TXT_1 = S2.APVR_PST_CD
+			                               AND S3.CMM_CD_DVSN_CD = '1000659' AND S3.CD <> '24'
+			                               AND S3.USR_DFN_TXT_5 = '13'
+			                               )  = '1' THEN 1
+			      
+			      ELSE 0 END) AS ING_STEP4
+			     ,SUM(CASE WHEN ( T1.D_VT_KND_CD IN ('1','2','3','4','5','6','9') OR T1.D_VT_KND_CD IS NULL ) AND T1.ENF_DT IS NULL AND (SELECT S1.APV_STA_CD FROM TBDCMACM022L S1 WHERE S1.APV_DOC_NO = T1.D_APV_RQS_ID) = '3' THEN 0
+			                WHEN ( T1.D_VT_KND_CD IN ('1','2','3','4','5','6','9') OR T1.D_VT_KND_CD IS NULL ) AND T1.ENF_DT IS NULL 
+			                       AND (SELECT SUBSTR(MIN(S2.APVR_STA_CD),0,1) FROM TBDCMACM022L S1, TBDCMACM023L S2, TBDCMACM013C S3 
+			                             WHERE S1.APV_DOC_NO = T1.D_APV_RQS_ID AND S1.APV_DOC_NO = S2.APV_DOC_NO AND S3.USR_DFN_TXT_1 = S2.APVR_PST_CD
+			                               AND S3.CMM_CD_DVSN_CD = '1000659' AND S3.CD <> '24'
+			                               AND S3.USR_DFN_TXT_5 = '11'
+			                               )  = '1' THEN 1
+			      
+			      ELSE 0 END) AS ING_STEP5
+			     ,SUM(CASE WHEN (D_REFER_ENT ='Y' OR D_PRE_REFER_ENT = 'Y' ) AND T1.ENF_DT IS NULL AND T1.U_APV_RQS_ID IS NOT NULL 
+			                     AND (SELECT S1.APV_STA_CD FROM TBDCMACM022L S1 WHERE S1.APV_DOC_NO = T1.U_APV_RQS_ID) = '3' THEN 0
+			                WHEN (D_REFER_ENT ='Y' OR D_PRE_REFER_ENT = 'Y' ) AND T1.ENF_DT IS NULL AND T1.U_APV_RQS_ID IS NOT NULL
+			                       AND (SELECT SUBSTR(MIN(S2.APVR_STA_CD),0,1) FROM TBDCMACM022L S1, TBDCMACM023L S2, TBDCMACM013C S3 
+			                             WHERE S1.APV_DOC_NO = T1.U_APV_RQS_ID AND S1.APV_DOC_NO = S2.APV_DOC_NO AND S3.USR_DFN_TXT_1 = S2.APVR_PST_CD
+			                               AND S3.CMM_CD_DVSN_CD = '1000659' AND S3.CD <> '24'
+			                               AND S3.USR_DFN_TXT_5 IN ('12','30')
+			                               )  = '1' THEN 1
+			           
+			      ELSE 0 END) AS ING_STEP6
+			      ,SUM(CASE WHEN (D_REFER_ENT ='N' OR D_PRE_REFER_ENT = 'N' )  AND T1.ENF_DT IS NULL 
+			                       AND (SELECT SUBSTR(MIN(S2.APVR_STA_CD),0,1) FROM TBDCMACM022L S1, TBDCMACM023L S2, TBDCMACM013C S3 
+			                             WHERE S1.APV_DOC_NO = T1.U_APV_RQS_ID AND S1.APV_DOC_NO = S2.APV_DOC_NO AND S3.USR_DFN_TXT_1 = S2.APVR_PST_CD
+			                               AND S3.CMM_CD_DVSN_CD = '1000659' AND S3.CD <> '24'
+			                               AND S3.USR_DFN_TXT_5 IN ('12','30')
+			                               )  = '1' THEN 1
+			                 WHEN (D_REFER_ENT ='N' OR D_PRE_REFER_ENT = 'N' ) AND T1.ENF_DT IS NULL AND T1.U_APV_RQS_ID IS NOT NULL AND (SELECT S1.APV_STA_CD FROM TBDCMACM022L S1 WHERE S1.APV_DOC_NO = T1.U_APV_RQS_ID) = '3' THEN 0
+			      ELSE 0 END) AS ING_STEP7
+			      
+			  FROM DATA T1
+			 
+			 GROUP BY ROLLUP( JDG_REQ_DVSN_NM) ) T1 
+	
+	
+		   ]]>
+		</select>
+
+
+		<select id="selectBadFreDashBoardListPart2" parameterType="paramMap" resultType="egovMap">
+		/*kr.go.bai.eip.dashBoard.dao.BadFreDashBoardMapper.selectBadFreDashBoardListPart2*/
+		<![CDATA[
+		
+		 SELECT 
+	        T1.ACP_YR
+	        ,T1.ACP_DVSN_CD
+	        ,T1.ACP_SRNO
+	        ,T1.DPT_CD
+	        ,F_DPT_INFO(T1.DPT_CD,'1') AS DPT_NM
+	               ,T1.JDG_REQ_DVSN_CD
+	               ,CASE WHEN SUBSTR(T1.JDG_REQ_DVSN_CD,0,1) = '1' THEN '국세' 
+	             WHEN SUBSTR(T1.JDG_REQ_DVSN_CD,0,1) = '2' THEN '지방세'
+	             WHEN T1.JDG_REQ_DVSN_CD = '31' THEN '산재'
+	             ELSE '기타' END JDG_REQ_DVSN_CD_NM
+	            ,TO_CHAR(TO_DATE(T1.ACP_DT),'YYYY-MM-DD') AS ACP_DT
+	            ,T1.REQR_NM, T1.ORG_NM, T1.TIT_NM
+	     FROM TBBADFRE012M T1
+	     WHERE T1.ACP_DVSN_CD = '1'
+	       AND T1.DPT_CD <> '170330'
+	         
+	     ]]>
+	        
+         <if test='searchP2acpDt != null and searchP2acpDt !=""'>
+		    <![CDATA[
+				AND TO_CHAR(TO_DATE(T1.ACP_DT),'YYYYMMDD') = #{searchP2acpDt}	
+		    ]]>
+		 </if>
+		 <if test='searchP2acpDt == null or searchP2acpDt ==""'>
+		    <![CDATA[
+				AND TO_CHAR(TO_DATE(T1.ACP_DT),'YYYYMMDD') = TO_CHAR(SYSDATE,'YYYYMMDD')
+		    ]]>
+		 </if>
+	         
+         <![CDATA[ 
+	     ORDER BY DPT_CD , JDG_REQ_DVSN_CD
+	     ]]>
+	     
+	     
+		</select>
+
+
+		<select id="selectBadFreDashBoardListPart3" parameterType="paramMap" resultType="egovMap">
+		/*kr.go.bai.eip.dashBoard.dao.BadFreDashBoardMapper.selectBadFreDashBoardListPart3*/
+		<![CDATA[
+	    
+	    WITH DATA 
+			  AS (  
+			        SELECT T1.*
+			              ,CASE WHEN SUBSTR(T1.JDG_REQ_DVSN_CD,0,1) = '1' THEN '101' 
+					            WHEN SUBSTR(T1.JDG_REQ_DVSN_CD,0,1) = '2' THEN '102'
+					            WHEN T1.JDG_REQ_DVSN_CD = '31' THEN '103'
+			          	   ELSE '104' END JDG_REQ_DVSN_NM
+			              ,CASE WHEN T1.MG_ACP_YR IS NULL THEN T2.ENF_DT
+			                    ELSE ( SELECT S1.ENF_DT FROM TBBADFRE013D S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO )
+			                    END AS ENF_DT
+			              ,CASE WHEN T1.MG_ACP_YR IS NULL THEN T1.VT_KND_CD
+			                    ELSE ( SELECT S1.VT_KND_CD FROM TBBADFRE012M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO )
+			                    END AS D_VT_KND_CD
+			              ,(SELECT TO_CHAR(MIN(TRUNC(SYSDATE,'IW')+LEVEL-1 ),'YYYYMMDD')
+			                                    FROM DUAL
+			                                    CONNECT BY LEVEL<=7)  AS WEEK_ST
+			              ,(SELECT TO_CHAR(MAX(TRUNC(SYSDATE,'IW')+LEVEL-1 ),'YYYYMMDD')
+							                    FROM DUAL
+							                    CONNECT BY LEVEL<=7) AS WEEK_END
+			              ,CASE WHEN VT_KND_CD = '8' AND T1.MG_ACP_YR IS NULL THEN ( SELECT MAX(S1.APV_RQS_ID) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.ACP_YR AND S1.ACP_DVSN_CD = T1.ACP_DVSN_CD AND S1.ACP_SRNO = T1.ACP_SRNO AND S1.RPRT_CD = 'D10100200')
+			                    WHEN VT_KND_CD = '8' AND T1.MG_ACP_YR IS NOT NULL THEN ( SELECT MAX(S1.APV_RQS_ID) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO  AND S1.RPRT_CD = 'D10100200' )
+			                    ELSE NULL END AS K_APV_RQS_ID
+			              ,CASE WHEN VT_KND_CD = '8' AND T1.MG_ACP_YR IS NULL THEN ( SELECT MAX(S1.APV_STA_CD) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.ACP_YR AND S1.ACP_DVSN_CD = T1.ACP_DVSN_CD AND S1.ACP_SRNO = T1.ACP_SRNO AND S1.RPRT_CD = 'D10100200')
+			                    WHEN VT_KND_CD = '8' AND T1.MG_ACP_YR IS NOT NULL THEN ( SELECT MAX(S1.APV_STA_CD) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO  AND S1.RPRT_CD = 'D10100200' )
+			                    ELSE NULL END AS K_APV_STA_CD
+			              ,CASE WHEN ( VT_KND_CD IN ('1','2','3','4','5','6','9') OR VT_KND_CD IS NULL ) AND T1.MG_ACP_YR IS NULL THEN ( SELECT MAX(S1.APV_RQS_ID) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.ACP_YR AND S1.ACP_DVSN_CD = T1.ACP_DVSN_CD AND S1.ACP_SRNO = T1.ACP_SRNO AND S1.RPRT_CD = 'D10200200')
+			                    WHEN ( VT_KND_CD IN ('1','2','3','4','5','6','9') OR VT_KND_CD IS NULL ) AND T1.MG_ACP_YR IS NOT NULL THEN ( SELECT MAX(S1.APV_RQS_ID) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO AND S1.RPRT_CD = 'D10200200')
+			                    ELSE NULL END AS D_APV_RQS_ID
+			              ,CASE WHEN ( VT_KND_CD IN ('1','2','3','4','5','6','9') OR VT_KND_CD IS NULL ) AND T1.MG_ACP_YR IS NULL THEN ( SELECT MAX(S1.APV_STA_CD) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.ACP_YR AND S1.ACP_DVSN_CD = T1.ACP_DVSN_CD AND S1.ACP_SRNO = T1.ACP_SRNO AND S1.RPRT_CD = 'D10200200')
+			                    WHEN ( VT_KND_CD IN ('1','2','3','4','5','6','9') OR VT_KND_CD IS NULL ) AND T1.MG_ACP_YR IS NOT NULL THEN ( SELECT MAX(S1.APV_STA_CD) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO AND S1.RPRT_CD = 'D10200200')
+			                    ELSE NULL END AS D_APV_STA_CD
+			              ,CASE WHEN T1.MG_ACP_YR IS NULL THEN T1.PRE_REFER_ENT
+			                    ELSE ( SELECT S1.PRE_REFER_ENT FROM TBBADFRE012M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO )
+			                    END AS D_PRE_REFER_ENT
+			              ,CASE WHEN T1.MG_ACP_YR IS NULL THEN T1.REFER_ENT
+			                    ELSE ( SELECT S1.REFER_ENT FROM TBBADFRE012M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO )
+			                    END AS D_REFER_ENT
+			              ,CASE WHEN T1.MG_ACP_YR IS NULL THEN T1.REFER_ENT_RSN
+			                    ELSE ( SELECT S1.REFER_ENT_RSN FROM TBBADFRE012M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO )
+			                    END AS D_REFER_ENT_RSN
+			              ,CASE WHEN T1.MG_ACP_YR IS NULL THEN ( SELECT MAX(S1.APV_RQS_ID) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.ACP_YR AND S1.ACP_DVSN_CD = T1.ACP_DVSN_CD AND S1.ACP_SRNO = T1.ACP_SRNO AND S1.RPRT_CD = 'D10300200')
+			                    WHEN T1.MG_ACP_YR IS NOT NULL THEN ( SELECT MAX(S1.APV_RQS_ID) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO  AND S1.RPRT_CD = 'D10300200' )
+			                    ELSE NULL END AS U_APV_RQS_ID
+			              ,CASE WHEN T3.DPT_CD IN ('170300','170320') THEN '1' ELSE '2' END  AS DPT_CD2
+			              ,CASE WHEN T1.HNDL_CHGR_CD IS NULL THEN '0'
+			                    WHEN T3.DPT_CD IN ('170300','170320') THEN HNDL_CHGR_CD ELSE '1' END  AS CNB2
+			         FROM TBBADFRE012M T1
+			              ,TBBADFRE013D T2 
+			              ,TBDCMACM001M T3
+			         WHERE T1.ACP_YR = T2.ACP_YR
+			           AND T1.ACP_DVSN_CD = T2.ACP_DVSN_CD
+			           AND T1.ACP_SRNO = T2.ACP_SRNO
+			           AND T1.ACP_DVSN_CD = '1'
+			           AND T1.DPT_CD <> '170330'
+			           AND T1.HNDL_CHGR_CD = T3.CNB(+)
+			     )
+			     
+			SELECT * FROM
+			(
+				SELECT T1.DPT_CD, F_DPT_INFO(T1.DPT_CD, '1') AS DPT_NM, T1.CNB
+				      ,F_CODE_NM('1000173', T2.RANK_CD) AS RANK_NM
+				      ,T2.RANK_CD
+				      ,T2.RAL_BLT_DIV_CD
+				      ,T2.INN_RANK_CD
+				      ,T2.RANK_SRT_SEQ_NM
+				      ,T2.CRNT_RANK_APM_DT
+				      ,T2.SRT_KY_NO
+				      ,T2.CRNT_DPT_APM_DT
+				      ,CASE WHEN T1.CNB = '1' THEN '(前)' 
+				            WHEN T1.CNB = '0' THEN '담당자미지정' 
+				            WHEN T1.CNB = '2' THEN '소계' ELSE T2.USR_NAM END AS USR_NAM
+				      ,CASE WHEN CNT1_1 > 0 THEN T1.CNT1||' ('||T1.CNT1_1||')' ELSE TO_CHAR(T1.CNT1) END AS CNT1
+				      ,CASE WHEN CNT2_1 > 0 THEN T1.CNT2||' ('||T1.CNT2_1||')' ELSE TO_CHAR(T1.CNT2) END AS CNT2
+				      ,CASE WHEN CNT3_1 > 0 THEN T1.CNT3||' ('||T1.CNT3_1||')' ELSE TO_CHAR(T1.CNT3) END AS CNT3
+				      ,CASE WHEN CNT4_1 > 0 THEN T1.CNT4||' ('||T1.CNT4_1||')' ELSE TO_CHAR(T1.CNT4) END AS CNT4
+				      ,T1.W_CNT1
+				      ,T1.W_CNT2
+				      ,T1.W_CNT3
+				      ,T1.W_CNT4
+				      ,T1.Y_CNT
+				  FROM (
+				        SELECT T1.DPT_CD
+				              ,NVL2(CNB2,CNB2,'2') AS CNB
+				              ,SUM(CASE WHEN T1.ENF_DT IS NULL THEN 1 ELSE 0 END) CNT1
+				              ,SUM(CASE WHEN T1.ENF_DT IS NULL AND T1.MG_ACP_YR IS NOT NULL THEN 1 ELSE 0 END) CNT1_1
+				              ,SUM(CASE WHEN T1.ENF_DT IS NULL AND T1.JDG_REQ_DVSN_NM IN ('101','102') THEN 1 ELSE 0 END ) CNT2
+				              ,SUM(CASE WHEN T1.ENF_DT IS NULL AND T1.JDG_REQ_DVSN_NM IN ('101','102') AND T1.MG_ACP_YR IS NOT NULL THEN 1 ELSE 0 END ) CNT2_1
+				              ,SUM(CASE WHEN T1.ENF_DT IS NULL AND T1.JDG_REQ_DVSN_NM = '103' THEN 1 ELSE 0 END ) CNT3
+				              ,SUM(CASE WHEN T1.ENF_DT IS NULL AND T1.JDG_REQ_DVSN_NM = '103' AND T1.MG_ACP_YR IS NOT NULL THEN 1 ELSE 0 END ) CNT3_1
+				              ,SUM(CASE WHEN T1.ENF_DT IS NULL AND T1.JDG_REQ_DVSN_NM = '104' THEN 1 ELSE 0 END ) CNT4
+				              ,SUM(CASE WHEN T1.ENF_DT IS NULL AND T1.JDG_REQ_DVSN_NM = '104' AND T1.MG_ACP_YR IS NOT NULL THEN 1 ELSE 0 END ) CNT4_1
+				              ,SUM(CASE WHEN T1.ENF_DT BETWEEN T1.WEEK_ST AND T1.WEEK_END THEN 1 ELSE 0 END) W_CNT1
+				              ,SUM(CASE WHEN T1.ENF_DT BETWEEN T1.WEEK_ST AND T1.WEEK_END AND T1.JDG_REQ_DVSN_NM IN ('101','102')  THEN 1 ELSE 0 END) W_CNT2
+				              ,SUM(CASE WHEN T1.ENF_DT BETWEEN T1.WEEK_ST AND T1.WEEK_END AND T1.JDG_REQ_DVSN_NM = '103'  THEN 1 ELSE 0 END) W_CNT3
+				              ,SUM(CASE WHEN T1.ENF_DT BETWEEN T1.WEEK_ST AND T1.WEEK_END AND T1.JDG_REQ_DVSN_NM = '104'  THEN 1 ELSE 0 END) W_CNT4
+				              ,SUM(CASE WHEN SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE,'YYYY')  THEN 1 ELSE 0 END) Y_CNT
+				         FROM DATA T1
+				              
+				         GROUP BY ROLLUP(T1.DPT_CD, T1.CNB2)
+				       ) T1 , TBDCMACM001M T2
+				 WHERE T1.CNB = T2.CNB(+)
+				   AND ( CNT1 > 0 OR W_CNT1 > 0 OR Y_CNT > 0 )
+				   AND T1.DPT_CD IS NOT NULL
+				UNION ALL 
+				SELECT '' AS DPT_CD
+				      ,'합계' AS DPT_NM
+				      , T1.CNB
+				      ,'' AS RANK_NM
+				      ,'' AS RANK_CD
+				      ,'' AS RAL_BLT_DIV_CD
+				      ,'' AS INN_RANK_CD
+				      ,'' AS RANK_SRT_SEQ_NM
+				      ,'' AS CRNT_RANK_APM_DT
+				      ,'' AS SRT_KY_NO
+				      ,'' AS CRNT_DPT_APM_DT
+				      ,'' AS USR_NAM
+				      ,CASE WHEN CNT1_1 > 0 THEN T1.CNT1||' ('||T1.CNT1_1||')' ELSE TO_CHAR(T1.CNT1) END AS CNT1
+				      ,CASE WHEN CNT2_1 > 0 THEN T1.CNT2||' ('||T1.CNT2_1||')' ELSE TO_CHAR(T1.CNT2) END AS CNT2
+				      ,CASE WHEN CNT3_1 > 0 THEN T1.CNT3||' ('||T1.CNT3_1||')' ELSE TO_CHAR(T1.CNT3) END AS CNT3
+				      ,CASE WHEN CNT4_1 > 0 THEN T1.CNT4||' ('||T1.CNT4_1||')' ELSE TO_CHAR(T1.CNT4) END AS CNT4
+				      ,T1.W_CNT1
+				      ,T1.W_CNT2
+				      ,T1.W_CNT3
+				      ,T1.W_CNT4
+				      ,T1.Y_CNT
+				  FROM (
+				        SELECT '' AS DPT_CD
+				              ,'' AS CNB
+				              ,SUM(CASE WHEN T1.ENF_DT IS NULL THEN 1 ELSE 0 END) CNT1
+				              ,SUM(CASE WHEN T1.ENF_DT IS NULL AND T1.MG_ACP_YR IS NOT NULL THEN 1 ELSE 0 END) CNT1_1
+				              ,SUM(CASE WHEN T1.ENF_DT IS NULL AND T1.JDG_REQ_DVSN_NM IN ('101','102') THEN 1 ELSE 0 END ) CNT2
+				              ,SUM(CASE WHEN T1.ENF_DT IS NULL AND T1.JDG_REQ_DVSN_NM IN ('101','102') AND T1.MG_ACP_YR IS NOT NULL THEN 1 ELSE 0 END ) CNT2_1
+				              ,SUM(CASE WHEN T1.ENF_DT IS NULL AND T1.JDG_REQ_DVSN_NM = '103' THEN 1 ELSE 0 END ) CNT3
+				              ,SUM(CASE WHEN T1.ENF_DT IS NULL AND T1.JDG_REQ_DVSN_NM = '103' AND T1.MG_ACP_YR IS NOT NULL THEN 1 ELSE 0 END ) CNT3_1
+				              ,SUM(CASE WHEN T1.ENF_DT IS NULL AND T1.JDG_REQ_DVSN_NM = '104' THEN 1 ELSE 0 END ) CNT4
+				              ,SUM(CASE WHEN T1.ENF_DT IS NULL AND T1.JDG_REQ_DVSN_NM = '104' AND T1.MG_ACP_YR IS NOT NULL THEN 1 ELSE 0 END ) CNT4_1
+				              ,SUM(CASE WHEN T1.ENF_DT BETWEEN T1.WEEK_ST AND T1.WEEK_END THEN 1 ELSE 0 END) W_CNT1
+				              ,SUM(CASE WHEN T1.ENF_DT BETWEEN T1.WEEK_ST AND T1.WEEK_END AND T1.JDG_REQ_DVSN_NM IN ('101','102')  THEN 1 ELSE 0 END) W_CNT2
+				              ,SUM(CASE WHEN T1.ENF_DT BETWEEN T1.WEEK_ST AND T1.WEEK_END AND T1.JDG_REQ_DVSN_NM = '103'  THEN 1 ELSE 0 END) W_CNT3
+				              ,SUM(CASE WHEN T1.ENF_DT BETWEEN T1.WEEK_ST AND T1.WEEK_END AND T1.JDG_REQ_DVSN_NM = '104'  THEN 1 ELSE 0 END) W_CNT4
+				              ,SUM(CASE WHEN SUBSTR(T1.ENF_DT,0,4) = TO_CHAR(SYSDATE,'YYYY')  THEN 1 ELSE 0 END) Y_CNT
+				          FROM DATA T1
+				       ) T1
+				 WHERE 1=1 
+			 ) T1
+			   
+			 ORDER BY T1.DPT_CD, T1.RANK_CD, NVL(T1.INN_RANK_CD,'50') ASC , T1.RANK_SRT_SEQ_NM, T1.CRNT_RANK_APM_DT, T1.SRT_KY_NO, T1.CRNT_DPT_APM_DT, T1.CNB 
+		
+		
+	    ]]>
+		</select>
+
+
+	<select id="selectBadFreDashBoardListPart4" parameterType="paramMap" resultType="egovMap">
+	/*kr.go.bai.eip.dashBoard.dao.BadFreDashBoardMapper.selectBadFreDashBoardListPart4*/
+	<![CDATA[
+	  
+    WITH DATA 
+		  AS (  
+		        SELECT T1.*
+		              ,CASE WHEN SUBSTR(T1.JDG_REQ_DVSN_CD,0,1) = '1' THEN '101' 
+				             WHEN SUBSTR(T1.JDG_REQ_DVSN_CD,0,1) = '2' THEN '102'
+				             WHEN T1.JDG_REQ_DVSN_CD = '31' THEN '103'
+		               ELSE '104' END JDG_REQ_DVSN_NM
+		              ,CASE WHEN T1.MG_ACP_YR IS NULL THEN T2.ENF_DT
+		                    ELSE ( SELECT S1.ENF_DT FROM TBBADFRE013D S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO )
+		                    END AS ENF_DT
+		              ,CASE WHEN T1.MG_ACP_YR IS NULL THEN T1.VT_KND_CD
+		                    ELSE ( SELECT S1.VT_KND_CD FROM TBBADFRE012M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO )
+		                    END AS D_VT_KND_CD
+		              ,(SELECT TO_CHAR(MIN(TRUNC(SYSDATE,'IW')+LEVEL-1 ),'YYYYMMDD')
+		                                    FROM DUAL
+		                                    CONNECT BY LEVEL<=7)  AS WEEK_ST
+		              ,( SELECT TO_CHAR(MAX(TRUNC(SYSDATE,'IW')+LEVEL-1 ),'YYYYMMDD')
+						                    FROM DUAL
+						                    CONNECT BY LEVEL<=7) AS WEEK_END
+		              ,CASE WHEN VT_KND_CD = '8' AND T1.MG_ACP_YR IS NULL THEN ( SELECT MAX(S1.APV_RQS_ID) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.ACP_YR AND S1.ACP_DVSN_CD = T1.ACP_DVSN_CD AND S1.ACP_SRNO = T1.ACP_SRNO AND S1.RPRT_CD = 'D10100200')
+		                    WHEN VT_KND_CD = '8' AND T1.MG_ACP_YR IS NOT NULL THEN ( SELECT MAX(S1.APV_RQS_ID) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO  AND S1.RPRT_CD = 'D10100200' )
+		                    ELSE NULL END AS K_APV_RQS_ID
+		              ,CASE WHEN VT_KND_CD = '8' AND T1.MG_ACP_YR IS NULL THEN ( SELECT MAX(S1.APV_STA_CD) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.ACP_YR AND S1.ACP_DVSN_CD = T1.ACP_DVSN_CD AND S1.ACP_SRNO = T1.ACP_SRNO AND S1.RPRT_CD = 'D10100200')
+		                    WHEN VT_KND_CD = '8' AND T1.MG_ACP_YR IS NOT NULL THEN ( SELECT MAX(S1.APV_STA_CD) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO  AND S1.RPRT_CD = 'D10100200' )
+		                    ELSE NULL END AS K_APV_STA_CD
+		              ,CASE WHEN ( VT_KND_CD IN ('1','2','3','4','5','6','9') OR VT_KND_CD IS NULL ) AND T1.MG_ACP_YR IS NULL THEN ( SELECT MAX(S1.APV_RQS_ID) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.ACP_YR AND S1.ACP_DVSN_CD = T1.ACP_DVSN_CD AND S1.ACP_SRNO = T1.ACP_SRNO AND S1.RPRT_CD = 'D10200200')
+		                    WHEN ( VT_KND_CD IN ('1','2','3','4','5','6','9') OR VT_KND_CD IS NULL ) AND T1.MG_ACP_YR IS NOT NULL THEN ( SELECT MAX(S1.APV_RQS_ID) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO AND S1.RPRT_CD = 'D10200200')
+		                    ELSE NULL END AS D_APV_RQS_ID
+		              ,CASE WHEN ( VT_KND_CD IN ('1','2','3','4','5','6','9') OR VT_KND_CD IS NULL ) AND T1.MG_ACP_YR IS NULL THEN ( SELECT MAX(S1.APV_STA_CD) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.ACP_YR AND S1.ACP_DVSN_CD = T1.ACP_DVSN_CD AND S1.ACP_SRNO = T1.ACP_SRNO AND S1.RPRT_CD = 'D10200200')
+		                    WHEN ( VT_KND_CD IN ('1','2','3','4','5','6','9') OR VT_KND_CD IS NULL ) AND T1.MG_ACP_YR IS NOT NULL THEN ( SELECT MAX(S1.APV_STA_CD) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO AND S1.RPRT_CD = 'D10200200')
+		                    ELSE NULL END AS D_APV_STA_CD
+		              ,CASE WHEN T1.MG_ACP_YR IS NULL THEN T1.PRE_REFER_ENT
+		                    ELSE ( SELECT S1.PRE_REFER_ENT FROM TBBADFRE012M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO )
+		                    END AS D_PRE_REFER_ENT
+		              ,CASE WHEN T1.MG_ACP_YR IS NULL THEN T1.REFER_ENT
+		                    ELSE ( SELECT S1.REFER_ENT FROM TBBADFRE012M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO )
+		                    END AS D_REFER_ENT
+		              ,CASE WHEN T1.MG_ACP_YR IS NULL THEN T1.REFER_ENT_RSN
+		                    ELSE ( SELECT S1.REFER_ENT_RSN FROM TBBADFRE012M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO )
+		                    END AS D_REFER_ENT_RSN
+		              ,CASE WHEN T1.MG_ACP_YR IS NULL THEN ( SELECT MAX(S1.APV_RQS_ID) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.ACP_YR AND S1.ACP_DVSN_CD = T1.ACP_DVSN_CD AND S1.ACP_SRNO = T1.ACP_SRNO AND S1.RPRT_CD = 'D10300200')
+		                    WHEN T1.MG_ACP_YR IS NOT NULL THEN ( SELECT MAX(S1.APV_RQS_ID) FROM TBBADFRE103M S1 WHERE S1.ACP_YR = T1.MG_ACP_YR AND S1.ACP_DVSN_CD = T1.MG_ACP_DVSN_CD AND S1.ACP_SRNO = T1.MG_ACP_SRNO  AND S1.RPRT_CD = 'D10300200' )
+		                    ELSE NULL END AS U_APV_RQS_ID
+		              ,CASE 
+		                    WHEN T3.DPT_CD IN ('170300','170320') THEN '1' ELSE '2' END  AS DPT_CD2
+		              ,CASE WHEN T1.HNDL_CHGR_CD IS NULL THEN '0' 
+		                    WHEN T3.DPT_CD IN ('170300','170320') THEN HNDL_CHGR_CD ELSE '1' END  AS CNB2
+		              ,TRUNC(SYSDATE-TO_DATE(T1.ACP_DT)) AS ACP_CNT
+		         FROM TBBADFRE012M T1
+		              ,TBBADFRE013D T2 
+		              ,TBDCMACM001M T3
+		         WHERE T1.ACP_YR = T2.ACP_YR
+		           AND T1.ACP_DVSN_CD = T2.ACP_DVSN_CD
+		           AND T1.ACP_SRNO = T2.ACP_SRNO
+		           AND T1.ACP_DVSN_CD = '1'
+		           AND T1.DPT_CD <> '170330'
+		           AND T1.HNDL_CHGR_CD = T3.CNB(+)
+		     )
+		     
+		SELECT * FROM 
+		(
+			SELECT T1.DPT_CD
+			      ,F_DPT_INFO(T1.DPT_CD, '1') AS DPT_NM
+			      ,T1.CNB
+			      ,F_CODE_NM('1000173', T2.RANK_CD) AS RANK_NM 
+			      ,T2.RANK_CD
+			      ,T2.RAL_BLT_DIV_CD
+			      ,T2.INN_RANK_CD
+			      ,T2.RANK_SRT_SEQ_NM
+			      ,T2.CRNT_RANK_APM_DT
+			      ,T2.SRT_KY_NO
+			      ,T2.CRNT_DPT_APM_DT
+			      ,CASE WHEN T1.CNB = '1' THEN '(前)' 
+			            WHEN T1.CNB = '0' THEN '담당자미지정'
+			            WHEN T1.CNB = '2' THEN '소계' ELSE T2.USR_NAM END AS USR_NAM
+			      ,T1.CNT1
+			      ,T1.CNT2
+			      ,T1.CNT3
+			      ,T1.CNT4
+			      ,T1.CNT5
+			  FROM (
+			        SELECT T1.DPT_CD
+			              ,NVL2(CNB2,CNB2,'2') AS CNB
+			              ,SUM(CASE WHEN ACP_CNT <= 90 THEN 1 ELSE 0 END) CNT1
+			              ,SUM(CASE WHEN ACP_CNT BETWEEN 91 AND 180 THEN 1 ELSE 0 END ) CNT2
+			              ,SUM(CASE WHEN ACP_CNT BETWEEN 181 AND 365 THEN 1 ELSE 0 END ) CNT3
+			              ,SUM(CASE WHEN ACP_CNT > 365 THEN 1 ELSE 0 END ) CNT4
+			              ,SUM(1) CNT5
+			          FROM DATA T1
+			         WHERE T1.ENF_DT IS NULL
+			         GROUP BY ROLLUP(T1.DPT_CD, T1.CNB2)
+			       ) T1 , TBDCMACM001M T2
+			 WHERE T1.CNB = T2.CNB(+)
+			   AND T1.DPT_CD IS NOT NULL
+			   
+			UNION ALL
+			SELECT '' AS DPT_CD 
+			      ,'합계' AS DPT_NM 
+			      ,T1.CNB
+			      ,'' RANK_NM 
+			      ,'' RANK_CD
+			      ,'' AS RAL_BLT_DIV_CD
+			      ,'' AS INN_RANK_CD
+			      ,'' AS RANK_SRT_SEQ_NM
+			      ,'' AS CRNT_RANK_APM_DT
+			      ,'' AS SRT_KY_NO
+			      ,'' AS CRNT_DPT_APM_DT
+			      ,'' USR_NAM
+			      ,T1.CNT1
+			      ,T1.CNT2
+			      ,T1.CNT3
+			      ,T1.CNT4
+			      ,T1.CNT5
+			  FROM (
+			        SELECT '' AS DPT_CD
+			              ,'' CNB
+			              ,SUM(CASE WHEN ACP_CNT <= 90 THEN 1 ELSE 0 END) CNT1
+			              ,SUM(CASE WHEN ACP_CNT BETWEEN 91 AND 180 THEN 1 ELSE 0 END ) CNT2
+			              ,SUM(CASE WHEN ACP_CNT BETWEEN 181 AND 365 THEN 1 ELSE 0 END ) CNT3
+			              ,SUM(CASE WHEN ACP_CNT > 365 THEN 1 ELSE 0 END ) CNT4
+			              ,SUM(1) CNT5
+			          FROM DATA T1
+			         WHERE T1.ENF_DT IS NULL
+			       ) T1
+		 ) T1
+		 ORDER BY T1.DPT_CD, T1.RANK_CD, NVL(T1.INN_RANK_CD,'50') ASC , T1.RANK_SRT_SEQ_NM, T1.CRNT_RANK_APM_DT, T1.SRT_KY_NO, T1.CRNT_DPT_APM_DT, T1.CNB
+  
+        ]]>
+		</select>
+        
+</mapper>

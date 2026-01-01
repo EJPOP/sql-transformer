@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.afu.dao.AEPAFU023QMapper">
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap">
+        /*kr.go.bai.eip.aep.afu.dao.AEPAFU023QMapper.selectMainList*/
+        <include refid="include.pageSelct" />
+            <![CDATA[
+            WITH BASE AS 
+			(
+			    SELECT TO_CHAR(TO_DATE(#{audStrDt}, 'YYYYMMDD') + LEVEL-1, 'YYYYMMDD') AS WORK_DT
+				  FROM DUAL
+				 CONNECT BY LEVEL <= TO_DATE(#{audEndDt}) - TO_DATE(#{audStrDt}, 'YYYYMMDD') + 1
+				 MINUS
+				SELECT YE || MD           
+				  FROM TBBADDED013B    
+			)                          
+			
+			
+			SELECT TO_CHAR(TO_DATE(T1.WORK_DT), 'YYYY-MM-DD') AS WORK_DT
+                  ,T2.AUD_YR_NO
+                  ,T2.AUD_YR
+                  ,T2.AUD_NO
+                  ,T2.AUD_SBJ_NM
+                  ,T2.BZT_YR
+                  ,T2.BZT_BGT_DVSN_NM
+                  ,T2.BZT_SNO
+                  ,T2.ORG_NM
+                  ,T2.PCT_NM
+                  ,T2.BZT_STR_DT
+                  ,T2.BZT_END_DT
+			  FROM BASE T1
+			      ,(
+			            
+			            SELECT F_MNG_KND_AUDYRNO(T1.AUD_YR, T1.AUD_NO, '', '-') || '(' || T2.AUD_STEP_SNO || ')' AS AUD_YR_NO     /* 감사연번호 */
+			                  ,T1.AUD_YR
+			                  ,T1.AUD_NO
+			                  ,T1.AUD_SBJ_NM
+			                  ,T2.BZT_YR
+			                  ,F_CODE_NM('1000751',T1.BZT_BGT_DVSN_CD) AS BZT_BGT_DVSN_NM
+			                  ,T2.BZT_SNO
+			                  ,F_ORG_INFO(T4.ORG_CD, '1') AS ORG_NM
+			                  ,T3.PCT_NM||'('||T3.PCT_CNB||')' AS PCT_NM
+			                  ,TO_CHAR(TO_DATE(T4.BZT_STR_DT), 'YYYY-MM-DD') AS BZT_STR_DT
+                              ,TO_CHAR(TO_DATE(T4.BZT_END_DT), 'YYYY-MM-DD') AS BZT_END_DT
+			              FROM TBBADDED001M T1   /* 감사사항기본 */
+			                  ,TBBADDED002M T2   /* 출장상황기본 */
+			                  ,TBBADDED010L T3   /* 출장비수령자내역 */
+			                  ,TBBADDED011L T4   /* 출장여비내역 */
+			             WHERE 1=1
+			               AND T1.AUD_YR  = T2.REL_AUD_YR
+			               AND T1.AUD_NO  = T2.REL_AUD_NO 
+			               AND T2.BZT_YR  = T3.BZT_YR
+			               AND T2.BZT_SNO = T3.BZT_SNO
+			               AND T3.BZT_YR  = T4.BZT_YR
+			               AND T3.BZT_SNO = T4.BZT_SNO
+			               AND T3.PCT_CNB = T4.PCT_CNB
+			               AND T4.FNL_YN  = 'Y'
+			               AND (T4.BZT_STR_DT BETWEEN REPLACE(#{audStrDt}, '-', '') AND REPLACE(#{audEndDt}, '-', '')
+			                   OR T4.BZT_END_DT BETWEEN REPLACE(#{audStrDt}, '-', '') AND REPLACE(#{audEndDt}, '-', ''))
+			               ]]>
+				           <if test="orgNm != null and orgNm != '' "> 
+				               AND F_ORG_INFO(T4.ORG_CD, '1') LIKE #{orgNm}||'%'
+				           </if>
+				           <if test="bztBgtDvsnCd != null and bztBgtDvsnCd != '' "> 
+				               AND T1.BZT_BGT_DVSN_CD = #{bztBgtDvsnCd}
+				           </if>
+				           <if test="audSbjNm != null and audSbjNm != ''">
+					            AND T1.AUD_SBJ_NM LIKE '%' || #{audSbjNm} || '%' /*감사사항명*/
+					        </if>
+					        <if test="audYr != null and audYr != '' "> 
+				                AND T1.AUD_YR = #{audYr}
+				            </if>
+				            <if test="audYrNoKndCd != null and audYrNoKndCd != ''">
+				                AND T1.AUD_KND_CD = #{audYrNoKndCd}
+				            </if>
+				            <if test="audGrnNo != null and audGrnNo != '' ">
+				                AND T1.AUD_GRN_NO = #{audGrnNo}  /*감사번호*/
+				            </if>
+				            <if test="pctNm != null and pctNm != '' ">
+				                AND T3.PCT_NM = #{pctNm}  /*출장자명*/
+				            </if>
+				            <if test="pctCnb != null and pctCnb != '' ">
+				                AND T3.PCT_CNB = #{pctCnb}  /*전산번호*/
+				            </if>
+			            	<if test="chkAud != null and chkAud != '' ">
+				                AND SUBSTR(T1.AUD_KND_CD,3,1) IN
+				            </if>
+			            	<foreach collection="audList" item="item" index="index" separator="," open="(" close=")">
+	                       		#{item}
+	                       </foreach>
+				           AND T4.ORG_CD IN (SELECT ORG_CD
+                                               FROM TBDCMACM015M
+								           <if test='orgDvsnCd == "A" '> 
+								              WHERE ORG_DVSN_CD = '10'
+								           </if>
+								           <if test='orgDvsnCd == "B" '> 
+								              WHERE ORG_DVSN_CD IN ( '21', '22' )
+								           </if>
+								           <if test='orgDvsnCd == "C" '> 
+								              WHERE ORG_DVSN_CD = '30'
+								           </if>
+								           <if test='orgDvsnCd == "D" '> 
+								              WHERE ORG_DVSN_CD NOT IN ( '10', '21', '22', '30' )
+								           </if>
+                                            )
+			             ORDER BY 1,2,3,4,5,6
+			
+			      ) T2
+			    WHERE 1=1
+			      AND T1.WORK_DT BETWEEN REPLACE(#{audStrDt}, '-', '') AND REPLACE(#{audEndDt}, '-', '')
+			      AND T1.WORK_DT BETWEEN REPLACE(T2.BZT_STR_DT, '-', '') AND REPLACE(T2.BZT_END_DT, '-', '')
+			    ORDER BY WORK_DT, AUD_YR_NO, AUD_SBJ_NM, ORG_NM, PCT_NM, BZT_STR_DT, BZT_END_DT
+        <include refid="include.pageOrder" />
+    </select>
+
+	<select id="selectExcelList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.aep.afu.dao.AEPAFU023QMapper.selectExcelList*/
+            <![CDATA[
+                    WITH BASE AS 
+			(
+			    SELECT TO_CHAR(TO_DATE(#{audStrDt}, 'YYYYMMDD') + LEVEL-1, 'YYYYMMDD') AS WORK_DT
+				  FROM DUAL
+				 CONNECT BY LEVEL <= TO_DATE(#{audEndDt}) - TO_DATE(#{audStrDt}, 'YYYYMMDD') + 1
+				 MINUS
+				SELECT YE || MD           
+				  FROM TBBADDED013B   
+			)                          
+			
+			
+			SELECT TO_CHAR(TO_DATE(T1.WORK_DT), 'YYYY-MM-DD') AS WORK_DT
+                  ,T2.AUD_YR_NO
+                  ,T2.AUD_YR
+                  ,T2.AUD_NO
+                  ,T2.AUD_SBJ_NM
+                  ,T2.BZT_YR
+                  ,T2.BZT_BGT_DVSN_NM
+                  ,T2.BZT_SNO
+                  ,T2.ORG_NM
+                  ,T2.PCT_NM
+                  ,T2.BZT_STR_DT
+                  ,T2.BZT_END_DT 
+			  FROM BASE T1
+			      ,(
+			            
+			            SELECT F_MNG_KND_AUDYRNO(T1.AUD_YR, T1.AUD_NO, '', '-') || '(' || T2.AUD_STEP_SNO || ')' AS AUD_YR_NO     /* 감사연번호 */
+			                  ,T1.AUD_YR
+			                  ,T1.AUD_NO
+			                  ,T1.AUD_SBJ_NM
+			                  ,F_CODE_NM('1000751',T1.BZT_BGT_DVSN_CD) AS BZT_BGT_DVSN_NM
+			                  ,T2.BZT_YR
+			                  ,T2.BZT_SNO
+			                  ,F_ORG_INFO(T4.ORG_CD, '1') AS ORG_NM
+			                  ,T3.PCT_NM||'('||T3.PCT_CNB||')' AS PCT_NM
+			                  ,TO_CHAR(TO_DATE(T4.BZT_STR_DT), 'YYYY-MM-DD') AS BZT_STR_DT
+                              ,TO_CHAR(TO_DATE(T4.BZT_END_DT), 'YYYY-MM-DD') AS BZT_END_DT
+			              FROM TBBADDED001M T1   /* 감사사항기본 */
+			                  ,TBBADDED002M T2   /* 출장상황기본 */
+			                  ,TBBADDED010L T3   /* 출장비수령자내역 */
+			                  ,TBBADDED011L T4   /* 출장여비내역 */
+			             WHERE 1=1
+			               AND T1.AUD_YR  = T2.REL_AUD_YR
+			               AND T1.AUD_NO  = T2.REL_AUD_NO 
+			               AND T2.BZT_YR  = T3.BZT_YR
+			               AND T2.BZT_SNO = T3.BZT_SNO
+			               AND T3.BZT_YR  = T4.BZT_YR
+			               AND T3.BZT_SNO = T4.BZT_SNO
+			               AND T3.PCT_CNB = T4.PCT_CNB
+			               AND T4.FNL_YN  = 'Y'
+			               AND (T4.BZT_STR_DT BETWEEN REPLACE(#{audStrDt}, '-', '') AND REPLACE(#{audEndDt}, '-', '')
+			                   OR T4.BZT_END_DT BETWEEN REPLACE(#{audStrDt}, '-', '') AND REPLACE(#{audEndDt}, '-', ''))
+			               ]]>
+				           <if test="orgNm != null and orgNm != '' "> 
+				               AND F_ORG_INFO(T4.ORG_CD, '1') LIKE #{orgNm}||'%'
+				           </if>
+				           <if test="bztBgtDvsnCd != null and bztBgtDvsnCd != '' "> 
+				               AND T1.BZT_BGT_DVSN_CD = #{bztBgtDvsnCd}
+				           </if>
+				           <if test="audSbjNm != null and audSbjNm != ''">
+					            AND T1.AUD_SBJ_NM LIKE '%' || #{audSbjNm} || '%' /*감사사항명*/
+					        </if>
+					        <if test="audYr != null and audYr != '' "> 
+				                AND T1.AUD_YR = #{audYr}
+				            </if>
+				            <if test="audYrNoKndCd != null and audYrNoKndCd != ''">
+				                AND T1.AUD_KND_CD = #{audYrNoKndCd}
+				            </if>
+				            <if test="audGrnNo != null and audGrnNo != '' ">
+				                AND T1.AUD_GRN_NO = #{audGrnNo}  /*감사번호*/
+				            </if>
+				            <if test="pctNm != null and pctNm != '' ">
+				                AND T3.PCT_NM = #{pctNm}  /*출장자명*/
+				            </if>
+				            <if test="pctCnb != null and pctCnb != '' ">
+				                AND T3.PCT_CNB = #{pctCnb}  /*전산번호*/
+				            </if>
+				            <if test="audChk != null and audChk != '' ">
+				                AND T1.AUD_KND_CD IN
+				            </if>
+			            	<foreach collection="audList" item="item" index="index" separator="," open="(" close=")">
+	                       		#{item}
+	                        </foreach>
+				           AND T4.ORG_CD IN (SELECT ORG_CD
+                                               FROM TBDCMACM015M
+								           <if test='orgDvsnCd == "A" '> 
+								              WHERE ORG_DVSN_CD = '10'
+								           </if>
+								           <if test='orgDvsnCd == "B" '> 
+								              WHERE ORG_DVSN_CD IN ( '21', '22' )
+								           </if>
+								           <if test='orgDvsnCd == "C" '> 
+								              WHERE ORG_DVSN_CD = '30'
+								           </if>
+								           <if test='orgDvsnCd == "D" '> 
+								              WHERE ORG_DVSN_CD NOT IN ( '10', '21', '22', '30' )
+								           </if>
+                                            )
+			             ORDER BY 1,2,3,4,5,6
+			      ) T2
+			    WHERE 1=1
+			      AND T1.WORK_DT BETWEEN REPLACE(#{audStrDt}, '-', '') AND REPLACE(#{audEndDt}, '-', '')
+			      AND T1.WORK_DT BETWEEN REPLACE(T2.BZT_STR_DT, '-', '') AND REPLACE(T2.BZT_END_DT, '-', '')
+			    ORDER BY WORK_DT, AUD_YR_NO, AUD_SBJ_NM, ORG_NM, PCT_NM, BZT_STR_DT, BZT_END_DT
+    </select>
+    
+    <select id="selectTotBztDcn" parameterType="paramMap" resultType="integer">
+    /*kr.go.bai.eip.aep.afu.dao.AEPAFU023QMapper.selectTotBztDcn*/
+            <![CDATA[
+                    WITH BASE AS 
+			(
+			    SELECT TO_CHAR(TO_DATE(#{audStrDt}, 'YYYYMMDD') + LEVEL-1, 'YYYYMMDD') AS WORK_DT
+				  FROM DUAL
+				 CONNECT BY LEVEL <= TO_DATE(#{audEndDt}) - TO_DATE(#{audStrDt}, 'YYYYMMDD') + 1
+				 MINUS
+				SELECT YE || MD           
+				  FROM TBBADDED013B   
+			)                          
+			SELECT COUNT(*)
+			  FROM (
+					SELECT WORK_DT
+						  ,AUD_YR_NO
+						  ,COUNT(*) 
+					  FROM BASE T1
+					      ,(
+					            
+					            SELECT F_MNG_KND_AUDYRNO(T1.AUD_YR, T1.AUD_NO, T1.AUD_KND_CD, '-') AS AUD_YR_NO
+					                  ,T1.AUD_YR
+					                  ,T1.AUD_NO
+					                  ,T1.AUD_SBJ_NM
+					                  ,T2.BZT_YR
+					                  ,T2.BZT_SNO
+					                  ,F_ORG_INFO(T4.ORG_CD, '1') AS ORG_NM
+					                  ,T3.PCT_NM||'('||T3.PCT_CNB||')' AS PCT_NM
+					                  ,TO_CHAR(TO_DATE(T4.BZT_STR_DT), 'YYYY-MM-DD') AS BZT_STR_DT
+                             		  ,TO_CHAR(TO_DATE(T4.BZT_END_DT), 'YYYY-MM-DD') AS BZT_END_DT
+					              FROM TBBADDED001M T1   /* 감사사항기본 */
+					                  ,TBBADDED002M T2   /* 출장상황기본 */
+					                  ,TBBADDED010L T3   /* 출장비수령자내역 */
+					                  ,TBBADDED011L T4   /* 출장여비내역 */
+					             WHERE 1=1
+					               AND T1.AUD_YR  = T2.REL_AUD_YR
+					               AND T1.AUD_NO  = T2.REL_AUD_NO 
+					               AND T2.BZT_YR  = T3.BZT_YR
+					               AND T2.BZT_SNO = T3.BZT_SNO
+					               AND T3.BZT_YR  = T4.BZT_YR
+					               AND T3.BZT_SNO = T4.BZT_SNO
+					               AND T3.PCT_CNB = T4.PCT_CNB
+					               AND T4.FNL_YN  = 'Y'
+					               AND (T4.BZT_STR_DT BETWEEN REPLACE(#{audStrDt}, '-', '') AND REPLACE(#{audEndDt}, '-', '')
+			                   			OR T4.BZT_END_DT BETWEEN REPLACE(#{audStrDt}, '-', '') AND REPLACE(#{audEndDt}, '-', ''))
+					               ]]>
+						           <if test="orgNm != null and orgNm != '' "> 
+						               AND F_ORG_INFO(T4.ORG_CD, '1') LIKE #{orgNm}||'%'
+						           </if>
+						           <if test="bztBgtDvsnCd != null and bztBgtDvsnCd != '' "> 
+						               AND T1.BZT_BGT_DVSN_CD = #{bztBgtDvsnCd}
+						           </if>
+						           <if test="audSbjNm != null and audSbjNm != ''">
+							            AND T1.AUD_SBJ_NM LIKE '%' || #{audSbjNm} || '%' /*감사사항명*/
+							       </if>
+							       <if test="audYr != null and audYr != '' "> 
+						                AND T1.AUD_YR = #{audYr}
+						            </if>
+						            <if test="audYrNoKndCd != null and audYrNoKndCd != ''">
+						                AND T1.AUD_KND_CD = #{audYrNoKndCd}
+						            </if>
+						            <if test="audGrnNo != null and audGrnNo != '' ">
+						                AND T1.AUD_GRN_NO = #{audGrnNo}  /*감사번호*/
+						            </if>
+						            <if test="pctNm != null and pctNm != '' ">
+						                AND T3.PCT_NM = #{pctNm}  /*출장자명*/
+						            </if>
+						            <if test="pctCnb != null and pctCnb != '' ">
+						                AND T3.PCT_CNB = #{pctCnb}  /*전산번호*/
+						            </if>
+						            <if test="chkAud != null and chkAud != '' ">
+						                AND T1.AUD_KND_CD IN
+						            </if>
+					            	<foreach collection="audList" item="item" index="index" separator="," open="(" close=")">
+			                       		#{item}
+			                        </foreach>
+						           AND T4.ORG_CD IN (SELECT ORG_CD
+		                                               FROM TBDCMACM015M
+										           <if test='orgDvsnCd == "A" '> 
+										              WHERE ORG_DVSN_CD = '10'
+										           </if>
+										           <if test='orgDvsnCd == "B" '> 
+										              WHERE ORG_DVSN_CD IN ( '21', '22' )
+										           </if>
+										           <if test='orgDvsnCd == "C" '> 
+										              WHERE ORG_DVSN_CD = '30'
+										           </if>
+										           <if test='orgDvsnCd == "D" '> 
+										              WHERE ORG_DVSN_CD NOT IN ( '10', '21', '22', '30' )
+										           </if>
+		                                            )
+					             ORDER BY 1,2,3,4,5,6
+					
+					      ) T2
+					    WHERE 1=1
+					      AND T1.WORK_DT BETWEEN REPLACE(#{audStrDt}, '-', '') AND REPLACE(#{audEndDt}, '-', '')
+					      AND T1.WORK_DT BETWEEN REPLACE(T2.BZT_STR_DT, '-', '') AND REPLACE(T2.BZT_END_DT, '-', '')
+					    GROUP BY WORK_DT, AUD_YR_NO ,ORG_NM
+					    ORDER BY 1)
+    </select>
+<!--     <select id="selectMdtRprtDocId" parameterType="paramMap" resultType="egovMap"> -->
+<!--         /*kr.go.bai.eip.aep.afu.dao.AEPAFU023QMapper.selectMdtRprtDocId*/ -->
+<!--             SELECT MAX(DOC_ID) AS DOC_ID -->
+<!--               FROM TBFDMADM002M -->
+<!--              WHERE AUD_DOC_CD = 'A10300400' -->
+<!--     </select> -->
+    
+<!--     <update id="deleteDocument" parameterType="paramMap"> -->
+<!--     /* kr.go.bai.eip.aep.afu.dao.AEPAFU023QMapper.deleteDocument*/ -->
+<!--         DELETE FROM TBBADDED103M -->
+<!--         WHERE -->
+<!--         AUD_YR  = #{audYr} -->
+<!--         AND AUD_NO  = #{audNo} -->
+<!--         AND AUD_STEP_CD  = #{audStepCd} -->
+<!--         AND DOC_ID  = #{docId} -->
+<!--     </update>   -->
+    
+</mapper>

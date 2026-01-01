@@ -1,0 +1,634 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.bad.ded.dao.BADDED023EMapper">
+    
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED023EMapper.selectMainList*/
+        <include refid="include.pageSelct" />
+            <![CDATA[
+            	SELECT   BZT_YR AS BZT_YR,
+							DPT_CD AS DPT_CD,
+							NVL(F_DPT_INFO(DPT_CD,'1'),F_CODE_NM('1001028',DPT_CD)) AS DPT_NM,
+							BZT_SNO AS BZT_SNO,
+							TO_CHAR(TO_DATE(REGI_DT),'YYYY-MM-DD') AS REGI_DT,
+							TIT_NM AS TIT_NM,
+							DECODE(RQS_YN,'N','작성중','Y','작성완료') AS RQS_YN,
+							DECODE(CHECK_YN,'N','미확인','Y','확인') AS CHECK_YN
+				FROM TBBADDED040M 
+            		WHERE 1=1
+             ]]>
+           		<if test='bztYr != null and bztYr != ""'>
+					AND	BZT_YR = #{bztYr}
+				</if>
+           		<if test='dptCd != null and dptCd != ""'>
+					AND	DPT_CD = #{dptCd}
+				</if>
+           		<if test='bztSno != null and bztSno != ""'>
+					AND	BZT_SNO = #{bztSno}
+				</if>
+           		<if test='regiDts != null and regiDts != ""'>
+					AND REGI_DT &gt;= TO_CHAR(TO_DATE(#{regiDts}, 'YYYY-MM-DD'),'YYYYMMDD')
+				</if>
+				<if test='regiDte != null and regiDte != ""'>
+					AND REGI_DT &lt;= TO_CHAR(TO_DATE(#{regiDte}, 'YYYY-MM-DD'),'YYYYMMDD')
+				</if>
+				<if test='titNm != null and titNm != ""'>
+					AND REPLACE(TIT_NM,' ','') LIKE REPLACE('%${titNm}%',' ','')
+				</if>
+				<if test='rqsYn != null and rqsYn != ""'>
+					AND RQS_YN = #{rqsYn}
+				</if>
+				<if test='checkYn != null and checkYn != ""'>
+					AND CHECK_YN = #{checkYn}
+				</if>
+				<if test='searchChk == null or searchChk == "" or searchChk !="Y"'>
+					AND 1 = NVL(DECODE(#{pstCd},'0013600',1,'0015800',1,(SELECT COUNT(*) FROM TBDCMACM001M WHERE BRGA_YN = 'Y' AND CNB = #{cnb})),0)
+				</if>
+				
+				<!-- 원장실,위원실 제외.(위원실1~6으로 대체) -->
+				AND DPT_CD NOT IN ('500000','510000')
+            	<choose>
+            		<!-- 과 선택시 -->
+					<when test="schDeptCd != null and schDeptCd != ''"> 
+						AND DPT_CD  = #{schDeptCd}
+					</when>
+					<otherwise>
+						<!-- 국+전체과 선택시 -->
+						<if test="schSpvBrdvCd != null and schSpvBrdvCd != ''">
+							<if test="dptAuth != 'ALL' ">
+							<!-- 선택국 + 하위 '과' + (고위부서가 아니며 선택'국'이 본인 부서면 하위 국) 조회 -->
+								AND (DPT_CD  = #{schSpvBrdvCd} OR ((DPT_CD IN (SELECT DPT_CD FROM TBDCMACM002M WHERE HIRK_DPT_CD=#{schSpvBrdvCd} AND DPT_CD NOT LIKE '%000') OR DPT_CD IN (SELECT DPT_CD FROM TBDCMACM002M WHERE HIRK_DPT_CD = #{sessionDptCd} AND HIRK_DPT_CD=#{schSpvBrdvCd}) ) AND SUBSTR(#{schSpvBrdvCd},0,1) != '5')  
+									<!-- 위원실 + 전체 선택시(*관리자용 조건. 단순 예외처리) = 위원실1~6 게시글 전체 조회 -->
+									OR CASE WHEN #{schSpvBrdvCd} ='510000' THEN DPT_CD ELSE 'X' END IN (SELECT CD FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD= '1001028')
+								)
+							</if>
+							<if test="dptAuth == 'ALL' ">
+								AND (DPT_CD  = #{schSpvBrdvCd} 
+									OR DPT_CD IN (SELECT DPT_CD FROM TBDCMACM002M WHERE HIRK_DPT_CD=#{schSpvBrdvCd} AND DPT_CD NOT LIKE '%000')
+									<!-- 위원실 + 전체 선택시 = 위원실1~6 게시글 전체 조회 -->
+									OR CASE WHEN #{schSpvBrdvCd} ='510000' THEN DPT_CD ELSE 'X' END IN (SELECT CD FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD= '1001028')
+								)
+							</if>
+						</if>
+					</otherwise>
+				</choose>
+            	
+	        	
+				ORDER BY REGI_DT DESC, FRT_REGI_DH  DESC, BZT_SNO DESC
+        <include refid="include.pageOrder" />
+    </select>
+    
+    <select id="selectCdList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED023EMapper.selectCdList*/
+        <![CDATA[
+               SELECT CD
+                    , CD_NM
+                 FROM TBDCMACM013C
+                WHERE CD <> '000000000'
+			      AND CMM_CD_DVSN_CD = #{cmmCdDvsnCd}
+        ]]>
+    </select>
+    
+    <select id="selectMain2" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED023EMapper.selectMain2*/
+        <![CDATA[
+               SELECT 
+					BZT_YR
+					,DPT_CD
+					,NVL(F_DPT_INFO(DPT_CD,'1'),F_CODE_NM('1001028',DPT_CD)) AS DPT_NM
+					,BZT_SNO
+					,SNO
+					,ENFM_HIS    
+					,ENFM_DVSN_TXT  
+					,REL_AUD_NM
+					,REL_INDC_SBJ   
+					,ENFM_WAY_CD    
+					,TO_CHAR(TO_DATE(ENFM_DT),'YYYY-MM-DD') AS ENFM_DT
+					,ENFM_PLC        
+					,ENFM_TG     
+					,ENFM_AM       
+					
+					,RMK           
+					
+					,F_CODE_NM('1001022',ENFM_DVSN_TXT) AS ENFM_DVSN_TXT_NM  
+					,F_CODE_NM('1001023',ENFM_HIS) AS ENFM_HIS_NM    
+					,F_CODE_NM('1000977',ENFM_WAY_CD) AS ENFM_WAY_CD_NM
+				FROM TBBADDED040D WHERE 1=1
+					AND BZT_YR = #{bztYr}
+					AND DPT_CD = #{dptCd}
+					AND BZT_SNO = #{bztSno}
+        ]]>
+        ORDER BY SNO
+    </select>
+    
+    <select id="selectEnfmWayListCodeList" parameterType="paramMap" resultType="java.util.HashMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED023EMapper.selectEnfmWayListCodeList*/
+    <![CDATA[
+        SELECT  CMM_CD_DVSN_CD
+                  , CD
+                  , TSK_CAT_CD
+                  , FUNC_CAT_CD
+                  , CD_NM
+                  , USE_YN
+                  , PRD_USE_YN
+                  , STR_DT
+                  , END_DT
+                  , OTPT_SEQ
+                  , USR_DFN_TXT_1
+                  , USR_DFN_TXT_2
+                  , USR_DFN_TXT_3
+                  , USR_DFN_TXT_4
+                  , USR_DFN_TXT_5
+                  , BK_CD_DVSN_NM
+                  , BK_CD_NM    
+                  , CD_NM||'('||CD||')' AS CDNM_CD
+                  , '['||CD||']'||CD_NM AS CD_CD_NM
+              FROM TBDCMACM013C
+             WHERE 1=1 
+               AND CD <> '000000000'
+               AND CMM_CD_DVSN_CD = ('1001023')
+               AND SUBSTR(CD,0,1) = SUBSTR(#{enfmDvsnCd},0,1)
+        ]]>
+        <if test="usrDfnTxt1 != null and usrDfnTxt1 != ''">
+            AND USR_DFN_TXT_1 = #{usrDfnTxt1}
+        </if>
+        <if test="usrDfnTxt2 != null and usrDfnTxt2 != ''">
+            AND USR_DFN_TXT_2 = #{usrDfnTxt2}
+        </if>
+            
+        <if test="usrDfnTxt3 != null and usrDfnTxt3 != ''">
+            AND USR_DFN_TXT_3 = #{usrDfnTxt3}
+        </if> 
+        <if test="usrDfnTxt4 != null and usrDfnTxt4 != ''">
+            AND USR_DFN_TXT_4 = #{usrDfnTxt4}
+        </if> 
+        <if test="usrDfnTxt5 != null and usrDfnTxt5 != ''">
+            AND USR_DFN_TXT_5 = #{usrDfnTxt5}
+        </if> 
+        <if test="useYn != null and useYn != ''">
+            AND USE_YN = #{useYn}
+        </if> 
+        <if test="cd != null and cd != ''">
+            AND CD = #{cd}
+        </if>
+        <if test="audKndCdType != null and audKndCdType != ''">
+            <if test="audKndCdType eq'A'.toString()">
+                AND CD IN ('00','01','02','03')
+            </if>
+            <if test="audKndCdType eq'B'.toString()">
+                AND CD IN ('11','12','13','17','18','19','20','21')
+            </if>
+            <if test="audKndCdType eq'C'.toString()">
+                AND USR_DFN_TXT_3 LIKE '1%'
+                AND USR_DFN_TXT_3 LIKE '%1'
+            </if>
+            <if test="audKndCdType eq'D'.toString()">
+                AND CD = '15' /*서면감사인 경우 확인출장(15)*/
+            </if>
+        </if>
+         <if test="sortDfnTxt1 == null or sortDfnTxt1 == ''">
+            ORDER BY CD
+        </if>
+         <if test="sortDfnTxt1 != null and sortDfnTxt1 != ''">
+            ORDER BY USR_DFN_TXT_1
+        </if>
+    </select>
+    
+    <insert id="insertTBBADDED040D" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED023EMapper.insertTBBADDED040D*/
+        INSERT INTO TBBADDED040D(  
+								BZT_YR 
+								,DPT_CD 
+								,BZT_SNO 
+								,SNO 
+								,ENFM_HIS 
+								,ENFM_DVSN_TXT 
+								,REL_AUD_NM
+								,REL_INDC_SBJ 
+								,ENFM_WAY_CD 
+								
+								,ENFM_DT 
+								,ENFM_PLC 
+								,ENFM_TG 
+								,ENFM_AM 
+
+								,RMK 
+								,FRT_USR_ID 
+								,FNL_USR_ID 
+								,FNL_DEAL_DPT_CD 
+								,FNL_MNU_ID 
+								,FRT_REGI_DH 
+								,FNL_MDF_DH 
+                                  )
+                          VALUES ( #{bztYr}
+                          	     , #{dptCd}
+                                 , #{bztSno}
+                                 , (SELECT NVL(MAX(SNO),0)+1 FROM TBBADDED040D WHERE DPT_CD =#{dptCd})
+                                 ,#{enfmHis}
+                                 , #{enfmDvsnTxt}
+                                 , #{relAudNm}
+                                 , #{relIndcSbj}
+                                 , #{enfmWayCd}
+                                 , TO_CHAR(TO_DATE(#{enfmDt}), 'YYYYMMDD')
+                                 , #{enfmPlc}
+                                 , #{enfmTg}
+                                 , #{enfmAm}
+
+                                 , #{rmk}
+                                 , #{frtUsrId}
+                                 , #{fnlUsrId}
+                                 , #{fnlDealDptCd}
+                                 , #{fnlMnuId}
+                                 , SYSDATE
+                                 , SYSDATE )
+    </insert>
+    
+    
+    <update id="updateTBBADDED040D" parameterType="paramMap">
+	/*kr.go.bai.eip.bad.ded.dao.BADDED023EMapper.updateTBBADDED040D */
+		UPDATE TBBADDED040D
+		   SET ENFM_DVSN_TXT = #{enfmDvsnTxt}
+		     , ENFM_HIS   	 = #{enfmHis}
+		     , REL_AUD_NM  = #{relAudNm}
+		     , REL_INDC_SBJ  = #{relIndcSbj}
+		     , ENFM_WAY_CD   = #{enfmWayCd}
+		     , ENFM_DT		 = TO_CHAR(TO_DATE(#{enfmDt}), 'YYYYMMDD')
+             , ENFM_PLC		 = #{enfmPlc}
+             , ENFM_TG		 = #{enfmTg}
+             , ENFM_AM		 = #{enfmAm}
+
+             , RMK			 = #{rmk}
+             , FNL_USR_ID    = #{fnlUsrId}
+             , FNL_MDF_DH    = SYSDATE
+         WHERE BZT_YR  = #{bztYr}
+           AND BZT_SNO = #{bztSno}
+           AND DPT_CD = #{dptCd}
+           AND SNO     = #{sno}
+	</update>
+	
+	<delete id="deleteTBBADDED040D" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED003EMapper.deleteTBBADDED040D*/
+    <![CDATA[ 
+        DELETE FROM TBBADDED040D WHERE BZT_YR  = #{bztYr}
+                                   AND DPT_CD = #{dptCd}
+                                   AND BZT_SNO = #{bztSno}
+    ]]>
+	    <if test="sno != null and sno != ''">
+	                               AND SNO     = #{sno}
+	    </if>
+    </delete>
+    <insert id="insertTBBADDED040M" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED023EMapper.insertTBBADDED040M*/
+        INSERT INTO TBBADDED040M(  
+								BZT_YR 
+								,DPT_CD 
+								,BZT_SNO 
+								,REGI_DT 
+								,TIT_NM 
+								,CHECK_YN 
+								,FRT_USR_ID 
+								,FNL_USR_ID 
+								,FNL_DEAL_DPT_CD 
+								,FNL_MNU_ID 
+								,FRT_REGI_DH 
+								,FNL_MDF_DH 
+                                  )
+                          VALUES ( TO_CHAR(SYSDATE, 'YYYY')
+                          	     , #{dptCd}
+                                 , (SELECT NVL(MAX(BZT_SNO),0)+1 FROM TBBADDED040M WHERE DPT_CD =#{dptCd} AND BZT_YR = TO_CHAR(SYSDATE, 'YYYY'))
+                                 , TO_CHAR(TO_DATE(#{regiDt}), 'YYYYMMDD')
+                                 , #{titNm}
+                                 , 'N'
+                                 , #{frtUsrId}
+                                 , #{fnlUsrId}
+                                 , #{sessionDptCd}
+                                 , #{fnlMnuId}
+                                 , SYSDATE
+                                 , SYSDATE )
+    </insert>
+    
+    <update id="updateTBBADDED040M" parameterType="paramMap">
+	/*kr.go.bai.eip.bad.ded.dao.BADDED023EMapper.updateTBBADDED040M */
+		UPDATE TBBADDED040M
+		   SET REGI_DT = #{regiDt}
+				 ,TIT_NM = #{titNm}
+	             , FNL_USR_ID    = #{fnlUsrId}
+	             , FNL_DEAL_DPT_CD = #{sessionDptCd}
+				 , FNL_MNU_ID =  #{fnlMnuId}
+	             , FNL_MDF_DH    = SYSDATE
+         WHERE BZT_YR  = #{bztYr}
+           AND DPT_CD = #{dptCd}
+           AND BZT_SNO = #{bztSno}
+	</update>
+    <update id="fixedTBBADDED040M" parameterType="paramMap">
+	/*kr.go.bai.eip.bad.ded.dao.BADDED023EMapper.fixedTBBADDED040M */
+		UPDATE TBBADDED040M
+		   SET RQS_YN = #{rqsYn}
+	             , FNL_USR_ID    = #{usrId}
+	             , FNL_DEAL_DPT_CD = #{fnlDealDptCd}
+				 , FNL_MNU_ID =  #{menuNo}
+	             , FNL_MDF_DH    = SYSDATE
+         WHERE BZT_YR  = #{bztYr}
+           AND DPT_CD = #{dptCd}
+           AND BZT_SNO = #{bztSno}
+	</update>
+	<delete id="deleteTBBADDED040M" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED003EMapper.deleteTBBADDED040M*/
+        DELETE FROM TBBADDED040M WHERE BZT_YR  = #{bztYr}
+                                   AND DPT_CD = #{dptCd}
+                                   AND BZT_SNO = #{bztSno}
+    </delete>
+	<update id="checkTBBADDED040M" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED003EMapper.checkTBBADDED040M*/
+		UPDATE TBBADDED040M
+		   SET CHECK_YN = #{checkYn}
+	             , FNL_USR_ID    = #{fnlUsrId}
+	             , FNL_DEAL_DPT_CD = #{fnlDealDptCd}
+				 , FNL_MNU_ID =  #{fnlMnuId}
+	             , FNL_MDF_DH    = SYSDATE
+         WHERE BZT_YR  = #{bztYr}
+           AND DPT_CD = #{dptCd}
+           AND BZT_SNO = #{bztSno}
+    </update>
+
+    <select id="selectLoadAuthYn" parameterType="paramMap" resultType="String">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED003EMapper.selectLoadAuthYn*/
+    	SELECT 
+        CASE WHEN PST_CD IN ('0013600','0015800','0055600') OR BRGA_YN = 'Y' THEN 'Y' ELSE 'N' END AS LOAD_AUTH_YN
+    	FROM TBDCMACM001M 
+    		WHERE CNB = #{cnb}
+    </select>
+    
+    <select id="badded023DeptPopSelect" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED023Mapper.badded023DeptPopSelect 신규팝업박스쿼리*/
+		<include refid="include.pageSelct" />
+		SELECT * FROM (
+	        <![CDATA[
+				SELECT DPT_CD
+				     , DPT_NM
+				     , TNB
+				     , DECODE(USE_YN,'Y','사용','N','미사용','미사용') USE_YN
+				     , ABR_DPT_NM_1
+				     , ABR_DPT_NM_2
+				     , FRML_DPT_NM
+				     , STND_DPT_CD
+				     , FAN
+				     , OW_DVDT_TXT
+				     , DPT_TP_CD
+				     , IMD_CD
+				     , DPT_SNO
+				     , ZCD
+				     , AD
+				     , DTL_AD
+				     , HMP_AD
+				     , SAL_DPT_CD
+				     , SAL_DPT_NM
+				     , BK_DPT_NM
+				     , HIRK_DPT_CD
+	                 , F_DPT_INFO(HIRK_DPT_CD,'1') AS HIRK_DPT_NM/*상위부서명*/
+	                 , ORZT_DVSN_CD
+			      FROM TBDCMACM002M
+			     WHERE USE_YN = 'Y'
+	        ]]>
+	        <if test="strDptAuth != null and strDptAuth != ''">
+	        	<!-- 관리자 -->
+		        <if test="strDptAuth == 'ALL' ">
+					AND DPT_CD IN ( SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#{strCnb}, #{strDptAuth}, 'Y'))) 
+				</if>
+				<if test="strDptAuth != 'ALL' ">
+			        <choose><!-- 출납공무원 여부 -->
+			        	<when test="rcdbPbsvtYn != null and  rcdbPbsvtYn != '' and rcdbPbsvtYn == 'Y'.toString()">
+				            <if test="sessionDptCd != null and sessionDptCd != ''">
+						        <!-- 출납공무원인 경우에만 본인의 소속 국 / 소속국 하위 부서 전체 조회 -->
+				            	AND (SUBSTR(DPT_CD, 0, 3) IN ( SUBSTR(#{sessionDptCd},0,3) ) OR DPT_CD IN (SELECT DPT_CD FROM TBDCMACM002M WHERE HIRK_DPT_CD = #{sessionDptCd}))
+				            	
+				            	<!-- 위원실 소속 제외 -->
+								AND (SELECT RAL_BLT_DIV_CD FROM TBDCMACM001M WHERE CNB = #{strCnb}) NOT IN (SELECT CD FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1001028')
+
+								<!-- 위원실을 제외한 고위부서 사용자는 소속부서만 조회하는 조건 -->
+								AND CASE WHEN '5' IN (SUBSTR(#{sessionDptCd},0,1) ) THEN #{sessionDptCd} ELSE DPT_CD END = DPT_CD
+								
+								<!-- 출납공무원이지만 1001027 공통코드 부서는 본인소속만 조회되는 조건 -->
+								AND DPT_CD IN ( CASE WHEN #{sessionDptCd} IN (SELECT CD FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1001027')
+									THEN #{sessionDptCd} ELSE DPT_CD
+									END )
+
+								<!-- 출납공무원이면서 1001026공통코드부서 소속은 기본 조건 외에도 상위1depth 국을 추가로 조회하는 조건 -->
+				            	OR ( DPT_CD IN ( CASE WHEN #{sessionDptCd} IN (SELECT CD FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1001026')
+									THEN #{strHrkDptCd} ELSE 'N' END )
+				            	<!-- 위원실 소속 제외 -->
+								AND (SELECT RAL_BLT_DIV_CD FROM TBDCMACM001M WHERE CNB = #{strCnb}) NOT IN (SELECT CD FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1001028') )
+				            </if>
+			        	</when>
+			        	<otherwise>
+							<!-- 고위부서 사용자는 소속부서만 조회 , 위원실1~6 소속이 아니면 (본인 소속 + 하위 부서) 조회 -->
+							AND (DPT_CD = #{sessionDptCd} OR DPT_CD IN (SELECT DPT_CD FROM TBDCMACM002M WHERE HIRK_DPT_CD = #{sessionDptCd} AND SUBSTR(#{sessionDptCd},0,1) != '5') )
+			            	<!-- 위원실 소속 제외 -->
+							AND (SELECT RAL_BLT_DIV_CD FROM TBDCMACM001M WHERE CNB = #{strCnb}) NOT IN (SELECT CD FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1001028')
+			        	</otherwise>
+			        </choose>
+				</if>
+			</if>
+			
+			<!-- 위원실1~6에 속한 사람은 실소속 과를 조회(위원실1~6 중 자신이 속한 부서)-->
+	        <if test="strCnb != null and strCnb != ''">
+				<if test="strDptAuth != 'ALL' ">
+		          UNION ALL
+		          SELECT 
+		                       RAL_BLT_DIV_CD AS DPT_CD 
+			                 , F_CODE_NM('1001028',RAL_BLT_DIV_CD) AS DPT_NM
+			                 , '' AS TNB
+						     , '사용' AS USE_YN
+						     , '' AS ABR_DPT_NM_1
+						     , '' AS ABR_DPT_NM_2
+						     , '' AS FRML_DPT_NM
+						     , '' AS STND_DPT_CD
+						     , '' AS FAN
+						     , '' AS OW_DVDT_TXT
+						     , '' AS DPT_TP_CD
+						     , '' AS IMD_CD
+						     , 1  AS DPT_SNO
+						     , '' AS ZCD
+						     , '' AS AD
+						     , '' AS DTL_AD
+						     , '' AS HMP_AD
+						     , '' AS SAL_DPT_CD
+						     , '' AS SAL_DPT_NM
+						     , '' AS BK_DPT_NM
+			                 , '510000' AS HIRK_DPT_CD  
+			                 , F_DPT_INFO('510000','1') AS HIRK_DPT_NM
+			                 , '' AS ORZT_DVSN_CD   
+		          	FROM TBDCMACM001M 
+		          	WHERE CNB = #{strCnb} AND RAL_BLT_DIV_CD IN (SELECT CD FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1001028')
+		        </if>
+	        </if>
+			
+	        <!-- 관리자는 감사위원 공통코드 위원실1~6을 넣어주는 쿼리 -->
+			<if test="strDptAuth != null and strDptAuth != ''">
+				<if test="strDptAuth == 'ALL' ">
+			          UNION ALL
+			          SELECT 
+	                    CD AS DPT_CD 
+		                 , CD_NM AS DPT_NM
+		                 , '' AS TNB
+					     , '사용' AS USE_YN
+					     , '' AS ABR_DPT_NM_1
+					     , '' AS ABR_DPT_NM_2
+					     , '' AS FRML_DPT_NM
+					     , '' AS STND_DPT_CD
+					     , '' AS FAN
+					     , '' AS OW_DVDT_TXT
+					     , '' AS DPT_TP_CD
+					     , '' AS IMD_CD
+					     , 1  AS DPT_SNO
+					     , '' AS ZCD
+					     , '' AS AD
+					     , '' AS DTL_AD
+					     , '' AS HMP_AD
+					     , '' AS SAL_DPT_CD
+					     , '' AS SAL_DPT_NM
+					     , '' AS BK_DPT_NM
+		                 ,'510000' AS HIRK_DPT_CD  
+		                 , F_DPT_INFO('510000','1') AS HIRK_DPT_NM
+		                 , '' AS ORZT_DVSN_CD   
+			          	FROM TBDCMACM013C 
+			          	WHERE 1=1
+			          	AND CMM_CD_DVSN_CD  = '1001028'
+			          	AND CD != '000000000'
+				</if>
+			</if>
+		)
+		WHERE 1=1
+			<if test='dptcd != null and dptcd != ""'>
+				AND DPT_CD LIKE
+				'%'||#{dptcd} ||'%'
+			</if>
+			<if test='dptNm != null and dptNm != ""'>
+				AND (DPT_NM LIKE
+				'%'||#{dptNm} ||'%'
+				OR ABR_DPT_NM_1 LIKE '%'||#{dptNm} ||'%'
+				OR
+				ABR_DPT_NM_2 LIKE '%'||#{dptNm} ||'%'
+				OR DPT_CD LIKE '%'||#{dptNm}||'%'
+				OR FRML_DPT_NM LIKE '%'||#{dptNm}||'%')
+			</if>
+			AND DPT_CD NOT IN ('500000','510000')
+			ORDER BY DPT_SNO , DPT_CD
+		<include refid="include.pageOrder" />
+	</select>
+    
+    <select id="selectDeptBureauList" parameterType="paramMap" resultType="java.util.HashMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED003EMapper.selectDeptBureauList 국 콤보박스 쿼리*/
+        <![CDATA[
+            SELECT DPT_CD AS CD, DPT_NM AS CD_NM, HIRK_DPT_CD
+              FROM TBDCMACM002M
+             WHERE USE_YN = 'Y'
+        ]]>
+        <if test="strDptAuth != null and strDptAuth != ''">
+        	<!-- 관리자 -->
+	        <if test="strDptAuth == 'ALL' ">
+            	AND DPT_CD IN ( SELECT SUBSTR(DPT_CD,'1','3')||'000' FROM TABLE(F_AUTH_DEPT(#{strCnb}, #{strDptAuth}, 'Y')))
+	        </if>
+	        <if test="strDptAuth != 'ALL' ">
+        		<!-- 실소속 위원실1~6에 해당하면 '위원실'만 조회 / 일반사용자는 본인 소속국 조회하는 조건 -->
+	        	AND NVL((SELECT 'X' FROM TBDCMACM001M WHERE CNB = #{strCnb} AND RAL_BLT_DIV_CD  IN (SELECT CD FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD= '1001028')),DPT_CD)
+	        		= SUBSTR(#{sessionDptCd},'1','3')||'000'
+	            OR DPT_CD IN (SELECT SUBSTR(RAL_BLT_DIV_CD,'1','3')||'000' FROM TBDCMACM001M 
+	                 WHERE CNB = #{strCnb} AND RAL_BLT_DIV_CD  IN (SELECT CD FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD= '1001028'))
+	                 
+				<if test="rcdbPbsvtYn != null and  rcdbPbsvtYn != '' and rcdbPbsvtYn == 'Y'.toString()">
+		            <!-- 출납공무원이면서 1001026공통코드부서 소속은 기본 조건 외에도 상위1depth 국을 추가로 조회하는 조건 -->
+					OR ( DPT_CD IN (SELECT HIRK_DPT_CD FROM TBDCMACM002M WHERE DPT_CD = #{sessionDptCd}
+										AND DPT_CD IN (SELECT CD FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1001026'))
+						)
+				</if>
+	        </if>
+        </if>
+               AND DPT_CD  LIKE '%000'
+               AND DPT_CD NOT IN ('500000')
+          ORDER BY DPT_SNO
+    </select>
+    
+	<select id="selectDeptSectList" parameterType="paramMap" resultType="java.util.HashMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED003EMapper.selectDeptSectList 과 콤보박스 쿼리*/
+        <![CDATA[
+            SELECT DPT_CD AS CD, DPT_NM AS CD_NM, HIRK_DPT_CD
+              FROM TBDCMACM002M
+             WHERE USE_YN = 'Y'
+        ]]>
+        <if test="schSpvBrdvCd != null and schSpvBrdvCd != ''">
+			<!-- 화면에서 선택한 국콤보박스 코드의 소속 과에서만 조회 -->
+             AND SUBSTR(DPT_CD, 0, 3) = SUBSTR(#{schSpvBrdvCd}, 0, 3)
+        </if>
+        <if test="strDptAuth != null and strDptAuth != ''">
+	        <!-- 관리자 -->
+	        <if test="strDptAuth == 'ALL' ">
+				AND DPT_CD IN ( SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#{strCnb}, #{strDptAuth}, 'Y')))
+			</if>
+			<if test="strDptAuth != 'ALL' ">
+		        <choose>
+			        <!-- 출납공무원인 경우에만 본인의 국 소속 과 전체 조회 -->
+		        	<when test="rcdbPbsvtYn != null and  rcdbPbsvtYn != '' and rcdbPbsvtYn == 'Y'.toString() and strDptAuth != 'ALL' ">
+			            <if test="sessionDptCd != null and sessionDptCd != ''">
+							<!-- 출납공무원이지만 1001027 공통코드 부서는 본인소속만 조회되는 조건 ('X' =  NULL (전체 + selectDeptSectListBasic))-->
+							AND DPT_CD IN (CASE WHEN #{sessionDptCd} IN (SELECT CD FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1001027')
+								THEN #{sessionDptCd} ELSE 'X' 
+								END )
+			            </if>
+		        	</when>
+		        	<otherwise>
+						<!--일반사용자=국소속/과소속 구분 -->
+						AND DPT_CD = #{sessionDptCd}
+		        	</otherwise>
+		        </choose>
+			</if>
+        </if>
+          <!-- 국 부서코드만 조회 -->
+          AND DPT_CD NOT LIKE '%000'
+          
+        <!-- 위원실1~6에 속한 사람은 실소속 과를 조회(위원실1~6 중 자신이 속한 부서) . 부가설명: 화면에서 선택된 510000위원실과 F_AUTH_DEPT소속부서가 맞지 않기 때문에 실소속 쿼리결과와 중복되지 않음-->
+        <if test="strCnb != null and strCnb != ''">
+          UNION ALL
+          SELECT RAL_BLT_DIV_CD AS CD,F_CODE_NM('1001028',RAL_BLT_DIV_CD) AS CD_NM, '' AS HIRK_DPT_CD  
+          	FROM TBDCMACM001M 
+          	WHERE CNB = #{strCnb} AND RAL_BLT_DIV_CD IN (SELECT CD FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1001028')
+        </if>
+        <!-- 관리자가 감사위원 국콤보 선택시 공통코드 위원실1~6을 과콤보에 넣어주는 쿼리 -->
+		<if test="strDptAuth != null and strDptAuth != ''">
+			<if test="strDptAuth == 'ALL' ">
+		          UNION ALL
+		          SELECT CD,CD_NM, '' AS HIRK_DPT_CD  
+		          	FROM TBDCMACM013C 
+		          	WHERE #{schSpvBrdvCd} = '510000'
+		          	AND CMM_CD_DVSN_CD  = '1001028'
+		          	AND CD != '000000000'
+			</if>
+		</if>
+        ORDER BY CD
+    </select>
+    
+	<select id="selectRcdbPbsvtYn" parameterType="paramMap" resultType="String">
+		/*kr.go.bai.eip.bad.ded.dao.BADDED003EMapper.selectRcdbPbsvtYn 출납공무원 권한여부 체크*/
+        SELECT NVL(RCDB_PBSVT_YN, 'N')
+		  FROM TBDCMACM001M
+	     WHERE 1=1
+	       AND USR_ID = #{usrId}
+		   AND CNB    = #{strCnb}
+    </select>
+    
+	<select id="selectDeptSectListBasic" parameterType="paramMap" resultType="java.util.HashMap">
+	    /*kr.go.bai.eip.bad.ded.dao.BADDED003EMapper.selectDeptSectListBasic 국 하위 전체과 콤보박스 쿼리*/
+        <![CDATA[
+            SELECT DPT_CD AS CD, DPT_NM AS CD_NM, HIRK_DPT_CD
+              FROM TBDCMACM002M
+				WHERE USE_YN ='Y'
+        ]]>
+					AND SUBSTR(DPT_CD, 0, 3) = SUBSTR(#{schSpvBrdvCd}, 0, 3)
+					AND DPT_CD NOT LIKE '%000' 
+	                <!-- 선택한 국이 고위직이 아니면서 하위 국이 있는 국이면 하위국을 과 콤보박스에 추가 -->
+					OR (USE_YN ='Y' AND SUBSTR(#{schSpvBrdvCd}, 0, 1) != '5' AND DPT_CD IN (SELECT DPT_CD FROM TBDCMACM002M WHERE HIRK_DPT_CD = #{sessionDptCd} AND HIRK_DPT_CD = #{schSpvBrdvCd} AND DPT_CD LIKE '%000'))
+					
+					ORDER BY DPT_SNO 
+    </select>
+</mapper>

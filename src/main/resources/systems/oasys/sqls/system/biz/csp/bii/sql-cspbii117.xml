@@ -1,0 +1,184 @@
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd" >
+<sqlMap namespace="csp/bii/117">
+	
+	<!-- 감사정보 제출목록 조회 -->
+	<select id="CSPBII117QMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT /* csp.bii.service.impl.CSPBII111QServiceImpl.CSPBII111QMainSelect */
+			       A.YE || '-' || A.SRNO                                           AS INF_NO
+			     , CASE WHEN SUBSTR(F_CODE_NM('1000097', A.INF_DVSN_CD), 1, 2) is not null THEN '(' || SUBSTR(F_CODE_NM('1000097', A.INF_DVSN_CD), 1, 2) || ')' || A.TIT_TXT
+			            ELSE A.TIT_TXT
+			             END AS TIT_TXT
+			     , A.PRSR_CNB
+			     , (SELECT B.USR_NAM
+			          FROM TBDCMACM001M B
+			         WHERE B.CNB = A.PRSR_CNB)                                     AS PRSR_NAM
+			     , A.SMT_DT
+			     , F_CODE_NM('1000039', A.HNDL_ORD_CD) 
+			    || '(' || (SELECT B.DPT_NM
+			                 FROM TBDCMACM002M B
+			                WHERE B.DPT_CD = A.HNDL_DPT_CD) || ')'                 AS HNDL_ORD_NM
+			     , NVL(A.FDLTY_SC, 0) + NVL(RIBLY_SC, 0)+ NVL(UTL_SC, 0) AS SMT_SC 
+			     , A.AUD_INF_PRSS_STA_CD
+			     , F_CODE_NM('1000085', A.AUD_INF_PRSS_STA_CD)                     AS AUD_INF_PRSS_STA_NM
+			     , A.YE
+			     , A.SRNO
+			  FROM TBCSPBII170M A
+	         ]]>
+			 WHERE A.PRSR_CNB = #strPrsrCnb#
+			 
+		<isEqual property="strPrssStaTp" compareValue="1">
+			AND A.AUD_INF_PRSS_STA_CD NOT IN ('15','20','99')
+		</isEqual>
+		
+		<isEqual property="strPrssStaTp" compareValue="2">
+			AND A.AUD_INF_PRSS_STA_CD IN ('15','20','99')
+		</isEqual>
+		
+		<!-- 시작 제출일 -->
+		<isNotEmpty property="strStrSmtDt">
+			AND CASE WHEN A.AUD_INF_PRSS_STA_CD IN ('01', '02', '03', '04') THEN 1	<!-- 감사진행상태코드가 제출이전 상태라면 제출일 조회조건 무시 -->
+			         WHEN A.SMT_DT >= #strStrSmtDt#                         THEN 1
+			         ELSE 0
+			    END = 1
+		</isNotEmpty>
+		
+		<!-- 종료 제출일 -->
+		<isNotEmpty property="strEndSmtDt">
+			AND CASE WHEN A.AUD_INF_PRSS_STA_CD IN ('01', '02', '03', '04') THEN 1	<!-- 감사진행상태코드가 제출이전 상태라면 제출일 조회조건 무시 -->
+			         WHEN A.SMT_DT &lt;= #strEndSmtDt#                      THEN 1
+			         ELSE 0
+			    END = 1
+		</isNotEmpty>
+		
+		<!-- 제출여부 [개인별마일리지현황>감사정보 제출 팝업화면에서 사용]-->
+		<isEqual property="strSmtYn" compareValue="Y">
+			AND A.AUD_INF_PRSS_STA_CD >= '05'
+		</isEqual>
+			
+		ORDER BY A.YE DESC, A.SRNO DESC
+	</select>	
+	
+	<!-- 마일리지 연도반기코드 조회(화면에서 바로 호출)-->
+	<select id="CSPBII117QMlgYeQrCdSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT /* csp.bii.service.impl.CSPBII111QServiceImpl.CSPBII111QMlgYeQrSelect */
+			       DISTINCT 
+			       YE || '|' || A.QR_DVSN_CD                         AS CD  
+			     , YE || '년도 ' || F_CODE_NM('1000443', A.QR_DVSN_CD) AS CD_NM    
+			  FROM TBCSPBII170L A
+			  UNION
+			SELECT TO_CHAR(SYSDATE,'YYYY')||'|'||CASE WHEN TO_CHAR(SYSDATE,'MM') BETWEEN '01' AND '03' THEN '1'
+                 WHEN TO_CHAR(SYSDATE,'MM') BETWEEN '04' AND '06'  THEN '2'
+                 WHEN TO_CHAR(SYSDATE,'MM') BETWEEN '07' AND '09'  THEN '3'
+                 ELSE '4' END AS CD
+                 , TO_CHAR(SYSDATE,'YYYY')||'년도 '||CASE WHEN TO_CHAR(SYSDATE,'MM') BETWEEN '01' AND '03' THEN '1사분기'
+                WHEN TO_CHAR(SYSDATE,'MM') BETWEEN '04' AND '06' THEN '2사분기'
+                WHEN TO_CHAR(SYSDATE,'MM') BETWEEN '07' AND '09' THEN '3사분기'
+                 ELSE '4사분기' END AS CD_NM
+                 FROM DUAL
+		]]>
+		ORDER BY CD
+	</select>
+	
+	<!-- 개인 마일리지 정보 조회 -->
+	<select id="CSPBII117QMlgInfSelect" parameterClass="paramMap" resultClass="resultMap">
+    SELECT SUM(SMT_SUM_TSC_CNT)  AS SMT_SUM_TSC_CNT
+         , SUM(UTL_TOT_SC)   AS UTL_TOT_SC
+         , SUM(RIBLY_TOT_SC) AS RIBLY_TOT_SC
+         , SUM(FDLTY_TOT_SC) AS FDLTY_TOT_SC
+         , MAX(SMT_DEL_CPT)  AS SMT_DEL_CPT
+         , MAX(SMT_NOC)      AS SMT_NOC
+         , MAX(SMT_NOC_CPT)  AS SMT_NOC_CPT
+         , MAX(SMT_TOT_NOC)  AS SMT_TOT_NOC
+       FROM (
+			<![CDATA[
+			SELECT /* csp.bii.service.impl.CSPBII111QServiceImpl.CSPBII111QMlgInfSelect */
+ 				   SUM(AA.UTL_SC) + SUM(AA.RIBLY_SC) + SUM(AA.FDLTY_SC) AS SMT_SUM_TSC_CNT /* 제출 합계 총점수 */
+				 , SUM(AA.UTL_SC) AS UTL_TOT_SC                                                      /* 부서정보총점수 */
+				 , SUM(AA.RIBLY_SC) AS RIBLY_TOT_SC                                                   /* 품질가점총점수 */
+				 , SUM(AA.FDLTY_SC) AS FDLTY_TOT_SC                                                  /* 마일리지추가총건수 */
+				 , MAX(AA.SMT_DEL_CPT) AS SMT_DEL_CPT /* 폐기건수 */
+				 , MAX(AA.SMT_NOC) AS SMT_NOC /* 제출건수(평가중) */
+				 , MAX(AA.SMT_NOC_CPT) AS SMT_NOC_CPT /* 제출건수(평가완료) */
+				 , MAX(AA.SMT_DEL_CPT) + MAX(AA.SMT_NOC) + MAX(AA.SMT_NOC_CPT) AS SMT_TOT_CPT
+			  FROM 
+			    (
+				SELECT UTL_SC
+					 , RIBLY_SC
+					 , FDLTY_SC
+					 , ROW_NUMBER() OVER (PARTITION BY A.PRSR_CNB ORDER BY (UTL_SC + RIBLY_SC + FDLTY_SC) DESC) AS SC_RANK					 
+				     , (SELECT count(*) FROM TBCSPBII170M M WHERE M.PRSR_CNB = A.PRSR_CNB 
+				           AND M.AUD_INF_PRSS_STA_CD NOT IN ('15','20','99') 
+	                       AND M.SMT_DT BETWEEN #strStrSmtDt# AND #strEndSmtDt#
+	                       AND M.AUD_INF_PRSS_STA_CD >= '05') AS SMT_NOC /* 제출건수(평가중) */
+				     , (SELECT count(*) FROM TBCSPBII170M M WHERE M.PRSR_CNB = A.PRSR_CNB AND M.AUD_INF_PRSS_STA_CD IN ('15','20','99') 
+	                       AND M.SMT_DT BETWEEN #strStrSmtDt# AND #strEndSmtDt#
+	                       AND M.AUD_INF_PRSS_STA_CD >= '05'
+	                       AND M.HNDL_ORD_CD != '7') AS SMT_NOC_CPT /* 제출건수(평가완료) */
+					 , (SELECT count(*) FROM TBCSPBII170M M WHERE M.PRSR_CNB = A.PRSR_CNB AND M.AUD_INF_PRSS_STA_CD IN ('15','20','99') 
+					       AND M.SMT_DT BETWEEN #strStrSmtDt# AND #strEndSmtDt#
+	                       AND M.AUD_INF_PRSS_STA_CD >= '05'
+					       AND M.HNDL_ORD_CD = '7' ) AS SMT_DEL_CPT /* 폐기건수 */
+					 , A.PRSR_CNB
+				  FROM TBCSPBII170M A
+				 WHERE A.SMT_DT BETWEEN #strStrSmtDt# AND #strEndSmtDt#
+				   AND A.PRSR_CNB = #strPrsrCnb#
+				   AND A.CLC_DVSN_CD IN ('1','2')
+			) AA
+			WHERE SC_RANK < 3
+			]]>	
+			
+			UNION ALL
+			
+			<![CDATA[
+			SELECT /* csp.bii.service.impl.CSPBII111QServiceImpl.CSPBII111QMlgInfSelect */
+ 				   SUM(AA.UTL_SC) + SUM(AA.RIBLY_SC) + SUM(AA.FDLTY_SC) AS SMT_SUM_TSC_CNT /* 제출 합계 총점수 */
+				 , SUM(AA.UTL_SC) AS UTL_TOT_SC                                                      /* 부서정보총점수 */
+				 , SUM(AA.RIBLY_SC) AS RIBLY_TOT_SC                                                   /* 품질가점총점수 */
+				 , SUM(AA.FDLTY_SC) AS FDLTY_TOT_SC                                                  /* 마일리지추가총건수 */
+				 , MAX(AA.SMT_DEL_CPT) AS SMT_DEL_CPT /* 폐기건수 */
+				 , MAX(AA.SMT_NOC) AS SMT_NOC /* 제출건수(평가중) */
+				 , MAX(AA.SMT_NOC_CPT) AS SMT_NOC_CPT /* 제출건수(평가완료) */
+				 , MAX(AA.SMT_DEL_CPT) + MAX(AA.SMT_NOC) + MAX(AA.SMT_NOC_CPT) AS SMT_TOT_CPT
+			  FROM 
+			    (
+				SELECT UTL_SC
+					 , RIBLY_SC
+					 , FDLTY_SC
+				     , 0 AS SMT_NOC /* 제출건수(평가중) */
+				     , 0 AS SMT_NOC_CPT /* 제출건수(평가완료) */
+					 , 0 AS SMT_DEL_CPT /* 폐기건수 */
+					 , A.PRSR_CNB
+				  FROM TBCSPBII170M A
+				 WHERE A.SMT_DT BETWEEN #strStrSmtDt# AND #strEndSmtDt#
+				   AND A.PRSR_CNB = #strPrsrCnb#
+				   AND A.CLC_DVSN_CD NOT IN ('1','2')
+			) AA
+
+			]]>	
+			
+		)
+			
+	</select>
+	
+	<!-- 개인 제출정보 제목 목록 조회(화면에서 바로 호출 - 결재상신시 메시지박스로 표시) -->
+	<select id="CSPBII117QSmtAudInfSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT /* csp.bii.service.impl.CSPBII111QServiceImpl.CSPBII111QSmtAudInfSelect */			       
+			       A.TIT_TXT || ' (상신일 : ' || TO_CHAR(TO_DATE(A.SBM_DT, 'YYYYMMDD'), 'YYYY.MM.DD') || ')' AS TIT_TXT /* 제목내용 */
+			  FROM TBCSPBII170M A		     
+			 WHERE A.SMT_DT   BETWEEN TO_CHAR(SYSDATE, 'YYYYMM') || '01' AND TO_CHAR(SYSDATE, 'YYYYMM') || '31'
+			   AND A.AUD_INF_PRSS_STA_CD NOT IN ('01', '04') 
+			   AND A.PRSR_CNB = #strPrsrCnb#
+		]]>			 
+	</select>
+	
+	<select id="CSPBII117QSelectUserCheck" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT T1.GEN_ADMN_DVSN_CD, T1.USR_DVSN_CD
+			  FROM TBDCMACM001M T1
+			 WHERE T1.CNB = #S_CNB#
+		]]>
+	</select>
+</sqlMap>

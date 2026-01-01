@@ -1,0 +1,1360 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/qbo/111">
+	
+	<select id="CSPQBO111QInitSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+			SELECT 	YYYY AS CD, 
+					YYYY AS CDNM 
+			FROM	(
+						SELECT TO_CHAR(SYSDATE,'YYYY') - LEVEL + 1 YYYY 
+						FROM DUAL 
+						CONNECT BY TO_CHAR(SYSDATE,'YYYY') - LEVEL + 1 >= 1980
+					)
+        ]]>
+	</select>     
+ 
+ 	<select id="CSPQBO111QMainSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<include refid = "include.pageSelct"/>
+		<![CDATA[
+			SELECT 	  A.BOO_NO 					/*도서번호*/
+					, A.BOO_NO||'-'||A.BOO_VLE_NO AS BOO_NOS
+					, SUBSTR(TRIM(0 FROM A.BOO_NO||'1'),0,LENGTH(TRIM(0 FROM A.BOO_NO||'1'))-1) AS BOO_NO_R
+					, A.BOO_VLE_NO				/*권번호*/
+					, A.CAT_SYM_NM  			/*분류기호명*/
+					, SUBSTR(A.CAT_SYM_NM,1,1)||'-'||SUBSTR(A.CAT_SYM_NM,2,3)||'-'||SUBSTR(A.CAT_SYM_NM,5,3) AS CAT_SYM_NM2
+					, CASE WHEN SUBSTR(A.CAT_SYM_NM,5,3) = '000' THEN SUBSTR(A.CAT_SYM_NM,2,3)
+							ELSE SUBSTR(A.CAT_SYM_NM,2,3)||'.'||SUBSTR(TRIM(0 FROM '1'||SUBSTR(A.CAT_SYM_NM,5,3)),2) END AS CAT_SYM_NM_R
+					, A.PBC_YR 					/*발행년도*/
+					, CASE WHEN A.BOO_KND_CD = '04' AND TRIM(A.MTRL_MNG_YR) IS NOT NULL THEN '['||A.MTRL_MNG_YR||'-'||A.MTRL_MNG_DVSN_NO||'-'||A.MTRL_MNG_NO||']'||A.BOO_TIT_NM
+						WHEN A.BOO_KND_CD ='03' AND TRIM(A.DEG_NM) IS NOT NULL THEN '['||A.DEG_NM||']'||A.BOO_TIT_NM
+						ELSE A.BOO_TIT_NM END BOO_TIT_NM 			/*도서제목명*/
+					, A.PBC_PLAC_NM  		/*발행처명*/
+					, A.ATR_NM  					/*저자명*/
+					, A.BOO_LEND_DVSN_CD 	/*도서대출구분코드*/
+					, A.BOO_KND_CD		/*도서종류코드*/
+					, CASE WHEN (A.COPT_CAT_CD = '1' AND A.STC_BKS = 'Y')
+                           THEN '3'
+                           WHEN (A.COPT_CAT_CD = '1' AND A.STC_BKS IS NULL)
+                           THEN '1'
+                           ELSE '2'
+                           END COPT_CAT_CD
+					,(CASE	WHEN  A.BOO_LEND_DVSN_CD = '0' AND ( CNT = 0 OR CNT IS NULL ) 
+								AND	 (SELECT  C.LAG_INV_CNB FROM TBCSPQBO002H C 
+									   WHERE	A.COPT_CAT_CD = C.COPT_CAT_CD
+										AND	   	A.BOO_KND_CD = C.BOO_KND_CD
+										AND  	A.BOO_NO = C.BOO_NO  
+										AND  	A.CAT_SYM_NM = C.CAT_SYM_NM
+										AND		A.BOO_VLE_NO = C.BOO_VLE_NO
+										AND		C.BOO_REN_YN_CD = '0') != #strCNB#
+								AND  (SELECT 	COUNT(*)
+										FROM 	TBCSPQBO003H C
+										WHERE  	A.COPT_CAT_CD = C.COPT_CAT_CD
+										AND	   	A.BOO_KND_CD = C.BOO_KND_CD
+										AND  	A.BOO_NO = C.BOO_NO  
+										AND  	A.CAT_SYM_NM = C.CAT_SYM_NM
+										AND		A.BOO_VLE_NO = C.BOO_VLE_NO
+										AND  	C.LEND_BOKG_STA_CD = 'Y' ) < 3 THEN 'Y'
+						ELSE 'N' END ) AS BOO_LEND_YN
+					, A.BAR_CD
+					, A.DOC_ID
+					, A.COPY_CNT
+					, A.ATR_SYM_NM
+					, A.STC_BKS
+			FROM	TBCSPQBO001M A , 
+					(SELECT		A.COPT_CAT_CD, 
+								A.BOO_KND_CD, 
+								A.BOO_NO, 
+								A.CAT_SYM_NM,
+								A.BOO_VLE_NO,  
+								COUNT(*) AS CNT
+					FROM 	TBCSPQBO003H A 
+					WHERE	A.LEND_BOKG_STA_CD = 'Y'
+					AND		A.LEND_BOKG_PEN_CNB = #strCNB#
+					GROUP BY  	A.COPT_CAT_CD, A.BOO_KND_CD, A.BOO_NO, A.CAT_SYM_NM, A.BOO_VLE_NO
+					) B
+			WHERE	1=1
+			AND		A.COPT_CAT_CD = B.COPT_CAT_CD(+)
+			AND		A.BOO_KND_CD = B.BOO_KND_CD(+)
+			AND		A.BOO_NO = B.BOO_NO(+)
+			AND		A.CAT_SYM_NM = B.CAT_SYM_NM(+)
+			AND		A.BOO_VLE_NO = B.BOO_VLE_NO(+)    
+			
+		]]> 
+		<dynamic>
+			<isNotEmpty property="strCOPT_CAT_CD">
+				AND		A.COPT_CAT_CD = #strCOPT_CAT_CD#
+        	</isNotEmpty>
+			<isNotEmpty property="strSEARCH_CD">
+				AND		A.BOO_VLE_NO = 1
+        	</isNotEmpty>
+        	<isNotEmpty property="strBOO_NOS">
+				AND	A.BOO_NO &gt;= #strBOO_NOS#
+        	</isNotEmpty>
+        	<isNotEmpty property="strBOO_NOE">
+				AND	A.BOO_NO &lt;= #strBOO_NOE#
+        	</isNotEmpty>
+        	<isNotEmpty property="strBAR_CD">
+        		AND	A.BAR_CD = #strBAR_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strBOO_ACP_DTS">
+        		AND	A.BOO_ACP_DT &gt;= #strBOO_ACP_DTS#
+        	</isNotEmpty>
+        	<isNotEmpty property="strBOO_ACP_DTE">
+        		AND	A.BOO_ACP_DT &lt;= #strBOO_ACP_DTE#
+        	</isNotEmpty>
+			<isNotEmpty property="strBOO_KND_CD"> 
+			  	AND A.BOO_KND_CD IN 
+			  		(SELECT 	SUBSTR(CODE,INSTR(CODE,',',1,LEVEL)+1,INSTR(CODE,',',1,LEVEL+1)-INSTR(CODE,',',1,LEVEL) -1) merge_col
+                     FROM 	DUAL A
+                     CROSS JOIN(SELECT ','|| #strBOO_KND_CD# ||',' AS CODE FROM DUAL) B
+                     CONNECT BY LEVEL&lt;=LENGTH(CODE)-LENGTH(REPLACE(CODE,','))-1 )				
+			</isNotEmpty>
+			<isNotEmpty property="strCAT_SYM_NMS2"> 
+				AND	A.CAT_SYM_NM &gt;= #strCAT_SYM_NMS1#||#strCAT_SYM_NMS2#||#strCAT_SYM_NMS3#
+			</isNotEmpty>
+			<isNotEmpty property="strCAT_SYM_NME2"> 
+				AND	A.CAT_SYM_NM &lt;= #strCAT_SYM_NME1#||#strCAT_SYM_NME2#||#strCAT_SYM_NME3#
+			</isNotEmpty>
+			
+			<isNotEmpty property="strPBC_YRS">
+        		AND	A.PBC_YR &gt;= #strPBC_YRS#
+        	</isNotEmpty>
+			<isNotEmpty property="strPBC_YRE">
+        		AND	A.PBC_YR &lt;= #strPBC_YRE#
+        	</isNotEmpty>
+        	
+        	<isNotEmpty property="strPBC_PLAC_NM">
+        		AND	UPPER(A.PBC_PLAC_NM) like '%'||UPPER(#strPBC_PLAC_NM#)||'%'
+        	</isNotEmpty>
+        	
+        	<isNotEmpty property="strBOO_TIT_NM1">
+        		<isEmpty property="strBOO_TIT_NM2">
+        			<isEmpty property="strBOO_TIT_NM3">
+        				AND	UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM1#)||'%'
+        			</isEmpty>
+        			<isNotEmpty property="strBOO_TIT_NM3">
+        				<isEqual property="strBOO_TIT_NM_DELI2" compareValue="AND">
+        					AND	(UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM1#)||'%' AND UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM3#)||'%')
+        				</isEqual>
+        				<isEqual property="strBOO_TIT_NM_DELI2" compareValue="OR">
+        					AND	(UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM1#)||'%' OR UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM3#)||'%')
+        				</isEqual>
+        			</isNotEmpty>
+        		</isEmpty>
+        		<isNotEmpty property="strBOO_TIT_NM2">
+        			<isEmpty property="strBOO_TIT_NM3">
+        				<isEqual property="strBOO_TIT_NM_DELI1" compareValue="AND">
+        					AND	(UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM1#)||'%' AND UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM2#)||'%')
+        				</isEqual>
+        				<isEqual property="strBOO_TIT_NM_DELI1" compareValue="OR">
+        					AND	(UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM1#)||'%' OR UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM2#)||'%')
+        				</isEqual>
+        			</isEmpty>
+        			<isNotEmpty property="strBOO_TIT_NM3">
+        				<isEqual property="strBOO_TIT_NM_DELI1" compareValue="AND">
+        					<isEqual property="strBOO_TIT_NM_DELI2" compareValue="AND">
+        						AND	(UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM1#)||'%' 
+        							AND UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM2#)||'%'
+        							AND UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM3#)||'%')
+        					</isEqual>
+        					<isEqual property="strBOO_TIT_NM_DELI2" compareValue="OR">
+        						AND	(UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM1#)||'%' 
+        							AND (UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM2#)||'%'
+        								OR UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM3#)||'%'))
+        					</isEqual>
+        				</isEqual>
+        				<isEqual property="strBOO_TIT_NM_DELI1" compareValue="OR">
+        					<isEqual property="strBOO_TIT_NM_DELI2" compareValue="AND">
+        						AND	( (UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM1#)||'%' OR UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM2#)||'%')
+        								A.AND	UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM3#)||'%')
+        					</isEqual>
+        					<isEqual property="strBOO_TIT_NM_DELI2" compareValue="OR">
+        						AND	(UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM1#)||'%' OR UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM2#)||'%'
+        								OR UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM3#)||'%')
+        					</isEqual>
+        				</isEqual>
+        			</isNotEmpty>
+        		</isNotEmpty>
+        	</isNotEmpty>
+        	
+        	<isNotEmpty property="strKYWD_NM1">
+        		<isEmpty property="strKYWD_NM2">
+        			<isEmpty property="strKYWD_NM3">
+        				AND	UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM1#)||'%'
+        			</isEmpty>
+        			<isNotEmpty property="strKYWD_NM3">
+        				<isEqual property="strKYWD_NM_DELI2" compareValue="AND">
+        					AND	(UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM1#)||'%' AND UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM3#)||'%')
+        				</isEqual>
+        				<isEqual property="strKYWD_NM_DELI2" compareValue="OR">
+        					AND	(UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM1#)||'%' OR UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM3#)||'%')
+        				</isEqual>
+        			</isNotEmpty>
+        		</isEmpty>
+        		<isNotEmpty property="strKYWD_NM2">
+        			<isEmpty property="strKYWD_NM3">
+        				<isEqual property="strKYWD_NM_DELI1" compareValue="AND">
+        					AND	(UPPER(A.KYWD_NM ) like '%'||UPPER(#strKYWD_NM1#)||'%' AND UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM2#)||'%')
+        				</isEqual>
+        				<isEqual property="strKYWD_NM_DELI1" compareValue="OR">
+        					AND	(UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM1#)||'%' OR UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM2#)||'%')
+        				</isEqual>
+        			</isEmpty>
+        			<isNotEmpty property="strKYWD_NM3">
+        				<isEqual property="strKYWD_NM_DELI1" compareValue="AND">
+        					<isEqual property="strKYWD_NM_DELI2" compareValue="AND">
+        						AND	(UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM1#)||'%' 
+        							AND UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM2#)||'%'
+        							AND UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM3#)||'%')
+        					</isEqual>
+        					<isEqual property="strKYWD_NM_DELI2" compareValue="OR">
+        						AND	(UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM1#)||'%' 
+        							AND (UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM2#)||'%'
+        								OR UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM3#)||'%'))
+        					</isEqual>
+        				</isEqual>
+        				<isEqual property="strKYWD_NM_DELI1" compareValue="OR">
+        					<isEqual property="strKYWD_NM_DELI2" compareValue="AND">
+        						AND	( (UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM1#)||'%' OR UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM2#)||'%')
+        								AND	UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM3#)||'%')
+        					</isEqual>
+        					<isEqual property="strKYWD_NM_DELI2" compareValue="OR">
+        						AND	(UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM1#)||'%' OR UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM2#)||'%'
+        								OR UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM3#)||'%')
+        					</isEqual>
+        				</isEqual>
+        			</isNotEmpty>
+        		</isNotEmpty>
+        	</isNotEmpty>
+        	<isNotEmpty property="strATR_NM">
+        		AND	UPPER(A.ATR_NM) LIKE '%'||UPPER(#strATR_NM#)||'%'
+        	</isNotEmpty>
+        	<isNotEmpty property="strMTRL_MNG_YRS">
+        		AND A.MTRL_MNG_YR &gt;=#strMTRL_MNG_YRS#
+        	</isNotEmpty>
+        	<isNotEmpty property="strMTRL_MNG_DVSN_NOS">
+        		AND A.MTRL_MNG_DVSN_NO &gt;=#strMTRL_MNG_DVSN_NOS#
+        	</isNotEmpty>
+        	<isNotEmpty property="strMTRL_MNG_NOS">
+        		AND A.MTRL_MNG_NO &gt;=#strMTRL_MNG_NOS#
+        	</isNotEmpty>
+        	<isNotEmpty property="strMTRL_MNG_YRE">
+        		AND A.MTRL_MNG_YR &lt;=#strMTRL_MNG_YRE#
+        	</isNotEmpty>
+        	<isNotEmpty property="strMTRL_MNG_DVSN_NOE">
+        		AND A.MTRL_MNG_DVSN_NO &lt;=#strMTRL_MNG_DVSN_NOE#
+        	</isNotEmpty>
+        	<isNotEmpty property="strMTRL_MNG_NOE">
+        		AND A.MTRL_MNG_NO &lt;=#strMTRL_MNG_NOE#
+        	</isNotEmpty>
+			<isNotEmpty property="strAVDOC_SHP_CD">
+        		AND	A.AVDOC_SHP_CD = #strAVDOC_SHP_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strINTNA_STND_BOO_NO">
+        		AND	A.INTNA_STND_BOO_NO LIKE '%'||#strINTNA_STND_BOO_NO#||'%'
+        	</isNotEmpty>
+        	<isNotEmpty property="strBOO_SYM_NM">
+        		AND	UPPER(A.BOO_SYM_NM) LIKE '%'||UPPER(#strBOO_SYM_NM#)||'%'
+        	</isNotEmpty>
+        	<isNotEmpty property="strSTC_BKS">
+        		AND	A.STC_BKS = #strSTC_BKS#
+        	</isNotEmpty>
+        	</dynamic>
+        <include refid = "include.pageOrder"/> 
+	</select>
+	
+	<insert id="CSPQBO112EMainInsert" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBCSPQBO001M
+        	(
+        			COPT_CAT_CD,			/*소관분류코드*/
+        			BOO_KND_CD,				/*도서종류코드*/
+        			BOO_NO,					/*도서번호*/
+        			CAT_SYM_NM,				/*분류기호명*/
+        			BOO_VLE_NO,				/*도서권번호*/
+        			BOO_ACP_DT,				/*도서접수일*/
+        			BAR_CD,					/*바코드*/
+        			DRVT_SYM_NM,			/*별치기호명*/
+        			BOO_SYM_NM,				/*도서기호명*/
+        			BOO_TIT_NM,				/*도서제목명*/
+        			PBC_PLAC_NM,			/*발행처명*/
+        			PBC_RGN_NM,				/*발행지역명*/
+        			PBC_DT,					/*발행일*/
+        			PBC_YR,					/*발행년도*/
+        			ATR_NM,					/*저자명*/
+        			PON,					/*면수*/
+        			SZ_VAL,					/*크기값*/
+        			KYWD_NM,				/*키워드명*/
+        			BOO_RMK,				/*도서비고*/
+        			ORI_NM,					/*원서명*/
+        			STN_PEN_NM,				/*역자명*/
+        			BOO_PBC_BR_CD,			/*도서발행국코드*/
+        			LIB_SBJ,				/*총서사항*/
+        			CLC_WAY_CD,				/*수집방법코드*/
+        			BOO_PUR_PR,				/*도서구매가격*/
+        			INTNA_STND_BOO_NO,		/*국제표준도서번호*/
+        			DEG_NM,					/*학위명*/
+        			MTRL_MNG_YR,			/*자료관리년도*/
+        			MTRL_MNG_DVSN_NO,		/*자료관리구분번호*/
+        			MTRL_MNG_NO,			/*자료관리번호*/
+        			ACP_YR,					/*접수년도*/
+        			PBLC_KND_CD,			/*간행물종류코드*/
+        			INTNA_STND_PBLC_SRNO,	/*국제표준간행물일련번호*/
+        			SSCR_PRD_STR_DT,		/*구독기간시작일*/
+        			SSCR_PRD_END_DT,		/*구독기간종료일*/
+        			YRLY_SSCR_FEE,			/*연간구독료*/
+        			SSCR_COT,				/*구독수량*/
+        			AVDOC_SHP_CD,			/*시청각자료형태코드*/
+        			BOO_MAIN_TXT,			/*도서주요내용*/
+        			BOO_RPRT_NO,			/*도서보고서번호*/
+        			ASTR_TXT,				/*초록내용*/
+        			DOC_ID,
+        			ATR_SYM_NM,				/*저자기호명*/
+        			COPY_CNT,
+        			STC_BKS,				/*보존서고 여부*/
+        			FRT_USR_ID,				/*최초사용자ID*/
+        			FNL_USR_ID,				/*최초사용자ID*/
+        			FNL_DEAL_DPT_CD,		/*최종거래부서코드*/
+        			FNL_MNU_ID,				/*최종메뉴ID*/
+        			FRT_REGI_DH,			/*최초등록일시*/
+        			FNL_MDF_DH				/*최종수정일시*/
+        	) VALUES (
+	        		#COPT_CAT_CD#,
+	        		#BOO_KND_CD#,
+	        		#BOO_NO#,
+	        		#CAT_SYM_NM#,
+	        		#BOO_VLE_NO#,
+	        		#BOO_ACP_DT#,
+	        		DECODE(#BAR_CD#,NULL,#COPT_CAT_CD#||#BOO_KND_CD#||#BOO_NO#||LPAD(#BOO_VLE_NO#,3,0)||SUBSTR(LPAD(#CAT_SYM_NM#,7,'0'),2,7),#BAR_CD#),
+	        		#DRVT_SYM_NM#,
+	        		#BOO_SYM_NM#,
+	        		#BOO_TIT_NM#,
+	        		#PBC_PLAC_NM#,
+	        		#PBC_RGN_NM#,
+	        		#PBC_DT#,
+	        		#PBC_YR#,
+	        		#ATR_NM#,
+	        		#PON#,
+	        		#SZ_VAL#,
+	        		#KYWD_NM#,
+	        		#BOO_RMK#,
+	        		#ORI_NM#,
+	        		#STN_PEN_NM#,
+	        		#BOO_PBC_BR_CD#,
+	        		#LIB_SBJ#,
+	        		#CLC_WAY_CD#,
+	        		#BOO_PUR_PR#,
+	        		#INTNA_STND_BOO_NO#,
+	        		#DEG_NM#,
+	        		#MTRL_MNG_YR#,
+	        		#MTRL_MNG_DVSN_NO#,
+	        		#MTRL_MNG_NO#,
+	        		#ACP_YR#,
+	        		#PBLC_KND_CD#,
+	        		#INTNA_STND_PBLC_SRNO#,
+	        		#SSCR_PRD_STR_DT#,
+	        		#SSCR_PRD_END_DT#,
+	        		#YRLY_SSCR_FEE#,
+	        		#SSCR_COT#,
+	        		#AVDOC_SHP_CD#,
+	        		#BOO_MAIN_TXT#,
+	        		#BOO_RPRT_NO#,
+	        		#ASTR_TXT#,
+	        		#DOC_ID#,
+	        		#ATR_SYM_NM#,
+	        		#COPY_CNT#,
+	        		#STC_BKS#,
+	        		F_USR_INFO(#S_CNB#,'1'),
+	        		#FNL_USR_ID#,
+	        		#FNL_DEAL_DPT_CD#,
+	        		#FNL_MNU_ID#,
+	        		SYSDATE,
+	        		SYSDATE
+        	)
+        ]]>
+	</insert>
+	
+	<insert id="CSPQBO112EMainCopyInsert" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBCSPQBO001M
+        	(
+        			COPT_CAT_CD,			/*소관분류코드*/
+        			BOO_KND_CD,				/*도서종류코드*/
+        			BOO_NO,					/*도서번호*/
+        			CAT_SYM_NM,				/*분류기호명*/
+        			BOO_VLE_NO,				/*도서권번호*/
+        			BOO_ACP_DT,				/*도서접수일*/
+        			BAR_CD,					/*바코드*/
+        			DRVT_SYM_NM,			/*별치기호명*/
+        			BOO_SYM_NM,				/*도서기호명*/
+        			BOO_TIT_NM,				/*도서제목명*/
+        			PBC_PLAC_NM,			/*발행처명*/
+        			PBC_RGN_NM,				/*발행지역명*/
+        			PBC_DT,					/*발행일*/
+        			PBC_YR,					/*발행년도*/
+        			ATR_NM,					/*저자명*/
+        			PON,					/*면수*/
+        			SZ_VAL,					/*크기값*/
+        			KYWD_NM,				/*키워드명*/
+        			BOO_RMK,				/*도서비고*/
+        			ORI_NM,					/*원서명*/
+        			STN_PEN_NM,				/*역자명*/
+        			BOO_PBC_BR_CD,			/*도서발행국코드*/
+        			LIB_SBJ,				/*총서사항*/
+        			CLC_WAY_CD,				/*수집방법코드*/
+        			BOO_PUR_PR,				/*도서구매가격*/
+        			INTNA_STND_BOO_NO,		/*국제표준도서번호*/
+        			DEG_NM,					/*학위명*/
+        			MTRL_MNG_YR,			/*자료관리년도*/
+        			MTRL_MNG_DVSN_NO,		/*자료관리구분번호*/
+        			MTRL_MNG_NO,			/*자료관리번호*/
+        			ACP_YR,					/*접수년도*/
+        			PBLC_KND_CD,			/*간행물종류코드*/
+        			INTNA_STND_PBLC_SRNO,	/*국제표준간행물일련번호*/
+        			SSCR_PRD_STR_DT,		/*구독기간시작일*/
+        			SSCR_PRD_END_DT,		/*구독기간종료일*/
+        			YRLY_SSCR_FEE,			/*연간구독료*/
+        			SSCR_COT,				/*구독수량*/
+        			AVDOC_SHP_CD,			/*시청각자료형태코드*/
+        			BOO_MAIN_TXT,			/*도서주요내용*/
+        			BOO_RPRT_NO,			/*도서보고서번호*/
+        			ASTR_TXT,				/*초록내용*/
+        			DOC_ID,
+        			ATR_SYM_NM,				/*저자기호명*/
+        			COPY_CNT,
+        			STC_BKS,				/*보존서고 여부*/
+        			FRT_USR_ID,				/*최초사용자ID*/
+        			FNL_USR_ID,				/*최초사용자ID*/
+        			FNL_DEAL_DPT_CD,		/*최종거래부서코드*/
+        			FNL_MNU_ID,				/*최종메뉴ID*/
+        			FRT_REGI_DH,			/*최초등록일시*/
+        			FNL_MDF_DH				/*최종수정일시*/
+        	) VALUES (
+	        		#COPT_CAT_CD#,
+	        		#BOO_KND_CD#,
+	        		#BOO_NO#,
+	        		#CAT_SYM_NM#,
+	        		#BOO_VLE_NO#,
+	        		#BOO_ACP_DT#,
+	        		#COPT_CAT_CD#||#BOO_KND_CD#||#BOO_NO#||LPAD(#BOO_VLE_NO#,3,0)||SUBSTR(LPAD(#CAT_SYM_NM#,7,'0'),2,7),
+	        		#DRVT_SYM_NM#,
+	        		#BOO_SYM_NM#,
+	        		#BOO_TIT_NM#,
+	        		#PBC_PLAC_NM#,
+	        		#PBC_RGN_NM#,
+	        		#PBC_DT#,
+	        		#PBC_YR#,
+	        		#ATR_NM#,
+	        		#PON#,
+	        		#SZ_VAL#,
+	        		#KYWD_NM#,
+	        		#BOO_RMK#,
+	        		#ORI_NM#,
+	        		#STN_PEN_NM#,
+	        		#BOO_PBC_BR_CD#,
+	        		#LIB_SBJ#,
+	        		#CLC_WAY_CD#,
+	        		#BOO_PUR_PR#,
+	        		#INTNA_STND_BOO_NO#,
+	        		#DEG_NM#,
+	        		#MTRL_MNG_YR#,
+	        		#MTRL_MNG_DVSN_NO#,
+	        		#MTRL_MNG_NO#,
+	        		#ACP_YR#,
+	        		#PBLC_KND_CD#,
+	        		#INTNA_STND_PBLC_SRNO#,
+	        		#SSCR_PRD_STR_DT#,
+	        		#SSCR_PRD_END_DT#,
+	        		#YRLY_SSCR_FEE#,
+	        		#SSCR_COT#,
+	        		#AVDOC_SHP_CD#,
+	        		#BOO_MAIN_TXT#,
+	        		#BOO_RPRT_NO#,
+	        		#ASTR_TXT#,
+	        		#DOC_ID#,
+	        		#ATR_SYM_NM#,
+	        		#COPY_CNT#,
+	        		#STC_BKS#,
+	        		F_USR_INFO(#S_CNB#,'1'),
+	        		#FNL_USR_ID#,
+	        		#FNL_DEAL_DPT_CD#,
+	        		#FNL_MNU_ID#,
+	        		SYSDATE,
+	        		SYSDATE
+        	)
+        ]]>
+	</insert>
+	
+	<select id="CSPQBO112EBooNoSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<dynamic>
+			<isEqual property="BOO_KND_CD" compareValue="02">
+				<![CDATA[
+					SELECT	LPAD(NVL(MAX(TO_NUMBER(BOO_NO))+1,1),8,0) AS BOO_NO
+	        		FROM 	TBCSPQBO001M 
+	        		WHERE 	BOO_KND_CD = #BOO_KND_CD#
+	        		AND 	COPT_CAT_CD = #COPT_CAT_CD#
+	        		AND		PBC_YR = #PBC_YR#
+				]]>
+			</isEqual>
+			<isNotEqual property="BOO_KND_CD" compareValue="02"> 
+				<isEqual property="BOO_KND_CD" compareValue="06">
+					<![CDATA[
+					SELECT	LPAD(NVL(MAX(TO_NUMBER(BOO_NO))+1,1),8,0) AS BOO_NO
+	        		FROM 	TBCSPQBO001M 
+	        		WHERE 	BOO_KND_CD = #BOO_KND_CD#
+	        		AND 	COPT_CAT_CD = #COPT_CAT_CD#
+	        		AND		AVDOC_SHP_CD = #AVDOC_SHP_CD#
+				]]>
+				</isEqual>
+				<isNotEqual property="BOO_KND_CD" compareValue="06"> 
+					<![CDATA[
+					SELECT	LPAD(NVL(MAX(TO_NUMBER(BOO_NO))+1,1),8,0) AS BOO_NO
+	        		FROM 	TBCSPQBO001M 
+	        		WHERE 	BOO_KND_CD = #BOO_KND_CD#
+	        		AND 	COPT_CAT_CD = #COPT_CAT_CD#
+				]]>
+				</isNotEqual>
+			</isNotEqual>
+		</dynamic>
+			    
+	</select>
+	
+	<select id="CSPQBO113QMainSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<![CDATA[
+			SELECT 	A.COPT_CAT_CD,			/*소관분류코드*/
+					F_CODE_NM('1000322',A.COPT_CAT_CD) AS COPT_CAT_NM,				/*소관분류코드*/
+					F_CODE_NM('1000149',A.BOO_KND_CD) AS BOO_KND_NM,				/*도서종류코드*/
+        			A.BOO_NO,					/*도서번호*/
+        			A.BOO_NO||'-'||A.BOO_VLE_NO AS BOO_NOS,					/*도서번호*/
+        			A.BOO_VLE_NO,					/*도서권번호*/
+        			A.CAT_SYM_NM,				/*분류기호명*/
+        			A.BOO_ACP_DT,				/*도서접수일*/
+        			A.BAR_CD,					/*바코드*/
+        			A.DRVT_SYM_NM,			/*별치기호명*/
+        			A.BOO_SYM_NM,				/*도서기호명*/
+        			A.BOO_TIT_NM,				/*도서제목명*/
+        			A.PBC_PLAC_NM,			/*발행처명*/
+        			A.PBC_RGN_NM,				/*발행지역명*/
+        			A.PBC_DT,					/*발행일*/
+        			A.PBC_YR,					/*발행년도*/
+        			A.ATR_NM,					/*저자명*/
+        			A.PON,					/*면수*/
+        			A.SZ_VAL,					/*크기값*/
+        			A.KYWD_NM,				/*키워드명*/
+        			A.BOO_RMK,				/*도서비고*/
+        			A.ORI_NM,					/*원서명*/
+        			A.STN_PEN_NM,				/*역자명*/
+        			F_CODE_NM('1000150',A.BOO_PBC_BR_CD) AS BOO_PBC_BR_CD,			/*도서발행국코드*/
+        			A.LIB_SBJ,				/*총서사항*/
+        			F_CODE_NM('1000323',A.CLC_WAY_CD) AS CLC_WAY_CD,				/*수집방법코드*/
+        			A.BOO_PUR_PR,				/*도서구매가격*/
+        			A.INTNA_STND_BOO_NO,		/*국제표준도서번호*/
+        			A.DEG_NM,					/*학위명*/
+        			A.MTRL_MNG_YR,			/*자료관리년도*/
+        			A.MTRL_MNG_DVSN_NO,		/*자료관리구분번호*/
+        			A.MTRL_MNG_NO,			/*자료관리번호*/
+        			A.ACP_YR,					/*접수년도*/
+        			F_CODE_NM('1000162',A.PBLC_KND_CD) AS PBLC_KND_CD,			/*간행물종류코드*/
+        			A.INTNA_STND_PBLC_SRNO,	/*국제표준간행물일련번호*/
+        			A.SSCR_PRD_STR_DT,		/*구독기간시작일*/
+        			A.SSCR_PRD_END_DT,		/*구독기간종료일*/
+        			A.YRLY_SSCR_FEE,			/*연간구독료*/
+        			A.SSCR_COT,				/*구독수량*/
+        			F_CODE_NM('1000163',A.AVDOC_SHP_CD) AS AVDOC_SHP_CD,			/*시청각자료형태코드*/
+        			A.BOO_MAIN_TXT,			/*도서주요내용*/
+        			A.BOO_RPRT_NO,			/*도서보고서번호*/
+        			A.ASTR_TXT,				/*초록내용*/
+        			(CASE	WHEN  A.BOO_LEND_DVSN_CD = '0' AND Z.LAG_INV_CNB != #strCNB# AND ( CNT = 0 OR CNT IS NULL ) 
+								AND  (SELECT 	COUNT(*)
+										FROM 	TBCSPQBO003H C
+										WHERE  	A.COPT_CAT_CD = C.COPT_CAT_CD
+										AND	   	A.BOO_KND_CD = C.BOO_KND_CD
+										AND  	A.BOO_NO = C.BOO_NO  
+										AND  	A.CAT_SYM_NM = C.CAT_SYM_NM
+										AND  	A.BOO_VLE_NO = C.BOO_VLE_NO
+										AND  	C.LEND_BOKG_STA_CD = 'Y' ) < 3 THEN '예'
+						ELSE '아니오' END ) AS BOO_LEND_YN,
+        			(SELECT COUNT(*) AS CNT
+        			FROM 	TBCSPQBO003H H 
+        			WHERE 	H.COPT_CAT_CD = A.COPT_CAT_CD
+        			AND		H.BOO_KND_CD = A.BOO_KND_CD
+        			AND		H.BOO_NO = A.BOO_NO
+        			AND		H.CAT_SYM_NM = A.CAT_SYM_NM
+        			AND		H.BOO_VLE_NO = A.BOO_VLE_NO
+        			AND		H.LEND_BOKG_STA_CD = 'Y') AS BOO_LEND_CNT,
+        			A.BOO_KND_CD,
+        			A.DOC_ID,
+        			F_USR_INFO(Z.LAG_INV_CNB,'2')  LAG_INV_NAM,
+        			F_DPT_INFO(F_USR_INFO(Z.LAG_INV_CNB,'5'), '1') AS LAG_INV_DPT_NM,
+        			Z.BOO_LEND_DT,
+        			A.COPY_CNT,
+        			A.ATR_SYM_NM,
+        			A.STC_BKS
+			FROM	TBCSPQBO001M A, 
+					(SELECT		A.COPT_CAT_CD, 
+								A.BOO_KND_CD, 
+								A.BOO_NO, 
+								A.CAT_SYM_NM,
+								A.BOO_VLE_NO,  
+								COUNT(*) AS CNT
+					FROM 	TBCSPQBO003H A 
+					WHERE	A.LEND_BOKG_STA_CD = 'Y'
+					AND		A.LEND_BOKG_PEN_CNB = #strCNB#
+					GROUP BY  	A.COPT_CAT_CD, A.BOO_KND_CD, A.BOO_NO, A.CAT_SYM_NM, A.BOO_VLE_NO
+					) B, TBCSPQBO002H Z
+			WHERE	1=1
+			AND		A.BOO_KND_CD = #strBOO_KND_CD#
+			AND		A.BOO_NO = #strBOO_NO#
+			AND		A.CAT_SYM_NM = #strCAT_SYM_NM#
+			AND		A.COPT_CAT_CD = #strCOPT_CAT_CD#
+			AND		A.BOO_VLE_NO = #strBOO_VLE_NO#
+			AND		A.COPT_CAT_CD = B.COPT_CAT_CD(+)
+			AND		A.BOO_KND_CD = B.BOO_KND_CD(+)
+			AND		A.BOO_NO = B.BOO_NO(+)
+			AND		A.CAT_SYM_NM = B.CAT_SYM_NM(+)
+			AND		A.BOO_VLE_NO = B.BOO_VLE_NO(+)  
+			AND 	Z.COPT_CAT_CD(+) = A.COPT_CAT_CD
+			AND		Z.BOO_KND_CD(+) = A.BOO_KND_CD
+			AND		Z.BOO_NO(+) = A.BOO_NO
+			AND		Z.CAT_SYM_NM(+) = A.CAT_SYM_NM
+			AND		Z.BOO_VLE_NO(+) = A.BOO_VLE_NO
+			AND 	Z.BOO_REN_YN_CD(+) ='0'
+		]]>
+	</select>
+	
+	<select id="CSPQBO113QSubSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<![CDATA[
+			SELECT	F_USR_INFO(B.LEND_BOKG_PEN_CNB,'2') AS LEND_BOKG_PEN_CNB, 
+					B.LEND_BOKG_APL_DT,
+					F_DPT_INFO(F_USR_INFO(B.LEND_BOKG_PEN_CNB,'5'), '1') AS LEND_BOKG_DPT_NM
+			FROM	TBCSPQBO001M A, TBCSPQBO003H B
+			WHERE	A.COPT_CAT_CD = B.COPT_CAT_CD
+			AND		A.BOO_KND_CD = B.BOO_KND_CD
+			AND		A.BOO_NO = B.BOO_NO
+			AND		A.CAT_SYM_NM = B.CAT_SYM_NM
+			AND		A.BOO_VLE_NO = B.BOO_VLE_NO
+			AND		A.COPT_CAT_CD = #strCOPT_CAT_CD#
+			AND		A.BOO_KND_CD = #strBOO_KND_CD#
+			AND		A.BOO_NO = #strBOO_NO#
+			AND		A.CAT_SYM_NM = #strCAT_SYM_NM#
+			AND		A.BOO_VLE_NO = #strBOO_VLE_NO#
+			AND		LEND_BOKG_STA_CD = 'Y'
+			ORDER BY BOO_BOKG_SLN ASC
+		]]>
+	</select>
+	
+	<select id="CSPQBO112EMainSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<![CDATA[
+			SELECT 	COPT_CAT_CD,			/*소관분류코드*/
+					BOO_KND_CD,				/*도서종류코드*/
+        			BOO_NO,					/*도서번호*/
+        			A.BOO_NO||'-'||A.BOO_VLE_NO AS BOO_NOS,					/*도서번호*/
+        			A.BOO_VLE_NO,					/*도서권번호*/
+        			SUBSTR(CAT_SYM_NM,1,1) AS CAT_SYM_NM1,				/*분류기호명*/
+        			SUBSTR(CAT_SYM_NM,2,3) AS CAT_SYM_NM2,				/*분류기호명*/
+        			SUBSTR(CAT_SYM_NM,5,3) AS CAT_SYM_NM3,				/*분류기호명*/
+        			BOO_ACP_DT,				/*도서접수일*/
+        			BAR_CD,					/*바코드*/
+        			DRVT_SYM_NM,			/*별치기호명*/
+        			BOO_SYM_NM,				/*도서기호명*/
+        			BOO_TIT_NM,				/*도서제목명*/
+        			PBC_PLAC_NM,			/*발행처명*/
+        			PBC_RGN_NM,				/*발행지역명*/
+        			PBC_DT,					/*발행일*/
+        			PBC_YR,					/*발행년도*/
+        			ATR_NM,					/*저자명*/
+        			PON,					/*면수*/
+        			SZ_VAL,					/*크기값*/
+        			KYWD_NM,				/*키워드명*/
+        			BOO_RMK,				/*도서비고*/
+        			ORI_NM,					/*원서명*/
+        			STN_PEN_NM,				/*역자명*/
+        			BOO_PBC_BR_CD,			/*도서발행국코드*/
+        			LIB_SBJ,				/*총서사항*/
+        			CLC_WAY_CD,				/*수집방법코드*/
+        			BOO_PUR_PR,				/*도서구매가격*/
+        			INTNA_STND_BOO_NO,		/*국제표준도서번호*/
+        			DEG_NM,					/*학위명*/
+        			MTRL_MNG_YR,			/*자료관리년도*/
+        			MTRL_MNG_DVSN_NO,		/*자료관리구분번호*/
+        			MTRL_MNG_NO,			/*자료관리번호*/
+        			ACP_YR,					/*접수년도*/
+        			PBLC_KND_CD,			/*간행물종류코드*/
+        			INTNA_STND_PBLC_SRNO,	/*국제표준간행물일련번호*/
+        			SSCR_PRD_STR_DT,		/*구독기간시작일*/
+        			SSCR_PRD_END_DT,		/*구독기간종료일*/
+        			YRLY_SSCR_FEE,			/*연간구독료*/
+        			SSCR_COT,				/*구독수량*/
+        			AVDOC_SHP_CD,			/*시청각자료형태코드*/
+        			BOO_MAIN_TXT,			/*도서주요내용*/
+        			BOO_RPRT_NO,			/*도서보고서번호*/
+        			ASTR_TXT,				/*초록내용*/
+        			DOC_ID,					/*문서ID*/
+        			COPY_CNT,
+        			COPY_CNT AS OLD_COPY_CNT,
+        			ATR_SYM_NM,
+        			CAT_SYM_NM AS OLD_CAT_SYM_NM,
+        			STC_BKS					/*보존서고 여부*/
+			FROM	TBCSPQBO001M A
+			WHERE	1=1
+			AND		A.BOO_KND_CD = #strBOO_KND_CD#
+			AND		A.BOO_NO = #strBOO_NO#
+			AND		A.CAT_SYM_NM = #strCAT_SYM_NM#
+			AND		A.COPT_CAT_CD = #strCOPT_CAT_CD#
+			AND		A.BOO_VLE_NO = #strBOO_VLE_NO#
+		]]>
+	</select>
+	
+	<insert id="CSPQBO112EMainUpdate" parameterClass="paramMap">
+        <![CDATA[
+        	UPDATE 	TBCSPQBO001M
+        	SET		CAT_SYM_NM = #CAT_SYM_NM#		/*분류기호명*/
+        			,BOO_ACP_DT = #BOO_ACP_DT#		/*도서접수일*/
+        			,DRVT_SYM_NM = #DRVT_SYM_NM#	/*별치기호명*/
+        			,BOO_SYM_NM = #BOO_SYM_NM#		/*도서기호명*/
+        			,BOO_TIT_NM = #BOO_TIT_NM#		/*도서제목명*/
+        			,PBC_PLAC_NM = #PBC_PLAC_NM#	/*발행처명*/
+        			,PBC_RGN_NM = #PBC_RGN_NM#		/*발행지역명*/
+        			,PBC_DT = #PBC_DT#				/*발행일*/
+        			,PBC_YR = #PBC_YR#				/*발행년도*/
+        			,ATR_NM = #ATR_NM#				/*저자명*/
+        			,PON = #PON#					/*면수*/
+        			,SZ_VAL = #SZ_VAL#				/*크기값*/
+        			,KYWD_NM = #KYWD_NM#			/*키워드명*/
+        			,BOO_RMK = #BOO_RMK#			/*도서비고*/
+        			,ORI_NM = #ORI_NM#				/*원서명*/
+        			,STN_PEN_NM = #STN_PEN_NM#		/*역자명*/
+        			,BOO_PBC_BR_CD = #BOO_PBC_BR_CD#	/*도서발행국코드*/
+        			,LIB_SBJ = #LIB_SBJ#			/*총서사항*/
+        			,CLC_WAY_CD = #CLC_WAY_CD#		/*수집방법코드*/
+        			,BOO_PUR_PR = #BOO_PUR_PR#		/*도서구매가격*/
+        			,INTNA_STND_BOO_NO = #INTNA_STND_BOO_NO#	/*국제표준도서번호*/
+        			,DEG_NM = #DEG_NM#				/*학위명*/
+        			,MTRL_MNG_YR = #MTRL_MNG_YR#	/*자료관리년도*/
+        			,MTRL_MNG_DVSN_NO = #MTRL_MNG_DVSN_NO#	/*자료관리구분번호*/
+        			,MTRL_MNG_NO = #MTRL_MNG_NO#	/*자료관리번호*/
+        			,ACP_YR = #ACP_YR#				/*접수년도*/
+        			,PBLC_KND_CD = #PBLC_KND_CD#	/*간행물종류코드*/
+        			,INTNA_STND_PBLC_SRNO = #INTNA_STND_PBLC_SRNO#	/*국제표준간행물일련번호*/
+        			,SSCR_PRD_STR_DT = #SSCR_PRD_STR_DT#	/*구독기간시작일*/
+        			,SSCR_PRD_END_DT = #SSCR_PRD_END_DT#	/*구독기간종료일*/
+        			,YRLY_SSCR_FEE = #YRLY_SSCR_FEE#	/*연간구독료*/
+        			,SSCR_COT = #SSCR_COT#			/*구독수량*/
+        			,AVDOC_SHP_CD = #AVDOC_SHP_CD#			/*시청각자료형태코드*/
+        			,BOO_MAIN_TXT = #BOO_MAIN_TXT#			/*도서주요내용*/
+        			,BOO_RPRT_NO = #BOO_RPRT_NO#			/*도서보고서번호*/
+        			,ASTR_TXT = #ASTR_TXT#			/*초록내용*/
+        			,DOC_ID = #DOC_ID#
+        			,COPY_CNT = #COPY_CNT#
+        			,ATR_SYM_NM = #ATR_SYM_NM#
+        			,FNL_USR_ID = #FNL_USR_ID#			/*최종사용자ID*/
+        			,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#			/*최종거래부서코드*/
+        			,FNL_MNU_ID = #FNL_MNU_ID#			/*최종메뉴ID*/
+        			,FNL_MDF_DH = SYSDATE			/*최종수정일시*/
+        			,BAR_CD = #BAR_CD#
+        			,STC_BKS = #STC_BKS#			/*보존서고 여부*/
+        	WHERE	BOO_KND_CD = #BOO_KND_CD#
+        	AND		BOO_NO = #BOO_NO#
+        	AND		CAT_SYM_NM = #OLD_CAT_SYM_NM#
+        	AND		COPT_CAT_CD = #COPT_CAT_CD#
+        ]]>
+	</insert>
+	
+	<update id="CSPQBO112ELendUpdate" parameterClass="paramMap">
+        <![CDATA[
+        	UPDATE 	TBCSPQBO002H
+        	SET		CAT_SYM_NM = #CAT_SYM_NM#		/*분류기호명*/        			
+        			,FNL_USR_ID = #FNL_USR_ID#			/*최종사용자ID*/
+        			,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#			/*최종거래부서코드*/
+        			,FNL_MNU_ID = #FNL_MNU_ID#			/*최종메뉴ID*/
+        			,FNL_MDF_DH = SYSDATE			/*최종수정일시*/        		        		
+        	WHERE	BOO_KND_CD = #BOO_KND_CD#
+        	AND		BOO_NO = #BOO_NO#
+        	AND		CAT_SYM_NM = #OLD_CAT_SYM_NM#
+        	AND		COPT_CAT_CD = #COPT_CAT_CD#
+        ]]>
+	</update>
+	
+	<update id="CSPQBO112EBockUpdate" parameterClass="paramMap">
+        <![CDATA[
+        	UPDATE 	TBCSPQBO003H
+        	SET		CAT_SYM_NM = #CAT_SYM_NM#		/*분류기호명*/        			
+        			,FNL_USR_ID = #FNL_USR_ID#			/*최종사용자ID*/
+        			,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#			/*최종거래부서코드*/
+        			,FNL_MNU_ID = #FNL_MNU_ID#			/*최종메뉴ID*/
+        			,FNL_MDF_DH = SYSDATE			/*최종수정일시*/        		        		
+        	WHERE	BOO_KND_CD = #BOO_KND_CD#
+        	AND		BOO_NO = #BOO_NO#
+        	AND		CAT_SYM_NM = #OLD_CAT_SYM_NM#
+        	AND		COPT_CAT_CD = #COPT_CAT_CD#
+        ]]>
+	</update>
+	
+	
+	<insert id="CSPQBO114PMainInsert" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBCSPQBO003H
+        	(
+        			 COPT_CAT_CD			/*소관분류코드*/
+        			,BOO_KND_CD				/*도서종류코드*/
+        			,BOO_NO					/*도서번호*/
+        			,CAT_SYM_NM				/*분류기호명*/
+        			,BOO_VLE_NO
+        			,BOO_BOKG_SLN			/*도서예약연번*/
+        			,LEND_BOKG_STA_CD		/*대출예약상태코드*/
+        			,LEND_BOKG_PEN_CNB		/*대출예약자전산번호*/
+        			,LEND_BOKG_APL_DT		/*대출예약신청일시*/
+        			,FRT_USR_ID				/*최초사용자ID*/
+        			,FNL_USR_ID				/*최초사용자ID*/
+        			,FNL_DEAL_DPT_CD		/*최종거래부서코드*/
+        			,FNL_MNU_ID				/*최종메뉴ID*/
+        			,FRT_REGI_DH			/*최초등록일시*/
+        			,FNL_MDF_DH				/*최종수정일시*/
+        	) VALUES (
+	        		 #COPT_CAT_CD#
+	        		,#BOO_KND_CD#
+	        		,#BOO_NO#
+	        		,#CAT_SYM_NM#
+	        		,#BOO_VLE_NO#
+	        		,(SELECT 	NVL(MAX(BOO_BOKG_SLN)+1,1)
+	        		 FROM	TBCSPQBO003H
+	        		 WHERE	BOO_KND_CD = #BOO_KND_CD#
+        			 AND		BOO_NO = #BOO_NO#
+        			 AND		CAT_SYM_NM = #CAT_SYM_NM#
+        			 AND		COPT_CAT_CD = #COPT_CAT_CD#
+        			 AND		BOO_VLE_NO = #BOO_VLE_NO#)
+        			,'Y'
+        			,#strCNB#
+        			,TO_CHAR(SYSDATE,'YYYYMMDD')
+        			,#FRT_USR_ID#
+	        		,#FNL_USR_ID#
+	        		,#FNL_DEAL_DPT_CD#
+	        		,#FNL_MNU_ID#
+	        		,SYSDATE
+	        		,SYSDATE
+	        	)
+        ]]>
+	</insert>
+	
+	<select id="CSPQBO115PMainSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<![CDATA[
+			SELECT 	A.COPT_CAT_CD,			/*소관분류코드*/
+					F_CODE_NM('1000322',A.COPT_CAT_CD) AS COPT_CAT_NM,				/*소관분류코드*/
+					F_CODE_NM('1000149',A.BOO_KND_CD) AS BOO_KND_NM,				/*도서종류코드*/
+        			A.BOO_NO,					/*도서번호*/
+        			A.BOO_NO||'-'||A.BOO_VLE_NO AS BOO_NOS,
+        			A.CAT_SYM_NM,				/*분류기호명*/
+        			A.BOO_ACP_DT,				/*도서접수일*/
+        			A.BAR_CD,					/*바코드*/
+        			A.DRVT_SYM_NM,			/*별치기호명*/
+        			A.BOO_SYM_NM,				/*도서기호명*/
+        			A.BOO_TIT_NM,				/*도서제목명*/
+        			A.PBC_PLAC_NM,			/*발행처명*/
+        			A.PBC_RGN_NM,				/*발행지역명*/
+        			A.PBC_DT,					/*발행일*/
+        			A.PBC_YR,					/*발행년도*/
+        			A.ATR_NM,					/*저자명*/
+        			A.PON,					/*면수*/
+        			A.SZ_VAL,					/*크기값*/
+        			A.KYWD_NM,				/*키워드명*/
+        			A.BOO_RMK,				/*도서비고*/
+        			A.ORI_NM,					/*원서명*/
+        			A.STN_PEN_NM,				/*역자명*/
+        			F_CODE_NM('1000150',A.BOO_PBC_BR_CD) AS BOO_PBC_BR_CD,			/*도서발행국코드*/
+        			A.LIB_SBJ,				/*총서사항*/
+        			F_CODE_NM('1000323',A.CLC_WAY_CD) AS CLC_WAY_CD,				/*수집방법코드*/
+        			A.BOO_PUR_PR,				/*도서구매가격*/
+        			A.INTNA_STND_BOO_NO,		/*국제표준도서번호*/
+        			A.DEG_NM,					/*학위명*/
+        			A.MTRL_MNG_YR,			/*자료관리년도*/
+        			A.MTRL_MNG_DVSN_NO,		/*자료관리구분번호*/
+        			A.MTRL_MNG_NO,			/*자료관리번호*/
+        			A.ACP_YR,					/*접수년도*/
+        			F_CODE_NM('1000162',A.PBLC_KND_CD) AS PBLC_KND_CD,			/*간행물종류코드*/
+        			A.INTNA_STND_PBLC_SRNO,	/*국제표준간행물일련번호*/
+        			A.SSCR_PRD_STR_DT,		/*구독기간시작일*/
+        			A.SSCR_PRD_END_DT,		/*구독기간종료일*/
+        			A.YRLY_SSCR_FEE,			/*연간구독료*/
+        			A.SSCR_COT,				/*구독수량*/
+        			F_CODE_NM('1000163',A.AVDOC_SHP_CD) AS AVDOC_SHP_CD,			/*시청각자료형태코드*/
+        			A.BOO_MAIN_TXT,			/*도서주요내용*/
+        			A.BOO_RPRT_NO,			/*도서보고서번호*/
+        			A.ASTR_TXT,				/*초록내용*/
+        			A.BOO_KND_CD,
+        			A.DOC_ID,
+        			A.ATR_SYM_NM
+			FROM	TBCSPQBO001M A 
+			WHERE	1=1
+			AND		A.BOO_KND_CD = #strBOO_KND_CD#
+			AND		A.BOO_NO = #strBOO_NO#
+			AND		A.CAT_SYM_NM = #strCAT_SYM_NM#
+			AND		A.COPT_CAT_CD = #strCOPT_CAT_CD#
+			AND		A.BOO_VLE_NO = #strBOO_VLE_NO#
+		]]>
+	</select>
+	
+	<select id="CSPQBO115PSubSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<![CDATA[
+			SELECT	F_USR_INFO(B.LEND_BOKG_PEN_CNB,'2') AS LEND_BOKG_PEN_CNB, 
+					B.LEND_BOKG_APL_DT,
+					F_DPT_INFO(F_USR_INFO(B.LEND_BOKG_PEN_CNB,'5'), '1') AS LEND_BOKG_DPT_NM
+			FROM	TBCSPQBO001M A, TBCSPQBO003H B
+			WHERE	A.COPT_CAT_CD = B.COPT_CAT_CD
+			AND		A.BOO_KND_CD = B.BOO_KND_CD
+			AND		A.BOO_NO = B.BOO_NO
+			AND		A.CAT_SYM_NM = B.CAT_SYM_NM
+			AND		A.BOO_VLE_NO = B.BOO_VLE_NO
+			AND		A.BOO_KND_CD = #strBOO_KND_CD#
+			AND		A.BOO_NO = #strBOO_NO#
+			AND		A.CAT_SYM_NM = #strCAT_SYM_NM#
+			AND		A.COPT_CAT_CD = #strCOPT_CAT_CD#
+			AND		A.BOO_VLE_NO = #strBOO_VLE_NO# 
+			AND		LEND_BOKG_STA_CD = 'Y'
+			ORDER BY BOO_BOKG_SLN ASC
+		]]>
+	</select>
+	
+	<select id="CSPQBO111QCheckSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<![CDATA[
+			SELECT	CASE WHEN A.BOO_LEND_DVSN_CD = '0' AND B.LAG_INV_CNB =#CNB# THEN '1'
+						 WHEN (A.BOO_LEND_DVSN_CD ='1' OR A.BOO_LEND_DVSN_CD IS NULL)  THEN '2' 
+						 WHEN A.BOO_LEND_DVSN_CD = '0' AND  CNT  >0  THEN '3'	
+						 WHEN A.BOO_LEND_DVSN_CD = '0' 
+						 	  AND (SELECT 	COUNT(*)
+									FROM 	TBCSPQBO003H C
+									WHERE  	A.COPT_CAT_CD = C.COPT_CAT_CD
+									AND	   	A.BOO_KND_CD = C.BOO_KND_CD
+									AND  	A.BOO_NO = C.BOO_NO  
+									AND  	A.CAT_SYM_NM = C.CAT_SYM_NM
+									AND  	A.BOO_VLE_NO = C.BOO_VLE_NO
+									AND  	C.LEND_BOKG_STA_CD = 'Y' ) >= 3  THEN '4' 
+						 ELSE '9' END AS LEND_CHECK
+			FROM	TBCSPQBO001M A
+					,TBCSPQBO002H B
+					,(SELECT	A.COPT_CAT_CD, 
+								A.BOO_KND_CD, 
+								A.BOO_NO, 
+								A.CAT_SYM_NM,
+								A.BOO_VLE_NO,  
+								COUNT(*) AS CNT
+					FROM 	TBCSPQBO003H A 
+					WHERE	A.LEND_BOKG_STA_CD = 'Y'
+					AND		A.LEND_BOKG_PEN_CNB = #CNB#
+					GROUP BY  	A.COPT_CAT_CD, A.BOO_KND_CD, A.BOO_NO, A.CAT_SYM_NM, A.BOO_VLE_NO
+					) C
+			WHERE	A.COPT_CAT_CD = B.COPT_CAT_CD(+)
+			AND		A.BOO_KND_CD = B.BOO_KND_CD(+)
+			AND		A.BOO_NO = B.BOO_NO(+)
+			AND		A.CAT_SYM_NM = B.CAT_SYM_NM(+)
+			AND		A.BOO_VLE_NO = B.BOO_VLE_NO(+) 
+			AND 	A.BOO_KND_CD = #BOO_KND_CD#
+			AND 	A.BOO_NO = #BOO_NO#
+			AND 	A.CAT_SYM_NM = #CAT_SYM_NM#
+			AND 	A.COPT_CAT_CD = #COPT_CAT_CD#
+			AND 	A.BOO_VLE_NO = #BOO_VLE_NO#
+			AND		B.BOO_REN_YN_CD(+) ='0'
+			AND		A.COPT_CAT_CD = C.COPT_CAT_CD(+)
+			AND		A.BOO_KND_CD = C.BOO_KND_CD(+)
+			AND		A.BOO_NO = C.BOO_NO(+)
+			AND		A.CAT_SYM_NM = C.CAT_SYM_NM(+)
+			AND		A.BOO_VLE_NO = C.BOO_VLE_NO(+)
+		]]>
+	</select>
+	
+	<select id="CSPQBO111QReportSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<![CDATA[
+			SELECT 	DECODE(A.COPT_CAT_CD,'1','본원','연구원') AS COPT_CAT_CD
+					, A.BOO_NO||'-'||A.BOO_VLE_NO AS BOO_NO 					/*도서번호*/
+					, SUBSTR(A.CAT_SYM_NM,1,1)||'-'||SUBSTR(A.CAT_SYM_NM,2,3)||'-'||SUBSTR(A.CAT_SYM_NM,5,3) AS CAT_SYM_NM /*분류기호명*/
+					, A.PBC_YR 					/*발행년도*/
+					, A.BOO_TIT_NM  			/*도서제목명*/
+					, A.PBC_PLAC_NM  		/*발행처명*/
+					, A.ATR_NM  					/*저자명*/
+					, F_CODE_NM('1000149',A.BOO_KND_CD) AS BOO_KND_NM
+					, INTNA_STND_BOO_NO
+					, A.BOO_PUR_PR
+			FROM	TBCSPQBO001M A  
+			WHERE	1=1
+			AND		A.BOO_VLE_NO = 1
+		]]> 
+		<dynamic>
+			<isNotEmpty property="strCOPT_CAT_CD">
+				AND	A.COPT_CAT_CD = #strCOPT_CAT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strBOO_NOS">
+				AND	A.BOO_NO &gt;= #strBOO_NOS#
+        	</isNotEmpty>
+        	<isNotEmpty property="strBOO_NOE">
+				AND	A.BOO_NO &lt;= #strBOO_NOE#
+        	</isNotEmpty>
+        	<isNotEmpty property="strBAR_CD">
+        		AND	A.BAR_CD = #strBAR_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strBOO_ACP_DTS">
+        		AND	A.BOO_ACP_DT &gt;= #strBOO_ACP_DTS#
+        	</isNotEmpty>
+        	<isNotEmpty property="strBOO_ACP_DTE">
+        		AND	A.BOO_ACP_DT &lt;= #strBOO_ACP_DTE#
+        	</isNotEmpty>
+			<isNotEmpty property="strBOO_KND_CD"> 
+			  	AND A.BOO_KND_CD IN 
+			  		(SELECT 	SUBSTR(CODE,INSTR(CODE,',',1,LEVEL)+1,INSTR(CODE,',',1,LEVEL+1)-INSTR(CODE,',',1,LEVEL) -1) merge_col
+                     FROM 	DUAL A
+                     CROSS JOIN(SELECT ','|| #strBOO_KND_CD# ||',' AS CODE FROM DUAL) B
+                     CONNECT BY LEVEL&lt;=LENGTH(CODE)-LENGTH(REPLACE(CODE,','))-1 )				
+			</isNotEmpty>
+			<isNotEmpty property="strCAT_SYM_NMS2"> 
+				AND	A.CAT_SYM_NM &gt;= #strCAT_SYM_NMS1#||#strCAT_SYM_NMS2#||#strCAT_SYM_NMS3#
+			</isNotEmpty>
+			<isNotEmpty property="strCAT_SYM_NME2"> 
+				AND	A.CAT_SYM_NM &lt;= #strCAT_SYM_NME1#||#strCAT_SYM_NME2#||#strCAT_SYM_NME3#
+			</isNotEmpty>
+			
+			<isNotEmpty property="strPBC_YRS">
+        		AND	A.PBC_YR &gt;= #strPBC_YRS#
+        	</isNotEmpty>
+			<isNotEmpty property="strPBC_YRE">
+        		AND	A.PBC_YR &lt;= #strPBC_YRE#
+        	</isNotEmpty>
+        	
+        	<isNotEmpty property="strPBC_PLAC_NM">
+        		AND	A.PBC_PLAC_NM like '%'||#strPBC_PLAC_NM#||'%'
+        	</isNotEmpty>
+        	
+        	<isNotEmpty property="strBOO_TIT_NM1">
+        		<isEmpty property="strBOO_TIT_NM2">
+        			<isEmpty property="strBOO_TIT_NM3">
+        				AND	UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM1#)||'%'
+        			</isEmpty>
+        			<isNotEmpty property="strBOO_TIT_NM3">
+        				<isEqual property="strBOO_TIT_NM_DELI2" compareValue="AND">
+        					AND	(UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM1#)||'%' AND UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM3#)||'%')
+        				</isEqual>
+        				<isEqual property="strBOO_TIT_NM_DELI2" compareValue="OR">
+        					AND	(UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM1#)||'%' OR UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM3#)||'%')
+        				</isEqual>
+        			</isNotEmpty>
+        		</isEmpty>
+        		<isNotEmpty property="strBOO_TIT_NM2">
+        			<isEmpty property="strBOO_TIT_NM3">
+        				<isEqual property="strBOO_TIT_NM_DELI1" compareValue="AND">
+        					AND	(UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM1#)||'%' AND UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM2#)||'%')
+        				</isEqual>
+        				<isEqual property="strBOO_TIT_NM_DELI1" compareValue="OR">
+        					AND	(UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM1#)||'%' OR UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM2#)||'%')
+        				</isEqual>
+        			</isEmpty>
+        			<isNotEmpty property="strBOO_TIT_NM3">
+        				<isEqual property="strBOO_TIT_NM_DELI1" compareValue="AND">
+        					<isEqual property="strBOO_TIT_NM_DELI2" compareValue="AND">
+        						AND	(UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM1#)||'%' 
+        							AND UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM2#)||'%'
+        							AND UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM3#)||'%')
+        					</isEqual>
+        					<isEqual property="strBOO_TIT_NM_DELI2" compareValue="OR">
+        						AND	(UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM1#)||'%' 
+        							AND (UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM2#)||'%'
+        								OR UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM3#)||'%'))
+        					</isEqual>
+        				</isEqual>
+        				<isEqual property="strBOO_TIT_NM_DELI1" compareValue="OR">
+        					<isEqual property="strBOO_TIT_NM_DELI2" compareValue="AND">
+        						AND	( (UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM1#)||'%' OR UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM2#)||'%')
+        								UPPER(A.AND	BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM3#)||'%')
+        					</isEqual>
+        					<isEqual property="strBOO_TIT_NM_DELI2" compareValue="OR">
+        						AND	(UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM1#)||'%' OR UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM2#)||'%'
+        								OR UPPER(A.BOO_TIT_NM) like '%'||UPPER(#strBOO_TIT_NM3#)||'%')
+        					</isEqual>
+        				</isEqual>
+        			</isNotEmpty>
+        		</isNotEmpty>
+        	</isNotEmpty>
+        	
+        	<isNotEmpty property="strKYWD_NM1">
+        		<isEmpty property="strKYWD_NM2">
+        			<isEmpty property="strKYWD_NM3">
+        				AND	UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM1#)||'%'
+        			</isEmpty>
+        			<isNotEmpty property="strKYWD_NM3">
+        				<isEqual property="strKYWD_NM_DELI2" compareValue="AND">
+        					AND	(UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM1#)||'%' AND UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM3#)||'%')
+        				</isEqual>
+        				<isEqual property="strKYWD_NM_DELI2" compareValue="OR">
+        					AND	(UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM1#)||'%' OR UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM3#)||'%')
+        				</isEqual>
+        			</isNotEmpty>
+        		</isEmpty>
+        		<isNotEmpty property="strKYWD_NM2">
+        			<isEmpty property="strKYWD_NM3">
+        				<isEqual property="strKYWD_NM_DELI1" compareValue="AND">
+        					AND	(UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM1#)||'%' AND UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM2#)||'%')
+        				</isEqual>
+        				<isEqual property="strKYWD_NM_DELI1" compareValue="OR">
+        					AND	(UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM1#)||'%' OR UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM2#)||'%')
+        				</isEqual>
+        			</isEmpty>
+        			<isNotEmpty property="strKYWD_NM3">
+        				<isEqual property="strKYWD_NM_DELI1" compareValue="AND">
+        					<isEqual property="strKYWD_NM_DELI2" compareValue="AND">
+        						AND	(UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM1#)||'%' 
+        							AND UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM2#)||'%'
+        							AND UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM3#)||'%')
+        					</isEqual>
+        					<isEqual property="strKYWD_NM_DELI2" compareValue="OR">
+        						AND	(UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM1#)||'%' 
+        							AND (UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM2#)||'%'
+        								OR UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM3#)||'%'))
+        					</isEqual>
+        				</isEqual>
+        				<isEqual property="strKYWD_NM_DELI1" compareValue="OR">
+        					<isEqual property="strKYWD_NM_DELI2" compareValue="AND">
+        						AND	( (UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM1#)||'%' OR UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM2#)||'%')
+        								AND	UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM3#)||'%')
+        					</isEqual>
+        					<isEqual property="strKYWD_NM_DELI2" compareValue="OR">
+        						AND	(UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM1#)||'%' OR UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM2#)||'%'
+        								OR UPPER(A.KYWD_NM) like '%'||UPPER(#strKYWD_NM3#)||'%')
+        					</isEqual>
+        				</isEqual>
+        			</isNotEmpty>
+        		</isNotEmpty>
+        	</isNotEmpty>
+        	<isNotEmpty property="strATR_NM">
+        		AND	UPPER(A.ATR_NM) LIKE '%'||UPPER(#strATR_NM#)||'%'
+        	</isNotEmpty>
+        	<isNotEmpty property="strMTRL_MNG_YRS">
+        		AND A.MTRL_MNG_YR &gt;=#strMTRL_MNG_YRS#
+        	</isNotEmpty>
+        	<isNotEmpty property="strMTRL_MNG_DVSN_NOS">
+        		AND A.MTRL_MNG_DVSN_NO &gt;=#strMTRL_MNG_DVSN_NOS#
+        	</isNotEmpty>
+        	<isNotEmpty property="strMTRL_MNG_NOS">
+        		AND A.MTRL_MNG_NO &gt;=#strMTRL_MNG_NOS#
+        	</isNotEmpty>
+        	<isNotEmpty property="strMTRL_MNG_YRE">
+        		AND A.MTRL_MNG_YR &lt;=#strMTRL_MNG_YRE#
+        	</isNotEmpty>
+        	<isNotEmpty property="strMTRL_MNG_DVSN_NOE">
+        		AND A.MTRL_MNG_DVSN_NO &lt;=#strMTRL_MNG_DVSN_NOE#
+        	</isNotEmpty>
+        	<isNotEmpty property="strMTRL_MNG_NOE">
+        		AND A.MTRL_MNG_NO &lt;=#strMTRL_MNG_NOE#
+        	</isNotEmpty>
+			<isNotEmpty property="strAVDOC_SHP_CD">
+        		AND	A.AVDOC_SHP_CD = #strAVDOC_SHP_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strSTC_BKS">
+        		AND	A.STC_BKS = #strSTC_BKS#
+        	</isNotEmpty>
+        	</dynamic>
+        <![CDATA[
+        	ORDER BY A.BOO_NO DESC, TO_NUMBER(A.BOO_VLE_NO) ASC
+        ]]>
+	</select>
+	<select id="CSPQBO111QReportSelect2" parameterClass="paramMap"
+		resultClass="resultMap">
+		<![CDATA[
+			SELECT 	  #KND_CD1# AS KND_CD1,#KND_CD2# AS KND_CD2
+					, #KND_CD3# AS KND_CD3,#KND_CD4# AS KND_CD4
+					, #KND_CD5# AS KND_CD5,#KND_CD6# AS KND_CD6,#KND_CD7# AS KND_CD7
+					, #strBOO_NOS# AS strBOO_NOS, #strBOO_NOE# AS strBOO_NOE
+					, #strBAR_CD# AS strBAR_CD
+					, TO_CHAR(TO_DATE(#strBOO_ACP_DTS#),'YYYY-MM-DD') AS strBOO_ACP_DTS, TO_CHAR(TO_DATE(#strBOO_ACP_DTE#),'YYYY-MM-DD') AS strBOO_ACP_DTE
+					, DECODE(#strCAT_SYM_NMS2#,NULL,'',#strCAT_SYM_NMS1#||'-'||NVL(#strCAT_SYM_NMS2#,'   ')||'-'||NVL(#strCAT_SYM_NMS3#,'   ')) AS strCAT_SYM_NMS 
+					, DECODE(#strCAT_SYM_NME2#,NULL,'',#strCAT_SYM_NME1#||'-'||NVL(#strCAT_SYM_NME2#,'   ')||'-'||NVL(#strCAT_SYM_NME3#,'   ')) AS strCAT_SYM_NME
+					, #strPBC_YRS# AS strPBC_YRS, #strPBC_YRE# AS strPBC_YRE
+					, #strPBC_PLAC_NM# AS strPBC_PLAC_NM
+					, #strBOO_TIT_NM1# AS strBOO_TIT_NM1 , #strBOO_TIT_NM2# AS strBOO_TIT_NM2 , #strBOO_TIT_NM3# AS strBOO_TIT_NM3
+					, #strBOO_TIT_NM_DELI1# AS strBOO_TIT_NM_DELI1 , #strBOO_TIT_NM_DELI2# AS strBOO_TIT_NM_DELI2
+					, #strKYWD_NM1# AS strKYWD_NM1 , #strKYWD_NM2# AS strKYWD_NM2 , #strKYWD_NM3# AS strKYWD_NM3
+					, #strKYWD_NM_DELI1# AS strKYWD_NM_DELI1 , #strKYWD_NM_DELI2# AS strKYWD_NM_DELI2
+					, #strATR_NM# AS strATR_NM
+					, #strMTRL_MNG_YRS#||#strMTRL_MNG_DVSN_NOS#||#strMTRL_MNG_NOS# AS MTRL_MNGS
+					, #strMTRL_MNG_YRE#||#strMTRL_MNG_DVSN_NOE#||#strMTRL_MNG_NOE# AS MTRL_MNGE
+					, F_CODE_NM('1000163',#strAVDOC_SHP_CD#) AS strAVDOC_SHP_CD
+			FROM	DUAL  
+			WHERE	1=1
+		]]> 
+	</select>
+	
+	<select id="CSPQBO112EdupCheck" parameterClass="paramMap"
+		resultClass="resultMap">
+		<dynamic>
+			<isEqual property="BOO_KND_CD" compareValue="02">
+				<![CDATA[
+					SELECT	BOO_NO
+					FROM	TBCSPQBO001M
+					WHERE	COPT_CAT_CD = #COPT_CAT_CD#
+					AND		BOO_KND_CD = #BOO_KND_CD#
+					AND		BOO_NO = #BOO_NO#
+					AND		ACP_YR = TO_CHAR(SYSDATE,'YYYY')
+				]]>
+			</isEqual>
+			<isNotEqual property="BOO_KND_CD" compareValue="02"> 
+				<![CDATA[
+					SELECT	BOO_NO
+					FROM	TBCSPQBO001M
+					WHERE	COPT_CAT_CD = #COPT_CAT_CD#
+					AND		BOO_KND_CD = #BOO_KND_CD#
+					AND		BOO_NO = #BOO_NO#
+				]]>
+			</isNotEqual>
+		</dynamic>
+	</select>
+	
+	<select id="CSPQBO112EBooVleNoMaxSelect" parameterClass="paramMap"
+		resultClass="resultMap"> 
+			SELECT	TO_CHAR(MAX(TO_NUMBER(BOO_VLE_NO))) AS BOO_VLE_NO
+			FROM	TBCSPQBO001M
+			WHERE	COPT_CAT_CD = #COPT_CAT_CD#
+			AND		BOO_KND_CD = #BOO_KND_CD#
+			AND		BOO_NO = #BOO_NO#
+			AND		CAT_SYM_NM = #CAT_SYM_NM#
+		<![CDATA[
+		]]> 
+	</select>
+	
+	<delete id="CSPQBO113QMainDelete" parameterClass="paramMap">
+		DELETE	
+		FROM	TBCSPQBO001M
+		WHERE	COPT_CAT_CD = #COPT_CAT_CD#
+		AND		BOO_KND_CD = #BOO_KND_CD#
+		AND		BOO_NO = #BOO_NO#
+		AND		CAT_SYM_NM = #CAT_SYM_NM#
+		AND		BOO_VLE_NO = #BOO_VLE_NO#
+	</delete>
+	
+	<delete id="CSPQBO113Q002HDelete" parameterClass="paramMap">
+		DELETE	
+		FROM	TBCSPQBO002H
+		WHERE	COPT_CAT_CD = #COPT_CAT_CD#
+		AND		BOO_KND_CD = #BOO_KND_CD#
+		AND		BOO_NO = #BOO_NO#
+		AND		CAT_SYM_NM = #CAT_SYM_NM#
+		AND		BOO_VLE_NO = #BOO_VLE_NO#
+	</delete>
+	
+	<delete id="CSPQBO113Q003HDelete" parameterClass="paramMap">
+		DELETE	
+		FROM	TBCSPQBO003H
+		WHERE	COPT_CAT_CD = #COPT_CAT_CD#
+		AND		BOO_KND_CD = #BOO_KND_CD#
+		AND		BOO_NO = #BOO_NO#
+		AND		CAT_SYM_NM = #CAT_SYM_NM#
+		AND		BOO_VLE_NO = #BOO_VLE_NO#
+	</delete>
+	
+	<update id="CSPQBO113QMainCopyCntUpdate" parameterClass="paramMap">
+		UPDATE	TBCSPQBO001M
+		SET		COPY_CNT = (SELECT 	DECODE (COUNT(*),0,0,COUNT(*)-1)
+							FROM	TBCSPQBO001M
+							WHERE	COPT_CAT_CD = #COPT_CAT_CD#
+							AND		BOO_KND_CD = #BOO_KND_CD#
+							AND		BOO_NO = #BOO_NO#
+							AND		CAT_SYM_NM = #CAT_SYM_NM#)
+		WHERE	COPT_CAT_CD = #COPT_CAT_CD#
+		AND		BOO_KND_CD = #BOO_KND_CD#
+		AND		BOO_NO = #BOO_NO#
+		AND		CAT_SYM_NM = #CAT_SYM_NM#
+	</update>
+	
+	<update id="CSPQBO111EUpdateBarCd" parameterClass="parammAP">
+		<![CDATA[
+			UPDATE	TBCSPQBO001M
+			SET		BAR_CD = #COPT_CAT_CD#||#BOO_KND_CD#||#BOO_NO#||LPAD(#BOO_VLE_NO#,3,0)||SUBSTR(LPAD(#CAT_SYM_NM#,7,'0'),2,7)
+			WHERE	COPT_CAT_CD = #COPT_CAT_CD#
+			AND		BOO_KND_CD = #BOO_KND_CD#
+			AND		BOO_NO = #BOO_NO#
+			AND		CAT_SYM_NM = #CAT_SYM_NM#
+			AND		BOO_VLE_NO = #BOO_VLE_NO#
+		]]>
+	</update>
+	
+	<insert id="CSPQBO112EInsertSendHome" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO	EH_INF_SP_HP_001
+					(	IF_SEQ
+						,IF_TYPE
+						,NTT_ID
+						,BBS_ID
+						,NTT_NO
+						,NTT_SJ
+						,PARNTSCTT_NO
+						,SORT_ORDR
+						,RDCNT
+						,USE_AT
+						,FRST_REGIST_PNTTM
+						,FRST_REGISTER_ID
+						,LAST_UPDT_PNTTM
+						,CATEGORY
+						,KEYWORD
+						,QNA_STATE
+						,DOC_YEAR
+						,HTML_YN
+						,PUBLIC_YN
+						,NOTICE_YN
+						,SECRET_YN
+						,LIST_TOP_IMG_YN
+						,SUB1
+						,BUSEO
+						,INSTITUTION
+						,CNN_CON1
+						,CNN_CON2
+						,CNN_CON3
+						,CNN_CON4
+						,FLAG
+						,CNN_CNT1
+						,CATEGORY_SUB
+						,DATE_SUB
+					)
+				VALUES	(	#IF_SEQ#
+							,'SND'
+							,'1'
+							,'BBSMSTR_100000000020'
+							,'1'
+							,#BOO_TIT_NM#
+							,'1'
+							,'1'
+							,'0'
+							,'Y'
+							,SYSDATE
+							,#FNL_MNU_ID#
+							,SYSDATE
+							,#CAT_SYM_NM#
+							,#KYWD_NM#
+							,'noReceive'
+							,#PBC_YR#
+							,'N'
+							,'Y'
+							,'N'
+							,'N'
+							,'N'
+							,#BOO_NO#
+							,#PBC_PLAC_NM#
+							,#ATR_NM#
+							,#COPT_CAT_CD#
+							,#BOO_NO#
+							,#CAT_SYM_NM#
+							,#OLD_CAT_SYM_NM#
+							,#FLAG#
+							,'0'
+							,'0'
+							,SYSDATE
+						)
+							
+		]]>
+	</insert>
+</sqlMap> 

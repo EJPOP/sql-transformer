@@ -1,0 +1,487 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.afu.dao.AEPAFU010QMapper">
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap">
+        /*kr.go.bai.eip.aep.afu.dao.AEPAFU010QMapper.selectMainList*/
+        <include refid="include.pageSelct" />
+         <![CDATA[
+           SELECT T23.APV_DOC_NO,
+                    T23.APV_DVSN_CD,
+                    T23.TSK_KY_TXT,
+                    T23.APV_STA_CD,
+                    F_CODE_NM('1000773', T23.RPRT_APV_STA_CD) AS APV_STA_NM,  /*결재상태*/
+                    T23.APV_TIT_NM,            /*제목*/
+                    T23.SBM_CNB,
+                    F_USR_INFO(T23.SBM_CNB, '2') AS SBM_CNB_NM,   /*기안자*/
+                    TO_CHAR(T23.SBM_DH, 'YYYY-MM-DD') AS SBM_DH,      /*상신일자*/
+                    T23.FNL_APV_CNB,
+                    F_MNG_KND_AUDYRNO(AD.AUD_YR, AD.AUD_NO, AD.AUD_KND_CD, '-') AS  AUD_YR_NO,
+                    CASE WHEN T2.CNT > 1 THEN  T2.EXEC_NO || ' 외 ' || TO_CHAR(T2.CNT -1) ||'건' 
+                             ELSE T2.EXEC_NO END AS AUD_YR_NO2,
+                    TO_CHAR(T23.FNL_APV_DH, 'YYYY-MM-DD') AS FNL_APV_DH,     /*마지막결재일자*/
+                    F_CODE_NM('1000007', AD.AUD_KND_CD) AS AUD_KND_NM,     /*감사종류*/  
+                    F_MNG_KND_AUDYRNO(AD.AUD_YR, AD.AUD_NO, AD.AUD_KND_CD, '-')  AS AUD_YR_KND_NM,
+                    AD.AUD_SBJ_NM,      /*감사사항명*/
+                    T23.AUD_DOC_NM,      /*문서명*/
+                    F_DPT_INFO(AD.MNG_DPT_CD, '4') AS MNG_DPT_NM,      /*관리부서*/
+                    F_CODE_NM('1000348', T23.APVR_STA_CD ) AS APV_STA_NM2,  /*협조상태*/    
+                    T23.DPT_CD,
+                    T23.APV_RQS_ID,
+                    AD.AUD_CTRL_CD,
+                    DECODE(F_CODE_NM('1000753', AD.AUD_CTRL_CD ), 'Y', '통제완료', '통제전')  AS AUD_CTRL_NM,
+                    AD.AUD_KND_CD,
+                    AD.AUD_YR,
+                    AD.AUD_NO,
+                    F_CODE_NM('1000751', AD.BZT_BGT_DVSN_CD )  AS BZT_BGT_DVSN_NM,
+                    AD.BZT_BGT_DVSN_CD,
+                   NVL( (SELECT MAX( F_MNG_KND_AUDYRNO(T1.REL_AUD_YR, T1.REL_AUD_NO, T2.AUD_KND_CD, '-'))||
+                             CASE WHEN COUNT(1) < 2 THEN ''
+                             ELSE ' 외 '||TO_CHAR(COUNT(1)-1)||'건' END
+                      FROM TBBADDED101L T1 
+                               INNER JOIN TBBADDED001M T2 
+                                                              ON T1.AUD_YR = T2.AUD_YR
+                                                             AND T1.AUD_NO = T2.AUD_NO
+                     WHERE T1.AUD_YR = AD.AUD_YR
+                        AND T1.AUD_NO = AD.AUD_NO
+                        AND T1.AUD_STEP_CD = 'A1010'
+                        ), '미실시') AS REL_AUD_YR_NO,
+                    (SELECT AGGR_CONCAT( F_MNG_KND_AUDYRNO(T1.REL_AUD_YR, T1.REL_AUD_NO, T2.AUD_KND_CD, '-'), ', ')
+                      FROM TBBADDED101L T1 
+                               INNER JOIN TBBADDED001M T2 
+                                                              ON T1.AUD_YR = T2.AUD_YR
+                                                             AND T1.AUD_NO = T2.AUD_NO
+                     WHERE T1.AUD_YR = AD.AUD_YR
+                        AND T1.AUD_NO = AD.AUD_NO
+                        AND T1.AUD_STEP_CD = 'A1010'
+                        ) AS REL_AUD_YR_NM
+                    ,AD.MTRL_CLC_NO_EXEC_RSN
+                    ,AD.AUD_GRN_NO
+                    ,T23.RPRT_CD
+                    ,CASE WHEN T23.APV_DOC_NO IS NOT NULL THEN NVL((SELECT DECODE(T4.APVR_KND_CD, '4', '포함') 
+                                                                                            FROM TBDCMACM023L T4 
+                                                                                           WHERE T23.APV_DOC_NO = T4.APV_DOC_NO 
+                                                                                             AND T4.APVR_DPT_CD = '140100'
+                                                                                             AND T4.APVR_KND_CD = '4' 
+                                                                                             AND ROWNUM = 1), '미포함')
+                            ELSE '' END    AS APVR_YN
+                    , (SELECT MAX( (SELECT TO_CHAR(T6.FNL_APV_DH, 'YYYY-MM-DD')
+                                                     FROM TBDCMACM022L T6
+                                                   WHERE T6.APV_DOC_NO = T3.APV_RQS_ID))||  CASE WHEN COUNT(1) < 2 THEN ''
+                                              ELSE ' 외 '||TO_CHAR(COUNT(1)-1)||'건' END
+                      FROM TBBADDED101L T1                               
+                               INNER JOIN TBBADDED103M T3
+                                          ON T1.REL_AUD_YR = T3.AUD_YR
+                                        AND  T1.REL_AUD_NO  =T3.AUD_NO
+                     WHERE T1.AUD_YR = AD.AUD_YR
+                        AND T1.AUD_NO = AD.AUD_NO
+                        AND T3.RPRT_CD = 'A10100210'
+                        AND T3.APV_STA_CD = '30' ) AS APVR_COMPL_CNT
+                   , (SELECT AGGR_CONCAT( (SELECT TO_CHAR(T6.FNL_APV_DH, 'YYYY-MM-DD')
+                                                     FROM TBDCMACM022L T6
+                                                   WHERE T6.APV_DOC_NO = T3.APV_RQS_ID), ', ')
+                      FROM TBBADDED101L T1                               
+                               INNER JOIN TBBADDED103M T3
+                                          ON T1.REL_AUD_YR = T3.AUD_YR
+                                        AND  T1.REL_AUD_NO  =T3.AUD_NO
+                     WHERE T1.AUD_YR = AD.AUD_YR
+                        AND T1.AUD_NO = AD.AUD_NO
+                        AND T3.RPRT_CD = 'A10100210'
+                        AND T3.APV_STA_CD = '30' ) AS APVR_COMPL_DY
+                    , (SELECT AGGR_CONCAT(F_CODE_NM('1000030',D1.AUD_BZT_KND_CD) || ' : ' || TO_CHAR(TO_DATE(D1.AUD_STR_DT),'YYYY-MM-DD')||' ~ '|| TO_CHAR(TO_DATE(D1.AUD_END_DT),'YYYY-MM-DD') || ' (' || D1.AUD_DCN || '일)' || CHR(10),'' ORDER BY D1.AUD_STR_DT ASC) 
+                          FROM TBBADDED002M D1 
+                         WHERE D1.REL_AUD_YR = AD.AUD_YR
+                           AND D1.REL_AUD_NO = AD.AUD_NO)     AS AUD_ST_END_DT_DETAIL
+                    , (SELECT CASE WHEN MIN(D1.AUD_STR_DT) IS NOT NULL THEN TO_CHAR(TO_DATE(MIN(D1.AUD_STR_DT)),'YYYY-MM-DD')||' ~ '|| TO_CHAR(TO_DATE(MAX(D1.AUD_END_DT)),'YYYY-MM-DD') || ' (' || SUM(D1.AUD_DCN) || '일)' 
+                                   ELSE ''
+                               END
+                         FROM TBBADDED002M D1 
+                        WHERE D1.REL_AUD_YR = AD.AUD_YR 
+                          AND D1.REL_AUD_NO = AD.AUD_NO)     AS AUD_ST_END_DT         /*실시기간*/
+                    , (SELECT AGGR_CONCAT( F_MNG_KND_AUDYRNO(AUD_YR, AUD_NO, '', '-') , ', ')
+                       FROM TBBADDED101L
+                       WHERE AUD_STEP_CD     = 'A1030'
+                       AND REL_AUD_STEP_CD = 'A1019'
+                       AND REL_AUD_YR          = AD.AUD_YR
+                       AND REL_AUD_NO          = AD.AUD_NO) AS MTRL_AUD_NO   
+                   , F_CODE_NM('1000027', AD.AUD_SCL_CD) AS AUD_SCL_NM  /* 감사규모 */ 
+           FROM TBBADDED001M AD 
+                    LEFT OUTER JOIN (SELECT C.AUD_YR,
+                                                     C.AUD_NO,
+                                                     A.APV_DOC_NO,
+                                                     A.APV_DVSN_CD,
+                                                     A.TSK_KY_TXT,
+                                                     A.APV_STA_CD,
+                                                     A.APV_TIT_NM,
+                                                     A.SBM_DH,
+                                                     A.SBM_CNB,
+                                                     A.FNL_APV_DH,
+                                                     A.FNL_APV_CNB,
+                                                     B.APVR_DPT_CD,
+                                                     B.APVR_KND_CD,
+                                                     B.APVR_CNB,
+                                                     B.APVR_STA_CD,
+                                                     B.APVR_DPT_CD AS DPT_CD,
+                                                     C.RPRT_CD,
+                                                     C.RPRT_NM,
+                                                     C.DOC_ID, 
+                                                     C.APV_RQS_ID,
+                                                     C.APV_STA_CD AS RPRT_APV_STA_CD,
+                                                     D.DTIL_AUD_DOC_NM AS AUD_DOC_NM
+                                           FROM TBDCMACM022L A
+                                                   INNER JOIN TBDCMACM023L B
+                                                              ON A.APV_DOC_NO = B.APV_DOC_NO
+                                                            AND A.APV_DVSN_CD = B.APV_DVSN_CD
+                                                            AND A.APV_DVSN_CD = 'fieldAudit'
+                                                            AND A.APV_STA_CD > 1
+                                                            AND B.APVR_DPT_CD = '140100'
+                                                            AND B.APVR_STA_CD IN ('104','204','106','206')
+                                                            AND B.APVR_KND_CD = '4'
+                                                   INNER JOIN TBBADDED103M C
+                                                             ON A.APV_DOC_NO = C.APV_RQS_ID
+                                                   INNER JOIN TBFDMADM002M D
+                                                             ON C.RPRT_CD = D.AUD_DOC_CD) T23	
+                                     ON AD.AUD_YR = T23.AUD_YR
+                                   AND AD.AUD_NO  =T23.AUD_NO
+                       LEFT OUTER JOIN ( SELECT  MAX(CASE WHEN DVSN_CD IN ('1','2','3') THEN (SELECT S1.ACP_YR||'-'||F_CODE_NM('1000740',S1.REQ_DVSN_CD)||'-'||S1.RM_CVPT_ACP_NO
+                                                                                             FROM TBCSPDCP101M S1
+                                                                                            WHERE T1.TSK_KEY1 = S1.ACP_YR
+                                                                                              AND T1.TSK_KEY2 = S1.REQ_DVSN_CD
+                                                                                              AND T1.TSK_KEY3 = S1.CVPT_ACP_NO)
+                                                       WHEN DVSN_CD = '4'            THEN T1.TSK_KEY1 ||'-국회-'|| T1.TSK_KEY3		/*국회 로직 추가 2017.01.11 전상철*/
+                                                       WHEN DVSN_CD IN ('5','6','7') THEN (SELECT CASE WHEN S1.ACP_YR >= '2016' THEN S1.ACP_YR || '-' || DECODE(S1.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || S1.ACP_SRNO
+                                                                                                       ELSE S1.ACP_YR || '-' || S1.ACP_DVSN_CD || '-' || S1.ACP_SRNO END
+                                                                                             FROM TBBADFRE012M S1
+                                                                                            WHERE T1.TSK_KEY1 = S1.ACP_YR
+                                                                                              AND T1.TSK_KEY2 = S1.ACP_DVSN_CD
+                                                                                              AND T1.TSK_KEY3 = S1.ACP_SRNO
+                                                                                              AND T1.TSK_KEY4 = S1.DPT_CD)
+                                                       WHEN DVSN_CD IN ('8','9')     THEN (SELECT CASE WHEN S1.OGN_DVSN_CD = '6' THEN S1.YR||'-판청-'||S1.ACP_NO
+                                                                                                       ELSE S1.YR||'-손망-'||S1.ACP_NO END
+                                                                                             FROM TBBADGDA001M S1
+                                                                                            WHERE T1.TSK_KEY1 = S1.ORG_CD
+                                                                                              AND T1.TSK_KEY2 = S1.NTF_DVSN_CD
+                                                                                              AND T1.TSK_KEY3 = S1.NNB)
+                                                       WHEN DVSN_CD = '0'            THEN TSK_KEY1 ||'-정보-'|| TSK_KEY2
+                                                       WHEN DVSN_CD = 'A'            THEN F_MNG_KND_AUDYRNO(TSK_KEY1, TSK_KEY2, (SELECT AUD_KND_CD 
+                                                                                                                                   FROM TBBADDED001M 
+                                                                                                                                  WHERE AUD_YR = TSK_KEY1 
+                                                                                                                                    AND AUD_NO = TSK_KEY2), '-') ||'-'|| TSK_KEY3 ||'-'|| F_ORG_INFO(TSK_KEY4,'1')
+                                                       WHEN DVSN_CD = 'C'            THEN TSK_KEY1 ||'-청금-'||(SELECT RM_CVPT_ACP_NO FROM TBDCPDCP101M WHERE 1=1 AND ACP_YR = TSK_KEY1 AND REQ_DVSN_CD = TSK_KEY2 AND CVPT_ACP_NO = TSK_KEY3)
+												                                                                                      /*청탁금지법 추가 2017.01.11 전상철*/
+                                                       WHEN DVSN_CD = 'D'            THEN TSK_KEY1 ||'-'||F_CODE_NM('1000742', 'D')||'-'||(SELECT RM_CVPT_ACP_NO FROM TBCORCOR101M WHERE 1=1 AND ACP_YR = TSK_KEY1 AND REQ_DVSN_CD = TSK_KEY2 AND CVPT_ACP_NO = TSK_KEY3)
+																						      										 /*부패방지법  추가 2018.02.27 CJlEE*/
+                                                          ELSE '' END) AS EXEC_NO                    
+                       , T1.AUD_YR , T1.AUD_NO , COUNT(1) AS CNT
+                  FROM TBBADDED030L T1 
+                  GROUP BY T1.AUD_YR, T1.AUD_NO ) T2 ON  T2.AUD_YR = AD.AUD_YR AND T2.AUD_NO  = AD.AUD_NO
+           WHERE 1=1
+               AND AD.AUD_YR > '2016'
+               AND AD.AUD_KND_CD NOT LIKE '%5'
+               AND AD.AUD_KND_CD NOT LIKE '%9'
+        ]]>
+       <if test="docTypeCd != ''  and docTypeCd != null  and docTypeCd != 'A99999999'.toString()  ">
+            AND T23.RPRT_CD = #{docTypeCd}
+       </if>
+       <if test="docTypeCd != ''  and docTypeCd != null  and docTypeCd  eq 'A99999999'.toString()  ">
+       <![CDATA[
+            AND T23.RPRT_CD NOT IN  (SELECT T1.CD FROM TBDCMACM013C T1 WHERE T1.CMM_CD_DVSN_CD = '1000858')
+        ]]>
+        </if>
+        <if test="bztBgtDvsnCd != ''  and bztBgtDvsnCd  != null  ">
+             AND AD.BZT_BGT_DVSN_CD = ${bztBgtDvsnCd}
+        </if>
+        <if test="audSbjNm != null and audSbjNm != ''">
+            AND AD.AUD_SBJ_NM LIKE '%' || #{audSbjNm} || '%' /*감사사항명*/
+        </if>
+        <if test="deptCd != null and deptCd != ''">
+             AND T23.DPT_CD = #{deptCd} /*관리부서*/
+        </if>
+        <if test="rprtNm != null and rprtNm != ''">
+             AND T23.APV_TIT_NM LIKE '%' || #{rprtNm} || '%' /*문서제목*/
+        </if>
+        <if test="apvSta != null and apvSta != '' and apvSta eq '20'.toString()">
+            AND T23.APV_STA_CD <![CDATA[<>]]> '3' /*결재중*/
+        </if>
+        <if test="apvSta != null and apvSta != '' and apvSta eq '30'.toString()">
+             AND T23.APV_STA_CD = '3' /*결재완료*/
+        </if>
+        <if test="startDate != null and startDate != '' ">
+        <![CDATA[
+             AND T23.SBM_DH >= REPLACE(#{startDate},'-','')||'000000' /*기안일자 START*/
+        ]]>
+        </if>
+        <if test="endDate != null and endDate != '' ">
+        <![CDATA[
+            AND T23.SBM_DH <=  REPLACE(#{endDate},'-','')||'235959' /*기안일자 END */
+          ]]>
+         </if>
+         <if test="audYr != null and audYr != '' "> 
+             AND AD.AUD_YR = #{audYr}  /*감사년도*/
+         </if>
+         <if test="audYrNoKndCd != null and audYrNoKndCd != ''">
+              AND AD.AUD_KND_CD = #{audYrNoKndCd}
+         </if>
+         <if test="audGrnNo != null and audGrnNo != '' ">
+              AND AD.AUD_GRN_NO = #{audGrnNo}  /*감사번호*/
+         </if>
+         <if test="cprSta != null and cprSta != '' and cprSta eq 'N'.toString()">
+             AND T23.APVR_STA_CD NOT IN ('104', '204')
+         </if>
+         <if test="cprSta != null and cprSta != '' and cprSta eq 'Y'.toString()">
+              <if test="cprStaCmb != null and cprStaCmb != '' and cprStaCmb eq 'A'.toString()">
+                  AND T23.APVR_STA_CD IN ('104', '204')
+              </if>
+              <if test="cprStaCmb != null and cprStaCmb != '' and cprStaCmb eq 'R'.toString()">
+                  AND T23.APVR_STA_CD = '104'
+              </if>
+              <if test="cprStaCmb != null and cprStaCmb != '' and cprStaCmb eq 'C'.toString()">
+                  AND T23.APVR_STA_CD = '204'
+              </if>
+          </if>
+          <if test="schSpvBrdvCd != null and schSpvBrdvCd != '' ">
+               AND AD.MNG_DPT_CD IN (SELECT T1.DPT_CD FROM TBDCMACM002M T1 WHERE T1.HIRK_DPT_CD  = #{schSpvBrdvCd})
+          </if>
+           <if test="schDeptCd != null and schDeptCd != '' ">
+               AND AD.MNG_DPT_CD  = #{schDeptCd}
+           </if>
+             <![CDATA[
+            UNION ALL
+           SELECT T23.APV_DOC_NO,
+                    T23.APV_DVSN_CD,
+                    T23.TSK_KY_TXT,
+                    T23.APV_STA_CD,
+                    F_CODE_NM('1000773', T23.RPRT_APV_STA_CD) AS APV_STA_NM,  /*결재상태*/
+                    T23.APV_TIT_NM,            /*제목*/
+                    T23.SBM_CNB,
+                    F_USR_INFO(T23.SBM_CNB, '2') AS SBM_CNB_NM,   /*기안자*/
+                    TO_CHAR(T23.SBM_DH, 'YYYY-MM-DD') AS SBM_DH,      /*상신일자*/
+                    T23.FNL_APV_CNB,
+                    F_MNG_KND_AUDYRNO(AD.AUD_YR, AD.AUD_NO, AD.AUD_KND_CD, '-') AS  AUD_YR_NO,
+                    CASE WHEN T2.CNT > 1 THEN  T2.EXEC_NO || ' 외 ' || TO_CHAR(T2.CNT -1) ||'건' 
+                             ELSE T2.EXEC_NO END AS AUD_YR_NO2,
+                    TO_CHAR(T23.FNL_APV_DH, 'YYYY-MM-DD') AS FNL_APV_DH,     /*마지막결재일자*/
+                    F_CODE_NM('1000007', AD.AUD_KND_CD) AS AUD_KND_NM,     /*감사종류*/  
+                    F_MNG_KND_AUDYRNO(AD.AUD_YR, AD.AUD_NO, AD.AUD_KND_CD, '-')  AS AUD_YR_KND_NM,
+                    AD.AUD_SBJ_NM,      /*감사사항명*/
+                    T23.AUD_DOC_NM,      /*문서명*/
+                    F_DPT_INFO(AD.MNG_DPT_CD, '4') AS MNG_DPT_NM,      /*관리부서*/
+                    CASE WHEN T23.APV_DOC_NO IS NOT NULL THEN NVL((SELECT F_CODE_NM('1000348', T4.APVR_STA_CD)
+                                                                                          FROM TBDCMACM023L T4 
+                                                                                         WHERE T23.APV_DOC_NO = T4.APV_DOC_NO 
+                                                                                             AND T4.APVR_DPT_CD = '140100'
+                                                                                             AND T4.APVR_KND_CD = '4' 
+                                                                                             AND ROWNUM = 1), F_CODE_NM('1000773', T23.RPRT_APV_STA_CD))
+                             ELSE '' END AS APV_STA_NM2, 
+                    T23.DPT_CD,
+                    T23.APV_RQS_ID,
+                    AD.AUD_CTRL_CD,
+                    DECODE(AD.BZT_BGT_DVSN_CD, '3', DECODE(F_CODE_NM('1000753', AD.AUD_CTRL_CD ), 'Y', '확인완료', '확인전'), '-' )  AS AUD_CTRL_NM,
+                    AD.AUD_KND_CD,
+                    AD.AUD_YR,
+                    AD.AUD_NO,
+                    F_CODE_NM('1000751', AD.BZT_BGT_DVSN_CD )  AS BZT_BGT_DVSN_NM,
+                    AD.BZT_BGT_DVSN_CD,
+                    '-' AS REL_AUD_YR_NO,
+                    (SELECT AGGR_CONCAT( F_MNG_KND_AUDYRNO(T1.REL_AUD_YR, T1.REL_AUD_NO, T2.AUD_KND_CD, '-'), ', ')
+                      FROM TBBADDED101L T1 
+                               INNER JOIN TBBADDED001M T2 
+                                                              ON T1.AUD_YR = T2.AUD_YR
+                                                             AND T1.AUD_NO = T2.AUD_NO
+                     WHERE T1.AUD_YR = AD.AUD_YR
+                        AND T1.AUD_NO = AD.AUD_NO
+                        /* GROUP BY T1.REL_AUD_YR  BEST20 서브쿼리 오류 수정*/
+                        ) AS REL_AUD_YR_NM
+                    ,AD.MTRL_CLC_NO_EXEC_RSN
+                     ,AD.AUD_GRN_NO
+                     ,T23.RPRT_CD
+                     ,CASE WHEN T23.APV_DOC_NO IS NOT NULL THEN NVL((SELECT DECODE(T4.APVR_KND_CD, '4', '포함') 
+                                                                                            FROM TBDCMACM023L T4 
+                                                                                           WHERE T23.APV_DOC_NO = T4.APV_DOC_NO 
+                                                                                             AND T4.APVR_DPT_CD = '140100'
+                                                                                             AND T4.APVR_KND_CD = '4' 
+                                                                                             AND ROWNUM = 1), '미포함')
+                            ELSE '' END    AS APVR_YN
+                     ,'' AS APVR_COMPL_CNT
+                     ,'' AS APVR_COMPL_DY
+                     , (SELECT AGGR_CONCAT(F_CODE_NM('1000030',D1.AUD_BZT_KND_CD) || ' : ' || TO_CHAR(TO_DATE(D1.AUD_STR_DT),'YYYY-MM-DD')||' ~ '|| TO_CHAR(TO_DATE(D1.AUD_END_DT),'YYYY-MM-DD') || ' (' || D1.AUD_DCN || '일)' || CHR(10),'' ORDER BY D1.AUD_STR_DT ASC) 
+                          FROM TBBADDED002M D1 
+                         WHERE D1.REL_AUD_YR = AD.AUD_YR
+                           AND D1.REL_AUD_NO = AD.AUD_NO)     AS AUD_ST_END_DT_DETAIL
+                     , (SELECT CASE WHEN MIN(D1.AUD_STR_DT) IS NOT NULL THEN TO_CHAR(TO_DATE(MIN(D1.AUD_STR_DT)),'YYYY-MM-DD')||' ~ '|| TO_CHAR(TO_DATE(MAX(D1.AUD_END_DT)),'YYYY-MM-DD') || ' (' || SUM(D1.AUD_DCN) || '일)' 
+                                    ELSE ''
+                                END
+                          FROM TBBADDED002M D1 
+                         WHERE D1.REL_AUD_YR = AD.AUD_YR 
+                           AND D1.REL_AUD_NO = AD.AUD_NO)     AS AUD_ST_END_DT         /*실시기간*/
+                    , (SELECT AGGR_CONCAT( F_MNG_KND_AUDYRNO(AUD_YR, AUD_NO, '', '-') , ', ')
+                       FROM TBBADDED101L
+                       WHERE AUD_STEP_CD     = 'A1030'
+                       AND REL_AUD_STEP_CD = 'A1019'
+                       AND REL_AUD_YR          = AD.AUD_YR
+                       AND REL_AUD_NO          = AD.AUD_NO) AS MTRL_AUD_NO   
+                       , F_CODE_NM('1000027', AD.AUD_SCL_CD) AS AUD_SCL_NM  /* 감사규모 */ 
+           FROM TBBADDED001M AD 
+                    LEFT OUTER JOIN (SELECT C.AUD_YR,
+                                                     C.AUD_NO,
+                                                     A.APV_DOC_NO,
+                                                     A.APV_DVSN_CD,
+                                                     A.TSK_KY_TXT,
+                                                     A.APV_STA_CD,
+                                                     A.APV_TIT_NM,
+                                                     A.SBM_DH,
+                                                     A.SBM_CNB,
+                                                     A.FNL_APV_DH,
+                                                     A.FNL_APV_CNB,
+                                                     '' AS APVR_DPT_CD,
+                                                     '' AS APVR_KND_CD,
+                                                     '' AS APVR_CNB,
+                                                     '' AS APVR_STA_CD,
+                                                     '' AS DPT_CD,
+                                                     '' AS RPRT_NM,
+                                                     C.RPRT_NM,
+                                                     C.RPRT_CD,
+                                                     C.DOC_ID, 
+                                                     C.APV_RQS_ID,
+                                                     C.APV_STA_CD AS RPRT_APV_STA_CD,
+                                                     D.DTIL_AUD_DOC_NM AS AUD_DOC_NM
+                                           FROM TBDCMACM022L A
+                                                   INNER JOIN TBBADDED103M C
+                                                             ON A.APV_DOC_NO = C.APV_RQS_ID
+                                                            AND A.APV_DVSN_CD = 'fieldAudit'
+                                                            AND A.APV_STA_CD > 1
+                                                   INNER JOIN TBFDMADM002M D
+                                                             ON C.RPRT_CD = D.AUD_DOC_CD) T23	
+                                     ON AD.AUD_YR = T23.AUD_YR
+                                   AND AD.AUD_NO  =T23.AUD_NO
+                      LEFT OUTER JOIN ( SELECT  MAX(CASE WHEN DVSN_CD IN ('1','2','3') THEN (SELECT S1.ACP_YR||'-'||F_CODE_NM('1000740',S1.REQ_DVSN_CD)||'-'||S1.RM_CVPT_ACP_NO
+                                                                                             FROM TBCSPDCP101M S1
+                                                                                            WHERE T1.TSK_KEY1 = S1.ACP_YR
+                                                                                              AND T1.TSK_KEY2 = S1.REQ_DVSN_CD
+                                                                                              AND T1.TSK_KEY3 = S1.CVPT_ACP_NO)
+                                                       WHEN DVSN_CD = '4'            THEN T1.TSK_KEY1 ||'-국회-'|| T1.TSK_KEY3		/*국회 로직 추가 2017.01.11 전상철*/
+                                                       WHEN DVSN_CD IN ('5','6','7') THEN (SELECT CASE WHEN S1.ACP_YR >= '2016' THEN S1.ACP_YR || '-' || DECODE(S1.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || S1.ACP_SRNO
+                                                                                                       ELSE S1.ACP_YR || '-' || S1.ACP_DVSN_CD || '-' || S1.ACP_SRNO END
+                                                                                             FROM TBBADFRE012M S1
+                                                                                            WHERE T1.TSK_KEY1 = S1.ACP_YR
+                                                                                              AND T1.TSK_KEY2 = S1.ACP_DVSN_CD
+                                                                                              AND T1.TSK_KEY3 = S1.ACP_SRNO
+                                                                                              AND T1.TSK_KEY4 = S1.DPT_CD)
+                                                       WHEN DVSN_CD IN ('8','9')     THEN (SELECT CASE WHEN S1.OGN_DVSN_CD = '6' THEN S1.YR||'-판청-'||S1.ACP_NO
+                                                                                                       ELSE S1.YR||'-손망-'||S1.ACP_NO END
+                                                                                             FROM TBBADGDA001M S1
+                                                                                            WHERE T1.TSK_KEY1 = S1.ORG_CD
+                                                                                              AND T1.TSK_KEY2 = S1.NTF_DVSN_CD
+                                                                                              AND T1.TSK_KEY3 = S1.NNB)
+                                                       WHEN DVSN_CD = '0'            THEN TSK_KEY1 ||'-정보-'|| TSK_KEY2
+                                                       WHEN DVSN_CD = 'A'            THEN F_MNG_KND_AUDYRNO(TSK_KEY1, TSK_KEY2, (SELECT AUD_KND_CD 
+                                                                                                                                   FROM TBBADDED001M 
+                                                                                                                                  WHERE AUD_YR = TSK_KEY1 
+                                                                                                                                    AND AUD_NO = TSK_KEY2), '-') ||'-'|| TSK_KEY3 ||'-'|| F_ORG_INFO(TSK_KEY4,'1')
+                                                       WHEN DVSN_CD = 'C'            THEN TSK_KEY1 ||'-청금-'|| (SELECT RM_CVPT_ACP_NO FROM TBDCPDCP101M WHERE 1=1 AND ACP_YR = TSK_KEY1 AND REQ_DVSN_CD = TSK_KEY2 AND CVPT_ACP_NO = TSK_KEY3)
+											                                                                                      /*청탁금지법 추가 2017.01.11 전상철*/
+                                                       WHEN DVSN_CD = 'D'            THEN TSK_KEY1 ||'-'||F_CODE_NM('1000742', 'D')||'-'|| (SELECT RM_CVPT_ACP_NO FROM TBCORCOR101M WHERE 1=1 AND ACP_YR = TSK_KEY1 AND REQ_DVSN_CD = TSK_KEY2 AND CVPT_ACP_NO = TSK_KEY3)
+																					       										/*부패방지법  추가 2018.02.27 CJlEE*/
+                                                          ELSE '' END) AS EXEC_NO                    
+                       , T1.AUD_YR , T1.AUD_NO , COUNT(1) AS CNT
+                  FROM TBBADDED030L T1 
+                  GROUP BY T1.AUD_YR, T1.AUD_NO ) T2 ON  T2.AUD_YR = AD.AUD_YR AND T2.AUD_NO  = AD.AUD_NO
+           WHERE 1=1
+           
+               AND AD.AUD_YR > '2016'
+               AND ((T23.RPRT_CD = 'A10300100' AND NOT EXISTS (SELECT 1 
+                                                                                  FROM TBDCMACM023L T1 
+                                                                                 WHERE T1.APV_DOC_NO  = T23.APV_DOC_NO
+                                                                                    AND T1.APVR_DPT_CD = '140100'
+                                                                                    AND T1.APVR_KND_CD = '4' ) ) 
+                       OR AD.AUD_KND_CD LIKE '%5')
+                    ]]>
+                <if test="docTypeCd != ''  and docTypeCd != null  and docTypeCd != 'A99999999'.toString()  ">
+                    AND T23.RPRT_CD = #{docTypeCd}
+                </if>
+                <if test="docTypeCd != ''  and docTypeCd != null  and docTypeCd  eq 'A99999999'.toString()  ">
+                <![CDATA[
+                    AND T23.RPRT_CD NOT IN  (SELECT T1.CD FROM TBDCMACM013C T1 WHERE T1.CMM_CD_DVSN_CD = '1000858')
+                ]]>
+                </if>
+                <if test="cprSta != null and cprSta != '' and cprSta eq 'N'.toString()">
+                    AND NOT EXISTS (SELECT 1 FROM TBDCMACM023L T3 
+                                                      WHERE T23.APV_DOC_NO = T3.APV_DOC_NO 
+                                                         AND T3.APVR_DPT_CD = '140100'
+                                                         AND T3.APVR_KND_CD = '4' )
+                </if>
+                <if test="cprSta != null and cprSta != '' and cprSta eq 'Y'.toString()">
+                     AND EXISTS (SELECT 1 FROM TBDCMACM023L T3 
+                                                WHERE T23.APV_DOC_NO = T3.APV_DOC_NO 
+                                                   AND T3.APVR_DPT_CD = '140100'
+                                               <if test="cprStaCmb != null and cprStaCmb != '' and cprStaCmb eq 'A'.toString()">
+                                                   AND T3.APVR_STA_CD IN ('104', '204')
+                                               </if>
+                                               <if test="cprStaCmb != null and cprStaCmb != '' and cprStaCmb eq 'R'.toString()">
+                                                   AND T3.APVR_STA_CD = '104'
+                                               </if>
+                                               <if test="cprStaCmb != null and cprStaCmb != '' and cprStaCmb eq 'C'.toString()">
+                                                   AND T3.APVR_STA_CD = '204'
+                                              </if>
+                                                   AND T3.APVR_KND_CD = '4' )
+                </if>
+                <if test="bztBgtDvsnCd != '' and bztBgtDvsnCd != null  ">
+                    AND AD.BZT_BGT_DVSN_CD = ${bztBgtDvsnCd}
+                </if>
+                <if test="audSbjNm != null and audSbjNm != ''">
+                    AND AD.AUD_SBJ_NM LIKE '%' || #{audSbjNm} || '%' /*감사사항명*/
+                </if>
+                <if test="deptCd != null and deptCd != ''">
+                    AND AD.MNG_DPT_CD = #{deptCd} /*관리부서*/
+                </if>
+                <if test="rprtNm != null and rprtNm != ''">
+                     AND T23.APV_TIT_NM LIKE '%' || #{rprtNm} || '%' /*문서제목*/
+                </if>
+                <if test="apvSta != null and apvSta != '' and apvSta eq '20'.toString()">
+                     AND T23.APV_STA_CD <![CDATA[<>]]> '3' /*결재중*/
+                </if>
+                <if test="apvSta != null and apvSta != '' and apvSta eq '30'.toString()">
+                     AND T23.APV_STA_CD = '3' /*결재완료*/
+                </if>
+                <if test="startDate != null and startDate != '' ">
+                <![CDATA[
+                     AND T23.SBM_DH >= REPLACE(#{startDate},'-','')||'000000' /*기안일자 START*/
+                 ]]>
+                </if>
+                <if test="endDate != null and endDate != '' ">
+                <![CDATA[
+                     AND T23.SBM_DH <=  REPLACE(#{endDate},'-','')||'235959' /*기안일자 END */
+                  ]]>
+               </if>
+               <if test="audYr != null and audYr != '' "> 
+                    AND AD.AUD_YR = #{audYr}  /*감사년도*/
+               </if>
+               <if test="audYrNoKndCd != null and audYrNoKndCd != ''">
+                   AND AD.AUD_KND_CD = #{audYrNoKndCd}
+               </if>
+               <if test="audGrnNo != null and audGrnNo != '' ">
+                   AND AD.AUD_GRN_NO = #{audGrnNo}  /*감사번호*/
+               </if>
+               <if test="schSpvBrdvCd != null and schSpvBrdvCd != '' ">
+                   AND AD.MNG_DPT_CD IN (SELECT T1.DPT_CD FROM TBDCMACM002M T1 WHERE T1.HIRK_DPT_CD  = #{schSpvBrdvCd})
+               </if>
+               <![CDATA[
+                ORDER BY 
+                       CASE WHEN SUBSTR(AUD_KND_CD, -1,1) <> '5' AND  AUD_CTRL_CD = 3 THEN 1  
+                              WHEN SUBSTR(AUD_KND_CD, -1,1) = '5' AND BZT_BGT_DVSN_CD  =3 AND AUD_CTRL_CD = 1 THEN 2
+                                 ELSE 3 END
+                       , NVL(APV_DOC_NO, '0') DESC
+                       , APV_STA_CD
+                       , SBM_DH DESC
+                       , AUD_GRN_NO DESC
+                ]]>
+        <include refid="include.pageOrder" />
+    </select>
+    
+    <select id="selectCurrDate" parameterType="paramMap" resultType="egovMap">
+        /*kr.go.bai.eip.aep.afu.dao.AEPAFU010QMapper.selectCurrDate*/
+            SELECT TO_CHAR(SYSDATE, 'YYYY') || '-01-01' AS START_DATE
+                  ,TO_CHAR(SYSDATE, 'YYYY-MM-DD') AS END_DATE
+              FROM DUAL
+    </select>
+</mapper>

@@ -1,0 +1,361 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/ear/048">
+
+	<!-- 감사사항 조회-->
+	<select id="BADEAR048EMainSelect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+            SELECT D1.AUD_YR                          AS AUD_YR                          /*감사년도*/
+                 , D1.AUD_NO                          AS AUD_NO                          /*감사번호*/
+                 , F_MNG_KND_AUDYRNO(D1.AUD_YR, D1.AUD_NO, D1.AUD_KND_CD, '-')      
+                                                      AS AUD_YR_NO                       /*감사연번호*/
+                 , D1.SPV_BRDV_CD                     AS SPV_BRDV_CD                     /*주관국과코드*/
+                 , F_DPT_INFO(D1.SPV_BRDV_CD,'1')     AS SPV_BRDV_NM                     /*주관국과명*/
+                 , D1.MNG_DPT_CD                      AS MNG_DPT_CD                      /*관리부서코드 - 2016.03.09 yyh*/
+                 , F_DPT_INFO(D1.MNG_DPT_CD,'1')      AS MNG_DPT_NM                      /*관리부서명*/                 
+                 , D1.AUD_SBJ_NM                      AS AUD_SBJ_NM                      /*감사사항명*/
+                 , (SELECT CASE WHEN COUNT(*) > 0 THEN 'Y'
+                                ELSE 'N'
+                            END  
+                      FROM TBBADEAR030M T1 
+                     WHERE T1.AUD_YR     = D1.AUD_YR
+                       AND T1.AUD_NO     = D1.AUD_NO) AS PRL_SMT_SAVE_YN                /*홍보제출테이블 입력 여부*/  
+                 , (SELECT CASE WHEN COUNT(*) > 0 THEN 'Y'
+                                ELSE 'N'
+                            END  
+                      FROM TBBADEAR030M T1 
+                     WHERE T1.AUD_YR     = D1.AUD_YR
+                       AND T1.AUD_NO     = D1.AUD_NO
+                       AND T1.PRL_SMT_YN = 'Y')       AS PRL_SMT_YN                      /*홍보제출여부*/
+				,(SELECT TO_CHAR(TO_DATE(MAX(S1.ENF_DT)),'YYYY-MM-DD') 
+                       FROM TBBADEAR002D S1 
+                      WHERE S1.AUD_YR = D1.AUD_YR AND S1.AUD_NO = D1.AUD_NO) AS ENF_DT
+                ,(SELECT TO_CHAR(TO_DATE(MAX(T1.PRL_SMT_DT)),'YYYY-MM-DD') 
+                FROM 	TBBADEAR030M T1 
+                     WHERE T1.AUD_YR     = D1.AUD_YR
+                       AND T1.AUD_NO     = D1.AUD_NO) AS PRL_SMT_DT
+                , CASE WHEN (SELECT MAX(T1.PRL_SMT_DT)
+                FROM 	TBBADEAR030M T1 
+                     WHERE T1.AUD_YR     = D1.AUD_YR
+                       AND T1.AUD_NO     = D1.AUD_NO) IS NOT NULL THEN TO_DATE((SELECT MAX(T1.PRL_SMT_DT)
+                FROM 	TBBADEAR030M T1 
+                     WHERE T1.AUD_YR     = D1.AUD_YR
+                       AND T1.AUD_NO     = D1.AUD_NO)) - (SELECT TO_DATE(MAX(ENF_DT)) 
+                     																  FROM TBBADEAR002D S1 
+                 																 WHERE S1.AUD_YR = D1.AUD_YR AND S1.AUD_NO = D1.AUD_NO)
+   						ELSE TO_DATE(SYSDATE) - (SELECT TO_DATE(MAX(ENF_DT)) 
+   						                           FROM TBBADEAR002D S1 
+   						                          WHERE S1.AUD_YR = D1.AUD_YR AND S1.AUD_NO = D1.AUD_NO) END AS DAY_CNT /*시행일 이후 경과일수*/
+				,(	SELECT	F_CODE_NM('1000756',NVL(MAX(PRSS_STA_CD),'10'))
+                	FROM	TBBADEAR030M T1
+                	WHERE	T1.AUD_YR     = D1.AUD_YR
+					AND 	T1.AUD_NO     = D1.AUD_NO
+				) AS PRSS_STA_NM
+              FROM TBBADDED001M D1
+             WHERE 1=1
+               AND D1.MNG_DPT_CD      IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #strDptAuth#, '', #strUpSpvBrdvCd#)))
+               AND NOT EXISTS (	SELECT 	1
+               					FROM	TBBADEAR001M T1
+               							,TBBADEAR002D T2
+               					WHERE	T1.AUD_YR     = D1.AUD_YR
+                              	AND 	T1.AUD_NO     = D1.AUD_NO
+                              	AND		T1.AUD_YR     = T2.AUD_YR
+                              	AND 	T1.AUD_NO     = T2.AUD_NO
+                              	AND		T1.DSP_RQ_SNO = T2.DSP_RQ_SNO
+                              	AND		T2.ENF_DT IS NULL
+                              	AND 	T1.DSP_RQ_KND_CD NOT IN (
+                                             '120' /* 무책판정     */
+                                            ,'390' /* 현지시정     */
+                                            ,'391' /* 현지시정회   */
+                                            ,'490' /* 현지주의     */ 
+                                            ,'395' /* 시정(국장전결) */
+                                            ,'396' /* 시정(국장전결)회   */
+                                            ,'495' /* 주의(국장전결) */
+                                            ,'730' /* 수사요청     */
+                                            ,'904' /* 종합통보     */
+                                            ,'905' /* 개별통보     */
+                                            ,'910' /* 자체처리요구 */
+                                            ,'911' /* 자체징계     */
+                                            ,'912' /* 자체시정     */
+                                            ,'913' /* 자체주의     */
+                                            ,'914' /* 자체통보     */
+                                            ,'915' /* 자체처리고발 */
+                                            ,'916' /* 불문         */
+                                           )
+                              )
+               AND EXISTS (		SELECT 	1
+               					FROM	TBBADEAR001M T1
+               					WHERE	T1.AUD_YR     = D1.AUD_YR
+                              	AND 	T1.AUD_NO     = D1.AUD_NO
+                           		AND 	T1.DSP_RQ_KND_CD NOT IN (
+                                             '120' /* 무책판정     */
+                                            ,'390' /* 현지시정     */
+                                            ,'391' /* 현지시정회   */
+                                            ,'490' /* 현지주의     */
+                                            ,'395' /* 시정(국장전결) */
+                                            ,'396' /* 시정(국장전결)회   */
+                                            ,'495' /* 주의(국장전결) */
+                                            ,'730' /* 수사요청     */
+                                            ,'904' /* 종합통보     */
+                                            ,'905' /* 개별통보     */
+                                            ,'910' /* 자체처리요구 */
+                                            ,'911' /* 자체징계     */
+                                            ,'912' /* 자체시정     */
+                                            ,'913' /* 자체주의     */
+                                            ,'914' /* 자체통보     */
+                                            ,'915' /* 자체처리고발 */
+                                            ,'916' /* 불문         */
+                                           )
+                          )	
+		]]>	
+		
+		<isNotEmpty property="strAudYr">		             
+               AND D1.AUD_YR     = #strAudYr#
+        </isNotEmpty>
+            
+		<isNotEmpty property="strAudGrnNo">            
+               AND D1.AUD_GRN_NO     = #strAudGrnNo#
+		</isNotEmpty>               
+               
+		<isEqual property="strPrlSmtYn" compareValue="Y">
+		       AND EXISTS (SELECT 1
+                             FROM TBBADEAR030M T1 
+                            WHERE T1.AUD_YR     = D1.AUD_YR
+                              AND T1.AUD_NO     = D1.AUD_NO
+                              AND T1.PRL_SMT_YN = 'Y')
+        </isEqual>
+		<isEqual property="strPrlSmtYn" compareValue="N">
+		       AND NOT EXISTS (SELECT 1
+                                 FROM TBBADEAR030M T1 
+                                WHERE T1.AUD_YR     = D1.AUD_YR
+                                  AND T1.AUD_NO     = D1.AUD_NO
+                                  AND T1.PRL_SMT_YN = 'Y')
+        </isEqual>
+        
+		<isNotEmpty property="strSpvBrdvCd">	
+			   AND D1.MNG_DPT_CD = #strSpvBrdvCd#
+		</isNotEmpty>
+
+		<isNotEmpty property="strAudSbjNm">	
+               AND D1.AUD_SBJ_NM LIKE '%'||#strAudSbjNm#||'%'
+		</isNotEmpty>
+		   
+		<isNotEmpty property="strAudYrNoKndCd">	 	
+			   AND SUBSTR(D1.AUD_KND_CD,3,1) = #strAudYrNoKndCd# 
+		</isNotEmpty>	
+					   
+        <![CDATA[
+        	ORDER BY D1.AUD_YR DESC, D1.AUD_NO DESC 
+		]]>
+	</select>
+	
+	<!-- 처분결과 조회-->
+	<select id="BADEAR048EDtlselect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+            SELECT D2.AUD_YR                               AS AUD_YR                          /*감사년도*/
+                 , D2.AUD_NO                               AS AUD_NO                          /*감사번호*/
+                 , D2.DSP_RQ_SNO                           AS DSP_RQ_SNO                      /*처분요구순번*/
+                 , D4.AUD_SBJ_NM
+                 , F_MNG_KND_AUDYRNO(D4.AUD_YR, D4.AUD_NO, D4.AUD_KND_CD, '-')     
+                                                           AS AUD_YR_NO
+                 , F_MNG_KND_AUDYRNO(D4.AUD_YR, D4.AUD_NO, D4.AUD_KND_CD, '-') || '-' || D2.DSP_RQ_SNO                           
+                                                           AS AUD_DSP_RQ_SNO                  /*감사처분요구순번*/ 
+                 , D1.TIT_TXT                              AS TIT_TXT                         /*제목내용*/
+                 , NVL(D3.OPEN_TIT_TXT,D1.TIT_TXT)                         AS OPEN_TIT_TXT                    /*공개제목내용*/
+                 , D3.RPST_ORG_CD 
+                 , (SELECT F_ORG_INFO(MIN(RLTN_ORG_CD),'1')
+                      FROM TBBADEAR006M T1
+                     WHERE 1=1
+                       AND T1.AUD_YR     = D1.AUD_YR
+                       AND T1.AUD_NO     = D1.AUD_NO
+                       AND T1.DSP_RQ_SNO = D1.DSP_RQ_SNO)  AS RLTN_ORG_NM                     /*처분기관*/
+                 , (SELECT MIN(RLTN_ORG_CD)
+                      FROM TBBADEAR006M T1
+                     WHERE 1=1
+                       AND T1.AUD_YR     = D1.AUD_YR
+                       AND T1.AUD_NO     = D1.AUD_NO
+                       AND T1.DSP_RQ_SNO = D1.DSP_RQ_SNO)  AS RLTN_ORG_CD                     /*처분기관*/
+                 , ''                                      AS DSP_RQ_RSLT                     /*처분결과*/
+                 , D1.DSP_RQ_KND_CD                        AS DSP_RQ_KND_CD                   /*처분요구종류코드*/
+                 , D5.CD_NM  AS DSP_RQ_KND_NM                   /*처분요구종류코드명*/
+                 , CASE WHEN D2.DTM_STA_CD = '1' THEN '처분확정'
+                        WHEN D2.DTM_STA_CD = '2' THEN '집행확정' 
+                        ELSE '미확정'
+                    END                                    AS DTM_STA_NM                      /*처분확정여부*/
+                 , NVL(D2.DTM_STA_CD,0) AS DTM_STA_CD
+                 , CASE WHEN D3.HMP_OPEN_YN IS NOT NULL THEN D3.HMP_OPEN_YN
+                 		WHEN D2.HMP_OPEN_YN IN ('1','N') THEN 'N'
+                 		WHEN D2.HMP_OPEN_YN IS NULL THEN 'N'
+                        ELSE 'Y'
+                    END                                    AS OPEN_YN                         /*공개여부*/
+                 , D5.USR_DFN_TXT_1						   AS DSP_RQ_KND_CD2				  /*홈페이지 공개용 처분요구종류코드*/
+                 , SUBSTR(D2.ENF_DT,1,4) AS ENF_YR 
+                 , CASE WHEN D2.HMP_OPEN_YN IN ('1','N') THEN '비공개'
+                 		WHEN D2.HMP_OPEN_YN IS NULL THEN '비공개'
+                        ELSE '공개'
+                    END                                    AS HMP_OPEN_YN   
+                 , D3.OPEN_TXT  
+                 , F_CODE_NM('1000120',D2.TSK_CAT_CD)  AS TSK_CAT_NM 	/*업무분류명*/
+                 ,D3.DOC_ID
+					,CASE WHEN D3.DOC_ID IS NULL AND CSD_YN IS NULL THEN '공개문 미생성'
+						WHEN D3.DOC_ID IS NULL AND CSD_YN = 'Z' THEN '공개문 미존재' 
+						WHEN D3.DOC_ID IS NOT NULL AND CSD_YN IS NULL THEN '공개문 생성중'
+						WHEN D3.DOC_ID IS NOT NULL AND CSD_YN = 'Y' THEN '공개문 생성 성공'
+						WHEN D3.DOC_ID IS NOT NULL AND CSD_YN = 'N' THEN '공개문 생성 실패'
+						ELSE '' END AS CSD_YN_NM
+					,D3.CSD_YN AS CSD_YN
+              FROM TBBADEAR001M D1    /*처분요구사항기본*/
+                  ,TBBADEAR002D D2    /*처분요구사항상세*/
+                  ,TBBADEAR030M D3    /*홍보제출기본*/
+                  ,TBBADDED001M D4
+                  ,TBDCMACM013C D5
+             WHERE 1=1
+               AND D4.AUD_YR	 = D1.AUD_YR
+               AND D4.AUD_NO     = D1.AUD_NO
+               AND D1.AUD_YR     = D2.AUD_YR
+               AND D1.AUD_NO     = D2.AUD_NO
+               AND D1.DSP_RQ_SNO = D2.DSP_RQ_SNO
+               AND D1.AUD_YR     = D3.AUD_YR(+)
+               AND D1.AUD_NO     = D3.AUD_NO(+)
+               AND D1.DSP_RQ_SNO = D3.DSP_RQ_SNO(+)
+               AND D1.AUD_YR     = #strAudYr#
+               AND D1.AUD_NO     = #strAudNo#
+               AND D5.CMM_CD_DVSN_CD = '1000002' 
+               AND D5.CD <> '000000000'
+               AND D1.DSP_RQ_KND_CD = D5.CD
+               AND D1.DSP_RQ_KND_CD NOT IN (
+                                             '120' /* 무책판정     */
+                                            ,'390' /* 현지시정     */
+                                            ,'391' /* 현지시정회   */
+                                            ,'490' /* 현지주의     */
+                                            ,'395' /* 시정(국장전결) */
+                                            ,'396' /* 시정(국장전결)회   */
+                                            ,'495' /* 주의(국장전결) */
+                                            ,'730' /* 수사요청     */
+                                            ,'904' /* 종합통보     */
+                                            ,'905' /* 개별통보     */
+                                            ,'910' /* 자체처리요구 */
+                                            ,'911' /* 자체징계     */
+                                            ,'912' /* 자체시정     */
+                                            ,'913' /* 자체주의     */
+                                            ,'914' /* 자체통보     */
+                                            ,'915' /* 자체처리고발 */
+                                            ,'916' /* 불문         */
+                                           )
+             ORDER BY D1.DSP_RQ_SNO 
+		]]>
+	</select>	
+	
+	<!-- 홍보제출기본 insert-->
+	<insert id="BADEAR048EDtlinsert" parameterClass="paramMap">
+		<![CDATA[  
+                INSERT INTO TBBADEAR030M
+                (
+                     AUD_YR                  /*감사년도*/        
+                    ,AUD_NO                  /*감사번호*/        
+                    ,DSP_RQ_SNO              /*처분요구순번*/    
+                    ,AUD_SBJ_NM
+                    ,OPEN_TIT_TXT            /*공개제목내용*/  
+                    ,OPEN_TXT                /*공개내용*/
+                    ,PRL_SMT_YN              /*홍보제출여부*/
+                    ,CON_YN                  /*연계여부*/  
+                    ,DSP_RQ_KND_CD           /*처분요구종류코드*/
+                    ,RLTN_ORG_CD
+                    ,RLTN_ORG_NM			 /*관계기관*/
+                    ,ENF_YR
+                    ,FRT_USR_ID              /*최초사용자ID*/
+                    ,FNL_USR_ID              /*최종사용자ID*/
+                    ,FNL_DEAL_DPT_CD         /*최종거래부서코드*/
+                    ,FNL_MNU_ID              /*최종메뉴ID*/
+                    ,FRT_REGI_DH             /*최초등록일시*/
+                    ,FNL_MDF_DH              /*최종수정일시*/
+                    ,HMP_OPEN_YN			/*공개여부*/
+                    ,PRSS_STA_CD			
+                ) 
+                VALUES
+                (
+                     #AUD_YR#                
+                    ,#AUD_NO#                
+                    ,#DSP_RQ_SNO#     
+                    ,#AUD_SBJ_NM#       
+                    ,#OPEN_TIT_TXT#          
+                    ,#OPEN_TXT#              
+                    ,'N'            
+                    ,'N'        
+                    ,#DSP_RQ_KND_CD2#    
+                    ,#RLTN_ORG_CD#
+                    ,#RLTN_ORG_NM#   
+                    ,#ENF_YR#  
+                    ,#FRT_USR_ID#            
+                    ,#FNL_USR_ID#            
+                    ,#FNL_DEAL_DPT_CD#       
+                    ,#FNL_MNU_ID#            
+                    ,SYSDATE
+                    ,SYSDATE   
+                    ,#OPEN_YN#    
+                    ,'10'     
+                )		
+		]]>
+	</insert>
+		
+	<!--홍보제출기본 update-->
+	<update id="BADEAR048EDtlupdate" parameterClass="paramMap">
+		<![CDATA[
+	          UPDATE TBBADEAR030M
+                 SET OPEN_TIT_TXT      = #OPEN_TIT_TXT#      /*공개제목내용*/  
+                 	,RLTN_ORG_CD = #RLTN_ORG_CD#
+                 	,RLTN_ORG_NM = #RLTN_ORG_NM#
+                    ,FNL_USR_ID        = #FNL_USR_ID#        /*최종사용자ID*/
+                    ,FNL_DEAL_DPT_CD   = #FNL_DEAL_DPT_CD#   /*최종거래부서코드*/
+                    ,FNL_MNU_ID        = #FNL_MNU_ID#        /*최종메뉴ID*/
+                    ,FNL_MDF_DH        = SYSDATE             /*최종수정일시*/
+                    ,HMP_OPEN_YN	   = #OPEN_YN#
+                    ,OPEN_TXT		   = #OPEN_TXT#
+               WHERE AUD_YR            = #AUD_YR#
+                 AND AUD_NO            = #AUD_NO#
+                 AND DSP_RQ_SNO        = #DSP_RQ_SNO#
+		]]>   
+	</update>			
+		
+	<!--홍보제출 update-->
+	<update id="BADEAR048EPrlSmtYnupdate" parameterClass="paramMap">
+		<![CDATA[
+		  	
+	          UPDATE TBBADEAR030M D1
+                 SET PRL_SMT_YN        = #strPrlSmtYn#
+                 	,PRL_SMT_DT = TO_CHAR(SYSDATE,'YYYYMMDD')
+                 	,RPST_ORG_CD       =	CASE WHEN RPST_ORG_CD IS NOT NULL THEN RPST_ORG_CD
+                 							WHEN (	SELECT 	COUNT(*)
+                 									FROM	TBBADEAR032M S1 
+                 									WHERE 	D1.RLTN_ORG_CD = S1.ORG_CD ) = 1
+                 								THEN (	SELECT 	S1.RPST_ORG_CD
+                 										FROM	TBBADEAR032M S1
+                 										WHERE	D1.RLTN_ORG_CD = S1.ORG_CD
+                 									)
+                 							ELSE NULL END 
+                 	,PRSS_STA_CD = '30'
+                    ,FNL_USR_ID        = #FNL_USR_ID#        /*최종사용자ID*/
+                    ,FNL_DEAL_DPT_CD   = #FNL_DEAL_DPT_CD#   /*최종거래부서코드*/
+                    ,FNL_MNU_ID        = #FNL_MNU_ID#        /*최종메뉴ID*/
+                    ,FNL_MDF_DH        = SYSDATE             /*최종수정일시*/                 
+               WHERE AUD_YR            = #strAudYr#
+                 AND AUD_NO            = #strAudNo#
+
+		]]>   
+	</update>	
+
+	<!-- 홍보제출존재 여부 -->
+	<select id="BADEAR048EDtlCntselect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+            SELECT COUNT(*) AS CNT 
+              FROM TBBADEAR030M 
+             WHERE 1=1
+               AND AUD_YR     = #AUD_YR#
+               AND AUD_NO     = #AUD_NO#
+               AND DSP_RQ_SNO = #DSP_RQ_SNO#
+		]]>
+	</select>	
+	
+				
+</sqlMap> 

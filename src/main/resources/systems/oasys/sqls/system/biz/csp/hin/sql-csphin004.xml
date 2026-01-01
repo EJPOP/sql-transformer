@@ -1,0 +1,748 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/hin/004">
+	<select id="CSPHIN004QMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		<include refid = "include.pageSelct"/>
+		<![CDATA[
+			SELECT 	T1.BZT_YR
+					,T1.SRNO
+					,T1.BZT_TIT
+					,T1.DPT_CD
+					,F_DPT_INFO(T1.DPT_CD,'1') AS DPT_NM
+					,T1.BGT_DVSN /* 예산구분 */
+					,T1.BZT_TRDS
+					,T1.BZT_TRDE
+					,TO_CHAR(TO_DATE(T1.BZT_TRDS, 'YYYYMMDD'), 'YYYY.MM.DD') ||' ~ '|| TO_CHAR(TO_DATE(T1.BZT_TRDE, 'YYYYMMDD'), 'YYYY.MM.DD') AS BZT_DATE
+					,(SELECT BZT_NAT_CD FROM TBCSPHIN004N WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR AND  ROWNUM=1) AS BZT_NAT
+					,CASE WHEN (SELECT COUNT(BZT_NAT_CD) FROM TBCSPHIN004N WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR) > 1 
+                        THEN ((SELECT F_CODE_NM('1000181',BZT_NAT_CD) FROM TBCSPHIN004N WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR AND ROWNUM=1)
+					            || ' 외 ' || (SELECT NVL(COUNT(*)-1,0) FROM TBCSPHIN004N WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR) || '개국' )
+                     ELSE   (SELECT F_CODE_NM('1000181',BZT_NAT_CD) FROM TBCSPHIN004N WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR ) END  AS BZT_NAT_NM /* 출장국가명 */     
+					,(SELECT BZT_CNB  FROM TBCSPHIN004C WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR AND ROWNUM=1) AS BZT_CNB
+					
+					,CASE WHEN (SELECT COUNT(BZT_CNB) FROM TBCSPHIN004C WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR) + TO_NUMBER(NVL(T1.NBAI_BZT_NUM,0))   > 1 
+                        THEN ((SELECT F_USR_INFO(BZT_CNB, '2') FROM TBCSPHIN004C WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR AND ROWNUM=1)
+					            || ' 외 ' || (SELECT NVL(COUNT(*)-1,0) + TO_NUMBER(NVL(T1.NBAI_BZT_NUM,0)) FROM TBCSPHIN004C WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR) || '명' )
+                     ELSE   (SELECT F_USR_INFO(BZT_CNB, '2') FROM TBCSPHIN004C WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR ) END  AS BZT_NAM  /* 출장자명 */
+                     
+					,T1.JDG_TG   /* 심사대상여부 */
+					,CASE WHEN T1.BZT_PLN_DOC_ID IS NOT NULL THEN '[출장계획서]' ELSE NULL END AS BZT_PLN_DOC_NM	/* 출장 계획서명  */
+					,T1.BZT_PLN_DOC_ID	/* 출장 계획서 문서 ID*/
+					,(SELECT DOC_ID  FROM TBCSPHIN004L WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR ) AS BZT_RSLT_RPRT_DOC_ID /* 출장 결과보고서 ID*/
+					/* 출장종료 후 결과보고 30일이내 보고서가 있으면 보고서를 없으면 남은날짜표시 */
+					,CASE WHEN (TO_DATE(T1.BZT_TRDE, 'YYYYMMDD') <= SYSDATE) AND (SELECT DOC_ID FROM TBCSPHIN004L WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR)  IS NULL THEN 'D-' || (TRUNC(ADD_MONTHS(TO_DATE(T1.BZT_TRDE),1)) - TRUNC(SYSDATE))  
+					WHEN (TO_DATE(T1.BZT_TRDE, 'YYYYMMDD') <= SYSDATE) AND (SELECT DOC_ID FROM TBCSPHIN004L WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR) IS NOT NULL THEN '[결과보고서]'
+					ELSE ''  END AS BZT_RSLT_RPRT_DOC_NM /* 출장 결과보고명 */
+					,T1.APV_DOC_NO
+					,T1.APV_STA
+					,T1.APV_DOC_NO2
+					,T1.APV_STA2
+					,T1.APV_DATE
+					,T1.APV_DATE2
+					,T1.HIRANKPOS /*고위직 포함여부 */
+			FROM	TBCSPHIN004M T1
+			WHERE	1=1
+			AND (T1.DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #strDptAuth#, '', #strDPT_CD#))) )
+		]]>
+		<isNotEmpty property="strBztYr">
+			AND  T1.BZT_YR = #strBztYr# 
+		</isNotEmpty>
+			
+		<isNotEmpty property="strSrno">
+			AND  T1.SRNO = #strSrno# 
+		</isNotEmpty>
+		
+		<isNotEmpty property="strDPT_CD2">
+			AND  T1.DPT_CD = #strDPT_CD2# 
+		</isNotEmpty>
+            
+		<isNotEmpty property="strBZT_NAT_CD">
+		 	AND  #strBZT_NAT_CD#  IN (SELECT BZT_NAT_CD FROM TBCSPHIN004N WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR)
+		</isNotEmpty>
+		<isNotEmpty property="strBZT_CNB">
+		 	AND #strBZT_CNB#  IN (SELECT BZT_CNB FROM TBCSPHIN004C WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR)
+		</isNotEmpty>
+		<!-- 심사대상 여부 -->
+		<isNotEmpty property="strJDG_TG">
+			AND	T1.JDG_TG = #strJDG_TG#
+		</isNotEmpty>
+		<!-- 고위직포함 여부 -->
+		<isNotEmpty property="strHIRANKPOS">
+			AND	T1.HIRANKPOS = #strHIRANKPOS#
+		</isNotEmpty>
+		<!-- 결과보고서 등록 여부 -->
+		<isNotEmpty property="strBGT_DVSN">
+			<isEqual property="strBGT_DVSN" compareValue="Y">
+				AND	(SELECT DOC_ID FROM TBCSPHIN004L WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR) IS NOT NULL
+			</isEqual>
+			<isEqual property="strBGT_DVSN" compareValue="N">
+				AND (SELECT DOC_ID FROM TBCSPHIN004L WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR)  IS NULL
+			</isEqual>
+		</isNotEmpty>
+		<!-- 제목 -->
+		<isNotEmpty prepend="AND" property="strBZT_TIT">
+			T1.BZT_TIT LIKE '%'||#strBZT_TIT# ||'%'
+		</isNotEmpty>
+		
+		<!-- 출장일 -->
+		<isNotEmpty property="strBZT_TRDS">
+			<![CDATA[
+				AND (T1.BZT_TRDS <= #strBZT_TRDS# AND T1.BZT_TRDS <= #strBZT_TRDE#
+				AND  T1.BZT_TRDE >= #strBZT_TRDS# AND T1.BZT_TRDE >= #strBZT_TRDE# 
+				OR   T1.BZT_TRDS BETWEEN #strBZT_TRDS# AND #strBZT_TRDE#
+				OR   T1.BZT_TRDE BETWEEN #strBZT_TRDS# AND #strBZT_TRDE#)
+			]]>
+		</isNotEmpty>
+		
+		
+		<include refid = "include.pageOrder"/> 
+	</select>
+
+	<select id="CSPHIN004QExcelExportSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[ 
+			SELECT ROW_NUMBER() OVER(ORDER BY BZT_TRDS ASC) AS NUM,	A.* 
+ 				FROM ( SELECT 	T1.BZT_YR
+					,T1.SRNO
+					,T1.BZT_TIT
+					,T1.DPT_CD
+					,F_DPT_INFO(T1.DPT_CD,'1') AS DPT_NM
+					,T1.BGT_DVSN /* 예산구분 */	
+					,T1.BZT_TRDS
+					,T1.BZT_TRDE
+					,TO_CHAR(TO_DATE(T1.BZT_TRDS, 'YYYYMMDD'), 'YYYY.MM.DD') ||' ~ '|| TO_CHAR(TO_DATE(T1.BZT_TRDE, 'YYYYMMDD'), 'YYYY.MM.DD') AS BZT_DATE
+					,(SELECT BZT_NAT_CD FROM TBCSPHIN004N WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR AND  ROWNUM=1) AS BZT_NAT
+					,CASE WHEN (SELECT COUNT(BZT_NAT_CD) FROM TBCSPHIN004N WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR) > 1 
+                        THEN ((SELECT F_CODE_NM('1000181',BZT_NAT_CD) FROM TBCSPHIN004N WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR AND ROWNUM=1)
+					            || ' 외 ' || (SELECT NVL(COUNT(*)-1,0) FROM TBCSPHIN004N WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR) || '개국' )
+                     ELSE   (SELECT F_CODE_NM('1000181',BZT_NAT_CD) FROM TBCSPHIN004N WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR ) END  AS BZT_NAT_NM /* 출장국가명 */     
+					,(SELECT BZT_CNB  FROM TBCSPHIN004C WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR AND ROWNUM=1) AS BZT_CNB
+					,CASE WHEN (SELECT COUNT(BZT_CNB) FROM TBCSPHIN004C WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR) + TO_NUMBER(NVL(T1.NBAI_BZT_NUM,0))   > 1 
+                        THEN ((SELECT F_USR_INFO(BZT_CNB, '2') FROM TBCSPHIN004C WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR AND ROWNUM=1)
+					            || ' 외 ' || (SELECT NVL(COUNT(*)-1,0) + TO_NUMBER(NVL(T1.NBAI_BZT_NUM,0)) FROM TBCSPHIN004C WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR) || '명' )
+                     ELSE   (SELECT F_USR_INFO(BZT_CNB, '2') FROM TBCSPHIN004C WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR ) END  AS BZT_NAM  /* 출장자명 */
+					,CASE WHEN T1.JDG_TG='Y' THEN '대상' ELSE '대상 외' END AS  JDG_TG   /* 심사대상여부 */
+					,CASE WHEN T1.BZT_PLN_DOC_ID IS NOT NULL THEN '[출장계획서]' ELSE NULL END AS BZT_PLN_DOC_NM	/* 출장 계획서명  */
+					,T1.BZT_PLN_DOC_ID	/* 출장 계획서 문서 ID*/
+					,(SELECT DOC_ID  FROM TBCSPHIN004L WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR ) AS BZT_RSLT_RPRT_DOC_ID /* 출장 결과보고서 ID*/
+					/* 출장종료 후 결과보고 30일이내 보고서가 있으면 보고서를 없으면 남은날짜표시 */
+					,CASE WHEN (TO_DATE(T1.BZT_TRDE, 'YYYYMMDD') <= SYSDATE) AND (SELECT DOC_ID FROM TBCSPHIN004L WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR)  IS NULL THEN 'D-' || (TRUNC(ADD_MONTHS(TO_DATE(T1.BZT_TRDE),1)) - TRUNC(SYSDATE))  
+					WHEN (TO_DATE(T1.BZT_TRDE, 'YYYYMMDD') <= SYSDATE) AND (SELECT DOC_ID FROM TBCSPHIN004L WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR) IS NOT NULL THEN '[결과보고서]'
+					ELSE ''  END AS BZT_RSLT_RPRT_DOC_NM /* 출장 결과보고명 */
+					,T1.APV_DOC_NO
+					,F_CODE_NM('1000333',T1.APV_STA) AS APV_STA
+					,T1.APV_DOC_NO2
+					,F_CODE_NM('1000333',T1.APV_STA2) AS APV_STA2
+					,T1.APV_DATE
+					,T1.APV_DATE2
+					,CASE WHEN T1.HIRANKPOS='Y' THEN '포함' ELSE '미 포함' END AS  HIRANKPOS   /* 고위직 포함 여부 */
+			FROM	TBCSPHIN004M T1
+			WHERE	1=1
+			AND (T1.DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #strDptAuth#, '', #strDPT_CD#))) )
+		]]>
+		<isNotEmpty property="strBztYr">
+			AND  T1.BZT_YR = #strBztYr# 
+		</isNotEmpty>
+			
+		<isNotEmpty property="strSrno">
+			AND  T1.SRNO = #strSrno# 
+		</isNotEmpty>
+		
+		<isNotEmpty property="strDPT_CD2">
+			AND  T1.DPT_CD = #strDPT_CD2# 
+		</isNotEmpty>
+            
+		<isNotEmpty property="strBZT_NAT_CD">
+		 	AND  #strBZT_NAT_CD#  IN (SELECT BZT_NAT_CD FROM TBCSPHIN004C WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR)
+		</isNotEmpty>
+		<isNotEmpty property="strBZT_CNB">
+		 	AND #strBZT_CNB#  IN (SELECT BZT_CNB FROM TBCSPHIN004N WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR)
+		</isNotEmpty>
+		<!-- 심사대상 여부 -->
+		<isNotEmpty property="strJDG_TG">
+			AND	T1.JDG_TG = #strJDG_TG#
+		</isNotEmpty>
+		<!-- 고위직포함 여부 -->
+		<isNotEmpty property="strHIRANKPOS">
+			AND	T1.HIRANKPOS = #strHIRANKPOS#
+		</isNotEmpty>
+		<!-- 결과보고서 등록 여부 -->
+		<isNotEmpty property="strBGT_DVSN">
+			<isEqual property="strBGT_DVSN" compareValue="Y">
+				AND	(SELECT DOC_ID FROM TBCSPHIN004L WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR) IS NOT NULL
+			</isEqual>
+			<isEqual property="strBGT_DVSN" compareValue="N">
+				AND (SELECT DOC_ID FROM TBCSPHIN004L WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR)  IS NULL
+			</isEqual>
+		</isNotEmpty>
+		<!-- 제목 -->
+		<isNotEmpty prepend="AND" property="strBZT_TIT">
+			T1.BZT_TIT LIKE '%'||#strBZT_TIT# ||'%'
+		</isNotEmpty>
+		
+		<!-- 출장일 -->
+		<isNotEmpty property="strBZT_TRDS">
+			<![CDATA[
+				AND (T1.BZT_TRDS <= #strBZT_TRDS# AND T1.BZT_TRDS <= #strBZT_TRDE#
+				AND  T1.BZT_TRDE >= #strBZT_TRDS# AND T1.BZT_TRDE >= #strBZT_TRDE# 
+				OR   T1.BZT_TRDS BETWEEN #strBZT_TRDS# AND #strBZT_TRDE#
+				OR   T1.BZT_TRDE BETWEEN #strBZT_TRDS# AND #strBZT_TRDE#)
+			]]>
+		</isNotEmpty>
+		ORDER BY T1.BZT_TRDS DESC ) A
+	</select>
+
+
+
+	<select id="CSPHIN004QNatCdSelect" parameterClass="paramMap"	resultClass="resultMap">
+        <include refid="include.pageSelct" />
+        <![CDATA[
+        	SELECT CD,CD_NM 
+        	FROM TBDCMACM013C 
+			WHERE USE_YN = 'Y'
+			AND CD != '000000000'
+        	AND CMM_CD_DVSN_CD='1000181' 
+		]]>
+		<isNotEmpty property="strNatNm">
+			AND CD_NM LIKE '%' || #strNatNm# || '%'
+		</isNotEmpty>
+		<include refid="include.pageOrder" />
+	</select>
+
+
+
+	<select id="CSPHIN004EMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT 	T1.BZT_YR
+					,T1.SRNO
+					,T1.BZT_TIT
+					,T1.DPT_CD
+					,(SELECT HIRK_DPT_CD FROM TBDCMACM002M B WHERE B.DPT_CD = T1.DPT_CD) AS HIRK_DPT_CD /*상위부서코드*/
+					,T1.BGT_DVSN /* 예산구분 */
+                    ,REGEXP_SUBSTR(T1.BGT_DVSN, '[^|]+', 1, 1) AS BGT_DVSN1
+                    ,REGEXP_SUBSTR(T1.BGT_DVSN, '[^|]+', 1, 2) AS BGT_DVSN2
+                    ,REGEXP_SUBSTR(T1.BGT_DVSN, '[^|]+', 1, 3) AS BGT_DVSN3
+                    ,REGEXP_SUBSTR(T1.BGT_DVSN, '[^|]+', 1, 4) AS BGT_DVSN4
+					,T1.BZT_TRDS
+					,T1.BZT_TRDE
+					,TO_DATE(T1.BZT_TRDE) - TO_DATE(T1.BZT_TRDS)  AS BZT_PRD /* 출장기간 */
+					,T1.NBAI_BZT_NUM  /* 원외 출장자 */
+					,T1.JDG_TG   /* 심사대상여부 */
+					,T1.BAI_APLN_FR /* 항공운임(원부담) */
+					,T1.ORG_APLN_FR /* 항공운임(초청기관부담) */
+					,T1.BAI_STY_COST /* 체제비(원부담) */
+					,T1.ORG_STY_COST /* 체제비(초청기관부담) */
+					,T1.BAI_ETC_COST /* 기타비용(원부담) */
+					,T1.ORG_ETC_COST /* 기타비용(초청기관부담) */
+					,T1.BZT_PLN_DOC_ID	/* 출장 계획서 문서 ID*/
+					,T1.BZT_PLN_DOC_NM /* 출장계획서 문서명*/
+					,T1.BGT_RQS_DOC_ID	/* 심사요청서 문서 ID*/
+					,T1.BGT_RQS_DOC_NM /* 심사요청서 문서명*/
+					,T1.RVW_VT_DOC_ID /* 심의의결서 문서 ID*/
+					,T1.RVW_VT_DOC_NM /* 심의의결서 문서명*/
+					,(SELECT DOC_ID  FROM TBCSPHIN004L WHERE SRNO = T1.SRNO AND BZT_YR = T1.BZT_YR ) AS BZT_RSLT_RPRT_DOC_ID /* 출장 결과보고서 문서 ID*/
+					,T1.APV_STA /* 결재상태코드*/
+					,T1.APV_DOC_NO /* 결재문서번호(기본) */
+					,T1.APV_STA2 /* 결재상태코드*/
+					,T1.APV_DOC_NO2 /* 결재문서번호(출장결과보고) */
+					,T1.HIRANKPOS /* 고위직포함 여부  */
+			FROM	TBCSPHIN004M T1
+			WHERE	1=1
+			
+		]]>
+		<isNotEmpty property="strBztYr">
+			AND  T1.BZT_YR = #strBztYr# 
+		</isNotEmpty>
+				
+		<isNotEmpty property="strSrno">
+			AND  T1.SRNO = #strSrno# 
+		</isNotEmpty>
+        
+        <isNotEmpty property="strApvDocNo1">
+			AND  T1.APV_DOC_NO = #strApvDocNo1# 
+		</isNotEmpty>
+            
+		<isNotEmpty property="strApvDocNo2">
+			AND  T1.APV_DOC_NO2 = #strApvDocNo2# 
+		</isNotEmpty>
+		
+		
+	</select>
+	
+	
+	<select id="CSPHIN004EMainSubSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT 	T1.BZT_YR
+					,T1.SRNO
+					,T1.APV_DOC_NO2
+					,T1.APV_STA2
+					,T2.DOC_ID
+			FROM	TBCSPHIN004M T1,TBCSPHIN004L T2
+			WHERE	1=1
+			AND T1.BZT_YR = T2.BZT_YR 
+			AND T1.SRNO = T2.SRNO
+		]]>
+		<isNotEmpty property="strBztYr">
+			AND  T1.BZT_YR = #strBztYr# 
+		</isNotEmpty>
+				
+		<isNotEmpty property="strSrno">
+			AND  T1.SRNO = #strSrno# 
+		</isNotEmpty>
+	</select>
+	
+	<select id="CSPHIN004ENatSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[       
+			SELECT A.BZT_YR
+			     , A.SRNO
+			     , A.NAT_NUM
+			     , A.BZT_NAT_CD
+			     , F_CODE_NM('1000181',A.BZT_NAT_CD) AS BZT_NAT_NM
+			  FROM TBCSPHIN004N A  /* 출장국가 */
+			 WHERE A.BZT_YR   = #strBztYr#
+			   AND A.SRNO = #strSrno#
+			ORDER BY A.NAT_NUM
+		]]>
+	</select>
+	
+	<insert id="CSPHIN004ENatInsertSub" parameterClass="paramMap">
+		INSERT INTO TBCSPHIN004N (
+		                          BZT_YR            
+		                        , SRNO           
+		                        , NAT_NUM          
+		                        , BZT_NAT_CD         /* 국가코드 */
+			        			, FRT_USR_ID
+								, FNL_USR_ID
+								, FNL_MNU_ID
+								, FRT_REGI_DH
+								, FNL_MDF_DH
+		                         ) 
+		                  VALUES (
+		                          #BZT_YR#
+		                        , #SRNO#
+		                        , (SELECT NVL(MAX(NAT_NUM), 0) + 1
+		                             FROM TBCSPHIN004N
+		                            WHERE BZT_YR   = #BZT_YR#
+		                              AND SRNO = #SRNO#)
+		                        , #BZT_NAT_CD#
+		                        , #FNL_USR_ID#
+		                        , #FNL_USR_ID#
+		                        , #FNL_MNU_ID#
+		                        , SYSDATE
+		                        , SYSDATE
+				                 )
+	</insert>
+
+
+
+	<update id="CSPHIN004ENatUpdateSub"  parameterClass="paramMap">
+		
+		UPDATE TBCSPHIN004N
+			SET BZT_NAT_CD		= #BZT_NAT_CD#
+				,FNL_USR_ID		= #FNL_USR_ID#
+				,FNL_MNU_ID		= #FNL_MNU_ID#
+				,FNL_MDF_DH		= SYSDATE
+		WHERE BZT_YR			= #BZT_YR#
+			AND SRNO			= #SRNO#
+			AND NAT_NUM 		= #NAT_NUM#
+	</update>
+	
+	<!--출장국가 정보 삭제 -->
+	<delete id="CSPHIN004ENatDeleteSub" parameterClass="paramMap">
+		DELETE TBCSPHIN004N
+		 WHERE BZT_YR      = #BZT_YR#
+		   AND SRNO        = #SRNO#	
+		   AND NAT_NUM     = #NAT_NUM#
+	</delete>
+	
+	<select id="CSPHIN004EApvCntSelect" parameterClass="paramMap" resultClass="java.lang.Integer">
+		<![CDATA[     
+		SELECT COUNT(RANK_CD) AS RANK_CNT
+	        FROM (SELECT F_USR_INFO(A.BZT_CNB, '3') AS RANK_CD
+			      FROM TBCSPHIN004C A  /* 출장자 */
+				  WHERE A.BZT_YR   = #strBztYr#
+				  AND A.SRNO = #strSrno#)
+	        WHERE RANK_CD <='013'
+	
+		]]>
+	</select>
+	<select id="CSPHIN004EBztCnbSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[       
+			SELECT A.BZT_YR
+			     , A.SRNO
+			     , A.CNB_NUM
+			     , A.BZT_CNB
+			     , A.DPT_CD
+				 , F_DPT_INFO(A.DPT_CD,'1') AS DPT_NM
+			     , F_USR_INFO(A.BZT_CNB, '2') AS BZT_NM
+                 , F_USR_INFO(A.BZT_CNB, '3') AS RANK_CD
+			  FROM TBCSPHIN004C A  /* 출장자 */
+			 WHERE A.BZT_YR   = #strBztYr#
+			   AND A.SRNO = #strSrno#
+			ORDER BY A.CNB_NUM
+		]]>
+	</select>
+	<insert id="CSPHIN004EBztCnbInsertSub" parameterClass="paramMap">
+		INSERT INTO TBCSPHIN004C (
+		                          BZT_YR            
+		                        , SRNO           
+		                        , CNB_NUM          
+		                        , BZT_CNB         /* 출장자 CNB */
+		                        , DPT_CD
+			        			, FRT_USR_ID
+								, FNL_USR_ID
+								, FNL_MNU_ID
+								, FRT_REGI_DH
+								, FNL_MDF_DH
+		                         ) 
+		                  VALUES (
+		                          #BZT_YR#
+		                        , #SRNO#
+		                        , (SELECT NVL(MAX(CNB_NUM), 0) + 1
+		                             FROM TBCSPHIN004C
+		                            WHERE BZT_YR   = #BZT_YR#
+		                              AND SRNO = #SRNO#)
+		                        , #BZT_CNB#
+		                        , #DPT_CD#
+		                        , #FNL_USR_ID#
+		                        , #FNL_USR_ID#
+		                        , #FNL_MNU_ID#
+		                        , SYSDATE
+		                        , SYSDATE
+				                 )
+	</insert>
+
+
+
+	<update id="CSPHIN004EBztCnbUpdateSub"  parameterClass="paramMap">
+		
+		UPDATE TBCSPHIN004C
+			SET BZT_CNB			= #BZT_CNB#
+				,DPT_CD			= #DPT_CD#
+				,FNL_USR_ID		= #FNL_USR_ID#
+				,FNL_MNU_ID		= #FNL_MNU_ID#
+				,FNL_MDF_DH		= SYSDATE
+		WHERE BZT_YR			= #BZT_YR#
+			AND SRNO			= #SRNO#
+			AND CNB_NUM 		= #CNB_NUM#
+	</update>
+	
+	<!--출장자 정보 삭제 -->
+	<delete id="CSPHIN004EBztCnbDeleteSub" parameterClass="paramMap">
+		DELETE TBCSPHIN004C
+		 WHERE BZT_YR      = #BZT_YR#
+		   AND SRNO        = #SRNO#	
+		   AND CNB_NUM     = #CNB_NUM#
+	</delete>
+	
+	<insert id="CSPHIN004EFileInsert" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBCSPHIN004L
+        	(
+        			BZT_YR,
+        			SRNO,
+        			DOC_ID,
+        			FRT_USR_ID,
+        			FNL_USR_ID,
+        			FNL_MNU_ID,
+        			FRT_REGI_DH,
+        			FNL_MDF_DH
+        	) VALUES (
+        			#BZT_YR#,
+	        		#SRNO#,
+	        		#DOC_ID#,
+	        		#FRT_USR_ID#,
+	        		#FNL_USR_ID#,
+	        		#FNL_MNU_ID#,
+	        		SYSDATE,
+	        		SYSDATE
+        	)
+        ]]>
+	</insert>
+	<select id="CSPHIN004EMainKeyValueSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[       
+			SELECT TO_CHAR(SYSDATE, 'YYYY')               AS BZT_YR
+			     , (SELECT NVL(MAX(SRNO), 0) + 1
+		              FROM TBCSPHIN004M
+		             WHERE BZT_YR = TO_CHAR(SYSDATE, 'YYYY')) AS SRNO 
+		      FROM DUAL
+		]]>
+	</select>
+	<insert id="CSPHIN004Einsert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO	TBCSPHIN004M
+				(
+					 BZT_YR
+					, SRNO
+					, BZT_TIT
+					, DPT_CD
+					, BZT_TRDS
+					, BZT_TRDE
+					, BGT_DVSN
+					, JDG_TG
+					, NBAI_BZT_NUM
+					, BAI_APLN_FR
+					, BAI_STY_COST
+					, BAI_ETC_COST
+					, ORG_APLN_FR
+					, ORG_STY_COST
+					, ORG_ETC_COST
+					, BZT_PLN_DOC_ID
+					, BZT_PLN_DOC_NM
+					, BGT_RQS_DOC_ID
+					, BGT_RQS_DOC_NM
+			        , RVW_VT_DOC_ID
+			        , RVW_VT_DOC_NM
+			        , BZT_RSLT_RPRT_DOC_ID
+			        , APV_STA
+			        , APV_STA2
+			        , APV_DOC_NO
+			        , APV_DOC_NO2
+			        , HIRANKPOS
+					, FRT_USR_ID
+					, FNL_USR_ID
+					, FNL_MNU_ID
+					, FRT_REGI_DH
+					, FNL_MDF_DH
+				)
+			VALUES	(
+						TO_CHAR(SYSDATE,'YYYY')
+						,(	SELECT 	NVL(MAX(SRNO),0)+1 
+							FROM 	TBCSPHIN004M WHERE BZT_YR = TO_CHAR(SYSDATE,'YYYY')
+						)
+						, #BZT_TIT#
+						, #DPT_CD#
+						, #BZT_TRDS#
+						, #BZT_TRDE#
+						, #BGT_DVSN#
+						, #JDG_TG#
+						, #NBAI_BZT_NUM#
+						, #BAI_APLN_FR# /* 신청금액 */ 
+						, #BAI_STY_COST# /* 지원예상금액 */ 
+						, #BAI_ETC_COST# /* 승인금액 */ 
+						, #ORG_APLN_FR#
+						, #ORG_STY_COST#
+	        			, #ORG_ETC_COST#
+	        			, #BZT_PLN_DOC_ID#
+	        			, #BZT_PLN_DOC_NM#
+	        			, #BGT_RQS_DOC_ID#
+	        			, #BGT_RQS_DOC_NM#
+	        			, #RVW_VT_DOC_ID#
+	        			, #RVW_VT_DOC_NM#
+	        			, #BZT_RSLT_RPRT_DOC_ID#
+	        			, #APV_STA#
+	        			, #APV_STA2#
+			        	, #APV_DOC_NO#
+			        	, #APV_DOC_NO2#
+			        	, #HIRANKPOS#
+						, #FNL_USR_ID#
+						, #FNL_USR_ID#
+						, #FNL_MNU_ID#
+						, SYSDATE
+						, SYSDATE
+					)
+		]]>
+	</insert>
+	
+	<update id="CSPHIN004EupdateMain" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPHIN004M
+			SET		BZT_TIT 				= #BZT_TIT#
+					,DPT_CD 				= #DPT_CD#
+					,BZT_TRDS 				= #BZT_TRDS#
+					,BZT_TRDE				= #BZT_TRDE#
+					,BGT_DVSN				= #BGT_DVSN#
+					,NBAI_BZT_NUM			= #NBAI_BZT_NUM#
+					,JDG_TG					= #JDG_TG#
+					,BAI_APLN_FR			= #BAI_APLN_FR# 	/* 원부담 항공*/ 
+					,BAI_STY_COST			= #BAI_STY_COST#	/* 원부담 체재비 */ 
+					,BAI_ETC_COST			= #BAI_ETC_COST# 	/* 원부담 기타비용 */ 
+					,ORG_APLN_FR			= #ORG_APLN_FR#
+					,ORG_STY_COST			= #ORG_STY_COST#
+	        		,ORG_ETC_COST			= #ORG_ETC_COST#
+	        		,BZT_PLN_DOC_ID			= #BZT_PLN_DOC_ID#
+	        		,BZT_PLN_DOC_NM			= #BZT_PLN_DOC_NM#
+	        		,BGT_RQS_DOC_ID			= #BGT_RQS_DOC_ID#
+	        		,BGT_RQS_DOC_NM			= #BGT_RQS_DOC_NM#
+	        		,RVW_VT_DOC_ID			= #RVW_VT_DOC_ID#
+	        		,RVW_VT_DOC_NM			= #RVW_VT_DOC_NM#
+	        		,BZT_RSLT_RPRT_DOC_ID	= #BZT_RSLT_RPRT_DOC_ID#
+	        		,APV_STA				= #APV_STA#
+	        		,APV_STA2				= #APV_STA2#
+			        ,APV_DOC_NO				= #APV_DOC_NO#
+			        ,HIRANKPOS				= #HIRANKPOS#
+					,FNL_MDF_DH 			= SYSDATE
+					,FNL_USR_ID 			= #FNL_USR_ID#
+					,FNL_MNU_ID				 = #FNL_MNU_ID#
+			WHERE	BZT_YR = #BZT_YR#
+			AND		SRNO = #SRNO#
+		]]>
+	</update>
+	<update id="CSPHIN004EapvFileupdateMain" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPHIN004M
+			SET		
+	        		 RVW_VT_DOC_ID			= #RVW_VT_DOC_ID#
+	        		,RVW_VT_DOC_NM			= #RVW_VT_DOC_NM#
+					,FNL_MDF_DH 			= SYSDATE
+					,FNL_USR_ID 			= #FNL_USR_ID#
+					,FNL_MNU_ID				 = #FNL_MNU_ID#
+			WHERE	BZT_YR = #BZT_YR#
+			AND		SRNO = #SRNO#
+		]]>
+	</update>
+	
+	<update id="CSPHIN004Efileupdate1" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPHIN004M
+			SET		BZT_PLN_DOC_ID			= #BZT_PLN_DOC_ID#
+	        		,BZT_PLN_DOC_NM			= #BZT_PLN_DOC_NM#
+			WHERE	BZT_YR = #BZT_YR#
+			AND		SRNO = #SRNO#
+		]]>
+	</update>
+	<update id="CSPHIN004Efileupdate2" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPHIN004M
+			SET		BGT_RQS_DOC_ID			= #BGT_RQS_DOC_ID#
+	        		,BGT_RQS_DOC_NM			= #BGT_RQS_DOC_NM#
+			WHERE	BZT_YR = #BZT_YR#
+			AND		SRNO = #SRNO#
+		]]>
+	</update>
+	<update id="CSPHIN004Efileupdate3" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPHIN004M
+			SET		RVW_VT_DOC_ID			= #RVW_VT_DOC_ID#
+	        		,RVW_VT_DOC_NM			= #RVW_VT_DOC_NM#
+			WHERE	BZT_YR = #BZT_YR#
+			AND		SRNO = #SRNO#
+		]]>
+	</update>
+	<delete id="CSPHIN004EfileDelete" parameterClass="paramMap">
+		<![CDATA[
+			DELETE	
+			FROM	TBCSPHIN004L
+			WHERE	BZT_YR = #BZT_YR#
+			AND		SRNO = #SRNO#
+		]]>
+	</delete>
+	
+	<delete id="CSPHIN004EnatDelete" parameterClass="paramMap">
+		<![CDATA[
+			DELETE	
+			FROM	TBCSPHIN004N
+			WHERE	BZT_YR = #BZT_YR#
+			AND		SRNO = #SRNO#
+		]]>
+	</delete>
+	
+	
+	<delete id="CSPHIN004EbztCnbDelete" parameterClass="paramMap">
+		<![CDATA[
+			DELETE	
+			FROM	TBCSPHIN004C
+			WHERE	BZT_YR = #BZT_YR#
+			AND		SRNO = #SRNO#
+		]]>
+	</delete>
+	
+	<delete id="CSPHIN004EdeleteMain" parameterClass="paramMap">
+		<![CDATA[
+			DELETE	
+			FROM	TBCSPHIN004M
+			WHERE	BZT_YR = #BZT_YR#
+			AND		SRNO = #SRNO#
+		]]>
+	</delete>
+	
+	
+	<!-- 결재처리정보를 수정한다 -->
+	<update id="CSPHIN004APApvInfoupdate" parameterClass="paramMap">
+           UPDATE TBCSPHIN004M                    		
+              SET APV_DOC_NO        = #APV_DOC_NO#,	/* 결재문서번호 */
+              	  APV_STA        	= #APV_STA#,	/* 결재상태코드 */
+                  APV_DATE    	    = TO_CHAR(SYSDATE,'YYYYMMDD')
+           WHERE  BZT_YR      		= #BZT_YR#		/* 출장연도 */
+             AND  SRNO        		= #SRNO#
+	</update>
+	
+	<!-- 결재처리정보를 수정한다 -->	
+	<update id="CSPHIN004APApvDocInfoupdate" parameterClass="paramMap">
+           UPDATE TBCSPHIN004M                    		
+              SET APV_DOC_NO        = #APV_DOC_NO#,		/* 결재문서번호 */
+                  APV_STA    	    = #APV_STA#,
+                  APV_DATE    	    = TO_CHAR(SYSDATE,'YYYYMMDD')
+           WHERE 1=1
+           <isNotEmpty property="strApvDocNo1"><!-- 결재문서번호 -->
+			 AND APV_DOC_NO = #strApvDocNo1#
+		   </isNotEmpty>
+			
+	</update>
+	
+	<!-- 결재처리정보를 수정한다 -->
+	<update id="CSPHIN004APApvInfoupdate2" parameterClass="paramMap">
+           UPDATE TBCSPHIN004M                    		
+              SET APV_DOC_NO2       = #APV_DOC_NO#,	/* 결재문서번호 */
+              	  APV_STA2        	= #APV_STA#,	/* 결재상태코드 */
+                  APV_DATE2    	    = TO_CHAR(SYSDATE,'YYYYMMDD')
+           WHERE  BZT_YR      		= #BZT_YR#		/* 출장연도 */
+             AND  SRNO        		= #SRNO#
+	</update> 
+	<!-- 결재처리정보를 수정한다 -->	
+	<update id="CSPHIN004APApvDocInfoupdate2" parameterClass="paramMap">
+           UPDATE TBCSPHIN004M                    		
+              SET APV_DOC_NO2        = #APV_DOC_NO#,		/* 결재문서번호 */
+                  APV_STA2    	    = #APV_STA#,
+                  APV_DATE2    	    = TO_CHAR(SYSDATE,'YYYYMMDD')
+           WHERE 1=1
+           <isNotEmpty property="strApvDocNo2"><!-- 결재문서번호 -->
+			 AND APV_DOC_NO2 = #strApvDocNo2#
+		   </isNotEmpty>
+			
+	</update>
+	
+	
+	<select id="CSPHIN004ApvListSelect" parameterClass="paramMap"	resultClass="resultMap">
+       
+		SELECT MAX (DECODE (CD, 1, CD_NM, 0) ) CD_NM1, 
+			   MAX (DECODE (CD, 1, USR_DFN_TXT_10, 0) ) USR_DFN_TXT_10_1,
+			   MAX (DECODE (CD, 2, CD_NM, 0) ) CD_NM2, 
+			   MAX (DECODE (CD, 2, USR_DFN_TXT_10, 0) ) USR_DFN_TXT_10_2 
+		FROM TBDCMACM013C 
+		WHERE 1=1
+			AND CMM_CD_DVSN_CD='1000898'
+			AND CD != '000000000'
+		GROUP BY CMM_CD_DVSN_CD
+	</select>
+	
+	<update id="CSPHIN004ApvListUpdate" parameterClass="paramMap">
+	<![CDATA[
+			UPDATE	TBDCMACM013C
+			SET		CD_NM = #CD_NM#
+				  , USR_DFN_TXT_10 = #USR_DFN_TXT_10# 
+			WHERE	
+			CMM_CD_DVSN_CD='1000898'
+			AND CD = #CD#
+		]]>
+	</update>
+	
+		
+	<delete id="CSPHIN004EFileDelete" parameterClass="paramMap">
+		<![CDATA[
+			DELETE	
+			FROM	TBCSPHIN004L
+			WHERE	BZT_YR = #BZT_YR#
+			AND		SRNO = #SRNO#
+		]]>
+	</delete>
+	
+	
+	
+	
+	
+	
+	
+	
+	
+</sqlMap> 

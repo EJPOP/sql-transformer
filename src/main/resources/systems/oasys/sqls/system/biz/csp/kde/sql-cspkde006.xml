@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/kde/006">
+
+	<!-- 변상판정관리 조회 -->
+	<select id="CSPKDE006EMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+                 SELECT
+                         D1.JUD_YR || '-판정-' || D1.JUD_NO     AS JUD_YRNO
+                        ,D1.JUD_YR                             AS JUD_YR             /*판정년도*/
+                        ,D1.JUD_NO                             AS JUD_NO             /*판정번호*/
+                        ,D1.HNDL_DPT_CD                        AS HNDL_DPT_CD        /*처리부서코드*/
+                        ,F_DPT_INFO(D1.HNDL_DPT_CD, '1')       AS HNDL_DPT_NM        /*처리부서코드명*/
+                        ,D1.REGI_NO                            AS REGI_NO            /*등재번호*/
+                        ,D1.CMT_SQ                             AS CMT_SQ             /*위원회회차*/
+                        ,D1.CMT_VT_DT                          AS CMT_VT_DT          /*위원회의결일자*/
+                        ,D1.CMT_SQ 
+                         || '(' || 
+                         TO_CHAR(TO_DATE(D1.CMT_VT_DT),'YYYY-MM-DD')
+                         || ')'                                AS CMT_NO_TXT  
+                        ,D1.COPT_OFI_CD                        AS COPT_OFI_CD        /*소관청코드*/
+                        ,F_ORG_INFO(D1.COPT_OFI_CD, '1')       AS COPT_OFI_NM        /*소관청명*/
+                        ,D1.RLTN_ORG_CD                        AS RLTN_ORG_CD        /*관계기관코드*/
+                        ,F_ORG_INFO(D1.RLTN_ORG_CD, '1')       AS RLTN_ORG_NM        /*관계기관명*/
+                        ,D1.JUD_DVSN_CD                        AS JUD_DVSN_CD        /*판정구분코드*/
+                        ,F_CODE_NM('1000743', D1.JUD_DVSN_CD)  AS JUD_DVSN_NM        /*판정구분명*/      
+                        ,D1.AUD_YR                             AS AUD_YR             /*감사년도*/      
+                        ,D1.AUD_NO                             AS AUD_NO             /*감사번호*/      
+                        ,D1.DSP_RQ_SNO                         AS DSP_RQ_SNO         /*처분요구순번*/ 
+                        ,CASE WHEN D1.AUD_YR IS NOT NULL 
+                                   THEN F_MNG_KND_AUDYRNO(D1.AUD_YR, D1.AUD_NO, D3.AUD_KND_CD, '-') ||'-'|| D1.DSP_RQ_SNO
+                              ELSE ''
+                          END                                  AS AUD_DSP_NO         /*처분요구번호*/
+                         
+                        ,CASE WHEN D1.TSK_DVSN_CD = '1'    /* 실시구분 */
+                                   THEN F_MNG_KND_AUDYRNO(D2.AUD_YR, D2.AUD_NO, D2.AUD_KND_CD, '-')
+                                                 	    	                  
+              	    	      WHEN D1.TSK_DVSN_CD = '2'    /* 손망실 */
+              	    	           THEN (SELECT YR || '-손망-' || ACP_NO
+              	    	                   FROM TBBADGDA001M
+              	    	                  WHERE YR     = D1.TSK_KEY1 
+              	    	                    AND ACP_NO = D1.TSK_KEY2)
+
+              	    	      WHEN D1.TSK_DVSN_CD = '3'    /* 판정청구 */
+              	    	           THEN (SELECT YR || '-판청-' || ACP_NO
+              	    	                   FROM TBBADGDA001M
+              	    	                  WHERE YR     = D1.TSK_KEY1 
+              	    	                    AND ACP_NO = D1.TSK_KEY2)
+              	    	  END                                  AS YR_NO  
+                        ,D1.TSK_DVSN_CD                        AS TSK_DVSN_CD        /*업무구분코드*/  
+                        ,D1.TSK_KEY1                           AS TSK_KEY1           /*업무키1*/       
+                        ,D1.TSK_KEY2                           AS TSK_KEY2           /*업무키2*/       
+                        ,D1.TSK_KEY3                           AS TSK_KEY3           /*업무키3*/       
+                        ,D1.TSK_KEY4                           AS TSK_KEY4           /*업무키4*/ 
+                        ,(SELECT CASE WHEN COUNT(*) = 1 THEN MAX(BLT_NM || ' ' || NAM)
+                                      WHEN COUNT(*) > 1 THEN MAX(BLT_NM || ' ' || NAM) || '외 ' || ( COUNT(*) - 1 ) || '명'
+                                      ELSE ''
+                                  END 
+                            FROM TBCSPKDE004L 
+                           WHERE 1=1
+                             AND JUD_YR = D1.JUD_YR
+                             AND JUD_NO = D1.JUD_NO)           AS NAMS               /*판정대상자*/
+                   FROM TBCSPKDE004M D1    /* 변상판정관리기본 */
+                       ,TBBADDED001M D2    /* 감사사항기본 */
+                       ,TBBADDED001M D3    /* 감사사항기본 */
+                  WHERE 1=1
+                    AND D1.TSK_KEY1 = D2.AUD_YR(+)
+                    AND D1.TSK_KEY2 = D2.AUD_NO(+)    
+    				AND D1.AUD_YR   = D3.AUD_YR(+)
+    				AND D1.AUD_NO   = D3.AUD_NO(+)                                        
+                  
+                    /* 판정일자 */
+                    AND D1.CMT_VT_DT BETWEEN NVL(#strCmtVtDtSt#,'19000101') AND NVL(#strCmtVtDtEnd#,'99991231')
+                    
+                    /* 처리국 */        
+                    AND D1.HNDL_DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #strDptAuth#, '', #strDptCd#)))
+		]]>			
+		
+			/* 처리과 */
+			<isNotEmpty property="strDptCd2">
+                AND D1.HNDL_DPT_CD      = #strDptCd2#
+            </isNotEmpty> 
+
+			/* 소관청 */
+			<isNotEmpty property="strCoptOfiCd">
+                AND D1.COPT_OFI_CD      = #strCoptOfiCd#
+            </isNotEmpty> 		
+		
+			/* 관게기관 */
+			<isNotEmpty property="ipbRltnOrgCd">
+                AND D1.RLTN_ORG_CD      = #ipbRltnOrgCd#
+            </isNotEmpty> 		
+		
+			/* 대상자명 */
+			<isNotEmpty property="strNam">
+                AND (D1.JUD_YR, D1.JUD_NO) IN (SELECT JUD_YR, JUD_NO
+                                                 FROM TBCSPKDE004L
+                                                WHERE NAM LIKE '%' || #strNam# || '%')
+            </isNotEmpty> 	
+            
+			/* 판정구분 */
+			<isNotEmpty property="strJudDvsnCd">
+                AND D1.JUD_DVSN_CD      = #strJudDvsnCd#
+            </isNotEmpty> 	         
+            
+			/* 판정년도 */
+			<isNotEmpty property="strJudYr">
+                AND D1.JUD_YR      = #strJudYr#
+            </isNotEmpty> 	                 
+
+			/* 판정번호 */
+			<isNotEmpty property="strJudNo">
+                AND D1.JUD_NO      = #strJudNo#
+            </isNotEmpty> 	      
+          ORDER BY D1.JUD_YR DESC
+                  ,TO_NUMBER(D1.JUD_NO) DESC    		
+	</select>
+
+</sqlMap>

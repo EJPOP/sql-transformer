@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/ura/010">
+
+	<select id="CSPURA010QMainSelect" parameterClass="paramMap"	resultClass="resultMap">
+		<![CDATA[       
+			SELECT	DECODE(A.TG_CAT_ID,'00','총계',TG_CAT_NM) AS TG_CAT_NM 
+					,A.TG_CAT_ID 
+					,DECODE(A.TG_CAT_ID,'00','',NM2) AS NM2 
+					,A.CNT 
+					,A.SUM1
+					,A.SUM2
+					,A.SUM3
+					,A.SUM4
+					,A.SUM5
+					,A.SUM6
+			FROM (
+					SELECT	CASE WHEN B.CD IN ('01','02','03','04','05') THEN '연구보고서' 
+								WHEN B.CD IN ('06','07','08') THEN '정기간행물'
+								WHEN B.CD = '09' THEN '세미나자료'  ELSE '기타'  END AS TG_CAT_NM
+							,NVL2(B.CD,B.CD,'00') AS TG_CAT_ID
+							,MAX(B.CD_NM) AS NM2
+							,COUNT(A.STD_TYP_CD) AS CNT
+							,NVL(SUM(CASE WHEN TO_CHAR(TO_DATE(RPT_DT),'YYYY')= TO_CHAR(SYSDATE,'YYYY') THEN 1 ELSE 0 END ),0) AS SUM1
+							,SUM(CASE WHEN TO_CHAR(TO_DATE(RPT_DT),'YYYY')= (TO_CHAR(SYSDATE,'YYYY')-1) THEN 1 ELSE 0 END ) AS SUM2
+							,SUM(CASE WHEN TO_CHAR(TO_DATE(RPT_DT),'YYYY')= (TO_CHAR(SYSDATE,'YYYY')-2) THEN 1 ELSE 0 END ) AS SUM3
+							,SUM(CASE WHEN TO_CHAR(TO_DATE(RPT_DT),'YYYY')= (TO_CHAR(SYSDATE,'YYYY')-3) THEN 1 ELSE 0 END ) AS SUM4
+							,SUM(CASE WHEN TO_CHAR(TO_DATE(RPT_DT),'YYYY')= (TO_CHAR(SYSDATE,'YYYY')-4) THEN 1 ELSE 0 END ) AS SUM5
+							,SUM(CASE WHEN TO_CHAR(TO_DATE(RPT_DT),'YYYY')< (TO_CHAR(SYSDATE,'YYYY')-4) THEN 1 ELSE 0 END ) AS SUM6
+					FROM	TBCSPURA001M A, TBDCMACM013C B
+					WHERE	A.STD_TYP_CD(+) = B.CD
+					AND		B.CMM_CD_DVSN_CD = '1000654'
+					AND		B.CD <> '000000000'
+					AND		A.STD_TASK_DVSN_CD(+) = '3'
+					GROUP BY ROLLUP (B.CD) 
+				) A
+			ORDER BY A.TG_CAT_ID ASC
+		]]>	
+	</select>
+	
+	<select id="CSPURA010QHeaderSelect" parameterClass="paramMap"	resultClass="resultMap">
+		<![CDATA[       
+			SELECT 	TO_CHAR(SYSDATE, 'YYYY') AS SUM1,
+					TO_CHAR(SYSDATE, 'YYYY') -1 AS SUM2,
+					TO_CHAR(SYSDATE, 'YYYY') -2 AS SUM3,
+					TO_CHAR(SYSDATE, 'YYYY') -3 AS SUM4,
+					TO_CHAR(SYSDATE, 'YYYY') -4 AS SUM5
+			  FROM 	DUAL
+		]]>	
+	</select>
+	
+	<select id="CSPURA011QMainSelect" parameterClass="paramMap"	resultClass="resultMap">
+		<![CDATA[       
+			SELECT 	TO_CHAR(TO_DATE(RPT_DT),'YYYY') AS KLD_REGI_YR,
+					STD_TASK_NM AS KLD_NM,
+					F_USR_INFO(A.CHGR_CNB_1,'2')
+						    		||DECODE(A.CHGR_CNB_2,NULL,NULL,',')||DECODE(A.CHGR_CNB_2,NULL,NULL,F_USR_INFO(A.CHGR_CNB_2,'2'))
+						    		||DECODE(A.CHGR_CNB_3,'','',',')||DECODE(A.CHGR_CNB_3,NULL,NULL,F_USR_INFO(A.CHGR_CNB_3,'2'))
+						    		||DECODE(A.CHGR_CNB_4,'','',',')||DECODE(A.CHGR_CNB_4,NULL,NULL,F_USR_INFO(A.CHGR_CNB_4,'2')) AS KLD_SRC_NM,
+					TO_CHAR(TO_DATE(RPT_DT),'YYYY.MM') as REGI_RQS_DT,
+					AUD_STD_RMK AS KLD_SMM_TXT
+			FROM	TBCSPURA001M A
+			WHERE	STD_TYP_CD = #tgCatId#
+			AND		A.STD_TASK_DVSN_CD = '3'
+		]]>
+		<dynamic>
+			<isNotEmpty property="yy">
+				<isEqual property="yy" compareValue="9999">
+				    AND TO_CHAR(TO_DATE(RPT_DT),'YYYY') &lt;= TO_CHAR(SYSDATE,'YYYY') -5
+				</isEqual>
+				<isNotEqual property="yy" compareValue="9999">
+					AND TO_CHAR(TO_DATE(RPT_DT),'YYYY') = #yy#
+				</isNotEqual>
+			</isNotEmpty>		
+		</dynamic>
+		<![CDATA[
+			 ORDER	BY RPT_DT DESC
+		]]>	
+	</select>
+	
+	<select id="CSPURA012QMainSelect" parameterClass="paramMap"	resultClass="resultMap">
+		<![CDATA[
+			SELECT	B.CD AS TG_CAT_ID
+					,B.CD_NM AS NM2
+					,A.STD_TASK_NM AS KLD_NM
+					,F_USR_INFO(A.CHGR_CNB_1,'2')
+					||DECODE(A.CHGR_CNB_2,NULL,NULL,',')||DECODE(A.CHGR_CNB_2,NULL,NULL,F_USR_INFO(A.CHGR_CNB_2,'2'))
+					||DECODE(A.CHGR_CNB_3,'','',',')||DECODE(A.CHGR_CNB_3,NULL,NULL,F_USR_INFO(A.CHGR_CNB_3,'2'))
+					||DECODE(A.CHGR_CNB_4,'','',',')||DECODE(A.CHGR_CNB_4,NULL,NULL,F_USR_INFO(A.CHGR_CNB_4,'2')) AS KLD_SRC_NM
+					,TO_CHAR(TO_DATE(RPT_DT),'YYYY.MM') as REGI_RQS_DT
+					,AUD_STD_RMK AS KLD_SMM_TXT
+			FROM	TBCSPURA001M A, TBDCMACM013C B
+			WHERE	A.STD_TYP_CD(+) = B.CD
+			AND		B.CMM_CD_DVSN_CD = '1000654'
+			AND		B.CD <> '000000000'
+			AND		A.STD_TASK_DVSN_CD(+) = '3'
+		]]>	
+		<dynamic>
+			<isEqual property="yy" compareValue="9999">
+			    AND TO_CHAR(TO_DATE(RPT_DT),'YYYY') &lt;= TO_CHAR(SYSDATE,'YYYY') -5
+			</isEqual>
+			<isNotEqual property="yy" compareValue="9999">
+				AND TO_CHAR(TO_DATE(RPT_DT),'YYYY') = #yy#
+			</isNotEqual>
+		</dynamic>
+		<![CDATA[
+			  ORDER BY B.CD, RPT_DT DESC
+		]]>	
+	</select>
+</sqlMap> 

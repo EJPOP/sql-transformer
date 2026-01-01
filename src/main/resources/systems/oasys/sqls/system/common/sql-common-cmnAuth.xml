@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="common/cmnAuth">
+
+
+	<select id="EamAuthmenuauthselect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT 'M' AS WRITE_AUTH_CD ,
+			       'A' AS SCOPE_AUTH_CD ,
+			       'Y' AS DOWN_POS_YN ,
+			       '' AS AUTH_GRP_ID ,
+			       LINK AS MENU_PGM_ID ,
+			       ]]> #sub_id# <![CDATA[ AS SYS_ID ,
+			       ]]> #sub_id# <![CDATA[  AS SUB_ID ,
+			       ]]> #sub_id# <![CDATA[  AS MENU_ID ,
+			       RESOURCE_NAME AS PGM_ID ,
+			       RESOURCE_DESC AS PGM_NM ,
+			       PATH_DESC AS MENU_PATH,
+			       LVL AS LVL
+			  FROM (SELECT RESOURCE_ID ,
+			               RESOURCE_NAME ,
+			               RESOURCE_DESC ,
+			               RESOURCE_ID2 AS UP_RESOURCE_ID ,
+			               RESOURCE_PATTERN AS LINK ,
+			               SUBSTR(SYS_CONNECT_BY_PATH(RESOURCE_DESC, '>'), 2) AS PATH_DESC ,
+			               SUBSTR(SYS_CONNECT_BY_PATH(RESOURCE_ID, '>'), 2) PATH_ID ,
+			               SUBSTR(SUBSTR(SYS_CONNECT_BY_PATH(RESOURCE_ID, '>'), 2), INSTR(SUBSTR(SYS_CONNECT_BY_PATH(RESOURCE_ID, '>'), 2), '>')+1, INSTR(SUBSTR(SYS_CONNECT_BY_PATH(RESOURCE_ID, '>'), 2), '>')-1) AS BASE_RESOURCE_ID ,
+			               LEVEL AS LVL
+			          FROM ( 
+                            /*역할에 그룹, 그룹에 사용자로 매핑된 경우*/
+                            SELECT B.RESOURCE_ID, B.RESOURCE_NAME, B.RESOURCE_DESC, B.RESOURCE_ID2, B.RESOURCE_PATTERN
+                              FROM RESOURCE_OPERATION A
+                                 , COMMON_RESOURCE B
+                                 , ROLE_INFO C
+                                 , ROLE_GROUP D
+			                     , (SELECT GROUP_ID
+			                             , GROUP_DESC
+			                          FROM GROUP_INFO
+			                         UNION
+									SELECT DPT_CD
+			                             , DPT_NM
+			                          FROM EAMDEPT_VIEW ) E
+			                     , (SELECT GROUP_ID
+			                             , USER_ID
+			                          FROM GROUP_USER
+			                         WHERE USER_ID = #login_user_id#
+			                         UNION
+									SELECT DPT_CD
+			                             , USR_ID
+			                          FROM EAMUSER_VIEW
+			                         WHERE USR_ID = #login_user_id# ) F 
+                             WHERE A.RESOURCE_ID = B.RESOURCE_ID     
+                               AND A.SID_VALUE = C.ROLE_ID
+                               AND C.ROLE_ID = D.ROLE_ID
+                               AND D.GROUP_ID = E.GROUP_ID
+                               AND E.GROUP_ID = F.GROUP_ID
+                               AND A.SID_TYPE = 'ROLE' /* 고정값 */
+                               AND B.CODE_ID = 'COD00003' /* 고정값 */
+                      ]]>         
+					  <![CDATA[ 
+                            UNION
+                            /*역할에 사용자로 매핑된 경우*/
+                            SELECT B.RESOURCE_ID, B.RESOURCE_NAME, B.RESOURCE_DESC, B.RESOURCE_ID2, B.RESOURCE_PATTERN
+                              FROM RESOURCE_OPERATION A
+                                 , COMMON_RESOURCE B
+                                 , ROLE_INFO C
+                                 , ROLE_USER D
+                             WHERE A.RESOURCE_ID = B.RESOURCE_ID
+                               AND A.SID_VALUE = C.ROLE_ID
+                               AND C.ROLE_ID = D.ROLE_ID
+                               AND A.SID_TYPE = 'ROLE' /* 고정값 */
+                               AND B.CODE_ID = 'COD00003' /* 고정값 */
+                      ]]>         
+				        <isNotEmpty property="login_user_id">
+                               AND D.USER_ID = #login_user_id# /* 로그인아이디 */
+				        </isNotEmpty>
+					  <![CDATA[ 
+                            UNION
+                            /*매핑에 사용자가 직접 연결된 경우*/
+                            SELECT B.RESOURCE_ID, B.RESOURCE_NAME, B.RESOURCE_DESC, B.RESOURCE_ID2, B.RESOURCE_PATTERN
+                              FROM RESOURCE_OPERATION A
+                                 , COMMON_RESOURCE B
+                             WHERE A.RESOURCE_ID = B.RESOURCE_ID
+                               AND A.SID_TYPE = 'USER' /* 고정값 */
+                               AND B.CODE_ID = 'COD00003' /* 고정값 */
+                      ]]>         
+				        <isNotEmpty property="login_user_id">
+                               AND A.SID_VALUE = #login_user_id# /* 로그인아이디 */
+				        </isNotEmpty>
+				        <![CDATA[
+			                  ) A START WITH RESOURCE_ID2 = '1791' /*시작점-고정값*/
+			          CONNECT BY PRIOR RESOURCE_ID = RESOURCE_ID2 ) MENU
+			 WHERE 1=1
+        ]]>
+        <isNotEmpty property="menu_pgm_id">
+        	 AND (RESOURCE_NAME = #menu_pgm_id# OR RESOURCE_NAME = #pgm_id# )
+        </isNotEmpty>
+        <isEmpty property="menu_pgm_id">
+        	 AND RESOURCE_NAME = 'BADDED001E'
+        </isEmpty>
+	</select>
+	
+	
+	<select id="directMenuSearch" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+			SELECT RESOURCE_NAME AS MENU_ID, IDX AS DEPTH
+			FROM (
+					SELECT RESOURCE_NAME, ROW_NUMBER() OVER(ORDER BY LVL DESC) AS IDX
+					FROM (
+							SELECT RESOURCE_ID, RESOURCE_NAME, RESOURCE_DESC, RESOURCE_ID2, LEVEL AS LVL
+							FROM COMMON_RESOURCE
+							WHERE RESOURCE_ID2 IS NOT NULL
+							START WITH RESOURCE_ID = (SELECT RESOURCE_ID FROM COMMON_RESOURCE WHERE RESOURCE_NAME = #pgm_id#) /*입력받은아이 */
+							CONNECT BY PRIOR RESOURCE_ID2 = RESOURCE_ID
+						) MENU_INFO 
+				)
+			WHERE IDX < 3
+        ]]>
+	</select>
+	
+	<!--즐겨찾기 정보를 조회한다.-->
+	<select id="AuthMenuFavoriteselect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+			SELECT *
+			FROM TBAEPBPS002M
+			WHERE CNB = #cnb#
+			AND PGM_ID = #pgm_id#
+        ]]>
+	</select>
+	
+	<!-- 즐겨찾기 정보를 저장한다-->
+	<insert id="AuthMenuFavoriteinsert" parameterClass="paramMap">
+    	<![CDATA[
+            INSERT INTO TBAEPBPS002M (
+               CNB,
+			   DPT_CD,
+			   PGM_ID,
+			   REGI_DT,
+			   REGI_ID,
+			   MODI_DT,
+			   MODI_ID
+			 ) 
+			VALUES ( 
+			  #cnb# ,
+			  #dpt_cd# ,
+			  #pgm_id# ,
+			  SYSDATE ,
+			  #regi_id# ,
+			  SYSDATE ,
+			  #modi_id#
+			)
+        ]]>
+	</insert>
+	
+	<!-- 즐겨찾기 정보를 삭제한다-->
+	<update id="AuthMenuFavoritedelete" parameterClass="paramMap">
+        <![CDATA[
+			DELETE 
+			FROM TBAEPBPS002M
+			WHERE CNB = #cnb#
+			AND PGM_ID = #pgm_id#
+        ]]>
+	</update>
+
+</sqlMap> 

@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.fer.dao.AEPFER011QMapper">
+    
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap" >
+            /* kr.go.bai.eip.aep.fer.dao.AEPFER011QMapper.selectMainList */
+        <![CDATA[
+		SELECT ROW_NUMBER() OVER(ORDER BY A1.AUD_YR,A1.AUD_NO) AS ROW_NUM
+			  ,A1.AUD_YR    --감사년도
+		      ,A1.AUD_NO    --감사번호
+		      ,F_MNG_KND_AUDYRNO(A1.AUD_YR, A1.AUD_NO, A1.AUD_KND_CD, '-') AS AUD_YR_NO --감사번호
+		      ,(SELECT S3.DPT_NM FROM TBDCMACM002M S3
+		         WHERE S3.DPT_CD = A1.SPV_BRDV_CD) AS AUD_DPT_FULL_NM   --주관국과명
+		      ,A1.AUD_SBJ_NM                                            --감사사항명
+		      ,F_CODE_NM('1000739', A1.AUD_KND_CD) AS AUD_KND_NM         --감사종류코드				  
+		      ,(SELECT(SELECT T1.CD_NM
+						 FROM TBDCMACM013C T1
+						WHERE T1.CMM_CD_DVSN_CD = '1000742'
+						  AND T1.CD = A6.DVSN_CD
+						  AND ROWNUM = 1) FROM TBBADDED030L A6
+		         WHERE A6.AUD_YR = A1.AUD_YR
+		           AND A6.AUD_NO = A1.AUD_NO
+		           AND A6.SRNO = 1) AS AUD_KND_CD2                      --종류코드2(1:민원2:국민3:공익4:국회5:심사6:재심8:손망9:판청)
+		      ,(SELECT T1.CD_NM
+					 FROM TBDCMACM013C T1
+					WHERE T1.CMM_CD_DVSN_CD = '1000027'
+					  AND T1.CD = A1.AUD_SCL_CD
+					  AND ROWNUM = 1 ) AS AUD_SCL_CD         --감사규모코드
+		      ,TO_CHAR((SELECT MIN(TO_DATE(A3.ENF_DT))
+					          FROM TBBADEAR001M A7
+					              ,TBBADEAR002D A3
+					         WHERE A7.AUD_YR      = A3.AUD_YR
+					           AND A7.AUD_NO      = A3.AUD_NO
+					           AND A7.DSP_RQ_SNO  = A3.DSP_RQ_SNO
+					           AND A7.AUD_YR      = A1.AUD_YR
+					           AND A7.AUD_NO      = A1.AUD_NO
+					           AND A7.DSP_RQ_KND_CD NOT IN ('390','391','395','396','490','495','730')
+		       ),'YYYY.MM.DD') AS ENF_DT  --최초시행일
+		      ,NVL(A2.REFLECT_N_CNT+A2.REFLECT_PY_CNT+A2.REFLECT_Y_CNT+A2.REFLECT_ETC_CNT,0) AS REFLECT_SUM_CNT --조정의견수
+		      ,NVL(A2.REFLECT_N_CNT,0)     AS REFLECT_N_CNT--미반영
+		      ,NVL(A2.REFLECT_PY_CNT,0)    AS REFLECT_PY_CNT--일부반영
+		      ,NVL(A2.REFLECT_Y_CNT,0)     AS REFLECT_Y_CNT--전부반영
+		      ,NVL(A2.REFLECT_ETC_CNT,0)   AS REFLECT_ETC_CNT--기타
+		      ,NVL(A2.AFF_EST_O_CNT,0)     AS AFF_EST_O_CNT--사건성립○
+		      ,NVL(A2.AFF_EST_X_CNT,0)     AS AFF_EST_X_CNT--사건성립ⅹ
+		      ,NVL(A2.AFF_EST_D_CNT,0)     AS AFF_EST_D_CNT--사건성립△
+		      ,NVL(A2.AFF_EST_ETC_CNT,0)   AS AFF_EST_ETC_CNT--사건성립기타
+		      ,NVL(A2.HND_COU_O_CNT,0)     AS HND_COU_O_CNT--조치방향○
+		      ,NVL(A2.HND_COU_X_CNT,0)     AS HND_COU_X_CNT--조치방향ⅹ
+		      ,NVL(A2.HND_COU_D_CNT,0)     AS HND_COU_D_CNT--조치방향△
+		      ,NVL(A2.HND_COU_ETC_CNT,0)   AS HND_COU_ETC_CNT--조치방향기타
+		      ,NVL(A2.LOG_SYS_O_CNT,0)     AS LOG_SYS_O_CNT--논리체계○
+		      ,NVL(A2.LOG_SYS_X_CNT,0)     AS LOG_SYS_X_CNT--논리체계ⅹ
+		      ,NVL(A2.LOG_SYS_D_CNT,0)     AS LOG_SYS_D_CNT--논리체계△
+		      ,NVL(A2.LOG_SYS_ETC_CNT,0)   AS LOG_SYS_ETC_CNT--논리체계기타
+		      ,NVL(A2.REFER_ENT_O_CNT,0)   AS REFER_ENT_O_CNT--부의위임○
+		      ,NVL(A2.REFER_ENT_X_CNT,0)   AS REFER_ENT_X_CNT--부의위임ⅹ
+		      ,NVL(A2.REFER_ENT_D_CNT,0)   AS REFER_ENT_D_CNT--부의위임△
+		      ,NVL(A2.REFER_ENT_ETC_CNT,0) AS REFER_ENT_ETC_CNT--부의위임기타
+		      ,DECODE(A2.REFLECT_ETC_CNT+A2.AFF_EST_ETC_CNT+A2.HND_COU_ETC_CNT+A2.LOG_SYS_ETC_CNT+A2.REFER_ENT_ETC_CNT,0,'OK','FL') AS VERI_RESULT --검증결과
+		  FROM TBBADDED001M A1
+		      ,(  SELECT AUD_YR
+		                ,AUD_NO
+		                ,SUM(CASE WHEN REFLECT_YN = 'Y'  THEN 1 ELSE 0 END) AS REFLECT_Y_CNT    --반영건수
+		                ,SUM(CASE WHEN REFLECT_YN = 'N'  THEN 1 ELSE 0 END) AS REFLECT_N_CNT    --미반영 건수
+		                ,SUM(CASE WHEN REFLECT_YN = 'PY' THEN 1 ELSE 0 END) AS REFLECT_PY_CNT   --일부반영 건수
+		                ,SUM(CASE WHEN REFLECT_YN = 'Y'
+		                            OR REFLECT_YN = 'N'
+		                            OR REFLECT_YN = 'PY' THEN 0 ELSE 1 END) AS REFLECT_ETC_CNT  --기타
+		                ,SUM(CASE WHEN AFF_EST = '○'                   THEN 1 ELSE 0 END) AS AFF_EST_O_CNT      --사건성립○
+		                ,SUM(CASE WHEN AFF_EST = 'ⅹ' OR AFF_EST = '×' THEN 1 ELSE 0 END) AS AFF_EST_X_CNT      --사건성립ⅹ
+		                ,SUM(CASE WHEN AFF_EST = '△'                  THEN 1 ELSE 0 END) AS AFF_EST_D_CNT      --사건성립△
+		                ,SUM(CASE WHEN AFF_EST = '○'
+		                            OR AFF_EST = 'ⅹ' OR AFF_EST = '×'
+		                            OR AFF_EST = '△'                  THEN 0 ELSE 1 END) AS AFF_EST_ETC_CNT    --사건성립기타
+		                ,SUM(CASE WHEN HND_COU = '○'                   THEN 1 ELSE 0 END) AS HND_COU_O_CNT      --조치방향○
+		                ,SUM(CASE WHEN HND_COU = 'ⅹ' OR HND_COU = '×' THEN 1 ELSE 0 END) AS HND_COU_X_CNT      --조치방향ⅹ
+		                ,SUM(CASE WHEN HND_COU = '△'                  THEN 1 ELSE 0 END) AS HND_COU_D_CNT      --조치방향△
+		                ,SUM(CASE WHEN HND_COU = '○'
+		                            OR HND_COU = 'ⅹ' OR HND_COU = '×'
+		                            OR HND_COU = '△'                  THEN 0 ELSE 1 END) AS HND_COU_ETC_CNT    --조치방향기타
+		                ,SUM(CASE WHEN LOG_SYS = '○'                   THEN 1 ELSE 0 END) AS LOG_SYS_O_CNT      --논리체계○
+		                ,SUM(CASE WHEN LOG_SYS = 'ⅹ' OR LOG_SYS = '×' THEN 1 ELSE 0 END) AS LOG_SYS_X_CNT      --논리체계ⅹ
+		                ,SUM(CASE WHEN LOG_SYS = '△'                  THEN 1 ELSE 0 END) AS LOG_SYS_D_CNT      --논리체계△
+		                ,SUM(CASE WHEN LOG_SYS = '○'
+		                            OR LOG_SYS = 'ⅹ' OR LOG_SYS = '×'
+		                            OR LOG_SYS = '△'                  THEN 0 ELSE 1 END) AS LOG_SYS_ETC_CNT        --논리체계기타
+		                ,SUM(CASE WHEN REFER_ENT = '○'                     THEN 1 ELSE 0 END) AS REFER_ENT_O_CNT    --부의위임○
+		                ,SUM(CASE WHEN REFER_ENT = 'ⅹ' OR REFER_ENT = '×' THEN 1 ELSE 0 END) AS REFER_ENT_X_CNT    --부의위임ⅹ
+		                ,SUM(CASE WHEN REFER_ENT = '△'                    THEN 1 ELSE 0 END) AS REFER_ENT_D_CNT    --부의위임△
+		                ,SUM(CASE WHEN REFER_ENT = '○'
+		                            OR REFER_ENT = 'ⅹ' OR REFER_ENT = '×'
+		                            OR REFER_ENT = '△'                    THEN 0 ELSE 1 END) AS REFER_ENT_ETC_CNT  --부의위임기타
+		             FROM TBBADDED118M
+		            WHERE 1=1
+		              AND AUD_YR = #{schAudYr} --PARAM
+		            GROUP BY AUD_YR, AUD_NO
+		       ) A2
+		 WHERE A1.AUD_YR = A2.AUD_YR(+)
+		   AND A1.AUD_NO = A2.AUD_NO(+)
+		   AND A1.AUD_YR = #{schAudYr}	--PARAM
+		   AND (SELECT MIN(TO_DATE(A3.ENF_DT))
+		          FROM TBBADEAR001M A7
+		              ,TBBADEAR002D A3
+		         WHERE A7.AUD_YR      = A3.AUD_YR
+		           AND A7.AUD_NO      = A3.AUD_NO
+		           AND A7.DSP_RQ_SNO  = A3.DSP_RQ_SNO
+		           AND A7.AUD_YR      = A1.AUD_YR
+		           AND A7.AUD_NO      = A1.AUD_NO
+		           AND A7.DSP_RQ_KND_CD NOT IN ('390','391','395','396','490','495','730')) IS NOT NULL
+		 ORDER BY A1.AUD_YR,A1.AUD_NO
+        ]]>
+    </select>
+    
+</mapper> 

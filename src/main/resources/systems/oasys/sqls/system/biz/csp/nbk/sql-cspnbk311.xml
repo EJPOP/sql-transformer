@@ -1,0 +1,444 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd" >
+<sqlMap namespace="csp/nbk/311">
+
+	<typeAlias alias="investIjInfoVO" type="org.ebai.iportal.biz.csp.nbk.vo.InvestIjInfoVO"/>
+
+	<select id="CSPNBK311EGetBbkIsueDT" parameterClass="paramMap" resultClass="String">
+		<![CDATA[
+			SELECT /* CSPNBK311EGetBbkIsueDT */
+					BBK_ISUE_DT
+			FROM TBCSPNBK101M
+			WHERE MOUI_NO = #mouiNo#
+		]]>
+	</select>
+
+	<select id="CSPNBK311EMouiInfoSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT	/* CSPNBK311EMouiInfoSelect */
+				D2.MOUI_DVSN_CD
+				, F_CODE_NM( '1000153', D2.MOUI_DVSN_CD ) AS MOUI_DVSN_CD_NM
+				, D2.MOUI_NO
+				, D2.OGNZ_NM
+				, CASE WHEN SCS_YN = 'Y' THEN D1.USR_NAM||'(탈퇴자)'
+					ELSE D1.USR_NAM END AS USR_NAM
+				, SUBSTR(D1.EIN, 1, 6) || '-*******' AS EIN
+				, D2.CNB
+				, D1.TNB
+				, D1.RANK_CD
+				, F_CODE_NM( '1000173', D1.RANK_CD ) AS RANK_CD_NM
+				, F_CODE_NM( '1000176', D1.PST_CD ) AS PST_CD_NM
+				, D3.DPT_CD
+				, D3.DPT_NM 
+				, NVL(D4.INV_BL, 0) AS INV_BL
+				, NVL(D6.LEND_BL, 0) AS LEND_BL
+				, NVL(D8.LEND_BL, 0) AS GU_LEND_BL
+				, NVL(D2.EX_DVD_RTS_TG_YN, 'N') AS EX_DVD_RTS_TG_YN
+				, NVL(D2.SAL_SEI_YN, 'N') AS SAL_SEI_YN
+				, D2.SCS_YN
+				, D2.RMK
+				, D4.INV_OAA_DT
+				, D4.FNL_DEAL_DT
+				, NVL(D4.FNL_OTPT_ROW_NO, 0) AS FNL_OTPT_ROW_NO
+				, D2.RGR_YN
+		FROM	TBDCMACM001M D1
+				, TBCSPNBK001M D2
+				, TBDCMACM002M D3
+				, TBCSPNBK101M D4
+				, (
+					SELECT	D5.LEND_KND_CD
+							, D5.MOUI_NO
+							, D5.LEND_BL
+					FROM	TBCSPNBK202M D5
+					WHERE	D5.LEND_KND_CD = '1'
+				) D6
+				, (
+					SELECT	D7.LEND_KND_CD
+							, D7.MOUI_NO
+							, D7.LEND_BL
+					FROM	TBCSPNBK202M D7
+					WHERE	D7.LEND_KND_CD = '2'
+				) D8
+		WHERE	D2.CNB = D1.CNB(+)
+		AND		D1.DPT_CD = D3.DPT_CD(+)
+		AND		D2.MOUI_NO = D4.MOUI_NO(+)
+		AND		D2.MOUI_NO = D6.MOUI_NO(+)
+		AND		D2.MOUI_NO = D8.MOUI_NO(+)
+		AND		D2.MOUI_NO = #mouiNo#
+		ORDER BY USR_NAM
+	]]>
+	</select>
+	
+	<select id="CSPNBK311EGetMngCluNm" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT	/* CSPNBK311EGetMngCluNm */
+				OP_MTRL_MNG_CD
+				, SET_TXT
+				, MNG_CLU_NM
+		FROM TBCSPNBK003M
+		WHERE OP_MTRL_MNG_CD = #OP_MTRL_MNG_CD#
+	]]>
+	</select>
+	
+	<update id="CSPNBK311EBbkIsueDtUpdate" parameterClass="paramMap">
+	<![CDATA[
+		UPDATE	/* CSPNBK311EBbkIsueDtUpdate */ TBCSPNBK101M
+		SET		BBK_ISUE_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+				, FNL_USR_ID = #FNL_USR_ID#
+				, FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+				, FNL_MNU_ID = #FNL_MNU_ID#
+				, FNL_MDF_DH = SYSDATE
+		WHERE	MOUI_NO = #strMOUI_NO#
+	]]>
+	</update>
+	
+	<select id="CSPNBK311EInvDealListSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		WITH
+		MAX_INV_IJ AS
+		(
+			SELECT	MAX(D2.INV_DEAL_SLN) AS MAX_INV_DEAL_SLN
+			FROM	TBCSPNBK102L D2
+			WHERE	D2.MOUI_NO = #mouiNo#
+			AND		D2.INV_KND_CD = '0'
+			AND		D2.INV_DEAL_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+	]]>
+		<isNotEmpty property="cnlYn" prepend="AND">
+					D2.CNL_YN = #cnlYn#
+		</isNotEmpty>
+	<![CDATA[
+		),
+		CLSNG_YN_DATA AS 
+		(
+			SELECT	/* CSPNBK311ESystemClsngYnSelect */
+					DISTINCT D4.CLSNG_YN
+			FROM	TBCSPNBK502M D4
+			WHERE	D4.DEAL_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		)
+		SELECT	/* CSPNBK311EInvDealListSelect */
+				D1.MOUI_NO
+				, D1.INV_DEAL_DT
+				, D1.INV_DEAL_SLN
+				, D1.PET_DH
+				, TO_CHAR( D1.PET_DH, 'HH24MI') AS PET_HM
+				, DECODE( D1.DEPTS_PMT_DVSN_CD, 'C', D1.INV_AM, 0 ) AS C_INV_AM
+				, DECODE( D1.DEPTS_PMT_DVSN_CD, 'D', D1.INV_AM, 0 ) AS D_INV_AM
+				, NVL(D1.DEAL_AF_LEDG_BL, 0) AS DEAL_AF_LEDG_BL
+				, D1.BBK_PRT_YN
+				, '출력' AS BBK_PRT_BTN_NM
+				, D1.RMK
+				, NVL(D1.CNL_YN, 'N') AS CNL_YN
+				, (
+					CASE 
+						WHEN ( SELECT D5.CLSNG_YN FROM CLSNG_YN_DATA D5 ) = 'N'
+						THEN 
+							CASE
+								WHEN D1.INV_DEAL_SLN = ( SELECT D3.MAX_INV_DEAL_SLN FROM MAX_INV_IJ D3 )
+								THEN '취소'
+								ELSE NULL
+							END
+						ELSE NULL
+					END
+				) AS CNL_YN_BTN_NM
+				, D1.CNL_RMK
+				, D1.INV_KND_CD
+				, D1.SMB_DEAL_DT
+				, D1.SMB_SLN
+				, D1.DEPTS_PMT_DVSN_CD
+		FROM	TBCSPNBK102L D1
+		WHERE	D1.MOUI_NO = #mouiNo#
+		
+	]]>
+		<isNotEmpty property="beginInvDealDt">
+			<isNotEmpty property="endInvDealDt" prepend="AND">
+				D1.INV_DEAL_DT BETWEEN #beginInvDealDt# AND #endInvDealDt#
+			</isNotEmpty>
+		</isNotEmpty>
+		<isNotEmpty property="invKndCd" prepend="AND">
+				D1.INV_KND_CD = #invKndCd#
+		</isNotEmpty>
+		<isEmpty property="beginInvDealDt" prepend="AND">
+				D1.INV_DEAL_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		</isEmpty>
+		<isNotEmpty property="bbkRptYn" prepend="AND">
+				D1.BBK_PRT_YN = #bbkRptYn#
+		</isNotEmpty>
+		<isNotEmpty property="cnlYn" prepend="AND">
+				D1.CNL_YN = #cnlYn#
+		</isNotEmpty>
+		<isEqual property="listOrd" compareValue="desc">
+		ORDER BY INV_DEAL_DT DESC , INV_DEAL_SLN DESC
+		</isEqual>
+		<isEmpty property="listOrd">
+		ORDER BY INV_DEAL_DT, INV_DEAL_SLN 
+		</isEmpty>
+	
+	</select>
+	
+	<select id="CSPNBK311EInvTracListSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT	/* CSPNBK311EInvTracListSelect */
+				D3.CMM_CD_DVSN_CD
+				, D3.CD AS TRAC_KND_CD
+				, D3.CD_NM AS TRAC_KND_CD_NM
+				, #mouiNo# AS MOUI_NO
+				, NVL(D4.DDCT_AM, 0) AS DDCT_AM
+				, NVL(D4.CH_DDCT_AM, 0 ) AS CH_DDCT_AM
+				, D3.USR_DFN_TXT_1 AS UP_YN
+				, D3.OTPT_SEQ
+		FROM	(
+					SELECT	D1.CMM_CD_DVSN_CD
+							, D1.CD
+							, D1.CD_NM
+							, D1.USR_DFN_TXT_1
+							, D1.OTPT_SEQ
+					FROM	TBDCMACM013C D1
+					WHERE	D1.CMM_CD_DVSN_CD = '1000165'
+					AND		D1.CD != '000000000'
+					AND		D1.USE_YN = 'Y'
+	]]>
+		<isEqual property="PRIVATE" compareValue="Y" prepend="AND">
+							D1.CD = '0000'
+		</isEqual>
+					 
+	<![CDATA[
+				) D3
+				, (
+					SELECT	D2.TRAC_KND_CD
+							, F_CODE_NM( '1000165', D2.TRAC_KND_CD ) AS TRAC_KND_CD_NM
+							, D2.MOUI_NO
+							, D2.DDCT_AM
+							, D2.DDCT_AM AS CH_DDCT_AM
+					FROM	TBCSPNBK103M D2
+					WHERE	D2.MOUI_NO = #mouiNo#
+				) D4
+		WHERE	D3.CD = D4.TRAC_KND_CD(+)
+		ORDER BY OTPT_SEQ
+	]]>
+	</select>
+	
+	<select id="CSPNBK311ETracMouiNoCheckSelect" parameterClass="paramMap" resultClass="int">
+	<![CDATA[
+		SELECT	/* CSPNBK311ETracMouiNoCheckSelect */
+				COUNT(D1.MOUI_NO) AS CNT
+		FROM	TBCSPNBK103M D1
+		WHERE	D1.MOUI_NO = #MOUI_NO#
+		AND		D1.TRAC_KND_CD = #TRAC_KND_CD#
+	]]>
+	</select>
+	
+	<delete id="CSPNBK311EInvTracListDelete" parameterClass="paramMap">
+	<![CDATA[
+		DELETE	/* CSPNBK311EInvTracListDelete */
+		FROM	TBCSPNBK103M D1
+		WHERE	D1.MOUI_NO = #MOUI_NO#
+	]]>
+		<isNotEmpty property="TRAC_KND_CD" prepend="AND">
+				D1.TRAC_KND_CD = #TRAC_KND_CD#
+		</isNotEmpty>
+	</delete>
+	
+	<insert id="CSPNBK311EInvTracInfoInsert" parameterClass="paramMap">
+	<![CDATA[
+		INSERT INTO /* CSPNBK311EInvTracInfoInsert */ TBCSPNBK103M
+		(
+			TRAC_KND_CD
+			, MOUI_NO
+			, DDCT_AM
+			, FRT_USR_ID
+			, FNL_USR_ID
+			, FNL_DEAL_DPT_CD
+			, FNL_MNU_ID
+			, FRT_REGI_DH
+			, FNL_MDF_DH
+		)
+		VALUES
+		(
+			#TRAC_KND_CD#
+			, #MOUI_NO#
+			, #CH_DDCT_AM#
+			, #FRT_USR_ID#
+			, #FNL_USR_ID#
+			, #FNL_DEAL_DPT_CD#
+			, #FNL_MNU_ID#
+			, SYSDATE
+			, SYSDATE
+		)
+	]]>
+	</insert>
+	
+	<update id="CSPNBK311EInvTracInfoUpdate" parameterClass="paramMap">
+	<![CDATA[
+		UPDATE	/* CSPNBK311EInvTracInfoUpdate */ TBCSPNBK103M
+		SET		DDCT_AM = #CH_DDCT_AM#
+				, FNL_USR_ID = #FNL_USR_ID#
+				, FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+				, FNL_MNU_ID = #FNL_MNU_ID#
+				, FNL_MDF_DH = SYSDATE
+		WHERE	TRAC_KND_CD = #TRAC_KND_CD#
+		AND		MOUI_NO = #MOUI_NO#
+	]]>
+	</update>
+	
+	<select id="CSPNBK311ESystemClsngYnSelect" parameterClass="paramMap" resultClass="String">
+	<![CDATA[
+		SELECT	/* CSPNBK311ESystemClsngYnSelect */
+				DISTINCT CLSNG_YN
+		FROM	TBCSPNBK502M D1
+		WHERE	D1.DEAL_DT = #invDealDt#
+	]]>
+	</select>
+	
+	<update id="CSPNBK311EInvBlUpdate" parameterClass="paramMap">
+	<![CDATA[
+		UPDATE	/* CSPNBK311EInvBlUpdate */ TBCSPNBK101M D1
+		SET		D1.FNL_DEAL_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+	]]>
+		<isEqual property="DEPTS_PMT_DVSN_CD" compareValue="C">
+			<isEqual property="CNL_YN" compareValue="N">
+			<![CDATA[
+					, D1.INV_BL = D1.INV_BL + #INV_AM#
+			]]>
+			</isEqual>
+			<isEqual property="CNL_YN" compareValue="Y">
+			<![CDATA[
+					, D1.INV_BL = D1.INV_BL - #INV_AM#
+			]]>
+			</isEqual>
+		</isEqual>
+		<isEqual property="DEPTS_PMT_DVSN_CD" compareValue="D">
+			<isEqual property="CNL_YN" compareValue="N">
+			<![CDATA[
+					, D1.INV_BL = D1.INV_BL - #INV_AM#
+			]]>
+			</isEqual>
+			<isEqual property="CNL_YN" compareValue="Y">
+			<![CDATA[
+					, D1.INV_BL = D1.INV_BL + #INV_AM#
+			]]>
+			</isEqual>
+		</isEqual>
+	<![CDATA[
+				, FNL_USR_ID = #USR_ID#
+				, FNL_DEAL_DPT_CD = #DPT_CD#
+				, FNL_MNU_ID = #MNU_ID#
+				, FNL_MDF_DH = SYSDATE
+		WHERE	D1.MOUI_NO = #MOUI_NO#
+	]]>
+	</update>
+	
+	<select id="CSPNBK311EInvMstCheckSelect" parameterClass="investIjInfoVO" resultClass="int">
+	<![CDATA[
+		SELECT	/* CSPNBK311EInvMstCheckSelect */ COUNT(MOUI_NO) AS CNT
+		FROM	TBCSPNBK101M D1
+		WHERE	D1.MOUI_NO = #mouiNo#
+	]]>
+	</select>
+	
+	<insert id="CSPNBK311EInvMstInfoInsert" parameterClass="investIjInfoVO">
+	<![CDATA[
+		INSERT INTO /* CSPNBK311EInvMstInfoInsert */ TBCSPNBK101M
+		(
+			MOUI_NO
+			, INV_OAA_DT
+			, INV_OAA_OPT_MOUI_NO
+			, INV_BL
+			, FNL_DEAL_DT
+			, BBK_ISUE_DT
+			, FNL_OTPT_ROW_NO
+			, FRT_USR_ID
+			, FNL_USR_ID
+			, FNL_DEAL_DPT_CD
+			, FNL_MNU_ID
+			, FRT_REGI_DH
+			, FNL_MDF_DH
+		)
+		VALUES
+		(
+			#mouiNo#
+			, TO_CHAR( SYSDATE, 'YYYYMMDD' )
+			, #optMouiNo#
+			, 0
+			, TO_CHAR( SYSDATE, 'YYYYMMDD' )
+			, TO_CHAR( SYSDATE, 'YYYYMMDD' )
+			, 0
+			, #usrId#
+			, #usrId#
+			, #dptCd#
+			, #mnuId#
+			, SYSDATE
+			, SYSDATE
+		)
+	]]>
+	</insert>
+	
+	<insert id="CSPNBK311EInvIjInfoInsert" parameterClass="investIjInfoVO">
+	<![CDATA[
+		INSERT INTO /* CSPNBK311EInvIjInfoInsert */ TBCSPNBK102L
+		(
+			MOUI_NO
+			, INV_DEAL_DT
+			, INV_DEAL_SLN
+			, OPT_MOUI_NO
+			, PET_DH
+			, INV_AM
+			, DEPTS_PMT_DVSN_CD
+			, DEAL_BK_LEDG_BL
+			, DEAL_AF_LEDG_BL
+			, RMK
+			, CNL_YN
+			, BBK_PRT_YN
+			, INV_KND_CD
+			, SMB_DEAL_DT
+			, SMB_SLN
+			, FRT_USR_ID
+			, FNL_USR_ID
+			, FNL_DEAL_DPT_CD
+			, FNL_MNU_ID
+			, FRT_REGI_DH
+			, FNL_MDF_DH
+		)
+		VALUES
+		(
+			#mouiNo#
+			, #invDealDt#
+			, ( SELECT NVL(MAX(D1.INV_DEAL_SLN), 0) + 1 FROM TBCSPNBK102L D1 WHERE D1.MOUI_NO = #mouiNo# AND D1.INV_DEAL_DT = #invDealDt# )
+			, #optMouiNo#
+			, SYSDATE
+			, #invAm#
+			, #deptsPmtDvsnCd#
+			, #dealBkLedgBl#
+			, #dealAfLedgBl#
+			, #rmk#
+			, 'N'
+			, #bbkPrtYn#
+			, #invKndCd#
+			, #smbDealDt#
+			, #smbSln#
+			, #usrId#
+			, #usrId#
+			, #dptCd#
+			, #mnuId#
+			, SYSDATE
+			, SYSDATE
+		)
+	]]>
+	</insert>
+	
+	<update id="CSPNBK311EInvIjInfoUpdate" parameterClass="investIjInfoVO">
+	<![CDATA[
+		UPDATE	/* CSPNBK311EInvIjInfoUpdate */ TBCSPNBK102L D1
+		SET		CNL_YN = #cnlYn#
+				, CNL_OPT_MOUI_NO = #optMouiNo#
+				, CNL_PET_DH = SYSDATE
+				, CNL_RMK = #cnlRmk#
+				, FNL_USR_ID = #usrId#
+				, FNL_DEAL_DPT_CD = #dptCd#
+				, FNL_MNU_ID = #mnuId#
+				, FNL_MDF_DH = SYSDATE
+		WHERE	D1.INV_DEAL_DT = #invDealDt#
+		AND		D1.INV_DEAL_SLN = #invDealSln#
+		AND		D1.MOUI_NO = #mouiNo#
+	]]>
+	</update>
+</sqlMap>

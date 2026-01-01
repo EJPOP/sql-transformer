@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="faa/cav/011"> 
+	
+	<!--증명책임자부호내역을 가지고 온다.-->
+	<select id="FAACAV011ESelectAccmnId" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[  /* faa/cav/011/FAACAV011ESelectAccmnId */ ]]>
+		SELECT
+			B.COPT_CD||'-'||B.ACNT_CD||'-'||B.BLL_CD||'-'||B.PROF_DRTR_SRNO||'-'||B.DL_XPN_RCDB_PBSVT_SRNO AS ACCMN_ID
+         FROM
+              TWFAACAV062L B
+        WHERE 1 = 1
+          AND B.ACNT_YR = #strYr#
+          AND B.EAN = #strAcnb# 
+          AND B.ACCT_SUBJ_CD = #strAcctSubj#
+	</select>
+	
+	<!--한은월계검색-->
+	<select id="FAACAV011EMainselect" parameterClass="paramMap" resultClass="resultMap" remapResults="true">
+		<![CDATA[  /* faa/cav/011/FAACAV011EMainselect */ ]]>
+		<include refid="include.pageSelct" />
+        <![CDATA[
+			SELECT	B.*
+			FROM	(
+						SELECT  A.MNSUM_YM
+								,A.MNSUM_DVSN_CD
+		]]>
+							<isEqual property="strMnDvsn" compareValue="05">
+								,A.BNK_CD AS BNK_CD
+							</isEqual>     
+		<![CDATA[
+								,dguard.decrypt('TB_ENC','EAN',A.EAN)||'-'||A.ACCT_SUBJ_CD  AS ACNBSUBJ
+								,A.EAN
+								,A.ACCT_SUBJ_CD AS ACCT_SUBJ
+								,A.ACNT_YR
+								,A.ACNT_CD
+								,A.COPT_CD
+								,A.CMP_AMT_1 AS CMP_AMT1
+								,A.CMP_AMT_2 AS CMP_AMT2
+								,A.CMP_AMT_3 AS CMP_AMT3
+								,A.CMP_AMT_4 AS CMP_AMT4
+								,A.CMP_AMT_5 AS CMP_AMT5
+								,A.CMP_AMT_6 AS CMP_AMT6
+								,A.CMP_AMT_7 AS CMP_AMT7
+								,A.CMP_AMT_8 AS CMP_AMT8
+								,A.REL_SHOP_ID
+						FROM   TWFAACAV010L A
+						where 1= 1
+						  AND MNSUM_DVSN_CD = #strMnDvsn#
+		]]>
+		<isNotEmpty property="strYr">
+			<isNotEmpty property="strMm">	  	   
+				   AND MNSUM_YM  = #strYr#||#strMm#
+			</isNotEmpty>
+			<isEmpty property="strMm">	  	   
+				   AND MNSUM_YM  BETWEEN  #strYr#||'01' AND #strYr#||'13'
+			</isEmpty>
+		</isNotEmpty>
+		
+		<isEqual property="strMnDvsn" compareValue="05">
+			<isNotEmpty property="strAcnb">	
+				<![CDATA[ 	    AND #strAcnb# = dguard.decrypt('TB_ENC','EAN',A.EAN) ]]>
+			</isNotEmpty>
+		</isEqual>
+				) B
+				WHERE 1=1
+				
+		<isNotEqual property="strMnDvsn" compareValue="05">
+			<isNotEmpty property="strAcnb">	
+				<![CDATA[ 	    AND #strAcnb# <= B.ACNBSUBJ ]]>
+			</isNotEmpty>
+		</isNotEqual>
+		<include refid="include.pageOrder" />
+		
+	</select>
+	
+	<!--한은월계상세내역-->
+	<select id="FAACAV011EMainDtlselect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[  /* faa/cav/011/FAACAV011EMainDtlselect */ ]]>
+	<![CDATA[
+		WITH
+		DATA AS (
+			SELECT	MNSUM_YM
+					,CMP_AMT_1
+					,CMP_AMT_2
+					,CMP_AMT_3
+					,CMP_AMT_4
+					,CMP_AMT_5
+					,CMP_AMT_6
+					,CMP_AMT_7
+					,CMP_AMT_8
+			FROM	TWFAACAV010L
+			WHERE 	MNSUM_YM  BETWEEN  #strYr#||'01' AND #strYr#||'13'
+			AND 	MNSUM_DVSN_CD = #strMnDvsn#
+			AND		EAN = #strAcnb#
+			AND 	ACCT_SUBJ_CD = #strAcctSubj#
+		)
+		SELECT	MNSUM_YM AS MNSUM_YM
+				,CMP_AMT_1 AS CMP_AMT1
+				,CMP_AMT_2 AS CMP_AMT2
+				,CMP_AMT_3 AS CMP_AMT3
+				,CMP_AMT_4 AS CMP_AMT4
+				,CMP_AMT_5 AS CMP_AMT5
+				,CMP_AMT_6 AS CMP_AMT6
+				,CMP_AMT_7 AS CMP_AMT7
+				,CMP_AMT_8 AS CMP_AMT8
+				,(
+					CASE
+						WHEN SUBSTR(MNSUM_YM, 5, 2) BETWEEN '01' AND '03' THEN 1
+						WHEN SUBSTR(MNSUM_YM, 5, 2) BETWEEN '04' AND '06' THEN 21
+						WHEN SUBSTR(MNSUM_YM, 5, 2) BETWEEN '07' AND '09' THEN 31
+						WHEN SUBSTR(MNSUM_YM, 5, 2) BETWEEN '10' AND '13' THEN 41
+						ELSE 0
+					END
+				) AS SORT
+		FROM	DATA
+		UNION ALL
+		SELECT	'1 분기계' AS MNSUM_YM
+				,MAX(DECODE(MNSUM_YM, (SELECT MAX(MNSUM_YM) FROM DATA WHERE MNSUM_YM BETWEEN  #strYr#||'01' AND #strYr#||'03'), CMP_AMT_1, 0)) AS CMP_AMT1
+				,MAX(DECODE(MNSUM_YM, (SELECT MAX(MNSUM_YM) FROM DATA WHERE MNSUM_YM BETWEEN  #strYr#||'01' AND #strYr#||'03'), CMP_AMT_2, 0)) AS CMP_AMT2
+				,MAX(DECODE(MNSUM_YM, (SELECT MAX(MNSUM_YM) FROM DATA WHERE MNSUM_YM BETWEEN  #strYr#||'01' AND #strYr#||'03'), CMP_AMT_3, 0)) AS CMP_AMT3
+				,SUM(CMP_AMT_4) AS CMP_AMT4
+				,SUM(CMP_AMT_5) AS CMP_AMT5
+				,SUM(CMP_AMT_6) AS CMP_AMT6
+				,SUM(CMP_AMT_7) AS CMP_AMT7
+				,SUM(CMP_AMT_8) AS CMP_AMT8
+				,11 AS SORT
+		FROM 	DATA
+		WHERE	MNSUM_YM BETWEEN  #strYr# ||'01' AND #strYr#||'03'
+		UNION ALL
+		SELECT	'2 분기계' AS MNSUM_YM
+				,MAX(DECODE(MNSUM_YM, (SELECT MAX(MNSUM_YM) FROM DATA WHERE MNSUM_YM BETWEEN  #strYr#||'04' AND #strYr#||'06'), CMP_AMT_1, 0)) AS CMP_AMT1
+				,MAX(DECODE(MNSUM_YM, (SELECT MAX(MNSUM_YM) FROM DATA WHERE MNSUM_YM BETWEEN  #strYr#||'04' AND #strYr#||'06'), CMP_AMT_2, 0)) AS CMP_AMT2
+				,MAX(DECODE(MNSUM_YM, (SELECT MAX(MNSUM_YM) FROM DATA WHERE MNSUM_YM BETWEEN  #strYr#||'04' AND #strYr#||'06'), CMP_AMT_3, 0)) AS CMP_AMT3
+				,SUM(CMP_AMT_4) AS CMP_AMT4
+				,SUM(CMP_AMT_5) AS CMP_AMT5 
+				,SUM(CMP_AMT_6) AS CMP_AMT6
+				,SUM(CMP_AMT_7) AS CMP_AMT7
+				,SUM(CMP_AMT_8) AS CMP_AMT8
+				,22 AS SORT
+		FROM 	DATA
+		WHERE	MNSUM_YM BETWEEN  #strYr#||'04' AND #strYr#||'06'
+		UNION ALL
+		SELECT	'3 분기계' AS MNSUM_YM
+				,MAX(DECODE(MNSUM_YM, (SELECT MAX(MNSUM_YM) FROM DATA WHERE MNSUM_YM BETWEEN  #strYr#||'07' AND #strYr#||'09'), CMP_AMT_1, 0)) AS CMP_AMT1
+				,MAX(DECODE(MNSUM_YM, (SELECT MAX(MNSUM_YM) FROM DATA WHERE MNSUM_YM BETWEEN  #strYr#||'07' AND #strYr#||'09'), CMP_AMT_2, 0)) AS CMP_AMT2
+				,MAX(DECODE(MNSUM_YM, (SELECT MAX(MNSUM_YM) FROM DATA WHERE MNSUM_YM BETWEEN  #strYr#||'07' AND #strYr#||'09'), CMP_AMT_3, 0)) AS CMP_AMT3
+				,SUM(CMP_AMT_4) AS CMP_AMT4
+				,SUM(CMP_AMT_5) AS CMP_AMT5 
+				,SUM(CMP_AMT_6) AS CMP_AMT6
+				,SUM(CMP_AMT_7) AS CMP_AMT7
+				,SUM(CMP_AMT_8) AS CMP_AMT8
+				,33 AS SORT
+		FROM 	DATA
+		WHERE	MNSUM_YM BETWEEN  #strYr# ||'07' AND #strYr# ||'09'
+		UNION ALL
+		SELECT	'4 분기계' AS MNSUM_YM
+				,MAX(DECODE(MNSUM_YM, (SELECT MAX(MNSUM_YM) FROM DATA WHERE MNSUM_YM BETWEEN  #strYr#||'10' AND #strYr#||'13'), CMP_AMT_1, 0)) AS CMP_AMT1
+				,MAX(DECODE(MNSUM_YM, (SELECT MAX(MNSUM_YM) FROM DATA WHERE MNSUM_YM BETWEEN  #strYr#||'10' AND #strYr#||'13'), CMP_AMT_2, 0)) AS CMP_AMT2 
+				,MAX(DECODE(MNSUM_YM, (SELECT MAX(MNSUM_YM) FROM DATA WHERE MNSUM_YM BETWEEN  #strYr#||'10' AND #strYr#||'13'), CMP_AMT_3, 0)) AS CMP_AMT3
+				,SUM(CMP_AMT_4) AS CMP_AMT4
+				,SUM(CMP_AMT_5) AS CMP_AMT5 
+				,SUM(CMP_AMT_6) AS CMP_AMT6
+				,SUM(CMP_AMT_7) AS CMP_AMT7
+				,SUM(CMP_AMT_8) AS CMP_AMT8
+				,44 AS SORT
+		FROM 	DATA
+		WHERE	MNSUM_YM BETWEEN  #strYr# ||'10' AND #strYr# ||'13'
+		UNION ALL
+		SELECT	'총계' AS MNSUM_YM
+				,MAX(DECODE(MNSUM_YM, (SELECT MAX(MNSUM_YM) FROM DATA WHERE MNSUM_YM BETWEEN  #strYr#||'01' AND #strYr#||'13'), CMP_AMT_1, 0)) AS CMP_AMT1
+				,MAX(DECODE(MNSUM_YM, (SELECT MAX(MNSUM_YM) FROM DATA WHERE MNSUM_YM BETWEEN  #strYr#||'01' AND #strYr#||'13'), CMP_AMT_2, 0)) AS CMP_AMT2
+				,MAX(DECODE(MNSUM_YM, (SELECT MAX(MNSUM_YM) FROM DATA WHERE MNSUM_YM BETWEEN  #strYr#||'01' AND #strYr#||'13'), CMP_AMT_3, 0)) AS CMP_AMT3
+				,SUM(CMP_AMT_4) AS CMP_AMT4
+				,SUM(CMP_AMT_5) AS CMP_AMT5
+				,SUM(CMP_AMT_6) AS CMP_AMT6
+				,SUM(CMP_AMT_7) AS CMP_AMT7
+				,SUM(CMP_AMT_8) AS CMP_AMT8
+				,55 AS SORT
+		FROM 	DATA
+		ORDER BY SORT, MNSUM_YM
+	]]>
+	</select>
+	
+	<!--계좌체크-->
+	<select id="FAACAV011ERselectAccChk" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[  /* faa/cav/011/FAACAV011ERselectAccChk */ ]]>
+        SELECT AA.PROF_DRTR_CD,
+		       AA.EANSUBJCD,AA.ORG_NM,AA.COPTCDNM,AA.ACNTCDNM
+		FROM       
+		    (SELECT A.ACNT_YR,A.COPT_CD||'-'||A.ACNT_CD||'-'||A.BLL_CD||'-'||A.PROF_DRTR_SRNO||'-'|| A.DL_XPN_RCDB_PBSVT_SRNO AS PROF_DRTR_CD,
+		           A.EANSUBJCD,B.ORG_NM,F_AV_BLL_COPT_CD_NM(A.COPT_CD) COPTCDNM,F_AV_ACNT_CD_NM(A.ACNT_CD) ACNTCDNM
+		    FROM
+		        (SELECT ACNT_YR,COPT_CD,ACNT_CD,BLL_CD,PROF_DRTR_SRNO,DL_XPN_RCDB_PBSVT_SRNO,dguard.decrypt('TB_ENC','EAN',EAN)||'-'||ACCT_SUBJ_CD AS EANSUBJCD
+		            FROM TWFAACAV062L 
+		            WHERE ACNT_YR = #strYr#
+		            GROUP BY ACNT_YR,COPT_CD,ACNT_CD,BLL_CD,PROF_DRTR_SRNO,DL_XPN_RCDB_PBSVT_SRNO,dguard.decrypt('TB_ENC','EAN',EAN)||'-'||ACCT_SUBJ_CD
+		            ) A
+		        ,TWFAACAV003M B    
+		    WHERE A.COPT_CD = B.COPT_CD
+		    AND A.ACNT_CD = B.ACNT_CD
+		    AND A.BLL_CD = B.BLL_CD
+		    AND A.PROF_DRTR_SRNO = B.PROF_DRTR_SRNO
+		    AND A.DL_XPN_RCDB_PBSVT_SRNO = B.DL_XPN_RCDB_PBSVT_SRNO ) AA ,  
+		    (SELECT ACNT_YR,dguard.decrypt('TB_ENC','EAN',EAN)||'-'||ACCT_SUBJ_CD AS EANSUBJCD
+		            FROM TWFAACAV062L 
+		            WHERE ACNT_YR = #strYr#
+		            GROUP BY ACNT_YR,dguard.decrypt('TB_ENC','EAN',EAN),ACCT_SUBJ_CD
+		            HAVING COUNT(DISTINCT ACNT_YR||COPT_CD||ACNT_CD||BLL_CD||PROF_DRTR_SRNO||DL_XPN_RCDB_PBSVT_SRNO) > 1 ) BB
+		WHERE AA.EANSUBJCD = BB.EANSUBJCD     
+	</select>
+	
+	<!--증명책임자부호 체크-->
+	<select id="FAACAV011ERselectProfChk" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[  /* faa/cav/011/FAACAV011ERselectProfChk */ ]]>
+        SELECT AA.PROF_DRTR_CD,
+		       AA.EANSUBJCD,AA.ORG_NM,AA.COPTCDNM,AA.ACNTCDNM
+		FROM       
+		    (SELECT A.ACNT_YR,A.COPT_CD||'-'||A.ACNT_CD||'-'||A.BLL_CD||'-'||A.PROF_DRTR_SRNO||'-'|| A.DL_XPN_RCDB_PBSVT_SRNO AS PROF_DRTR_CD,
+		           A.EANSUBJCD,B.ORG_NM,F_AV_BLL_COPT_CD_NM(A.COPT_CD) COPTCDNM,F_AV_ACNT_CD_NM(A.ACNT_CD) ACNTCDNM
+		    FROM
+		        (SELECT ACNT_YR,COPT_CD,ACNT_CD,BLL_CD,PROF_DRTR_SRNO,DL_XPN_RCDB_PBSVT_SRNO,dguard.decrypt('TB_ENC','EAN',EAN)||'-'||ACCT_SUBJ_CD AS EANSUBJCD
+		            FROM TWFAACAV062L 
+		            WHERE ACNT_YR = #strYr#
+		            GROUP BY ACNT_YR,COPT_CD,ACNT_CD,BLL_CD,PROF_DRTR_SRNO,DL_XPN_RCDB_PBSVT_SRNO,dguard.decrypt('TB_ENC','EAN',EAN)||'-'||ACCT_SUBJ_CD
+		            ) A
+		        ,TWFAACAV003M B    
+		    WHERE A.COPT_CD = B.COPT_CD
+		    AND A.ACNT_CD = B.ACNT_CD
+		    AND A.BLL_CD = B.BLL_CD
+		    AND A.PROF_DRTR_SRNO = B.PROF_DRTR_SRNO
+		    AND A.DL_XPN_RCDB_PBSVT_SRNO = B.DL_XPN_RCDB_PBSVT_SRNO ) AA ,  
+		    (SELECT ACNT_YR
+		            ,COPT_CD||'-'||ACNT_CD||'-'||BLL_CD||'-'||PROF_DRTR_SRNO||'-'||DL_XPN_RCDB_PBSVT_SRNO AS PROF_DRTR_CD
+		            FROM TWFAACAV062L 
+		            WHERE ACNT_YR = #strYr#
+		            GROUP BY ACNT_YR,COPT_CD,ACNT_CD,BLL_CD,PROF_DRTR_SRNO,DL_XPN_RCDB_PBSVT_SRNO
+		            HAVING COUNT(DISTINCT ACNT_YR||EAN||ACCT_SUBJ_CD) > 1 ) BB
+		WHERE AA.PROF_DRTR_CD = BB.PROF_DRTR_CD    
+	</select>
+	
+</sqlMap> 

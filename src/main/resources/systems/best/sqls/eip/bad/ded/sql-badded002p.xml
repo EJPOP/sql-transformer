@@ -1,0 +1,1255 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.bad.ded.dao.BADDED002PMapper">
+
+    <select id="selectMainInfo" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.selectMainInfo*/
+        <![CDATA[
+        SELECT D2.AUD_YR||'-'||D2.AUD_KND_CD||'-'||D2.AUD_NO                                          AS AUD_YR_KND_NO        /*감사년번호*/
+                 , F_MNG_KND_AUDYRNO(D2.AUD_YR, D2.AUD_NO, D2.AUD_KND_CD, '-') AS AUD_YR_KND_NO_NM
+                 , F_MNG_KND_AUDYRNO(D2.AUD_YR, D2.AUD_NO, '', '-')                                   AS AUD_YR_KND_NO_NM2    /*감사년번호*/
+                 , D2.AUD_YR                                                AS AUD_YR                /*감사년도*/
+                 , F_CODE_NM('1000007',D2.AUD_KND_CD)                       AS AUD_KND_NM            /*감사종류명*/
+                 , D2.AUD_GRN_NO                                            AS AUD_GRN_NO            /*감사부여번호*/
+                 , D2.AUD_SBJ_NM                                            AS AUD_SBJ_NM            /*감사사항명*/
+                 , D1.BZT_SNO                                               AS BZT_SNO               /*출장순번*/
+                 , F_CODE_NM('1000030',D1.AUD_BZT_KND_CD)                   AS AUD_BZT_KND_NM        /*감사출장종류코드명*/
+                 , D1.TIT_TXT                                               AS TIT_TXT               /*제목*/
+                 , TO_CHAR(TO_DATE(D1.AUD_STR_DT),'YYYY-MM-DD')             AS AUD_STR_DT            /*실시시작일*/
+                 , TO_CHAR(TO_DATE(D1.AUD_END_DT),'YYYY-MM-DD')             AS AUD_END_DT            /*실시종료일*/
+                 , D1.AUD_DCN                                               AS BZT_DCN               /*출장일수*/
+                 , NVL(D3.IN_PSON_CNT,0)                                    AS IN_PSON_CNT           /*내부인원*/
+                 , NVL(D3.EXT_PSON_CNT,0)                                   AS EXT_PSON_CNT          /*외부인원*/
+                 , NVL(D3.IN_PSON_CNT,0)||'/'||NVL(D3.EXT_PSON_CNT,0)||'/'||(NVL(D3.IN_PSON_CNT,0)+ NVL(D3.EXT_PSON_CNT,0)) AS ALL_PSON_CNT    /*총인원*/
+                 , '내부 : '||NVL(D3.IN_PSON_CNT,0)||'명'||' / '||
+                   '외부 : '||NVL(D3.EXT_PSON_CNT,0)||'명'  AS PSON_CNT
+                 , F_CODE_NM('1000019',D1.HLDY_ACTV_DVSN_CD)                AS HLDY_ACTV_DVSN_NM     /*휴일활동구분코드*/
+                 , D2.MNG_DPT_CD                                            AS MNG_DPT_CD            /*관리부서*/
+                 , F_DPT_INFO(D2.MNG_DPT_CD,'1')                            AS MNG_DPT_NM            /*관리부서명*/
+                 , F_USR_INFO(D1.BZT_TL_CNB,'2')                            AS BZT_TL_CNB_NM         /*책임자명*/
+                 , F_DPT_INFO(D1.BZT_TL_BRDV_CD,'1')                        AS BZT_TL_BRDV_NM        /*책임자국과명*/
+                 , F_CODE_NM('1000173',D1.BZT_TL_RANK_CD)                   AS BZT_TL_RANK_NM        /*책임자직급명*/
+                 , D1.BZT_TXT                                               AS BZT_TXT               /*출장내용*/
+                 , D1.AUD_STEP_SNO                                          AS AUD_STEP_SNO          /*감사단계순번*/
+              FROM TBBADDED002M AS D1
+        INNER JOIN TBBADDED001M AS D2 ON D1.REL_AUD_YR = D2.AUD_YR AND D1.REL_AUD_NO = D2.AUD_NO
+   LEFT OUTER JOIN (SELECT BZT_YR
+                         , BZT_SNO
+                         , SUM( CASE WHEN A.STF_DVSN_CD = '0' THEN 1 ELSE 0 END) AS IN_PSON_CNT  /*내부인원*/
+                         , SUM( CASE WHEN A.STF_DVSN_CD = '0' THEN 0 ELSE 1 END) AS EXT_PSON_CNT /*외부인원*/
+                      FROM (SELECT DISTINCT BZT_YR
+                                 , BZT_SNO
+                                 , PCT_CNB
+                                 , STF_DVSN_CD
+                              FROM TBBADDED005L) A
+                  GROUP BY BZT_YR, BZT_SNO
+                   ) AS D3 ON D1.BZT_YR = D3.BZT_YR AND D1.BZT_SNO = D3.BZT_SNO
+             WHERE D1.BZT_YR = #{bztYr}
+               AND D1.BZT_SNO = #{bztSno}
+               AND D1.BZT_DVSN_CD = '1'
+        ]]>
+    </select>
+    
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.selectMainList*/
+        <include refid="include.pageSelct" />
+            <![CDATA[
+            SELECT D1.TEAM_SNO         AS TEAM_SNO      /*조순번*/
+                 , D1.BZT_SNO          AS BZT_SNO       /*출장순번*/
+                 , D1.BZT_YR           AS BZT_YR        /*출장년도*/
+                 , D1.TEAM_NM          AS TEAM_NM       /*조명*/
+                 , D1.DVDT_TSK_TXT     AS DVDT_TSK_TXT  /*분장업무내용*/
+              FROM TBBADDED004L D1
+             WHERE D1.BZT_YR = #{bztYr}
+               AND D1.BZT_SNO = #{bztSno}
+            ]]>
+        <include refid="include.pageOrder" />
+    </select>
+    
+    <select id="selectMainList1" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.selectMainLis1*/
+        <include refid="include.pageSelct" />
+            <![CDATA[
+            SELECT D1.TEAM_SNO         AS TEAM_SNO      /*조순번*/
+                 , D1.BZT_SNO          AS BZT_SNO       /*출장순번*/
+                 , D1.BZT_YR           AS BZT_YR        /*출장년도*/
+                 , D1.TEAM_NM          AS TEAM_NM       /*조명*/
+                 , D1.DVDT_TSK_TXT     AS DVDT_TSK_TXT  /*분장업무내용*/
+              FROM TBBADDED004L D1
+             WHERE D1.BZT_YR = #{bztYr}
+               AND D1.BZT_SNO = #{bztSno}
+               AND D1.TEAM_SNO != #{teamSno}
+            ]]>
+        <include refid="include.pageOrder" />
+    </select>
+    
+    <select id="selectList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.selectList*/
+        <![CDATA[
+        SELECT D1.TEAM_SNO AS TEAM_SNO /*조순번*/
+		  		, D1.PCT_ALC_SNO AS PCT_ALC_SNO /*출장자배정순번*/
+		  		, D1.BZT_SNO AS BZT_SNO /*출장순번*/
+				, D1.BZT_YR AS BZT_YR /*출장년도*/
+				, D1.STF_DVSN_CD AS STF_DVSN_CD /*직원구분코드*/
+				 , CASE D1.STF_DVSN_CD
+			         WHEN '0' THEN '내부직원'
+			         WHEN '1' THEN '수견'
+			         WHEN '2' THEN '차출'
+			         WHEN '3' THEN '전문가'
+			         WHEN '4' THEN '차출(여비미지급)'
+			         ELSE ''
+			       END AS STF_DVSN_NM /*직원구분명*/
+				, D1.PCT_CNB AS PCT_CNB /*출장자전산번호*/
+				, D1.PCT_NM AS PCT_NM /*출장자명*/
+				, D1.BLT_BRDV_CD AS BLT_BRDV_CD /*소속국과코드*/
+				, F_DPT_INFO(D1.BLT_BRDV_CD, '1') AS BLT_BRDV_NM /*소속국과명*/
+				, D1.PCT_RANK_CD AS PCT_RANK_CD /*직급코드*/
+				, F_CODE_NM('1000173', D1.PCT_RANK_CD) AS PCT_RANK_NM /*직급명*/
+				, D1.DEP_RGN_CD AS DEP_RGN_CD /*출발지역코드*/
+				, F_CODE_NM('1000001', D1.DEP_RGN_CD) AS DEP_RGN_NM /*출발지역코드*/
+				, TO_CHAR(TO_DATE(D1.BZT_STR_DT, 'YYYYMMDD'), 'YYYY-MM-DD') AS BZT_STR_DT /*출장시작일*/
+				, TO_CHAR(TO_DATE(D1.BZT_END_DT, 'YYYYMMDD'), 'YYYY-MM-DD') AS BZT_END_DT /*출장종료일*/
+				, D1.TEAM_CHIF_YN AS TEAM_CHIF_YN /*조장여부*/
+				, D1.PCT_OCP_CD AS PCT_OCP_CD /*직종코드*/
+				, D1.EXTL_ORG_CD AS EXTL_ORG_CD /*외부기관코드*/
+				, D1.EXTL_ORG_NM AS EXTL_ORG_NM /*외부기관명*/
+				FROM TBBADDED005L D1
+
+             WHERE D1.BZT_YR = #{bztYr}
+               AND D1.BZT_SNO = #{bztSno}
+               AND D1.TEAM_SNO = #{teamSno}
+        ]]>
+    </select>
+    
+    <select id="selectSubOneList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.selectSubOneList*/
+        <include refid="include.pageSelct" />
+            <![CDATA[
+            SELECT D1.TEAM_SNO                                              AS TEAM_SNO         /*조순번*/
+                 , D1.BGRP_TG_ORG_SNO                                       AS BGRP_TG_ORG_SNO  /*조별대상기관순번*/  
+                 , D1.BZT_SNO                                               AS BZT_SNO          /*출장순번*/
+                 , D1.BZT_YR                                                AS BZT_YR           /*출장년도*/
+                 , D1.ORG_CD                                                AS ORG_CD           /*기관코드*/
+                 , F_ORG_INFO(D1.ORG_CD,'1')                                AS ORG_NM           /*기관명*/
+                 , D1.RGN_CD                                                AS RGN_CD           /*지역코드*/
+                 , F_CODE_NM('1000001',D1.RGN_CD)                           AS RGN_NM           /*지역명*/
+                 , TO_CHAR(TO_DATE(D1.AUD_STR_DT,'YYYYMMDD'),'YYYY-MM-DD')  AS AUD_STR_DT       /*감사시작일*/
+                 , TO_CHAR(TO_DATE(D1.AUD_END_DT,'YYYYMMDD'),'YYYY-MM-DD')  AS AUD_END_DT       /*감사종료일*/
+                 , D1.AUDT_DPT_NM                                           AS AUDT_DPT_NM      /*수감부서명*/
+                 , D1.LODG_YN                                               AS LODG_YN          /*숙박여부*/
+                 , D1.STGT_MV_AREA_YN                                       AS STGT_MV_AREA_YN  /*연속이동지여부*/
+                 , D2.PSON_CNT                                              AS PSON_CNT         /*인원*/
+                 , D2.MAN_DAY                                               AS MAN_DAY          /*연인원*/
+                 , D2.AUD_DAYS                                              AS AUD_DAYS         /*일수*/
+              FROM TBBADDED008L D1
+                  ,(SELECT  BZT_YR
+                          , BZT_SNO
+                          , TEAM_SNO
+                          , BGRP_TG_ORG_SNO
+                          , COUNT(*)         AS PSON_CNT
+                          , SUM(AUD_DCN)     AS MAN_DAY
+                          , MAX(AUD_DCN)     AS AUD_DAYS
+                      FROM TBBADDED006L
+                     WHERE 1=1
+                       AND TEAM_SNO = #{teamSno}
+                       AND BZT_SNO = #{bztSno}
+                      AND BZT_YR = #{bztYr}
+                     GROUP BY BZT_YR
+                             ,BZT_SNO
+                             ,TEAM_SNO
+                             ,BGRP_TG_ORG_SNO) D2
+             WHERE D1.BZT_YR          = D2.BZT_YR(+)
+               AND D1.BZT_SNO         = D2.BZT_SNO(+)
+               AND D1.TEAM_SNO        = D2.TEAM_SNO(+)
+               AND D1.BGRP_TG_ORG_SNO = D2.BGRP_TG_ORG_SNO(+)
+               AND D1.TEAM_SNO = #{teamSno}
+               AND D1.BZT_SNO = #{bztSno}
+               AND D1.BZT_YR = #{bztYr}
+          ORDER BY D1.TEAM_SNO, D1.BZT_SNO, D1.BZT_YR, D1.BGRP_TG_ORG_SNO
+            ]]>
+        <include refid="include.pageOrder" />
+    </select>
+    
+    <select id="selectSubOneList2" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.selectSubOneList2*/
+            <![CDATA[
+            SELECT D1.TEAM_SNO                                              AS TEAM_SNO         /*조순번*/
+                 , D1.BGRP_TG_ORG_SNO                                       AS BGRP_TG_ORG_SNO  /*조별대상기관순번*/  
+                 , D1.BZT_SNO                                               AS BZT_SNO          /*출장순번*/
+                 , D1.BGRP_TG_ORG_SNO                                       AS BGRP_TG_ORG_SNO  /*조별대상기관순번*/
+                 , D1.BZT_YR                                                AS BZT_YR           /*출장년도*/
+                 , D1.ORG_CD                                                AS ORG_CD           /*기관코드*/
+                 , F_ORG_INFO(D1.ORG_CD,'1')                                AS ORG_NM           /*기관명*/
+                 , D1.RGN_CD                                                AS RGN_CD           /*지역코드*/
+                 , F_CODE_NM('1000001',D1.RGN_CD)                           AS RGN_NM           /*지역명*/
+                 , D1.AUD_STR_DT  AS AUD_STR_DT       /*감사시작일*/
+                 , D1.AUD_END_DT  AS AUD_END_DT       /*감사종료일*/
+                 , D1.AUDT_DPT_NM                                           AS AUDT_DPT_NM      /*수감부서명*/
+                 , D1.LODG_YN                                               AS LODG_YN          /*숙박여부*/
+                 , D1.STGT_MV_AREA_YN                                       AS STGT_MV_AREA_YN  /*연속이동지여부*/
+                 , D2.PSON_CNT                                              AS PSON_CNT         /*인원*/
+                 , D2.MAN_DAY                                               AS MAN_DAY          /*연인원*/
+                 , D2.AUD_DAYS                                              AS AUD_DAYS         /*일수*/
+              FROM TBBADDED008L D1
+                  ,(SELECT  BZT_YR
+                          , BZT_SNO
+                          , TEAM_SNO
+                          , BGRP_TG_ORG_SNO
+                          , COUNT(*)         AS PSON_CNT
+                          , SUM(AUD_DCN)     AS MAN_DAY
+                          , MAX(AUD_DCN)     AS AUD_DAYS
+                      FROM TBBADDED006L
+                     WHERE 1=1
+                       AND TEAM_SNO = #{teamSno}
+                       AND BZT_SNO = #{bztSno}
+                      AND BZT_YR = #{bztYr}
+                     GROUP BY BZT_YR
+                             ,BZT_SNO
+                             ,TEAM_SNO
+                             ,BGRP_TG_ORG_SNO) D2
+             WHERE D1.BZT_YR          = D2.BZT_YR(+)
+               AND D1.BZT_SNO         = D2.BZT_SNO(+)
+               AND D1.TEAM_SNO        = D2.TEAM_SNO(+)
+               AND D1.BGRP_TG_ORG_SNO = D2.BGRP_TG_ORG_SNO(+)
+               AND D1.TEAM_SNO = #{teamSno}
+               AND D1.BZT_SNO = #{bztSno}
+               AND D1.BZT_YR = #{bztYr}
+          ORDER BY D1.TEAM_SNO, D1.BZT_SNO, D1.BZT_YR, D1.BGRP_TG_ORG_SNO
+            ]]>
+    </select>
+    
+    <select id="selectSubTwoList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.selectSubTwoList*/
+        <include refid="include.pageSelct" />
+            SELECT D1.TEAM_SNO                             AS TEAM_SNO         /*조순번*/
+                 , D1.PCT_ALC_SNO                          AS PCT_ALC_SNO      /*출장자배정순번*/
+                 , D1.BZT_SNO                              AS BZT_SNO          /*출장순번*/
+                 , D1.BZT_YR                               AS BZT_YR           /*출장년도*/
+                 , D1.STF_DVSN_CD                          AS STF_DVSN_CD      /*직원구분코드*/
+                 , CASE D1.STF_DVSN_CD WHEN '0' THEN '내부직원'
+                                       WHEN '1' THEN '수견'
+                                       WHEN '2' THEN '차출'
+                                       WHEN '3' THEN '전문가'
+                                       WHEN '9' THEN '차출(여비미지급)'
+                                       ELSE '' END         AS STF_DVSN_NM      /*직원구분명*/
+                 , D1.PCT_CNB                              AS PCT_CNB          /*출장자전산번호*/
+                 , D1.PCT_NM                               AS PCT_NM           /*출장자명*/
+                 , D1.BLT_BRDV_CD                          AS BLT_BRDV_CD      /*소속국과코드*/
+                 , F_DPT_INFO(D1.BLT_BRDV_CD,'1')          AS BLT_BRDV_NM      /*소속국과명*/
+                 , D1.PCT_RANK_CD                          AS PCT_RANK_CD      /*직급코드*/
+                 , F_CODE_NM('1000173', D1.PCT_RANK_CD)    AS PCT_RANK_NM      /*직급명*/
+                 , D1.DEP_RGN_CD                           AS DEP_RGN_CD       /*출발지역코드*/
+                 , F_CODE_NM('1000001',D1.DEP_RGN_CD)      AS DEP_RGN_NM       /*출발지역코드*/
+                 , TO_CHAR(TO_DATE(D1.BZT_STR_DT,'YYYYMMDD'),'YYYY-MM-DD')  AS BZT_STR_DT       /*출장시작일*/
+                 , TO_CHAR(TO_DATE(D1.BZT_END_DT,'YYYYMMDD'),'YYYY-MM-DD')  AS BZT_END_DT       /*출장종료일*/
+                 , D1.TEAM_CHIF_YN                         AS TEAM_CHIF_YN     /*조장여부*/
+                 , D1.PCT_OCP_CD                           AS PCT_OCP_CD       /*직종코드*/
+                 , D1.EXTL_ORG_CD                          AS EXTL_ORG_CD      /*외부기관코드*/
+                 , D1.EXTL_ORG_NM                          AS EXTL_ORG_NM      /*외부기관명*/
+                 , (SELECT MAX(SUM(D2.BZT_DCN)) AS BZT_DCN 
+                      FROM TBBADDED006L D2
+                     WHERE D2.BZT_YR      = D1.BZT_YR
+                       AND D2.BZT_SNO     = D1.BZT_SNO
+                       AND D2.TEAM_SNO    = D1.TEAM_SNO
+                       AND D2.PCT_ALC_SNO = D1.PCT_ALC_SNO
+                  GROUP BY D2.BZT_YR, D2.BZT_SNO, D2.TEAM_SNO, D2.PCT_ALC_SNO ) AS BZT_DCN /*출장일수*/
+              FROM TBBADDED005L D1
+             WHERE 1=1
+               AND D1.TEAM_SNO = #{teamSno}
+               AND D1.BZT_SNO = #{bztSno}
+               AND D1.BZT_YR = #{bztYr}
+             ORDER BY D1.TEAM_SNO, D1.BZT_SNO, D1.BZT_YR, D1.PCT_ALC_SNO
+        <include refid="include.pageOrder" />
+    </select>
+    
+    <select id="selectSubTwoList2" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.selectSubTwoList*/
+            SELECT D1.TEAM_SNO                             AS TEAM_SNO         /*조순번*/
+                 , D1.PCT_ALC_SNO                          AS PCT_ALC_SNO      /*출장자배정순번*/
+                 , D1.BZT_SNO                              AS BZT_SNO          /*출장순번*/
+                 , D1.BZT_YR                               AS BZT_YR           /*출장년도*/
+                 , D1.STF_DVSN_CD                          AS STF_DVSN_CD      /*직원구분코드*/
+                 , CASE D1.STF_DVSN_CD WHEN '0' THEN '내부직원'
+                                       WHEN '1' THEN '수견'
+                                       WHEN '2' THEN '차출'
+                                       WHEN '3' THEN '전문가'
+                                       WHEN '9' THEN '차출(여비미지급)'
+                                       ELSE '' END         AS STF_DVSN_NM      /*직원구분명*/
+                 , D1.PCT_CNB                              AS PCT_CNB          /*출장자전산번호*/
+                 , D1.PCT_NM                               AS PCT_NM           /*출장자명*/
+                 , D1.BLT_BRDV_CD                          AS BLT_BRDV_CD      /*소속국과코드*/
+                 , F_DPT_INFO(D1.BLT_BRDV_CD,'1')          AS BLT_BRDV_NM      /*소속국과명*/
+                 , D1.PCT_RANK_CD                          AS PCT_RANK_CD      /*직급코드*/
+                 , F_CODE_NM('1000173', D1.PCT_RANK_CD)    AS PCT_RANK_NM          /*직급명*/
+                 , D1.DEP_RGN_CD                           AS DEP_RGN_CD       /*출발지역코드*/
+                 , D1.BZT_STR_DT  AS BZT_STR_DT       /*출장시작일*/
+                 , D1.BZT_END_DT  AS BZT_END_DT       /*출장종료일*/
+                 , D1.TEAM_CHIF_YN                         AS TEAM_CHIF_YN     /*조장여부*/
+                 , D1.PCT_OCP_CD                           AS PCT_OCP_CD       /*직종코드*/
+                 , D1.EXTL_ORG_CD                          AS EXTL_ORG_CD      /*외부기관코드*/
+                 , D1.EXTL_ORG_NM                          AS EXTL_ORG_NM      /*외부기관명*/
+                 , (SELECT MAX(SUM(D2.BZT_DCN)) AS BZT_DCN 
+                      FROM TBBADDED006L D2
+                     WHERE D2.BZT_YR      = D1.BZT_YR
+                       AND D2.BZT_SNO     = D1.BZT_SNO
+                       AND D2.TEAM_SNO    = D1.TEAM_SNO
+                       AND D2.PCT_ALC_SNO = D1.PCT_ALC_SNO
+                  GROUP BY D2.BZT_YR, D2.BZT_SNO, D2.TEAM_SNO, D2.PCT_ALC_SNO ) AS BZT_DCN /*출장일수*/
+              FROM TBBADDED005L D1
+             WHERE 1=1
+               <if test="teamSno != null and teamSno != ''">
+               AND D1.TEAM_SNO = #{teamSno}
+               </if>
+               AND D1.BZT_SNO = #{bztSno}
+               AND D1.BZT_YR = #{bztYr}
+             ORDER BY D1.TEAM_SNO, D1.BZT_SNO, D1.BZT_YR, D1.PCT_ALC_SNO
+    </select>
+    
+    <select id="selectSubThreeList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.selectSubThreeList*/
+        <include refid="include.pageSelct" />
+            <![CDATA[
+            SELECT D1.TEAM_SNO                                              AS TEAM_SNO         /*조순번*/
+                 , D1.BGRP_TG_ORG_SNO                                       AS BGRP_TG_ORG_SNO  /*조별대상기관순번*/  
+                 , D1.BZT_SNO                                               AS BZT_SNO          /*출장순번*/
+                 , D1.BZT_YR                                                AS BZT_YR           /*출장년도*/
+                 , D1.ORG_CD                                                AS ORG_CD           /*기관코드*/
+                 , F_ORG_INFO(D1.ORG_CD,'1')                                AS ORG_NM           /*기관명*/
+                 , D1.RGN_CD                                                AS RGN_CD           /*지역코드*/
+                 , F_CODE_NM('1000001',D1.RGN_CD)                           AS RGN_NM           /*지역명*/
+                 , TO_CHAR(TO_DATE(D1.AUD_STR_DT,'YYYYMMDD'),'YYYY-MM-DD')  AS AUD_STR_DT       /*감사시작일*/
+                 , TO_CHAR(TO_DATE(D1.AUD_END_DT,'YYYYMMDD'),'YYYY-MM-DD')  AS AUD_END_DT       /*감사종료일*/
+                 , D1.AUDT_DPT_NM                                           AS AUDT_DPT_NM      /*수감부서명*/
+                 , D1.LODG_YN                                               AS LODG_YN          /*숙박여부*/
+                 , D1.STGT_MV_AREA_YN                                       AS STGT_MV_AREA_YN  /*연속이동지여부*/
+                 , D2.PSON_CNT                                              AS PSON_CNT         /*인원*/
+                 , D2.MAN_DAY                                               AS MAN_DAY          /*연인원*/
+                 , D2.AUD_DAYS                                              AS AUD_DAYS         /*일수*/
+              FROM TBBADDED008L D1
+                  ,(SELECT  BZT_YR
+                          , BZT_SNO
+                          , TEAM_SNO
+                          , BGRP_TG_ORG_SNO
+                          , COUNT(*)         AS PSON_CNT
+                          , SUM(AUD_DCN)     AS MAN_DAY
+                          , MAX(AUD_DCN)     AS AUD_DAYS
+                      FROM TBBADDED006L
+                     WHERE 1=1
+                       AND TEAM_SNO = #{teamSno}
+                       AND BZT_SNO = #{bztSno}
+                      AND BZT_YR = #{bztYr}
+                     GROUP BY BZT_YR
+                             ,BZT_SNO
+                             ,TEAM_SNO
+                             ,BGRP_TG_ORG_SNO) D2
+             WHERE D1.BZT_YR          = D2.BZT_YR(+)
+               AND D1.BZT_SNO         = D2.BZT_SNO(+)
+               AND D1.TEAM_SNO        = D2.TEAM_SNO(+)
+               AND D1.BGRP_TG_ORG_SNO = D2.BGRP_TG_ORG_SNO(+)
+               AND D1.TEAM_SNO = #{teamSno}
+               AND D1.BZT_SNO = #{bztSno}
+               AND D1.BZT_YR = #{bztYr}
+          ORDER BY D1.TEAM_SNO, D1.BZT_SNO, D1.BZT_YR, D1.BGRP_TG_ORG_SNO
+            ]]>
+        <include refid="include.pageOrder" />
+    </select>
+    
+    <select id="selectSubFourList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.selectSubFourList*/
+        <include refid="include.pageSelct" />
+            <![CDATA[
+            SELECT D1.TEAM_SNO                /*조순번*/
+                 , D1.PCT_ALC_SNO             /*출장자배정순번*/
+                 , (SELECT CASE WHEN PCT_ALC_SNO IS NOT NULL THEN 'Y'
+                                ELSE 'N'
+                            END 
+                      FROM TBBADDED009L
+                     WHERE BZT_YR          = D1.BZT_YR
+                       AND BZT_SNO         = D1.BZT_SNO
+                       AND TEAM_SNO        = D1.TEAM_SNO
+                       AND BGRP_TG_ORG_SNO = D1.BGRP_TG_ORG_SNO
+                       AND ROWNUM = 1)                                      AS PCT_ALC_SNO_YN   /* TBBADDED009L에 PCT_ALC_SNO에 값이 있는지 확인 - 2017.11.03 yyh*/       
+                 , D1.BGRP_TG_ORG_SNO         /*조별대상기관순번*/
+                 , D1.BZT_SNO                 /*출장순번*/
+                 , D1.BZT_YR                  /*출장년도*/
+                 , TO_CHAR(TO_DATE(D1.BZT_STR_DT,'YYYYMMDD'),'YYYY-MM-DD')  AS BZT_STR_DT       /*출장시작일*/
+                 , TO_CHAR(TO_DATE(D1.BZT_END_DT,'YYYYMMDD'),'YYYY-MM-DD')  AS BZT_END_DT       /*출장종료일*/
+                 , D1.BZT_DCN                 /*출장일수*/
+                 , TO_CHAR(TO_DATE(D1.AUD_STR_DT,'YYYYMMDD'),'YYYY-MM-DD')  AS AUD_STR_DT       /*감사시작일*/
+                 , TO_CHAR(TO_DATE(D1.AUD_END_DT,'YYYYMMDD'),'YYYY-MM-DD')  AS AUD_END_DT       /*감사종료일*/
+                 , D1.AUD_DCN                 /*감사일수*/
+                 , D1.LODG_DCN                /*숙박일수*/
+                 , D2.STF_DVSN_CD 
+                 , CASE D2.STF_DVSN_CD WHEN '0' THEN '내부직원'
+                                       WHEN '1' THEN '수견'
+                                       WHEN '2' THEN '차출'
+                                       WHEN '3' THEN '전문가'
+                                       WHEN '4' THEN '차출(여비미지급)'
+                                       ELSE '' END         AS STF_DVSN_NM      /*직원구분명*/
+                 , D2.PCT_CNB
+                 , D2.PCT_NM||'('||D2.PCT_CNB||')' AS PCT_CNB_NM
+                 , F_DPT_INFO(D2.BLT_BRDV_CD,'1')||'/'||F_CODE_NM('1000173',D2.PCT_RANK_CD) AS DPT_AND_RANK
+                 , SUBSTR(D1.BZT_STR_DT,1,4)||'-'||SUBSTR(D1.BZT_STR_DT,5,2)||'-'||SUBSTR(D1.BZT_STR_DT,7,2)||'~'
+                  ||SUBSTR(D1.BZT_END_DT,1,4)||'-'||SUBSTR(D1.BZT_END_DT,5,2)||'-'||SUBSTR(D1.BZT_END_DT,7,2)
+                  ||'('||D1.BZT_DCN||'일)'  AS BZT_DT_AND_DCN
+                 , SUBSTR(D1.AUD_STR_DT,1,4)||'-'||SUBSTR(D1.AUD_STR_DT,5,2)||'-'||SUBSTR(D1.AUD_STR_DT,7,2)||'~'
+                  ||SUBSTR(D1.AUD_END_DT,1,4)||'-'||SUBSTR(D1.AUD_END_DT,5,2)||'-'||SUBSTR(D1.AUD_END_DT,7,2)
+                  ||'('||D1.AUD_DCN||'일)'  AS AUD_DT_AND_DCN       
+                 , D1.LODG_DCN ||'일' AS LODG_DCN_NM
+              FROM TBBADDED006L AS D1
+        INNER JOIN TBBADDED005L AS D2 
+                ON D1.TEAM_SNO    = D2.TEAM_SNO 
+               AND D1.PCT_ALC_SNO = D2.PCT_ALC_SNO 
+               AND D1.BZT_SNO     = D2.BZT_SNO 
+               AND D1.BZT_YR      = D2.BZT_YR
+            WHERE 1=1
+              AND D1.TEAM_SNO = #{teamSno}
+              AND D1.BZT_SNO = #{bztSno}
+              AND D1.BZT_YR = #{bztYr}
+              AND D1.BGRP_TG_ORG_SNO = #{bgrpTgOrgSno}
+         ORDER BY D1.PCT_ALC_SNO
+            ]]>
+        <include refid="include.pageOrder" />
+    </select>
+    
+    <select id="selectSubFiveList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.selectSubFiveList*/
+        <include refid="include.pageSelct" />
+            <![CDATA[
+            SELECT TEAM_SNO         /*조순번*/
+                 , BGRP_TG_ORG_SNO  /*조별대상기관순번*/
+                 , RL_SCO_SNO       /*철도구간순번*/
+                 , BZT_SNO          /*출장순번*/
+                 , BZT_YR           /*출장년도*/
+                 , TO_CHAR(TO_DATE(RID_DT,'YYYYMMDD'),'YYYY-MM-DD') AS RID_DT /*승차일*/
+                 , TRIN_KND_CD      /*열차종류코드*/
+                 , F_CODE_NM('1000025',TRIN_KND_CD)  AS TRAIN_TYPE_NM         /*열차종류명*/
+                 , CHRG_DVSN_CD     /*요금구분코드*/
+                 , F_CODE_NM('1000026',CHRG_DVSN_CD) AS CHRG_DVSN_NM          /*요금구분명*/
+                 , DEP_STN_NM       /*출발역명*/
+                 , ARV_STN_NM       /*도착역명*/
+                 , NVL(RL_FR_EXS,0) AS RL_FR_EXS        /*철도운임비*/
+                 , STND_CHRG_YN     /*표준요금여부*/
+                 , BGNG_APD_CD      /*초기출발지코드*/
+                 , F_CODE_NM('1000001',BGNG_APD_CD) AS BGNG_APD_NM      /*초기출발지코드*/
+                 , PCT_ALC_SNO     /* 출장자 배정순번 추가 - 2017.10.18 yyh */
+              FROM TBBADDED009L
+             WHERE TEAM_SNO = #{teamSno}
+               AND BZT_SNO = #{bztSno}
+               AND BZT_YR = #{bztYr}
+            ]]>
+            <if test="bgrpTgOrgSno != null and bgrpTgOrgSno != ''">
+               AND BGRP_TG_ORG_SNO = #{bgrpTgOrgSno}
+            </if>
+            
+			<if test="pctAlcSno != null and pctAlcSno != ''">
+               AND NVL(TO_CHAR(PCT_ALC_SNO),'N') = CASE WHEN NVL(TO_CHAR(PCT_ALC_SNO),'N') = 'N' THEN 'N'
+                                                        ELSE TO_CHAR(#{pctAlcSno})
+                                                    END 
+			</if>
+			                           
+            <![CDATA[
+            ORDER BY BGRP_TG_ORG_SNO
+                    ,RL_SCO_SNO
+            ]]>
+        <include refid="include.pageOrder" />
+    </select>
+    
+    <select id="getTeamMaxSno" parameterType="paramMap" resultType="String">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.getTeamMaxSno*/
+        <![CDATA[
+        SELECT TO_CHAR(NVL(MAX(TO_NUMBER(TEAM_SNO)),0)+1) AS MAX_TEAM_SNO
+          FROM TBBADDED004L
+         WHERE 1=1
+           AND BZT_YR   = #{bztYr}
+           AND BZT_SNO  = #{bztSno}
+        ]]>
+    </select>
+    
+    <insert id="insertBADDED004L" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.insertBADDED004L*/
+        INSERT INTO TBBADDED004L( TEAM_SNO
+                                , BZT_SNO
+                                , BZT_YR
+                                , TEAM_NM
+                                , DVDT_TSK_TXT
+                                , FRT_USR_ID
+                                , FNL_USR_ID
+                                , FNL_DEAL_DPT_CD
+                                , FNL_MNU_ID
+                                , FRT_REGI_DH
+                                , FNL_MDF_DH )
+                         VALUES ( #{teamSno}
+                                 ,#{bztSno}
+                                 ,#{bztYr}
+                                 ,#{teamNm}
+                                 ,#{dvdtTskTxt}
+                                 ,#{usrId}
+                                 ,#{usrId}
+                                 ,#{dptCd}
+                                 ,#{menuNo}
+                                 ,SYSDATE
+                                 ,SYSDATE )
+    </insert>
+    
+    <update id="updateBADDED004L" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.updateBADDED004L*/
+        UPDATE TBBADDED004L SET TEAM_NM = #{teamNm}
+                              , DVDT_TSK_TXT = #{dvdtTskTxt}
+                              , FNL_USR_ID = #{usrId}
+                              , FNL_DEAL_DPT_CD = #{dptCd}
+                              , FNL_MNU_ID = #{menuNo}
+                              , FNL_MDF_DH = SYSDATE
+                          WHERE 1=1
+                            AND TEAM_SNO = #{teamSno}
+                            AND BZT_YR = #{bztYr}
+                            AND BZT_SNO = #{bztSno}
+    </update>
+    
+    <select id="getOrgMaxSno" parameterType="paramMap" resultType="String">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.getOrgMaxSno*/
+        SELECT TO_CHAR(NVL(MAX(TO_NUMBER(BGRP_TG_ORG_SNO)),0)+1) AS MAX_BGRP_TG_ORG_SNO
+          FROM TBBADDED008L
+         WHERE TEAM_SNO = #{teamSno}
+           AND BZT_YR = #{bztYr}
+           AND BZT_SNO = #{bztSno}
+    </select>
+    
+    <insert id="insertBADDED008L" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.insertBADDED008L*/
+        INSERT INTO TBBADDED008L ( TEAM_SNO
+                                 , BGRP_TG_ORG_SNO
+                                 , BZT_SNO
+                                 , BZT_YR
+                                 , ORG_CD
+                                 , RGN_CD
+                                 , AUD_STR_DT
+                                 , AUD_END_DT
+                                 <if test="audtDptNm != null and audtDptNm != ''">
+                                 , AUDT_DPT_NM
+                                 </if>
+                                 <if test="lodgYn != null and lodgYn != ''">
+                                 , LODG_YN
+                                 </if>
+                                 <if test="stgtMvAreaYn != null and stgtMvAreaYn != ''">
+                                 , STGT_MV_AREA_YN
+                                 </if>
+                                 , FRT_USR_ID
+                                 , FNL_USR_ID
+                                 , FNL_DEAL_DPT_CD
+                                 , FNL_MNU_ID
+                                 , FRT_REGI_DH
+                                 , FNL_MDF_DH )
+                           VALUES( #{teamSno}
+                                 , #{bgrpTgOrgSno}
+                                 , #{bztSno}
+                                 , #{bztYr}
+                                 , #{orgCd}
+                                 , #{rgnCd}
+                                 , REPLACE(#{audStrDt},'-','')
+                                 , REPLACE(#{audEndDt},'-','')
+                                 <if test="audtDptNm != null and audtDptNm != ''">
+                                 , #{audtDptNm}
+                                 </if>
+                                 <if test="lodgYn != null and lodgYn != ''">
+                                 , #{lodgYn}
+                                 </if>
+                                 <if test="stgtMvAreaYn != null and stgtMvAreaYn != ''">
+                                 , #{stgtMvAreaYn}
+                                 </if>
+                                 , #{usrId}
+                                 , #{usrId}
+                                 , #{dptCd}
+                                 , #{menuNo}
+                                 , SYSDATE
+                                 , SYSDATE )
+    </insert>
+    
+    <update id="updateBADDED008L" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.updateBADDED008L*/
+        UPDATE TBBADDED008L SET ORG_CD = #{orgCd}
+                              , RGN_CD = #{rgnCd}
+                              , AUD_STR_DT = REPLACE(#{audStrDt},'-','')
+                              , AUD_END_DT = REPLACE(#{audEndDt},'-','')
+                              <if test="audDptNm != null and audDptNm != ''">
+                              , AUDT_DPT_NM = #{audDptNm}
+                                 </if>
+                              <if test="lodgYn != null and lodgYn != ''">
+                              , LODG_YN = #{lodgYn}
+                                 </if>
+                              <if test="stgtMvAreaYn != null and stgtMvAreaYn != ''">
+                              , STGT_MV_AREA_YN = #{stgtMvAreaYn}
+                              </if>
+                              , FNL_USR_ID = #{usrId}
+                              , FNL_DEAL_DPT_CD = #{dptCd}
+                              , FNL_MNU_ID = #{menuNo}
+                              , FNL_MDF_DH = SYSDATE
+                          WHERE TEAM_SNO = #{teamSno}
+                            AND BZT_YR = #{bztYr}
+                            AND BZT_SNO = #{bztSno}
+                            AND BGRP_TG_ORG_SNO = #{bgrpTgOrgSno}
+    </update>
+    
+    <select id="getPerMaxSno" parameterType="paramMap" resultType="String">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.getPerMaxSno*/
+        <![CDATA[
+        SELECT TO_CHAR(NVL(MAX(TO_NUMBER(PCT_ALC_SNO)),0)+1) AS MAX_PCT_ALC_SNO
+          FROM TBBADDED005L
+         WHERE TEAM_SNO = #{teamSno}
+           AND BZT_YR = #{bztYr}
+           AND BZT_SNO = #{bztSno}
+        ]]>
+    </select>
+    
+    <select id="getPctCnb" parameterType="paramMap" resultType="String">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.getPctCnb*/
+        SELECT MAX(PCT_CNB) AS PCT_CNB
+          FROM ( SELECT PCT_CNB
+                   FROM TBBADDED005L
+                  WHERE PCT_NM = #{pctNm}
+                    AND EXTL_ORG_CD = #{extlOrgCd}
+                  UNION ALL 
+                 SELECT PCT_CNB 
+                   FROM TBBADDED010L
+                  WHERE PCT_NM = #{pctNm}
+                    AND EXTL_ORG_CD = #{extlOrgCd} )
+    </select>
+    
+    <select id="getMaxPctCnb" parameterType="paramMap" resultType="String">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.getMaxPctCnb*/
+        <![CDATA[
+        SELECT NVL(MAX(TO_NUMBER(PCT_CNB)),0) + 1 AS MAX_PCT_CNB
+          FROM ( SELECT PCT_CNB
+                   FROM TBBADDED005L
+                 UNION ALL
+                 SELECT PCT_CNB
+                   FROM TBBADDED010L )
+        ]]>
+    </select>
+    
+    <insert id="insertBADDED005L" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.insertBADDED005L*/
+        INSERT INTO TBBADDED005L ( TEAM_SNO
+                                 , PCT_ALC_SNO
+                                 , BZT_SNO
+                                 , BZT_YR
+                                 , STF_DVSN_CD
+                                 <if test="pctCnb != null and pctCnb != ''">
+                                 , PCT_CNB
+                                 </if>
+                                 , PCT_NM
+                                 <if test="bltBrdvCd != null and bltBrdvCd != ''">
+                                 , BLT_BRDV_CD
+                                 </if>
+                                 <if test="pctRankCd != null and pctRankCd != ''">
+                                 , PCT_RANK_CD
+                                 </if>
+                                 <if test="depRgnCd != null and depRgnCd != ''">
+                                 , DEP_RGN_CD
+                                 </if>
+                                 , BZT_STR_DT
+                                 , BZT_END_DT
+                                 <if test="teamChifYn != null and teamChifYn != ''">
+                                 , TEAM_CHIF_YN
+                                 </if>
+                                 <if test="pctOcpCd != null and pctOcpCd != ''">
+                                 , PCT_OCP_CD
+                                 </if>
+                                 <if test="extlOrgCd != null and extlOrgCd != ''">
+                                 , EXTL_ORG_CD
+                                 </if>
+                                 <if test="extlOrgNm != null and extlOrgNm != ''">
+                                 , EXTL_ORG_NM
+                                 </if>
+                                 , FRT_USR_ID
+                                 , FNL_USR_ID
+                                 , FNL_DEAL_DPT_CD
+                                 , FNL_MNU_ID
+                                 , FRT_REGI_DH
+                                 , FNL_MDF_DH )
+                          VALUES ( #{teamSno}
+                                 , #{pctAlcSno}
+                                 , #{bztSno}
+                                 , #{bztYr}
+                                 , #{stfDvsnCd}
+                                 <if test="pctCnb != null and pctCnb != ''">
+                                 , #{pctCnb}
+                                 </if>
+                                 , #{pctNm}
+                                 <if test="bltBrdvCd != null and bltBrdvCd != ''">
+                                 , #{bltBrdvCd}
+                                 </if>
+                                 <if test="pctRankCd != null and pctRankCd != ''">
+                                 , #{pctRankCd}
+                                 </if>
+                                 <if test="depRgnCd != null and depRgnCd != ''">
+                                 , #{depRgnCd}
+                                 </if>
+                                 , REPLACE(#{bztStrDt},'-','')
+                                 , REPLACE(#{bztEndDt},'-','')
+                                 <if test="teamChifYn != null and teamChifYn != ''">
+                                 , #{teamChifYn}
+                                 </if>
+                                 <if test="pctOcpCd != null and pctOcpCd != ''">
+                                 , #{pctOcpCd}
+                                 </if>
+                                 <if test="extlOrgCd != null and extlOrgCd != ''">
+                                 , #{extlOrgCd}
+                                 </if>
+                                 <if test="extlOrgNm != null and extlOrgNm != ''">
+                                 , #{extlOrgNm}
+                                 </if>
+                                 , #{usrId}
+                                 , #{usrId}
+                                 , #{dptCd}
+                                 , #{menuNo}
+                                 , SYSDATE
+                                 , SYSDATE )
+    </insert>
+    
+    <update id="updateBADDED005L" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.updateBADDED005L*/
+        UPDATE TBBADDED005L SET STF_DVSN_CD = #{stfDvsnCd}
+                              , PCT_CNB = #{pctCnb}
+                              , PCT_NM = #{pctNm}
+                              <if test="bltBrdvCd != null and bltBrdvCd != ''">
+                              , BLT_BRDV_CD = #{bltBrdvCd}
+                              </if>
+                              <if test="pctRankCd != null and pctRankCd != ''">
+                              , PCT_RANK_CD = #{pctRankCd}
+                              </if>
+                              <if test="depRgnCd != null and depRgnCd != ''">
+                              , DEP_RGN_CD = #{depRgnCd}
+                              </if>
+                              , BZT_STR_DT = REPLACE(#{bztStrDt},'-','')
+                              , BZT_END_DT = REPLACE(#{bztEndDt},'-','')
+                              <if test="teamChifYn != null and teamChifYn != ''">
+                              , TEAM_CHIF_YN = #{teamChifYn}
+                              </if>
+                              <if test="pctOcpCd != null and pctOcpCd != ''">
+                              , PCT_OCP_CD = #{pctOcpCd}
+                              </if>
+                              <if test="extlOrgCd != null and extlOrgCd != ''">
+                              , EXTL_ORG_CD = #{extlOrgCd}
+                              </if>
+                              <if test="extlOrgNm != null and extlOrgNm != ''">
+                              , EXTL_ORG_NM = #{extlOrgNm}
+                              </if>
+                              , FNL_USR_ID = #{usrId}
+                              , FNL_DEAL_DPT_CD = #{dptCd}
+                              , FNL_MNU_ID = #{menuNo}
+                              , FNL_MDF_DH = SYSDATE
+                          WHERE TEAM_SNO = #{teamSno}
+                            AND BZT_YR = #{bztYr}
+                            AND BZT_SNO = #{bztSno}
+                            AND PCT_ALC_SNO = #{pctAlcSno}
+    </update>
+    
+    <insert id="insertBADDED006L" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.insertBADDED006L*/
+        INSERT INTO TBBADDED006L( TEAM_SNO
+                                , PCT_ALC_SNO
+                                , BGRP_TG_ORG_SNO
+                                , BZT_SNO
+                                , BZT_YR
+                                , BZT_STR_DT
+                                , BZT_END_DT
+                                , BZT_DCN
+                                , AUD_STR_DT
+                                , AUD_END_DT
+                                , AUD_DCN
+                                , LODG_DCN
+                                , FRT_USR_ID
+                                , FNL_USR_ID
+                                , FNL_DEAL_DPT_CD
+                                , FNL_MNU_ID
+                                , FRT_REGI_DH
+                                , FNL_MDF_DH )
+                          VALUES( #{teamSno}
+                                , #{pctAlcSno}
+                                , #{bgrpTgOrgSno}
+                                , #{bztSno}
+                                , #{bztYr}
+                                , REPLACE(#{bztStrDt},'-','')
+                                , REPLACE(#{bztEndDt},'-','')
+                                , #{bztDcn}
+                                , REPLACE(#{audStrDt},'-','')
+                                , REPLACE(#{audEndDt},'-','')
+                                , #{audDcn}
+                                , #{lodgDcn}
+                                , #{usrId}
+                                , #{usrId}
+                                , #{dptCd}
+                                , #{menuNo}
+                                , SYSDATE
+                                , SYSDATE )
+    </insert>
+    
+    <update id="updateBADDED006L" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.updateBADDED006L*/
+        UPDATE TBBADDED006L SET BZT_STR_DT = REPLACE(#{bztStrDt},'-','')
+                              , BZT_END_DT = REPLACE(#{bztEndDt},'-','')
+                              , BZT_DCN = #{bztDcn}
+                              , AUD_STR_DT = REPLACE(#{audStrDt},'-','')
+                              , AUD_END_DT = REPLACE(#{audEndDt},'-','')
+                              , AUD_DCN = #{audDcn}
+                              , LODG_DCN = #{lodgDcn}
+                              , FNL_USR_ID = #{usrId}
+                              , FNL_DEAL_DPT_CD = #{dptCd}
+                              , FNL_MNU_ID = #{menuNo}
+                              , FNL_MDF_DH = SYSDATE
+                          WHERE TEAM_SNO = #{teamSno}
+                            AND BZT_YR = #{bztYr}
+                            AND BZT_SNO = #{bztSno}
+                            AND BGRP_TG_ORG_SNO = #{bgrpTgOrgSno}
+                            AND PCT_ALC_SNO = #{pctAlcSno}
+    </update>
+    
+    <select id="getKtxMaxSno" parameterType="paramMap" resultType="String">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.getKtxMaxSno*/
+        SELECT LPAD(NVL(MAX(RL_SCO_SNO),0) + 1,4,'0') AS MAX_RL_SCO_SNO
+          FROM TBBADDED009L
+         WHERE TEAM_SNO = #{teamSno}
+           AND BZT_YR = #{bztYr}
+           AND BZT_SNO = #{bztSno}
+           AND BGRP_TG_ORG_SNO= #{bgrpTgOrgSno}
+    </select>
+    
+    <insert id="insertBADDED009L" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.insertBADDED009L*/
+        INSERT INTO TBBADDED009L ( TEAM_SNO
+                                 , BGRP_TG_ORG_SNO
+                                 , RL_SCO_SNO
+                                 , BZT_SNO
+                                 , BZT_YR
+                                 , RID_DT
+                                 , TRIN_KND_CD
+                                 , CHRG_DVSN_CD
+                                 , DEP_STN_NM
+                                 , ARV_STN_NM
+                                 , RL_FR_EXS
+                                 , STND_CHRG_YN
+                                 , BGNG_APD_CD
+                                 , FRT_USR_ID
+                                 , FNL_USR_ID
+                                 , FNL_DEAL_DPT_CD
+                                 , FNL_MNU_ID
+                                 , FRT_REGI_DH
+                                 , FNL_MDF_DH
+                                 , SEQ_NO        /* 순서번호 추가(쓰는곳은 없고 단순히 테이블 입력시 쫑나지 않게) - 2017.10.18 yyh */
+                                 , PCT_ALC_SNO)  /* 출장자배정순번 추가 - 2017.10.18 yyh */
+                           VALUES( #{teamSno}
+                                 , #{bgrpTgOrgSno}
+                                 , #{rlScoSno}
+                                 , #{bztSno}
+                                 , #{bztYr}
+                                 , REPLACE(#{ridDt},'-','')
+                                 , #{trinKndCd}
+                                 , #{chrgDvsnCd}
+                                 , #{depStnNm}
+                                 , #{arvStnNm}
+                                 , #{rlFrExs}
+                                 , #{stndChrgYn}
+                                 , #{bgngApdCd}
+                                 , #{usrId}
+                                 , #{usrId}
+                                 , #{dptCd}
+                                 , #{menuNo}
+                                 , SYSDATE
+                                 , SYSDATE
+                                 , (SELECT NVL(MAX(SEQ_NO),0) + 1 
+                                      FROM TBBADDED009L)
+                                 , #{pctAlcSno}
+                                  )
+    </insert>
+    
+    <update id="updateBADDED009L" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.updateBADDED009L*/
+        UPDATE TBBADDED009L SET RID_DT = REPLACE(#{ridDt},'-','')
+                              , TRIN_KND_CD = #{trinKndCd}
+                              , CHRG_DVSN_CD = #{chrgDvsnCd}
+                              , DEP_STN_NM = #{depStnNm}
+                              , ARV_STN_NM = #{arvStnNm}
+                              , RL_FR_EXS = #{rlFrExs}
+                              , STND_CHRG_YN = #{stndChrgYn}
+                              , BGNG_APD_CD = #{bgngApdCd}
+                              , FNL_USR_ID = #{usrId}
+                              , FNL_DEAL_DPT_CD = #{dptCd}
+                              , FNL_MNU_ID = #{menuNo}
+                              , FNL_MDF_DH = SYSDATE
+                          WHERE TEAM_SNO = #{teamSno}
+                            AND BZT_YR = #{bztYr}
+                            AND BZT_SNO = #{bztSno}
+                            AND BGRP_TG_ORG_SNO = #{bgrpTgOrgSno}
+                            AND RL_SCO_SNO = #{rlScoSno}
+                            
+                        <if test="pctAlcSno != null and pctAlcSno != ''"> 
+                            AND PCT_ALC_SNO = #{pctAlcSno}
+                        </if>
+                            
+    </update>
+    
+    <delete id="deleteBADDED004L" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.deleteBADDED004L*/
+        DELETE FROM TBBADDED004L WHERE BZT_YR = #{bztYr}
+                                   AND BZT_SNO = #{bztSno}
+                                   <if test="teamSno != null and teamSno != ''">
+                                   AND TEAM_SNO = #{teamSno}
+                                   </if>
+    </delete>
+    
+    <delete id="deleteBADDED008L" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.deleteBADDED008L*/
+        DELETE FROM TBBADDED008L WHERE BZT_YR = #{bztYr}
+                                   AND BZT_SNO = #{bztSno}
+                                   <if test="teamSno != null and teamSno != ''">
+                                   AND TEAM_SNO = #{teamSno}
+                                   </if>
+                                   <if test="bgrpTgOrgSno != null and bgrpTgOrgSno != ''">
+                                   AND BGRP_TG_ORG_SNO = #{bgrpTgOrgSno}
+                                   </if>
+    </delete>
+    
+    <delete id="deleteBADDED005L" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.deleteBADDED005L*/
+        DELETE FROM TBBADDED005L WHERE BZT_YR = #{bztYr}
+                                   AND BZT_SNO = #{bztSno}
+                                   <if test="teamSno != null and teamSno != ''">
+                                   AND TEAM_SNO = #{teamSno}
+                                   </if>
+                                   <if test="pctAlcSno != null and pctAlcSno != ''">
+                                   AND PCT_ALC_SNO = #{pctAlcSno}
+                                   </if>
+    </delete>
+    
+    <delete id="deleteBADDED006L" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.deleteBADDED006L*/
+        DELETE FROM TBBADDED006L WHERE BZT_YR = #{bztYr}
+                                   AND BZT_SNO = #{bztSno}
+                                   <if test="teamSno != null and teamSno != ''">
+                                   AND TEAM_SNO = #{teamSno}
+                                   </if>
+                                   <if test="bgrpTgOrgSno != null and bgrpTgOrgSno != ''">
+                                   AND BGRP_TG_ORG_SNO = #{bgrpTgOrgSno}
+                                   </if>
+                                   <if test="pctAlcSno != null and pctAlcSno != ''">
+                                   AND PCT_ALC_SNO = #{pctAlcSno}
+                                   </if>
+    </delete>
+    
+    <delete id="deleteBADDED006L2" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.deleteBADDED006L2*/
+        DELETE FROM TBBADDED006L WHERE BZT_YR = #{bztYr}
+                                   AND BZT_SNO = #{bztSno}
+                                   <if test="teamSno != null and teamSno != ''">
+                                   AND TEAM_SNO = #{teamSno}
+                                   </if>
+    </delete>
+    
+    <delete id="deleteBADDED009L" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.deleteBADDED009L*/
+        DELETE FROM TBBADDED009L WHERE BZT_YR = #{bztYr}
+                                   AND BZT_SNO = #{bztSno}
+                                   <if test="teamSno != null and teamSno != ''">
+                                   AND TEAM_SNO = #{teamSno}
+                                   </if>
+                                   <if test="bgrpTgOrgSno != null and bgrpTgOrgSno != ''">
+                                   AND BGRP_TG_ORG_SNO = #{bgrpTgOrgSno}
+                                   </if>
+                                   <if test="rlScoSno != null and rlScoSno != ''">
+                                   AND RL_SCO_SNO = #{rlScoSno}
+                                   </if>                                   
+                                   <if test="pctAlcSno != null and pctAlcSno != ''"> 
+                                   AND PCT_ALC_SNO = #{pctAlcSno} /* 조건 추가 - 2017.12.18 yyh */
+                                   </if>                                   
+    </delete>
+    
+    <delete id="deleteBADDED009L2" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.deleteBADDED009L2*/
+        DELETE FROM TBBADDED009L WHERE BZT_YR = #{bztYr}
+                                   AND BZT_SNO = #{bztSno}
+                                   <if test="teamSno != null and teamSno != ''">
+                                   AND TEAM_SNO = #{teamSno}
+                                   </if>
+    </delete>
+    
+    <select id="getCountHoliday" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.getCountHoliday*/
+        SELECT COUNT(1) AS HOL_CNT 
+          FROM TBBADDED013B
+         WHERE YE||MD BETWEEN #{strFromDt} AND #{strToDt}
+    </select>
+    
+    <select id="getIsHoliday" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.getIsHoliday*/
+        SELECT COUNT(1) AS HOL_CNT 
+          FROM TBBADDED013B
+         WHERE YE||MD = #{strDate}
+    </select>
+    
+    <select id="getRgn" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.getRgn*/
+        SELECT DEP_RGN_CD        /*출발지역코드*/
+             , ARV_RGN_CD        /*도착지역코드*/
+             , RGN_DVSN_CD       /*지역구분코드*/
+             , MDF_DT            /*수정일*/
+             , CPRG_LN_DVSN_CD   /*수도권거리구분코드*/
+          FROM TBBADDED014B
+         WHERE DEP_RGN_CD = #{depRgnCd}
+           AND ARV_RGN_CD = #{arvRgnCd}
+    </select>
+    
+    <select id="getStationNm" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.getStationNm*/
+        SELECT STN_NM AS STN_NM
+          FROM TBBADDED015B
+         WHERE RGN_CD = #{rgnCd}
+    </select>
+    
+    <select id="getTrainFareStd" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.getTrainFareStd*/
+        SELECT DEP_STAD_STN_NM      /*출발기준역명*/
+                 , ARV_STAD_STN_NM  /*도착기준역명*/
+                 , CHRG_DVSN_CD     /*요금구분코드*/
+                 , TFE_KND_CD       /*교통편종류코드*/
+                 , CHRG             /*요금*/
+                 , CHRG_STAD_RMK    /*요금기준비고*/
+                 , MDF_DT           /*수정일*/
+                 , SPE_RM_CHRG      /*특별실요금*/
+              FROM TBBADDED016B 
+             WHERE 1=1
+               AND BZT_DVSN_CD = '1' /* 감사출장 조건 추가 - 2017.02.06 */
+             <if test="depStadStnNm != null and depStadStnNm != ''">
+                AND DEP_STAD_STN_NM LIKE #{depStadStnNm}||'%'
+             </if>
+             <if test="arvStadStnNm != null and arvStadStnNm != ''">
+                AND ARV_STAD_STN_NM LIKE #{arvStadStnNm}||'%'
+             </if>
+             <if test="chrgDvsnCd != null and chrgDvsnCd != ''">
+                AND CHRG_DVSN_CD    = #{chrgDvsnCd}
+             </if>
+             <if test="tfeKndCd != null and tfeKndCd != ''">
+                AND TFE_KND_CD    = #{tfeKndCd}
+             </if>
+              ORDER BY DEP_STAD_STN_NM
+    </select>
+    
+    <!--출장자의 기간 중복을 체크한다. 2017.07.26 yyh -->
+    <select id="selectPreCheckForSave" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.selectPreCheckForSave*/
+		<![CDATA[
+			SELECT TMA.BZT_YR
+			     , TMA.BZT_SNO
+			     , TMA.TEAM_SNO
+			     , TMA.PCT_ALC_SNO
+			     , TMA.STF_DVSN_CD
+			     , TMA.PCT_CNB 
+			     , TMA.PCT_NM
+			     , TMA.BLT_BRDV_CD
+			     , TMA.PCT_RANK_CD
+			     , TMA.DEP_RGN_CD
+			     , TMA.BZT_STR_DT
+			     , TMA.BZT_END_DT
+			  FROM TBBADDED006L PTD
+			     , TBBADDED005L TMA
+			 WHERE PTD.BZT_YR      = TMA.BZT_YR
+			   AND PTD.BZT_SNO     = TMA.BZT_SNO
+			   AND PTD.TEAM_SNO    = TMA.TEAM_SNO
+			   AND PTD.PCT_ALC_SNO = TMA.PCT_ALC_SNO
+			   AND TMA.PCT_CNB     = #{pctCnb}
+			   AND ( 
+		   				( PTD.BZT_STR_DT BETWEEN REPLACE(#{bztStrDt},'-','') AND REPLACE(#{bztEndDt},'-','') )
+		            OR 	
+		            	( PTD.BZT_END_DT BETWEEN REPLACE(#{bztStrDt},'-','') AND REPLACE(#{bztEndDt},'-','') )
+		            OR 	
+		            	( PTD.BZT_STR_DT > REPLACE(#{bztStrDt},'-','') 	     AND PTD.BZT_END_DT < REPLACE(#{bztEndDt},'-','') ) 
+			       ) 
+			   AND NOT EXISTS (
+			                    SELECT * 
+			                      FROM TBBADDED006L
+			                     WHERE 1=1
+			                       AND BZT_YR   = PTD.BZT_YR
+			                       AND BZT_SNO  = PTD.BZT_SNO
+			                       AND TEAM_SNO = PTD.TEAM_SNO
+			                       AND BZT_YR   = #{bztYr}
+			                       AND BZT_SNO  = #{bztSno}
+			                       AND TEAM_SNO = #{teamSno}
+			                  )
+        ]]>			                   
+    </select>
+        
+    <!-- 출장자예외내역 입력 추가 - 2017.09.15 yyh -->    
+    <insert id="insertBADDED032L" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.insertBADDED032L*/
+        INSERT INTO TBBADDED032L( BZT_YR
+                                 ,BZT_SNO
+                                 ,IPT_DVSN_CD
+                                 ,PCT_CNB
+                                 ,EX_SNO                                 
+                                 ,TEAM_SNO
+                                 ,PCT_ALC_SNO
+                                 ,PCT_NM
+                                 ,STF_DVSN_CD
+                                 ,BZT_EX_STR_DT
+                                 ,BZT_EX_END_DT
+                                 ,BZT_EX_DCN
+                                 ,BZT_EX_KND_CD
+                                 ,BZT_EX_RSN_TXT                                    
+                                 ,FRT_USR_ID
+                                 ,FNL_USR_ID
+                                 ,FNL_DEAL_DPT_CD
+                                 ,FNL_MNU_ID
+                                 ,FRT_REGI_DH
+                                 ,FNL_MDF_DH )
+                         VALUES (
+                                  #{bztYr}
+                                 ,#{bztSno}
+                                 ,#{iptDvsnCd}
+                                 ,#{pctCnb}
+                                 ,(SELECT NVL(MAX(EX_SNO),0) + 1 
+                                     FROM TBBADDED032L
+                                    WHERE BZT_YR       = #{bztYr}
+                                      AND BZT_SNO      = #{bztSno}
+                                      AND IPT_DVSN_CD  = #{iptDvsnCd}
+                                      AND PCT_CNB      = #{pctCnb})                                 
+                                 ,#{teamSno}
+                                 ,#{pctAlcSno}
+                                 ,#{pctNm}
+                                 ,#{stfDvsnCd}
+                                 ,REPLACE(#{bztExStrDt},'-','')
+                                 ,REPLACE(#{bztExEndDt},'-','')
+                                 ,#{bztExDcn}
+                                 ,#{bztExKndCd}
+                                 ,#{bztExRsnTxt}                                     
+                                 ,#{usrId}
+                                 ,#{usrId}
+                                 ,#{dptCd}
+                                 ,#{menuNo}
+                                 ,SYSDATE
+                                 ,SYSDATE )
+    </insert>        
+
+    <!-- 출장자예외내역 조회 - 2017.09.18 yyh --> 
+    <select id="selectBADDED032L" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.selectBADDED032L*/
+        <include refid="include.pageSelct" />    
+        <![CDATA[
+                
+                SELECT T1.BZT_YR                                       AS BZT_YR       
+                      ,T1.BZT_SNO                                      AS BZT_SNO 
+                      ,T1.TEAM_SNO                                     AS TEAM_SNO
+                      ,T1.PCT_ALC_SNO                                  AS PCT_ALC_SNO
+                      ,T1.PCT_CNB                                      AS PCT_CNB
+                      ,T1.PCT_NM                                       AS PCT_NM
+                      ,T1.STF_DVSN_CD                                  AS STF_DVSN_CD
+                      ,T1.EX_SNO                                       AS EX_SNO      
+                      ,TO_CHAR(TO_DATE(T1.BZT_EX_STR_DT),'YYYY-MM-DD') AS BZT_EX_STR_DT
+                      ,TO_CHAR(TO_DATE(T1.BZT_EX_END_DT),'YYYY-MM-DD') AS BZT_EX_END_DT
+                      ,T1.BZT_EX_DCN                                   AS BZT_EX_DCN
+                      ,T1.BZT_EX_KND_CD                                AS BZT_EX_KND_CD           
+                      ,F_CODE_NM('1000833', T1.BZT_EX_KND_CD)          AS BZT_EX_KND_NM
+                      ,T1.BZT_EX_RSN_TXT                               AS BZT_EX_RSN_TXT      
+                  FROM TBBADDED032L T1        
+                 WHERE T1.BZT_YR      = #{bztYr}
+                   AND T1.BZT_SNO     = #{bztSno}
+                   AND T1.IPT_DVSN_CD = '1'
+                   AND T1.TEAM_SNO    = #{teamSno}
+                 ORDER BY T1.PCT_CNB
+                         ,T1.BZT_EX_STR_DT
+                         ,T1.BZT_EX_END_DT
+                         ,T1.EX_SNO
+        ]]>
+        <include refid="include.pageOrder" />        
+    </select>    
+    
+    <!-- 출장자예외내역 삭제 - 2017.09.18 yyh --> 
+    <delete id="deleteBADDED032L" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.deleteBADDED032L*/
+        DELETE FROM TBBADDED032L
+         WHERE BZT_YR      = #{bztYr}
+           AND BZT_SNO     = #{bztSno}
+           AND IPT_DVSN_CD = '1'
+           AND TEAM_SNO    = #{teamSno}
+           
+           <if test="pctCnb != null and pctCnb != ''">
+           		AND PCT_CNB     = #{pctCnb}
+           </if>
+    </delete>   
+    
+    <!-- 출장자예외내역 조회 - 2017.10.11 yyh -->
+    <select id="selectPctExList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.selectPctExList*/
+        <![CDATA[
+                   SELECT BZT_YR
+                         ,BZT_SNO
+                         ,PCT_CNB
+                         ,EX_SNO                         
+                         ,TEAM_SNO
+                         ,PCT_ALC_SNO
+                         ,PCT_NM
+                         ,STF_DVSN_CD
+                         ,BZT_EX_STR_DT
+                         ,BZT_EX_END_DT
+                         ,BZT_EX_DCN 
+                         ,BZT_EX_KND_CD
+                         ,BZT_EX_RSN_TXT
+                     FROM TBBADDED032L
+                    WHERE BZT_YR   = #{bztYr}
+                      AND BZT_SNO  = #{bztSno}
+                      AND IPT_DVSN_CD = '1'
+                      AND TEAM_SNO = #{teamSno}
+                    ORDER BY PCT_CNB
+                            ,BZT_EX_STR_DT
+                            ,BZT_EX_END_DT
+                            ,EX_SNO
+        ]]>
+    </select>
+    
+    <!-- 두 날짜간 휴일제외 일수 구하기 - 2017.10.12 yyh -->
+    <select id="selectNumOfDays" parameterType="paramMap" resultType="String">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.selectNumOfDays*/
+        <![CDATA[    
+                SELECT TO_CHAR(COUNT(1)) AS DAY_CNT
+                  FROM (
+                        SELECT TO_CHAR(STR_DT + LEVEL -1 , 'YYYYMMDD') DT
+                          FROM (
+                                SELECT TO_DATE(REPLACE(#{strDt},'-',''), 'YYYYMMDD') AS STR_DT
+                                      ,TO_DATE(REPLACE(#{endDt},'-',''), 'YYYYMMDD') AS END_DT
+                                  FROM DUAL
+                               )
+                         CONNECT BY LEVEL <= END_DT - STR_DT + 1
+                       ) A
+                      ,(SELECT YE||MD AS DT 
+                          FROM TBBADDED013B      
+                       ) B
+                   WHERE A.DT = B.DT(+)
+                     AND B.DT IS NULL
+        ]]>     
+    </select>
+    
+    <select id="getSelCnt" parameterType="paramMap" resultType="int">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.getSelCnt*/
+        SELECT COUNT(*) AS SEL_CNT
+          FROM TBBADDED005L
+         WHERE BZT_YR = #{bztYr}
+           AND BZT_SNO = #{bztSno}
+           AND PCT_CNB = #{pctCnb}
+           AND TEAM_SNO != #{teamSno}
+    </select>
+    
+    <select id="getMaxTrainLineSno" parameterType="paramMap" resultType="int">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED002PMapper.getMaxTrainLineSno*/
+        SELECT NVL(MAX(RL_SCO_SNO),0)+1 AS MAX_RL_SCO_SNO
+		  FROM TBBADDED009L
+         WHERE BZT_YR = #{bztYr}
+           AND BZT_SNO = #{bztSno}
+           AND (TEAM_SNO, PCT_ALC_SNO) IN (SELECT TEAM_SNO, PCT_ALC_SNO
+                                             FROM TBBADDED005L
+                                            WHERE BZT_YR = #{bztYr}
+                                              AND BZT_SNO = #{bztSno}
+                                              AND PCT_CNB = #{pctCnb}
+                                              AND TEAM_SNO != #{teamSno})
+    </select>
+    
+</mapper> 

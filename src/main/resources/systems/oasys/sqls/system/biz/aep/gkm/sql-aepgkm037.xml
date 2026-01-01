@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="aep/gkm/037">
+	<select id="AEPGKM037Qyearselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	DISTINCT TO_CHAR(TO_DATE(REGI_RQS_DT), 'YYYY') AS CD,
+				TO_CHAR(TO_DATE(REGI_RQS_DT), 'YYYY') || '년' AS CD_NM
+		FROM	TBAEPGKM001M
+		ORDER BY CD
+	</select>
+	
+	<select id="AEPGKM037Qmonthselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		<![CDATA[
+		SELECT	LEVEL AS CD,
+				LEVEL || '월' AS CD_NM
+		FROM	DUAL
+		CONNECT BY LEVEL < 13
+		]]>
+	</select>
+	
+	<select id="AEPGKM037Qmainselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	KLD_CAT_CD,
+				TG_CAT_NM AS KLD_CAT_NM,
+				COUNT(KLD_CAT_CD) AS REGI_CNT,
+				COUNT(DECODE(KLD_STA_CD, '6', '유통')) AS DIST_CNT,
+				COUNT(DECODE(KLD_STA_CD, '7', '만기')) AS EXPR_CNT,
+				COUNT(DECODE(KLD_STA_CD, '8', '폐기')) AS ABRG_CNT
+		FROM	TBAEPGKM001M AS A,
+				TBAEPGKM017M AS B
+		WHERE 	1=1
+		AND		A.KLD_CAT_CD = B.TG_CAT_ID
+		<isNotEmpty property="KLD_CAT_CD" prepend="AND">
+						A.KLD_CAT_CD IN (
+						         SELECT TG_CAT_ID
+						          FROM TBAEPGKM017M A
+						             , (
+						                SELECT SRT_VAL_NM
+						                  FROM TBAEPGKM017M
+						                 WHERE TG_CAT_ID = #KLD_CAT_CD#
+						              ) B
+						        WHERE A.SRT_VAL_NM LIKE B.SRT_VAL_NM || '%'  
+						   		)	
+		</isNotEmpty>
+		
+		
+		
+		<isNotEmpty property="FROM_DATE" prepend="AND">
+			<![CDATA[
+				TO_NUMBER(SUBSTR(REGI_RQS_DT, 1, 6)) >= TO_NUMBER(#FROM_DATE#)
+			]]>
+		</isNotEmpty>
+		<isNotEmpty property="TO_DATE" prepend="AND">
+			<![CDATA[
+				TO_NUMBER(SUBSTR(REGI_RQS_DT, 1, 6)) <= TO_NUMBER(#TO_DATE#)
+			]]> 
+		</isNotEmpty>
+		GROUP BY KLD_CAT_CD, TG_CAT_NM, B.SRT_VAL_NM
+		ORDER BY SUBSTR(B.SRT_VAL_NM, 0, 3), LENGTH(B.SRT_VAL_NM), TO_NUMBER(B.SRT_VAL_NM) 
+	</select>
+	
+	<select id="AEPGKM037Qsubselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	YEAR || '-' || MONTH AS REGI_RQS_YM,
+		COUNT(MONTH) AS REGI_CNT,
+		COUNT(DECODE(KLD_STA_CD, '6', '유통')) AS DIST_CNT,
+		COUNT(DECODE(KLD_STA_CD, '7', '만기')) AS EXPR_CNT,
+		COUNT(DECODE(KLD_STA_CD, '8', '폐기')) AS ABRG_CNT
+		FROM	(
+		SELECT	TO_CHAR(TO_DATE(REGI_RQS_DT), 'YYYY') AS YEAR,
+				TO_CHAR(TO_DATE(REGI_RQS_DT), 'MM') AS MONTH,
+				KNB,
+				KLD_STA_CD,
+				KLD_CAT_CD,
+				REGI_RQS_DT
+		FROM	TBAEPGKM001M
+				)
+		WHERE	1=1
+		AND		KLD_CAT_CD = #KLD_CAT_CD#
+		<isNotEmpty property="FROM_DATE" prepend="AND">
+			<![CDATA[
+				TO_NUMBER(SUBSTR(REGI_RQS_DT, 1, 6)) >= TO_NUMBER(#FROM_DATE#)
+			]]>
+		</isNotEmpty>
+		<isNotEmpty property="TO_DATE" prepend="AND">
+			<![CDATA[
+				TO_NUMBER(SUBSTR(REGI_RQS_DT, 1, 6)) <= TO_NUMBER(#TO_DATE#)
+			]]> 
+		</isNotEmpty>
+		GROUP BY YEAR, MONTH
+		ORDER BY TO_NUMBER(YEAR) DESC, TO_NUMBER(MONTH) DESC;
+	</select>
+</sqlMap>
+

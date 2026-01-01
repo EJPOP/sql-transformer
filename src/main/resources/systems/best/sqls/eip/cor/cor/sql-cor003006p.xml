@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.cor.cor.dao.COR003006PMapper">
+ 	
+ 	<select id="COR003006PMainSelect" parameterType="paramMap" 	resultType="egovMap">
+ 		/* kr.go.bai.eip.cor.cor.dao.COR003006PMapper.COR003006PMainSelect */
+		<![CDATA[
+			SELECT  D1.AUD_YR
+			        ,D1.AUD_NO
+			        ,D1.AUD_SBJ_NM
+			        , F_MNG_KND_AUDYRNO(D1.AUD_YR, D1.AUD_NO, D1.AUD_KND_CD, '-') AS AUD_YR_NO
+			        , F_CODE_NM_YEAR('1000007', D1.AUD_KND_CD, D1.AUD_YR) AS AUD_KND_NM
+			        , F_DPT_INFO(D1.SPV_BRDV_CD,'1')	AS SPV_BRDV_NM  /*주관국과명*/
+			FROM    TBBADDED001M D1
+            WHERE D1.SPV_BRDV_CD = #{dptCd}
+            AND D1.AUD_YR >= TO_CHAR(SYSDATE,'YYYY') - 2
+            ORDER BY D1.AUD_YR DESC, D1.AUD_NO DESC
+		]]>
+	</select>
+
+	<select id="COR003006PSubSelect" parameterType="paramMap" 	resultType="egovMap">
+ 		/* kr.go.bai.eip.cor.cor.dao.COR003006PMapper.COR003006PSubSelect */
+		<![CDATA[
+		SELECT        
+              F_MNG_KND_AUDYRNO(B.AUD_YR, B.AUD_NO, B.AUD_KND_CD, '-')||'(' ||AUD_STEP_SNO || ')'  AS AUD_YR_NO  /*감사번호*/
+              ,A.BZT_SNO /*출장순번*/
+              ,A.AUD_BZT_KND_CD /*출장종류코드*/
+              ,F_CODE_NM ('1000030', A.AUD_BZT_KND_CD) AS AUD_BZT_KND_NM /*감사출장종류코드*/
+              ,A.TIT_TXT /*출장제목*/
+              ,to_char(to_date(A.AUD_STR_DT,'YYYY.MM.DD'),'YYYY.MM.DD') AS AUD_STR_DT /*출장시작일*/
+              ,to_char(to_date(A.AUD_END_DT,'YYYY.MM.DD'),'YYYY.MM.DD') AS AUD_END_DT /*출장종료일*/
+              ,to_char(to_date(A.AUD_STR_DT,'YYYY.MM.DD'),'YYYY.MM.DD') || ' ~ ' || to_char(to_date(A.AUD_END_DT,'YYYY.MM.DD'),'YYYY.MM.DD') as AUD_DT
+              ,A.BZT_BRDV_CD  /*출장부서코드*/
+              ,F_DPT_INFO(A.BZT_BRDV_CD, '1') AS SPV_BRDV_NM  /*출장부서명*/
+              ,A.REL_AUD_YR
+              ,A.REL_AUD_NO 
+              ,A.AUD_STEP_SNO
+        FROM TBBADDED002M A,
+             TBBADDED001M B
+        WHERE A.REL_AUD_YR = B.AUD_YR
+          AND A.REL_AUD_NO = B.AUD_NO
+          AND	(A.REL_AUD_YR, A.REL_AUD_NO, A.AUD_STEP_SNO)
+                NOT IN (
+                    SELECT        
+                          C.REL_AUD_YR
+                          ,C.REL_AUD_NO 
+                          ,C.AUD_STEP_SNO
+                    FROM  TBCORCOR207L A
+                    INNER JOIN TBBADDED002M C ON (A.AUD_YR = C.REL_AUD_YR
+                                                 AND A.AUD_NO = C.REL_AUD_NO
+                                                 AND A.AUD_STEP_SNO = C.AUD_STEP_SNO)
+                    INNER JOIN TBBADDED001M B ON (B.AUD_YR = A.AUD_YR
+                                                 AND B.AUD_NO = A.AUD_NO)
+                    WHERE 1=1
+                      AND A.ACP_YR = #{acpYr}
+                      AND A.REQ_DVSN_CD = #{reqDvsnCd}
+                      AND A.CVPT_ACP_NO = #{cvptAcpNo} 
+                )
+          AND B.AUD_YR = #{audYr}
+          AND B.AUD_NO = #{audNo}
+		]]>
+	</select>
+	
+	<insert id="COR003006PAudInsert" parameterType="paramMap" >
+		INSERT INTO	TBCORCOR207L
+				(	
+					ACP_YR
+					, REQ_DVSN_CD
+					, CVPT_ACP_NO
+					, AUD_YR
+					, AUD_NO
+					, AUD_STEP_SNO
+					, FRT_USR_ID
+        			, FNL_USR_ID
+        			, FNL_DEAL_DPT_CD
+        			, FNL_MNU_ID
+        			, FRT_REGI_DH
+        			, FNL_MDF_DH
+
+   				)
+  			VALUES	(	
+  					#{acpYr}
+					,#{reqDvsnCd}
+					,#{cvptAcpNo}
+					,#{audYr}
+					,#{audNo}
+					,#{audStepSno}
+					,#{frtUsrId}
+					,#{fnlUsrId}
+					,#{fnlDealDptCd}
+					,#{fnlMnuId}
+					,SYSDATE
+					,SYSDATE
+
+   				)
+	</insert>
+	
+	<delete id="COR003006PAudDelete" parameterType="paramMap" >
+			DELETE	
+	   		FROM	TBCORCOR207L
+	   		WHERE	REQ_DVSN_CD = #{reqDvsnCd}
+	   		AND		ACP_YR = #{acpYr}
+	   		AND		CVPT_ACP_NO = #{cvptAcpNo}
+	   		AND		AUD_YR = #{audYr}
+	   		AND		AUD_NO = #{audNo}
+	   		AND		AUD_STEP_SNO = #{audStepSno}
+	</delete>
+	
+</mapper> 

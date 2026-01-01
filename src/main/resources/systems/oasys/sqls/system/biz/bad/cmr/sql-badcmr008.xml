@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/cmr/008">
+
+	<resultMap class="java.util.HashMap" id="resultClob">
+		<result property="MAIN_PLCY_DTL_TXT" column="MAIN_PLCY_DTL_TXT" jdbcType="CLOB" javaType="java.lang.String" />
+    </resultMap>
+
+		
+		
+	<!-- 모니터링 입력현황 조회한다. -->
+	<select id="BADCMR008Qmainselect" parameterClass="paramMap"	resultClass="resultMap">
+		<![CDATA[   
+			SELECT D3.YE || '-' || D3.LAG_CAT_SNO || '-' || D3.MID_CAT_SNO || '-' || D3.SALL_CAT_SNO AS SUBJ_NO /*과제번호*/
+			     , D3.SALL_CAT_TIT_NM /*과제명*/
+			     , F_DPT_INFO(D3.CHR_DPT_CD, '1') AS DPT_NM /*담당부서*/
+			     , D3.CHR_DPT_CD
+			     , F_USR_INFO(D3.CHGR_ID, '2') AS CHGR_NM /*전담자*/
+                 , D3.FIRST_HALF_MDF_DH  /*상반기*/
+                 , D3.SECOND_HALF_MDF_DH  /*하반기*/
+			     , D3.YE
+			     , D3.SALL_CAT_SNO
+			     , D3.CHGR_ID
+                 , NVL(D3.CMPT_YN, 'N') AS CMPT_YN
+        
+                 , D3.YE || '년 상반기 보고서' AS FIRST_HALF_NAME
+                 , D3.YE || '년 하반기 보고서' AS SECOND_HALF_NAME
+                 , D3.LAG_CAT_TIT_NM /*대분류 명*/
+			     , D3.MID_CAT_TIT_NM /*중분류명*/
+			  FROM (
+				SELECT D1.SALL_CAT_TIT_NM /*과제명*/
+				     , D1.CHR_DPT_CD
+				     , D1.CHGR_ID /*전담자*/
+				     , MAX(CASE WHEN D2.REGI_DT BETWEEN #strYe#||'0101' AND #strYe#||'0401' THEN D2.REGI_DT ELSE NULL END) AS FIRST_HALF_MDF_DH  /*상반기*/
+	                 , MAX(CASE WHEN D2.REGI_DT BETWEEN #strYe#||'0402' AND #strYe#||'1001' THEN D2.REGI_DT ELSE NULL END) AS SECOND_HALF_MDF_DH /*하반기*/
+				     , D1.YE
+				     , D1.SALL_CAT_SNO
+				     , D1.LAG_CAT_SNO
+				     , D1.MID_CAT_SNO
+	                 , D1.CMPT_YN
+	                 , (SELECT LAG_CAT_TIT_NM FROM TBBADCMR001M WHERE YE = D1.YE AND LAG_CAT_SNO = D1.LAG_CAT_SNO) AS LAG_CAT_TIT_NM /*대분류 명*/
+				     , (SELECT MID_CAT_TIT_NM FROM TBBADCMR002M WHERE YE = D1.YE AND LAG_CAT_SNO = D1.LAG_CAT_SNO AND MID_CAT_SNO = D1.MID_CAT_SNO) AS MID_CAT_TIT_NM /*중분류명*/
+				  FROM TBBADCMR004D D2 
+	                 , TBBADCMR003M D1 
+				 WHERE D2.YE(+) = D1.YE
+	               AND D2.SALL_CAT_SNO(+) = D1.SALL_CAT_SNO
+	               AND D1.YE = #strYe#
+		]]>		
+				<isNotEmpty property="strCpltYn">
+					AND NVL(D1.CPLT_YN, 'N') = #strCpltYn#
+				</isNotEmpty>			            
+		<![CDATA[ 
+	             GROUP BY D1.YE, D1.SALL_CAT_SNO, D1.LAG_CAT_SNO, D1.MID_CAT_SNO, D1.CHGR_ID, D1.CHR_DPT_CD, D1.SALL_CAT_TIT_NM, D1.CMPT_YN
+	             ORDER BY D1.YE, D1.SALL_CAT_SNO	
+             ) D3 		       
+		]]>
+	</select>
+	
+	
+        <select id="BADCMR008QHwpDataselect" parameterClass="paramMap" resultMap="resultClob">
+		<![CDATA[   
+			SELECT MAIN_PLCY_DTL_TXT
+	          FROM TBBADCMR004D
+	         WHERE YE = #strYe#
+	           AND SALL_CAT_SNO =#strSallCatSno#
+	           AND MAIN_PLCY_DTL_DVSN_CD ='b'
+	           AND REGI_DT= #strRegiDt#		
+		]]>
+		</select>
+        
+</sqlMap> 

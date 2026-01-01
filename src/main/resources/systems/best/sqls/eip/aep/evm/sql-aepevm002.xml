@@ -1,0 +1,599 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.evm.dao.AEPEVM002PMapper">		
+    <select id="selectExptList" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.evm.dao.AEPEVM002PMapper.selectExptList */
+            SELECT AA.AUD_YR
+                 , AA.AUD_KND_CD
+                 , BB.EXPT_PRB_NM AS TITLE_NM
+                 , BB.AUD_STEP_CD
+                 , AA.AUD_NO
+                 , BB.SORT_SNO
+                 , BB.EXPT_PRB_CD AS AFF_CD
+                 , '' AS DSP_RQ_SNO
+                 , BB.EXPT_PRB_CD AS AFFDSP_CD
+                 , F_MNG_KND_AUDYRNO(AA.AUD_YR, AA.AUD_NO, AA.AUD_KND_CD, '-') || '-' || BB.EXPT_PRB_CD AS AFF_NO
+                 , BB.DOC_ID
+                 , BB.RPRT_FILD_ID
+              FROM TBBADDED001M AA
+                 , TBBADDED144M BB
+             WHERE AA.AUD_YR = BB.AUD_YR
+               AND AA.AUD_NO = BB.AUD_NO
+               AND AA.AUD_YR = #{audYr}
+               AND AA.AUD_NO = #{audNo}
+               AND NOT EXISTS (
+                               SELECT 1 
+                                 FROM TBBADDED147M ZZ
+                                WHERE ZZ.AUD_YR = #{audYr}
+                                  AND ZZ.AUD_NO = #{audNo}
+                                  AND ZZ.PRE_AFF_NO = F_MNG_KND_AUDYRNO(AA.AUD_YR, AA.AUD_NO, AA.AUD_KND_CD, '-') || '-' || BB.EXPT_PRB_CD
+                                  AND ZZ.AUD_STEP_CD = 'A1050'
+                              )
+             ORDER BY BB.SORT_SNO
+    </select>
+
+    <select id="selectAffList" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.evm.dao.AEPEVM002PMapper.selectAffList */
+        <![CDATA[
+            SELECT AA.AUD_YR
+                 , NVL((SELECT MIN(T4.SORT_SNO) FROM TBBADDED145M T4 WHERE BB.AUD_YR = T4.AUD_YR AND BB.AUD_NO = T4.AUD_NO AND BB.AFF_CD = T4.AFF_CD AND BB.AFF_CD <> '00'), BB.SORT_SNO) AS SORT_SNO
+                 , BB.AUD_STEP_CD
+                 , AA.AUD_KND_CD
+                 , AA.AUD_NO
+                 , BB.AFF_CD
+                 , BB.AFF_SNO
+                 , CC.DSP_RQ_SNO
+                 , BB.TITLE_NM
+                 , BB.APVR_CD
+                 , F_CODE_NM('1000002', CC.DSP_RQ_CD)  AS DSP_RQ_NM
+                 , DECODE(CC.AFF_DSP_CD, '00', '', BB.AFF_CD || '-' || CC.AFF_DSP_CD) AS AFFDSP_CD
+                 , F_ORG_INFO(CC.RLTN_ORG_CD, 1) AS RLTN_ORG_NM
+                 , F_MNG_KND_AUDYRNO(AA.AUD_YR, AA.AUD_NO, AA.AUD_KND_CD, '-') || '-' || BB.AFF_CD || '-' || CC.AFF_DSP_CD AS AFF_NO
+                 , F_MNG_KND_AUDYRNO(AA.AUD_YR, AA.AUD_NO, AA.AUD_KND_CD, '-') || ' - -' AS EPTY_AFF_NO
+                 , CC.DOC_ID
+                 , CC.RPRT_FILD_ID
+                 , (
+                     SELECT DECODE(COUNT(T2.DOC_ID), 0, 'Y', 'N')
+                       FROM TBBADDED147M T1
+                 INNER JOIN TBBADDED103M T2  ON T1.AUD_YR = T2.AUD_YR
+                                            AND T1.AUD_NO = T2.AUD_NO
+                                            AND T1.DOC_ID = T2.DOC_ID
+                 INNER JOIN TBDCMACM023L T3  ON T2.APV_RQS_ID = T3.APV_DOC_NO
+                                            AND T3.APVR_STA_CD IN ('202','203','204')
+                      WHERE T1.AUD_YR = #{audYr}
+                        AND T1.AUD_NO = #{audNo}
+                        AND T1.AUD_STEP_CD = 'A1060'
+                        AND T1.APVR_CD = '0013600'
+                        AND T1.PRE_AFF_NO = F_MNG_KND_AUDYRNO(AA.AUD_YR, AA.AUD_NO, AA.AUD_KND_CD, '-') || '-' || BB.AFF_CD || '-' || CC.AFF_DSP_CD
+                    ) MPP_CANCEL_YN
+              FROM TBBADDED001M AA
+                 , TBBADDED145M BB
+                 , TBBADDED146M CC
+         ]]>
+             <if test='audStepCd != "A1050"'>
+                 , TBBADDED103M DD
+             </if>
+             WHERE AA.AUD_YR = BB.AUD_YR
+               AND AA.AUD_NO = BB.AUD_NO
+               AND AA.AUD_YR = CC.AUD_YR
+               AND AA.AUD_NO = CC.AUD_NO
+               AND AA.AUD_YR = #{audYr}
+               AND AA.AUD_NO = #{audNo}
+               AND BB.AFF_SNO = CC.AFF_SNO
+               AND BB.AUD_STEP_CD = #{audStepCd}
+               AND BB.AUD_STEP_CD = CC.AUD_STEP_CD
+           <if test='audStepCd != "A1050"'>
+               AND AA.AUD_YR = DD.AUD_YR
+               AND AA.AUD_NO = DD.AUD_NO
+               AND CC.DOC_ID = DD.DOC_ID
+           </if>
+           <if test='apvrCd != null and apvrCd != ""'>
+               AND BB.APVR_CD = #{apvrCd}
+               AND BB.APVR_CD = CC.APVR_CD
+           </if>
+             ORDER BY 
+                  <if test='audStepCd != "A1050"'>
+                      DD.AUD_RPRT_DVSN_CD,
+                      DD.DOC_ID, 
+                  </if>
+                      SORT_SNO, BB.SORT_SNO, CC.SORT_SNO
+    </select>
+
+    <select id="selectNotMppCnt" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.evm.dao.AEPEVM002PMapper.selectNotMppCnt */
+            SELECT COUNT(AA.AUD_NO) AS CNT
+              FROM TBBADDED145M AA
+                 , TBBADDED146M BB
+             WHERE AA.AUD_YR = BB.AUD_YR
+               AND AA.AUD_NO = BB.AUD_NO
+               AND AA.AUD_YR = #{audYr}
+               AND AA.AUD_NO = #{audNo}
+               AND AA.AFF_SNO = BB.AFF_SNO
+               AND AA.AUD_STEP_CD = #{audStepCd}
+               AND AA.AUD_STEP_CD = BB.AUD_STEP_CD
+           <if test='apvrCd != null and apvrCd != ""'>
+               AND AA.APVR_CD = #{apvrCd}
+               AND AA.APVR_CD = BB.APVR_CD
+           </if>
+               AND NOT EXISTS (
+                              SELECT 1
+                                FROM TBBADDED147M CC
+                               WHERE CC.AUD_YR = AA.AUD_YR
+                                 AND CC.AUD_NO = AA.AUD_NO
+                                 AND CC.AUD_STEP_CD = AA.AUD_STEP_CD
+                             <if test='apvrCd != null and apvrCd != ""'>
+                                 AND CC.APVR_CD = AA.APVR_CD
+                             </if>
+                                 AND CC.AFF_SNO = BB.AFF_SNO
+                                 AND CC.DSP_RQ_SNO = BB.DSP_RQ_SNO
+                              )
+             ORDER BY BB.SORT_SNO
+    </select>
+
+    <select id="selectDelAffList" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.evm.dao.AEPEVM002PMapper.selectDelAffList */
+            SELECT BB.AUD_YR
+                 , AA.AUD_KND_CD
+                 , BB.EXPT_PRB_NM AS TITLE_NM
+                 , BB.AUD_STEP_CD
+                 , BB.SORT_SNO
+                 , BB.EXPT_PRB_CD AS AFF_SNO
+                 , '' AS DSP_RQ_CD
+                 , ZZ.PRE_AFF_NO
+               --  , ZZ.AFF_MPP_DVSN_CD
+               --  , F_CODE_NM('1000777', ZZ.AFF_MPP_DVSN_CD) AS AFF_MPP_DVSN_NM
+               --  , ZZ.MPP_RSN
+                 , BB.EXPT_PRB_CD AS AFFDSP_CD
+                 , BB.DOC_ID
+                 , BB.RPRT_FILD_ID
+              FROM TBBADDED001M AA
+                 , TBBADDED144M BB
+                 , TBBADDED147M ZZ
+             WHERE BB.AUD_YR = #{audYr}
+               AND BB.AUD_NO = #{audNo}
+               AND AA.AUD_YR = BB.AUD_YR
+               AND AA.AUD_NO = BB.AUD_NO
+               AND ZZ.AUD_YR = BB.AUD_YR
+               AND ZZ.AUD_NO = BB.AUD_NO
+               AND ZZ.PRE_AFF_NO = F_MNG_KND_AUDYRNO(AA.AUD_YR, AA.AUD_NO, AA.AUD_KND_CD, '-') || '-' || BB.EXPT_PRB_CD
+               AND ZZ.AUD_STEP_CD = #{audStepCd}
+            --   AND ZZ.AFF_MPP_DVSN_CD IN ( 'A90', 'A99' )
+    </select>
+
+    <select id="selectAffMpp" parameterType="paramMap" resultType="egovMap">
+     <![CDATA[
+        /* kr.go.bai.eip.aep.evm.dao.AEPEVM002PMapper.selectAffMpp */
+            SELECT AA.PRE_AFF_NO
+                  , AA.AFF_NO
+                  , AA.AUD_KND_CD
+               --   , AA.AFF_MPP_DVSN_CD
+               --   , F_CODE_NM('1000777', AA.AFF_MPP_DVSN_CD) AS AFF_MPP_DVSN_NM
+               --   , AA.MPP_RSN
+                  , (
+                    SELECT MAX(EXPT_PRB_NM)
+                      FROM TBBADDED144M BB
+                         , TBBADDED001M CC
+                     WHERE AA.AUD_YR = BB.AUD_YR
+                       AND AA.AUD_NO = BB.AUD_NO
+                       AND AA.AUD_YR = CC.AUD_YR
+                       AND AA.AUD_NO = CC.AUD_NO
+                       AND AA.PRE_AFF_NO = F_MNG_KND_AUDYRNO(CC.AUD_YR, CC.AUD_NO, CC.AUD_KND_CD, '-') || '-' || BB.EXPT_PRB_CD
+                    ) AS TITLE_NM
+                  , DD.EXPT_PRB_CD AS AFFDSP_CD
+                  , DD.DOC_ID
+                  , DD.RPRT_FILD_ID
+                  , (
+                     SELECT DECODE(COUNT(T2.DOC_ID), 0, 'Y', 'N')
+                       FROM TBBADDED147M T1
+                 INNER JOIN TBBADDED103M T2  ON T1.AUD_YR = T2.AUD_YR
+                                            AND T1.AUD_NO = T2.AUD_NO
+                                            AND T1.DOC_ID = T2.DOC_ID
+                 INNER JOIN TBDCMACM023L T3  ON T2.APV_RQS_ID = T3.APV_DOC_NO
+                                            AND T3.APVR_STA_CD IN ('202','203','204')
+                      WHERE T1.AUD_YR = #{audYr}
+                        AND T1.AUD_NO = #{audNo}
+                        AND T1.AUD_STEP_CD = 'A1060'
+                        AND T1.APVR_CD = '0013600'
+                        AND T1.PRE_AFF_NO = AA.AFF_NO
+                    ) MPP_CANCEL_YN
+               FROM TBBADDED147M AA
+                  , TBBADDED144M DD
+              WHERE AA.AUD_YR = #{audYr}
+                AND AA.AUD_NO = #{audNo}
+                AND AA.AUD_STEP_CD = #{audStepCd}
+                AND AA.AUD_YR = DD.AUD_YR(+)
+                AND AA.AUD_NO = DD.AUD_NO(+)
+                AND AA.PRE_AFF_NO = F_MNG_KND_AUDYRNO(AA.AUD_YR, AA.AUD_NO, AA.AUD_KND_CD, '-') || '-' || DD.EXPT_PRB_CD (+)
+            --    AND AA.AFF_MPP_DVSN_CD NOT IN ( 'A90', 'A99')
+                ]]>
+    </select>
+
+    <select id="selectInsertItem" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.evm.dao.AEPEVM002PMapper.selectInsertItem */
+            SELECT F_MNG_KND_AUDYRNO(AA.AUD_YR, AA.AUD_NO, AA.AUD_KND_CD, '-') || '-' || BB.AFF_CD || '-' || CC.AFF_DSP_CD AS AFF_NO
+              FROM TBBADDED001M AA
+                 , TBBADDED145M BB
+                 , TBBADDED146M CC
+             WHERE AA.AUD_YR = #{audYr}
+               AND AA.AUD_NO = #{audNo}
+               AND AA.AUD_YR = BB.AUD_YR
+               AND AA.AUD_NO = BB.AUD_NO
+               AND AA.AUD_YR = CC.AUD_YR
+               AND AA.AUD_NO = CC.AUD_NO
+               AND BB.AFF_SNO = #{affSno}
+               AND BB.AFF_SNO = CC.AFF_SNO
+               AND BB.AUD_STEP_CD = #{audStepCd}
+               AND BB.AUD_STEP_CD = CC.AUD_STEP_CD
+               AND CC.DSP_RQ_SNO = #{dspRqSno}
+           <if test='apvrCd != null and apvrCd != ""'>
+               AND BB.APVR_CD = #{apvrCd}
+               AND BB.APVR_CD = CC.APVR_CD
+           </if>
+    </select>
+
+    <insert id="updateAffCdData" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.evm.dao.AEPEVM002PMapper.updateAffCdData */
+            UPDATE TBBADDED145M
+            <if test='newYn == "N"'>
+               SET AFF_CD = #{affCd}
+            </if>
+            <if test='newYn == "Y"'>
+             <![CDATA[
+               SET AFF_CD = (
+                            SELECT LPAD(MAX(AFF_CD), 2, '0')
+                              FROM (
+                                   SELECT CASE WHEN '0' <> (
+                                                            SELECT MAX(AFF_CD + 0)
+                                                              FROM TBBADDED145M
+                                                             WHERE AUD_YR = #{audYr}
+                                                               AND AUD_NO = #{audNo}
+                                                               AND AFF_SNO = #{affSno}
+                                                               AND AUD_STEP_CD = #{audStepCd}  ]]>
+                                                           <if test='apvrCd != null and apvrCd != ""'>
+                                                               AND APVR_CD = #{apvrCd}
+                                                           </if>
+                          <![CDATA[
+                                                            )
+                                               THEN ( 
+                                                    SELECT MAX(AFF_CD + 0)
+                                                      FROM TBBADDED145M
+                                                     WHERE AUD_YR = #{audYr}
+                                                       AND AUD_NO = #{audNo}
+                                                       AND AFF_SNO = #{affSno}
+                                                       AND AUD_STEP_CD = #{audStepCd}  ]]>
+                                                   <if test='apvrCd != null and apvrCd != ""'>
+                                                       AND APVR_CD = #{apvrCd}
+                                                   </if>
+                                                   <![CDATA[
+                                                    )
+                                               ELSE (SELECT NVL(MIN(T1.RNUM),
+                                                                 (
+                                                                  SELECT MAX(MAX_CD) + 1
+                                                                    FROM (
+                                                                      SELECT EXPT_PRB_CD + 0 AS MAX_CD
+                                                                        FROM TBBADDED144M
+                                                                       WHERE AUD_YR = #{audYr}
+                                                                         AND AUD_NO = #{audNo}
+                                                                       UNION ALL                  
+                                                                      SELECT AFF_CD + 0
+                                                                        FROM TBBADDED145M
+                                                                       WHERE AUD_YR = #{audYr}
+                                                                         AND AUD_NO = #{audNo}
+                                                                         AND AFF_CD <> '00'
+                                                                         AND AFF_CD IS NOT NULL
+                                                                       GROUP BY AFF_CD)
+                                                                  ))
+                                                      FROM (
+                                                        SELECT ROWNUM AS RNUM
+                                                          FROM DUAL
+                                                        CONNECT BY ROWNUM <= (
+                                                                        SELECT MAX(MAX_CD)
+                                                                          FROM (
+                                                                            SELECT EXPT_PRB_CD + 0 AS MAX_CD
+                                                                              FROM TBBADDED144M
+                                                                             WHERE AUD_YR = #{audYr}
+                                                                               AND AUD_NO = #{audNo}
+                                                                            UNION ALL                  
+                                                                            SELECT AFF_CD + 0
+                                                                              FROM TBBADDED145M
+                                                                             WHERE AUD_YR = #{audYr}
+                                                                               AND AUD_NO = #{audNo}
+                                                                               AND AFF_CD <> '00'
+                                                                               AND AFF_CD IS NOT NULL
+                                                                             GROUP BY AFF_CD) )
+                                                                ) AS T1
+                                                    WHERE NOT EXISTS ( SELECT 1
+                                                                         FROM ( SELECT EXPT_PRB_CD + 0 AS CD
+                                                                                  FROM TBBADDED144M
+                                                                                 WHERE AUD_YR = #{audYr}
+                                                                                   AND AUD_NO = #{audNo}
+                                                                                UNION ALL                  
+                                                                                SELECT AFF_CD + 0
+                                                                                  FROM TBBADDED145M
+                                                                                 WHERE AUD_YR = #{audYr}
+                                                                                   AND AUD_NO = #{audNo}
+                                                                                   AND AFF_CD <> '00'
+                                                                                   AND AFF_CD IS NOT NULL) T2
+                                                                      WHERE T1.RNUM = T2.CD ))
+                                           END AS AFF_CD
+                                     FROM TBBADDED144M AA
+                                        , TBBADDED145M BB
+                                    WHERE BB.AUD_YR = #{audYr}
+                                      AND BB.AUD_NO = #{audNo}
+                                      AND BB.AUD_YR = AA.AUD_YR (+)
+                                      AND BB.AUD_NO = AA.AUD_NO (+)
+                                   )
+                            )
+                           ]]>
+            </if>
+                 , FNL_USR_ID = #{fnlUsrId}
+                 , FNL_DEAL_DPT_CD = #{fnlDealDptCd}
+                 , FNL_MNU_ID = #{fnlMnuId}
+                 , FNL_MDF_DH = SYSDATE
+             WHERE AFF_SNO = #{affSno}
+               AND AUD_YR = #{audYr}
+               AND AUD_NO = #{audNo}
+               AND AUD_STEP_CD = #{audStepCd}
+           <if test='apvrCd != null and apvrCd != ""'>
+               AND APVR_CD = #{apvrCd}
+           </if>
+    </insert>
+
+    <insert id="updateAffDspCdData" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.evm.dao.AEPEVM002PMapper.updateAffDspCdData */
+            UPDATE TBBADDED146M
+               SET AFF_DSP_CD = 
+                            <if test='saveType == "DTEN"'>
+                                (
+                                    SELECT LPAD(AFF_DSP_CD, 2, '0') AS AFF_DSP_CD
+                                      FROM (
+                                           SELECT MAX(BB.AFF_DSP_CD + 0)+1 AS AFF_DSP_CD
+                                             FROM TBBADDED145M AA
+                                                , TBBADDED146M BB
+                                            WHERE AA.AUD_YR = #{audYr}
+                                              AND AA.AUD_NO = #{audNo}
+                                              AND AA.AUD_YR = BB.AUD_YR
+                                              AND AA.AUD_NO = BB.AUD_NO
+                                              AND AA.AFF_CD = #{affCd}
+                                              AND AA.AFF_SNO = BB.AFF_SNO
+                                              AND AA.AUD_STEP_CD = #{audStepCd}
+                                          <if test='apvrCd != null and apvrCd != ""'>
+                                              AND AA.APVR_CD = #{apvrCd}
+                                          </if>
+                                              AND AA.AUD_STEP_CD = BB.AUD_STEP_CD
+                                              AND AA.APVR_CD = BB.APVR_CD
+                                           )
+                                    )
+                            </if>
+                            <if test='saveType == "ITDC"'>
+                                (
+                                SELECT LPAD(AFF_DSP_CD, 2, '0') AS AFF_DSP_CD
+                                  FROM (
+                                       SELECT DECODE(MAX(AFF_DSP_CD+0),0,1,MAX(AFF_DSP_CD+0)) AS AFF_DSP_CD
+                                         FROM TBBADDED146M
+                                        WHERE AUD_YR = #{audYr}
+                                          AND AUD_NO = #{audNo}
+                                          AND AFF_SNO = #{affSno}
+                                          AND AUD_STEP_CD = #{audStepCd}
+                                      <if test='apvrCd != null and apvrCd != ""'>
+                                          AND APVR_CD = #{apvrCd}
+                                      </if>
+                                       )
+                                )
+                            </if>
+                            <if test='saveType == "NEW"'>
+                                (
+                                SELECT LPAD(AFF_DSP_CD, 2, '0') AS AFF_DSP_CD
+                                  FROM (
+                                       SELECT MAX(AFF_DSP_CD+0)+1 AS AFF_DSP_CD
+                                         FROM TBBADDED146M
+                                        WHERE AUD_YR = #{audYr}
+                                          AND AUD_NO = #{audNo}
+                                          AND AFF_SNO = #{affSno}
+                                          AND AUD_STEP_CD = #{audStepCd}
+                                      <if test='apvrCd != null and apvrCd != ""'>
+                                          AND APVR_CD = #{apvrCd}
+                                      </if>
+                                       )
+                                )
+                            </if>
+                            <if test='saveType == "DIMR"'>
+                                (
+                                SELECT LPAD(AFF_DSP_CD, 2, '0') AS AFF_DSP_CD
+                                  FROM (
+                                       SELECT MAX(BB.AFF_DSP_CD+0)+1 AS AFF_DSP_CD
+                                         FROM TBBADDED145M AA
+                                            , TBBADDED146M BB
+                                        WHERE AA.AUD_YR = #{audYr}
+                                          AND AA.AUD_NO = #{audNo}
+                                          AND AA.AUD_YR = BB.AUD_YR
+                                          AND AA.AUD_NO = BB.AUD_NO
+                                          AND AA.AFF_CD = #{affCd}
+                                          AND AA.AFF_SNO = BB.AFF_SNO
+                                          AND AA.AUD_STEP_CD = #{audStepCd}
+                                      <if test='apvrCd != null and apvrCd != ""'>
+                                          AND AA.APVR_CD = #{apvrCd}
+                                      </if>
+                                          AND AA.AUD_STEP_CD = BB.AUD_STEP_CD
+                                          AND AA.APVR_CD = BB.APVR_CD
+                                       )
+                                )
+                            </if>
+                 , FNL_USR_ID = #{fnlUsrId}
+                 , FNL_DEAL_DPT_CD = #{fnlDealDptCd}
+                 , FNL_MNU_ID = #{fnlMnuId}
+                 , FNL_MDF_DH = SYSDATE
+             WHERE AFF_SNO = #{affSno}
+               AND DSP_RQ_SNO = #{dspRqSno}
+               AND AUD_YR = #{audYr}
+               AND AUD_NO = #{audNo}
+               AND AUD_STEP_CD = #{audStepCd}
+           <if test='apvrCd != null and apvrCd != ""'>
+               AND APVR_CD = #{apvrCd}
+           </if>
+    </insert>
+
+    <insert id="updateAffDspCdDataReset" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.evm.dao.AEPEVM002PMapper.updateAffCdDataReset */
+            UPDATE TBBADDED146M
+               SET AFF_DSP_CD = '00'
+                 , FNL_USR_ID = #{fnlUsrId}
+                 , FNL_DEAL_DPT_CD = #{fnlDealDptCd}
+                 , FNL_MNU_ID = #{fnlMnuId}
+                 , FNL_MDF_DH = SYSDATE
+             WHERE AFF_SNO = #{affSno}
+               AND AUD_YR = #{audYr}
+               AND AUD_NO = #{audNo}
+               AND AUD_STEP_CD = #{audStepCd}
+           <if test='apvrCd != null and apvrCd != ""'>
+               AND APVR_CD = #{apvrCd}
+           </if>
+    </insert>
+
+    <insert id="updateAffCdDataReset" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.evm.dao.AEPEVM002PMapper.updateAffCdDataReset */
+            UPDATE TBBADDED145M
+               SET AFF_CD = '00'
+                 , FNL_USR_ID = #{fnlUsrId}
+                 , FNL_DEAL_DPT_CD = #{fnlDealDptCd}
+                 , FNL_MNU_ID = #{fnlMnuId}
+                 , FNL_MDF_DH = SYSDATE
+             WHERE AFF_SNO = #{affSno}
+               AND AUD_YR = #{audYr}
+               AND AUD_NO = #{audNo}
+               AND AUD_STEP_CD = #{audStepCd}
+           <if test='apvrCd != null and apvrCd != ""'>
+               AND APVR_CD = #{apvrCd}
+           </if>
+    </insert>
+
+    <insert id="insertAffData" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.evm.dao.AEPEVM002PMapper.insertAffData */
+            INSERT INTO TBBADDED147M(
+                        AUD_YR
+                      , AUD_NO
+                      , AUD_STEP_CD
+                      , APVR_CD
+                      , AUD_KND_CD
+                      , PRE_AFF_NO
+                      , AFF_NO
+                      , AFF_SNO
+                      , DSP_RQ_SNO
+                      , DOC_ID
+                      , RPRT_FILD_ID
+					  , ACTIVE_ADMIN_IMMUNE_YN
+					  , AUD_GRN_NO
+					  , MPP_SEQ
+					  , SORT_SNO
+                      , FRT_USR_ID
+                      , FNL_USR_ID
+                      , FNL_DEAL_DPT_CD
+                      , FNL_MNU_ID
+                      , FRT_REGI_DH
+                      , FNL_MDF_DH
+                        )
+                 VALUES (
+                        #{audYr}
+                      , #{audNo}
+                      , #{audStepCd}
+                      , #{apvrCd}
+                      , #{audKndCd}
+                      , #{preAffNo}
+                      , #{affNo}
+                      , #{affSno}
+                      , #{dspRqSno}
+                      , #{docId}
+                      , #{rprtFildId}
+					  , #{activeAdminImmuneYn}
+					  , #{audGrnNo}
+					  , (SELECT NVL(MAX(MPP_SEQ),'0')+1 AS MPP_SEQ 
+						  	   FROM TBBADDED147M 
+						  	  WHERE AUD_YR = #{audYr}
+						  	    AND AUD_NO = #{audNo}
+						  	    AND AUD_STEP_CD = #{audStepCd}
+						  	    AND DOC_ID = #{docId}
+						  	    AND APVR_CD = #{apvrCd}
+						  	    AND AFF_SNO = #{affSno}
+						  	    AND DSP_RQ_SNO = #{dspRqSno})
+					  , #{sortSno}
+                      , #{frtUsrId}
+                      , #{fnlUsrId}
+                      , #{fnlDealDptCd}
+                      , #{fnlMnuId}
+                      , SYSDATE
+                      , SYSDATE
+                        )
+    </insert>
+
+    <insert id="deleteMppData" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.evm.dao.AEPEVM002PMapper.deleteMppData */
+            DELETE FROM TBBADDED147M
+                  WHERE AUD_YR = #{audYr}
+                    AND AUD_NO = #{audNo}
+                    AND AUD_STEP_CD = #{audStepCd}
+                <if test='preAffNo != null and preAffNo != ""'>
+                    AND PRE_AFF_NO = #{preAffNo}
+                </if>
+                <if test='affSno != null and affSno!= ""'>
+                    AND AFF_SNO = #{affSno}
+                </if>
+    </insert>
+    
+    <insert id="updateRsnData" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.evm.dao.AEPEVM002PMapper.updateRsnData */
+            UPDATE TBBADDED147M 
+               SET MPP_RSN = #{mppRsn}
+             WHERE AUD_YR = #{audYr}
+               AND AUD_NO = #{audNo}
+               AND AUD_STEP_CD = #{audStepCd}
+           <if test='preAffNo != null and preAffNo != ""'>
+               AND PRE_AFF_NO = #{preAffNo}
+           </if>
+           <if test='affNo != null and affNo != ""'>
+               AND AFF_NO = #{affNo}
+           </if>
+    </insert>
+    
+    <select id="selectNextMppYn" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.evm.dao.AEPEVM002PMapper.selectNextMppYn */
+            SELECT DECODE(COUNT(AA.AFF_NO),0,'N','Y') AS NEXT_MPP_YN
+              FROM TBBADDED147M AA
+             WHERE AA.AUD_YR = #{audYr}
+               AND AA.AUD_NO = #{audNo}
+               AND AA.AUD_STEP_CD = #{audStepCd}
+               AND AA.APVR_CD = #{apvrCd}
+               AND AA.AFF_SNO = #{affSno}
+               AND AA.DSP_RQ_SNO = #{dspRqSno}
+               AND EXISTS (SELECT 1
+                             FROM TBBADDED147M BB
+                            WHERE AA.AUD_YR = BB.AUD_YR
+                              AND AA.AUD_NO = BB.AUD_NO
+                              AND BB.AUD_STEP_CD = #{nAudStepCd}
+                              AND BB.APVR_CD = #{nApvrCd}
+                              AND AA.AFF_NO = BB.PRE_AFF_NO
+                          )
+    </select>
+    
+    <select id="selectCmptYn" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.evm.dao.AEPEVM002PMapper.selectCmptYn */
+            SELECT CMPT_YN
+              FROM TBBADDED102M
+             WHERE AUD_YR = #{audYr} 
+               AND AUD_NO = #{audNo}
+               AND AUD_STEP_CD = #{audStepCd}
+               AND AUD_MAIN_STEP_ID = '500401'
+    </select>
+    
+    <insert id="updateCmptYn" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.evm.dao.AEPEVM002PMapper.updateCmptYn */
+            UPDATE TBBADDED102M 
+               SET CMPT_YN = 'Y'
+             WHERE AUD_YR = #{audYr}
+               AND AUD_NO = #{audNo}
+               AND AUD_STEP_CD = #{audStepCd}
+               AND AUD_MAIN_STEP_ID = '500401'
+    </insert>
+    
+    
+</mapper> 

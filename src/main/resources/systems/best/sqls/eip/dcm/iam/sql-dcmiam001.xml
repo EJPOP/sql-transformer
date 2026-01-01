@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 사용자 정보 조회 쿼리 모음 -->
+<mapper namespace="DCMIAM001Mapper">
+
+	<select id="selectOasysUserList" parameterType="map" resultType="map">
+		SELECT EV.USR_ID ,
+			   EV.USR_NAM ,
+			   EV.DPT_NM ,
+			   EV.RANK_NM_2
+		  FROM EAMUSER_VIEW EV
+		<where>
+			<if test="usrId != null">
+				AND EV.USR_ID LIKE '%' || #{usrId} || '%' 
+			</if>
+			<if test="usrNam != null">
+				AND EV.USR_NAM LIKE '%' || #{usrNam} || '%'
+			</if>
+		</where>
+	</select>
+
+	<select id="selectTables" resultType="string">
+        select * from tab
+    </select>
+
+	<!-- tibero  -->
+	<select id="selectUserListCount" resultType="int">
+		SELECT COUNT(1)CNT
+		FROM (
+		SELECT * FROM (
+		SELECT EV2.USR_ID,
+		EV2.USR_NAM,
+		EV2.DPT_NM,
+		EV2.RANK_NM_2,
+		(SELECT DISTINCT AGGR_CONCAT(GI.GROUP_DESC, ',') FROM TBDCMIAM008D GU, TBDCMIAM007M GI WHERE EV2.USR_ID = GU.USR_ID AND GU.GRP_ID  = GI.GRP_ID) AS GROUP_NAME,
+		(SELECT DISTINCT AGGR_CONCAT(RI.ROLE_DESC, ', ') FROM TBDCMIAM003M RI, TBDCMIAM010M RU WHERE EV2.USR_ID = RU.USR_ID AND RU.ROLE_ID = RI.ROLE_ID) AS ROLE_NAME
+		FROM EAMUSER_VIEW EV2
+		ORDER BY DPT_NM, RANK_NM_2
+		)
+		<trim prefix="WHERE" prefixOverrides="AND |OR ">
+			<if test="searchSelector !='' and searchSelector != null and searchSelector =='USR_ID' ">
+				AND USR_ID like '%'||#{searchSelectedValue}||'%'
+			</if>
+			<if test="searchSelector !='' and searchSelector != null and searchSelector =='USR_NAM' ">
+				AND USR_NAM like '%'||#{searchSelectedValue}||'%'
+			</if>
+			<if test="searchSelector !='' and searchSelector != null and searchSelector =='DPT_NAM' ">
+				AND DPT_NM like '%'||#{searchSelectedValue}||'%'
+			</if>
+			<if test="searchSelector !='' and searchSelector != null and searchSelector =='GROUP_NAME' ">
+				AND GROUP_NAME like '%'||#{searchSelectedValue}||'%'
+			</if>
+			<if test="searchSelector !='' and searchSelector != null and searchSelector =='ROLE_NAME' ">
+				AND ROLE_NAME like '%'||#{searchSelectedValue}||'%'
+			</if>
+		</trim>
+		) A
+	</select>
+	<select id="getSelectedUserGroupTree" resultType="String">
+		SELECT GRP_ID
+		FROM TBDCMIAM008D
+		WHERE (USR_ID = #{userId})
+	</select>
+	<select id="getSelectedUserRoleTree" resultType="egovMap">
+		SELECT TBDCMIAM010M.ROLE_ID AS "id"
+		      ,TO_CHAR(TBDCMIAM010M.STR_DT, 'YYYY-MM-DD') AS "strDt"
+		      ,TO_CHAR(TBDCMIAM010M.END_DT, 'YYYY-MM-DD') AS "endDt"
+		FROM TBDCMIAM010M
+		WHERE (USR_ID = #{userId})
+	</select>
+	
+	
+	<!-- tibero   -->
+	<select id="selectUserList" resultType="egovMap">
+	/* kr.go.bai.eip.cor.cor.dao.dcmiam001.selectUserList */
+		SELECT B.*
+		FROM (
+		SELECT ROWNUM ROWNO, A.*, COUNT(*) OVER() AS TOT_CNT
+		FROM (
+		SELECT * FROM (
+		SELECT EV2.USR_ID,
+		EV2.USR_NAM,
+		EV2.DPT_NM,
+		(SELECT DISTINCT AGGR_CONCAT(CASE WHEN RG.STR_DT IS NOT NULL THEN RI.ROLE_DES || '(' || TO_CHAR(RG.STR_DT, 'YYYY-MM-DD') || ' 부터 ' || TO_CHAR(RG.END_DT, 'YYYY-MM-DD') || ' 까지)'
+		                                  ELSE RI.ROLE_DES END, ',')
+		   FROM TBDCMIAM003M RI, TBDCMIAM009M RG
+		  WHERE 1=1
+		    AND EV2.DPT_CD = RG.GRP_ID
+		    AND RG.ROLE_ID = RI.ROLE_ID
+		) AS DPT_ROLE_NAME,
+		EV2.RANK_NM_2,
+		(SELECT DISTINCT AGGR_CONCAT(GI.GRP_DES, ',') FROM TBDCMIAM008D GU, TBDCMIAM007M GI WHERE EV2.USR_ID = GU.USR_ID AND GU.GRP_ID  = GI.GRP_ID) AS GROUP_NAME,
+		(SELECT DISTINCT AGGR_CONCAT(GI.GRP_ID, ',') FROM TBDCMIAM008D GU, TBDCMIAM007M GI WHERE EV2.USR_ID = GU.USR_ID AND GU.GRP_ID  = GI.GRP_ID) AS GROUP_ID,
+		(SELECT DISTINCT AGGR_CONCAT(CASE WHEN RU.STR_DT IS NOT NULL THEN RI.ROLE_DES || '(' || TO_CHAR(RU.STR_DT, 'YYYY-MM-DD') || ' 부터 ' || TO_CHAR(RU.END_DT, 'YYYY-MM-DD') || ' 까지)'
+		                                  ELSE RI.ROLE_DES END, ', ')
+		   FROM TBDCMIAM003M RI, TBDCMIAM010M RU
+		  WHERE 1=1
+		    AND EV2.USR_ID = RU.USR_ID
+		    AND RU.ROLE_ID = RI.ROLE_ID
+		) AS ROLE_NAME
+		FROM EAMUSER_VIEW EV2
+		WHERE 1=1
+		
+		ORDER BY USR_NAM, RANK_NM_2
+		)
+			WHERE 1=1
+			<if test="usrId !='' and usrId != null">
+				AND USR_ID like '%'||#{usrId}||'%'
+			</if>
+			<if test="usrNam !='' and usrNam != null">
+				AND USR_NAM like '%'||#{usrNam}||'%'
+			</if>
+			<if test="dptNam !='' and dptNam != null">
+				AND DPT_NM like '%'||#{dptNam}||'%'
+			</if>
+			<if test="groupName !='' and groupName != null">
+				AND GROUP_NAME like '%'||#{groupName}||'%'
+			</if>
+			<if test="roleName !='' and roleName != null">
+				AND ROLE_NAME like '%'||#{roleName}||'%'
+			</if>
+			
+			ORDER BY USR_NAM
+		
+		) A
+		)B
+		<if test="currPage !='' and currPage != null and pageSize !='' and pageSize != null" >
+		WHERE ROWNO BETWEEN (((#{currPage}- 1) * #{pageSize}) + 1) AND (#{currPage} * #{pageSize})
+		</if>
+	</select>
+	
+	<select id="roleListForGroupId" resultType="String">
+          SELECT RI.ROLE_DES FROM TBDCMIAM003M RI, TBDCMIAM009M RG, TBDCMIAM007M GI
+          WHERE RI.ROLE_ID = RG.ROLE_ID AND RG.GRP_ID = GI.GRP_ID AND GI.GRP_ID = #{groupId}
+    </select>
+	<delete id="deleteUserGroupMapping">
+		DELETE
+		FROM TBDCMIAM008D
+		WHERE (USR_ID = #{userId})
+	</delete>
+	<insert id="addUserGroupMapping">
+		INSERT
+		INTO TBDCMIAM008D (GRP_ID, USR_ID)
+		VALUES (#{groupId}, #{userId})
+	</insert>
+	<delete id="deleteUserRoleMapping">
+		DELETE
+		FROM TBDCMIAM010M
+		WHERE (USR_ID = #{userId})
+	</delete>
+	<insert id="addUserRoleMapping">
+		INSERT
+		INTO TBDCMIAM010M (ROLE_ID, USR_ID, STR_DT, END_DT)
+		VALUES (#{roleId}, #{userId}, #{strDt}, #{endDt})
+	</insert>
+
+	<select id="selectResourceInfoTreeSourceByUser" resultType="HashMap">
+		SELECT T1.RSRC_ID AS "id",
+		  T1.RSRC_DES AS "text",
+		  T1.RSRC_NM AS "name",
+		  DECODE(T1.UPPR_RSRC_ID, null, '#', T1.UPPR_RSRC_ID) AS "parent",
+		  DECODE(T1.MNU_SEQ, null, '9999', T1.MNU_SEQ) AS "orderNum",
+		  (
+		    SELECT CMM_CD_NM
+		    FROM TBDCMIAM006D
+		    WHERE CMM_CD_ID = T1.RSRC_TP) AS "type"
+		FROM TBDCMIAM001M T1
+		WHERE 1=1
+		  AND EXISTS (SELECT 'X'
+		                FROM TBDCMIAM002D
+		               WHERE 1=1
+		                 AND RSRC_ID = T1.RSRC_ID
+		                 AND REF_ID IN
+								(
+
+								<foreach collection="sIdValue" item="sIdValue" index="index" separator="," open="" close="">
+
+									#{sIdValue}
+
+								</foreach>
+
+								)
+		                 )
+		ORDER BY T1.MNU_SEQ ASC,
+		T1.RSRC_NM ASC
+	</select>
+	
+	<select id="checkUsrDptCd" resultType ="egovMap">
+	   /* kr.go.bai.eip.cor.cor.dao.dcmiam001.checkUsrDptCd */
+	   <![CDATA[
+        SELECT *
+          FROM (SELECT '신규등록'                 AS HST_TYPE
+			         , TA.USR_ID
+			         , TA.USR_NAM
+			         , F_DPT_INFO(TA.DPT_CD, '1') AS AF_DPT_CD
+			         , ''                         AS BF_DPT_CD 
+			         , TA.FNL_MDF_DH
+			      FROM TBDCMACM001M TA
+			     WHERE 1=1
+			       AND FRT_REGI_DH = FNL_MDF_DH
+			       AND FNL_MDF_DH >= SYSDATE-14
+		         UNION ALL
+		        SELECT '부서변경'                 AS HST_TYPE
+			         , TA.USR_ID
+			         , TA.USR_NAM
+			         , F_DPT_INFO(TA.DPT_CD, '1') AS AF_DPT_CD
+			         , F_DPT_INFO(TB.DPT_CD, '1') AS BF_DPT_CD 
+			         , TA.FNL_MDF_DH
+			      FROM TBDCMACM001M TA
+			         , (SELECT A.CON_NO
+			                 , A.USR_ID
+			                 , A.DPT_CD
+			              FROM (SELECT CON_NO
+			                         , USR_ID
+			                         , DPT_CD
+			                         , RANK() OVER(PARTITION BY USR_ID ORDER BY CON_NO DESC) AS RNK
+			                      FROM TBDCMACM037H
+			                     WHERE 1=1
+			                     GROUP BY CON_NO
+			                            , USR_ID
+			                            , DPT_CD) A
+			             WHERE 1=1
+			               AND A.RNK = 2) TB
+			     WHERE 1=1
+			       AND TA.USR_ID      = TB.USR_ID
+			       AND TA.DPT_CD     <> TB.DPT_CD
+			       AND TA.FNL_MDF_DH >= SYSDATE-3
+		       ) TT
+		 WHERE 1=1
+         ORDER BY TT.FNL_MDF_DH DESC
+       ]]>
+	</select>
+	
+
+</mapper>

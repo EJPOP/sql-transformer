@@ -1,0 +1,404 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="aep/gkm/034">
+	<select id="AEPGKM034Emainqselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT  BRD.EVL_YR, BRD.EVL_DVSN_CD, BRD.SC_GRN_TG_CD,
+		        BRD.BOARD_ID AS SET_ID, BRD.POST_SEQ, BRD.TITLE,
+		        BRD.DPT_NM, BRD.CNB, BRD.USR_NM,
+		        NVL(EVL.COFM_YN, 'N') AS COFM_YN,
+		        BRD.BSC_SC, BRD.MIN_SC, BRD.MAX_SC, BRD.ADD_SC,
+		        NVL(EVL.EVL_BSC_SC, BRD.BSC_SC) AS EVL_BSC_SC, NVL(EVL.EVL_CLU_SC, 0) AS EVL_CLU_SC, NVL(EVL.EVL_ADD_SC, 0) AS EVL_ADD_SC,
+		        TO_NUMBER(NVL(EVL.EVL_BSC_SC, BRD.BSC_SC) + NVL(EVL.EVL_CLU_SC, 0) + NVL(EVL.EVL_ADD_SC, 0)) AS TOT_SC
+		FROM    (
+		        SELECT  B.EVL_YR, B.EVL_DVSN_CD, B.SC_GRN_TG_CD
+		               ,C.BSC_SC, C.MIN_SC, C.MAX_SC, C.ADD_SC
+		               ,E.BOARD_ID, E.POST_SEQ, E.TITLE
+		               ,E.CRE_USER_NAME AS USR_NM
+		               ,F_USR_INFO_BY_ID(E.CRE_USER_ID, '1') AS CNB
+		               ,E.CRE_USER_DEPT_NAME AS DPT_NM
+		        FROM    TBAEPGKM011M A /* 평가기간 */
+		               ,TBAEPGKM012L B /* 평가기간별점수부여대상 */
+		               ,TBAEPGKM006M C /* 점수부여대상 */
+		               ,TBAEPGKM007L D /* 점수부여대상설정 */
+		               ,CTT_POST E /* 게시판 */
+		        WHERE   A.EVL_YR = B.EVL_YR
+		        AND     A.EVL_DVSN_CD = B.EVL_DVSN_CD
+		        AND     B.SC_GRN_TG_CD = C.SC_GRN_TG_CD
+		        AND     C.SC_GRN_TG_CD = D.SC_GRN_TG_CD
+		        AND     D.SET_ID = E.BOARD_ID
+		        AND     B.SC_GRN_TG_CD = #SC_GRN_TG_CD# /* 질문 */
+		        AND     E.PARENT_POST_SEQ IS NULL /* 게시글 답변이 아님 */
+		        <![CDATA[
+		        AND     A.EVL_ACTV_STR_DT <= TO_CHAR(E.LAST_UPDATE, 'YYYYMMDD')  /* 활동기간내에 등록된 글 */
+		        AND     A.EVL_ACTV_END_DT >= TO_CHAR(E.LAST_UPDATE, 'YYYYMMDD')  /* 활동기간내에 등록된 글 */
+		        ]]>
+		        <isNotEmpty property="EVL_YR" prepend="AND">
+						B.EVL_YR = #EVL_YR#
+				</isNotEmpty>
+				<isNotEmpty property="EVL_DVSN_CD" prepend="AND">
+						B.EVL_DVSN_CD = #EVL_DVSN_CD#
+				</isNotEmpty>
+		        ) AS BRD,
+		        (
+		        SELECT  EVL_YR, EVL_DVSN_CD, SC_GRN_TG_CD,
+		                BRD_NO, BRD_BKNO, CNB, COFM_YN,
+		                SUM(CASE WHEN SC_CAT_CD = '1' THEN SC END) AS EVL_BSC_SC,
+		                SUM(CASE WHEN SC_CAT_CD = '2' THEN SC END) AS EVL_CLU_SC,
+		                SUM(CASE WHEN SC_CAT_CD = '3' THEN SC END) AS EVL_ADD_SC
+		        FROM    TBAEPGKM016L
+		        WHERE   SC_GRN_TG_CD = #SC_GRN_TG_CD#
+		         <isNotEmpty property="EVL_YR" prepend="AND">
+						EVL_YR = #EVL_YR#
+				</isNotEmpty>
+				<isNotEmpty property="EVL_DVSN_CD" prepend="AND">
+						EVL_DVSN_CD = #EVL_DVSN_CD#
+				</isNotEmpty>
+		        GROUP BY EVL_YR, EVL_DVSN_CD, SC_GRN_TG_CD,
+		                 BRD_NO, BRD_BKNO, CNB, COFM_YN
+		        ) AS EVL
+		WHERE   BRD.EVL_YR = EVL.EVL_YR(+)
+		AND     BRD.EVL_DVSN_CD = EVL.EVL_DVSN_CD(+)
+		AND     BRD.SC_GRN_TG_CD = EVL.SC_GRN_TG_CD(+)
+		AND     BRD.BOARD_ID = EVL.BRD_NO(+)
+		AND     BRD.POST_SEQ = EVL.BRD_BKNO(+)
+		AND     BRD.CNB = EVL.CNB(+)
+		AND		EVL.COFM_YN = 'Y'	
+	</select>
+	
+	<select id="AEPGKM034Emainaselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT  BRD.EVL_YR, BRD.EVL_DVSN_CD, BRD.SC_GRN_TG_CD,
+		        BRD.BOARD_ID AS SET_ID, BRD.POST_SEQ, BRD.TITLE,
+		        BRD.DPT_NM, BRD.CNB, BRD.USR_NM,
+		        NVL(EVL.COFM_YN, 'N') AS COFM_YN,
+		        BRD.BSC_SC, BRD.MIN_SC, BRD.MAX_SC, BRD.ADD_SC,
+		        NVL(EVL.EVL_BSC_SC, BRD.BSC_SC) AS EVL_BSC_SC, NVL(EVL.EVL_CLU_SC, 0) AS EVL_CLU_SC, NVL(EVL.EVL_ADD_SC, 0) AS EVL_ADD_SC,
+		        TO_NUMBER(NVL(EVL.EVL_BSC_SC, BRD.BSC_SC) + NVL(EVL.EVL_CLU_SC, 0) + NVL(EVL.EVL_ADD_SC, 0)) AS TOT_SC
+		FROM    (
+		        SELECT  B.EVL_YR, B.EVL_DVSN_CD, B.SC_GRN_TG_CD
+		               ,C.BSC_SC, C.MIN_SC, C.MAX_SC, C.ADD_SC
+		               ,E.BOARD_ID, E.POST_SEQ, E.TITLE
+		               ,E.CRE_USER_NAME AS USR_NM
+		               ,F_USR_INFO_BY_ID(E.CRE_USER_ID, '1') AS CNB
+		               ,E.CRE_USER_DEPT_NAME AS DPT_NM
+		        FROM    TBAEPGKM011M A /* 평가기간 */
+		               ,TBAEPGKM012L B /* 평가기간별점수부여대상 */
+		               ,TBAEPGKM006M C /* 점수부여대상 */
+		               ,TBAEPGKM007L D /* 점수부여대상설정 */
+		               ,CTT_POST E /* 게시판 */
+		        WHERE   A.EVL_YR = B.EVL_YR
+		        AND     A.EVL_DVSN_CD = B.EVL_DVSN_CD
+		        AND     B.SC_GRN_TG_CD = C.SC_GRN_TG_CD
+		        AND     C.SC_GRN_TG_CD = D.SC_GRN_TG_CD
+		        AND     D.SET_ID = E.BOARD_ID
+		        AND     B.SC_GRN_TG_CD = #SC_GRN_TG_CD# /* 질문 */
+		        AND     E.PARENT_POST_SEQ IS NOT NULL /* 게시글 질문이 아님 */
+		        <![CDATA[
+		        AND     A.EVL_ACTV_STR_DT <= TO_CHAR(E.LAST_UPDATE, 'YYYYMMDD')  /* 활동기간내에 등록된 글 */
+		        AND     A.EVL_ACTV_END_DT >= TO_CHAR(E.LAST_UPDATE, 'YYYYMMDD')  /* 활동기간내에 등록된 글 */
+		        ]]>
+		        <isNotEmpty property="EVL_YR" prepend="AND">
+						B.EVL_YR = #EVL_YR#
+				</isNotEmpty>
+				<isNotEmpty property="EVL_DVSN_CD" prepend="AND">
+						B.EVL_DVSN_CD = #EVL_DVSN_CD#
+				</isNotEmpty>
+		        ) AS BRD,
+		        (
+		        SELECT  EVL_YR, EVL_DVSN_CD, SC_GRN_TG_CD,
+		                BRD_NO, BRD_BKNO, CNB, COFM_YN,
+		                SUM(CASE WHEN SC_CAT_CD = '1' THEN SC END) AS EVL_BSC_SC,
+		                SUM(CASE WHEN SC_CAT_CD = '2' THEN SC END) AS EVL_CLU_SC,
+		                SUM(CASE WHEN SC_CAT_CD = '3' THEN SC END) AS EVL_ADD_SC
+		        FROM    TBAEPGKM016L
+		        WHERE   SC_GRN_TG_CD = #SC_GRN_TG_CD#
+		        <isNotEmpty property="EVL_YR" prepend="AND">
+						EVL_YR = #EVL_YR#
+				</isNotEmpty>
+				<isNotEmpty property="EVL_DVSN_CD" prepend="AND">
+						EVL_DVSN_CD = #EVL_DVSN_CD#
+				</isNotEmpty>
+		        GROUP BY EVL_YR, EVL_DVSN_CD, SC_GRN_TG_CD,
+		                 BRD_NO, BRD_BKNO, CNB, COFM_YN
+		        ) AS EVL
+		WHERE   BRD.EVL_YR = EVL.EVL_YR(+)
+		AND     BRD.EVL_DVSN_CD = EVL.EVL_DVSN_CD(+)
+		AND     BRD.SC_GRN_TG_CD = EVL.SC_GRN_TG_CD(+)
+		AND     BRD.BOARD_ID = EVL.BRD_NO(+)
+		AND     BRD.POST_SEQ = EVL.BRD_BKNO(+)
+		AND     BRD.CNB = EVL.CNB(+)
+		AND		EVL.COFM_YN = 'Y'
+	</select>
+	
+	
+	<select id="AEPGKM034Emaincselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT  BRD.EVL_YR, BRD.EVL_DVSN_CD, BRD.SC_GRN_TG_CD,
+		        BRD.BOARD_ID AS SET_ID, BRD.POST_SEQ, BRD.CMMT_SEQ, BRD.TITLE,
+		        BRD.DPT_NM, BRD.CNB, BRD.USR_NM,
+		        NVL(EVL.COFM_YN, 'N') AS COFM_YN,
+		        BRD.BSC_SC, BRD.MIN_SC, BRD.MAX_SC, BRD.ADD_SC,
+		        NVL(EVL.EVL_BSC_SC, BRD.BSC_SC) AS EVL_BSC_SC, NVL(EVL.EVL_CLU_SC, 0) AS EVL_CLU_SC, NVL(EVL.EVL_ADD_SC, 0) AS EVL_ADD_SC,
+		        TO_NUMBER(NVL(EVL.EVL_BSC_SC, BRD.BSC_SC) + NVL(EVL.EVL_CLU_SC, 0) + NVL(EVL.EVL_ADD_SC, 0)) AS TOT_SC
+		FROM    (
+		        SELECT  B.EVL_YR, B.EVL_DVSN_CD, B.SC_GRN_TG_CD
+		               ,C.BSC_SC, C.MIN_SC, C.MAX_SC, C.ADD_SC
+		               ,E.BOARD_ID, E.POST_SEQ, F.CMMT_SEQ, F.CONTENT AS TITLE
+		               ,F.CRE_USER_NAME AS USR_NM
+		               ,F_USR_INFO_BY_ID(F.CRE_USER_ID, '1') AS CNB
+		               ,F.CRE_USER_DEPT_NAME AS DPT_NM
+		        FROM    TBAEPGKM011M A /* 평가기간 */
+		               ,TBAEPGKM012L B /* 평가기간별점수부여대상 */
+		               ,TBAEPGKM006M C /* 점수부여대상 */
+		               ,TBAEPGKM007L D /* 점수부여대상설정 */
+		               ,CTT_POST E /* 게시판 */
+		               ,CTT_POST_CMMT F /* 댓글 */
+		        WHERE   A.EVL_YR = B.EVL_YR
+		        AND     A.EVL_DVSN_CD = B.EVL_DVSN_CD
+		        AND     B.SC_GRN_TG_CD = C.SC_GRN_TG_CD
+		        AND     C.SC_GRN_TG_CD = D.SC_GRN_TG_CD
+		        AND     D.SET_ID = E.BOARD_ID
+		        AND     E.BOARD_ID = F.BOARD_ID
+		        AND     E.POST_SEQ = F.POST_SEQ
+		        AND     B.SC_GRN_TG_CD = #SC_GRN_TG_CD#
+		        <![CDATA[
+		        AND     A.EVL_ACTV_STR_DT <= TO_CHAR(E.LAST_UPDATE, 'YYYYMMDD')  /* 활동기간내에 등록된 글 */
+		        AND     A.EVL_ACTV_END_DT >= TO_CHAR(E.LAST_UPDATE, 'YYYYMMDD')  /* 활동기간내에 등록된 글 */
+		        ]]>
+		        <isNotEmpty property="EVL_YR" prepend="AND">
+						B.EVL_YR = #EVL_YR#
+				</isNotEmpty>
+				<isNotEmpty property="EVL_DVSN_CD" prepend="AND">
+						B.EVL_DVSN_CD = #EVL_DVSN_CD#
+				</isNotEmpty>
+		        ) AS BRD,
+		        (
+		        SELECT  EVL_YR, EVL_DVSN_CD, SC_GRN_TG_CD,
+		                BRD_NO, BRD_BKNO, CMNT_NO, CNB, COFM_YN,
+		                SUM(CASE WHEN SC_CAT_CD = '1' THEN SC END) AS EVL_BSC_SC,
+		                SUM(CASE WHEN SC_CAT_CD = '2' THEN SC END) AS EVL_CLU_SC,
+		                SUM(CASE WHEN SC_CAT_CD = '3' THEN SC END) AS EVL_ADD_SC
+		        FROM    TBAEPGKM016L
+		        WHERE   SC_GRN_TG_CD = #SC_GRN_TG_CD#
+		        <isNotEmpty property="EVL_YR" prepend="AND">
+						EVL_YR = #EVL_YR#
+				</isNotEmpty>
+				<isNotEmpty property="EVL_DVSN_CD" prepend="AND">
+						EVL_DVSN_CD = #EVL_DVSN_CD#
+				</isNotEmpty>
+		        GROUP BY EVL_YR, EVL_DVSN_CD, SC_GRN_TG_CD,
+		                 BRD_NO, BRD_BKNO, CMNT_NO, CNB, COFM_YN
+		         ) AS EVL
+		WHERE   BRD.EVL_YR = EVL.EVL_YR(+)
+		AND     BRD.EVL_DVSN_CD = EVL.EVL_DVSN_CD(+)
+		AND     BRD.SC_GRN_TG_CD = EVL.SC_GRN_TG_CD(+)
+		AND     BRD.BOARD_ID = EVL.BRD_NO(+)
+		AND     BRD.POST_SEQ = EVL.BRD_BKNO(+)
+		AND     BRD.CMMT_SEQ = EVL.CMNT_NO(+)
+		AND		EVL.COFM_YN = 'Y'
+	</select>
+	
+	<!-- 평가 -->
+	<update id="AEPGKM034Emain01update" parameterClass="paramMap">
+			UPDATE	TBAEPGKM016L
+			SET		SC = #EVL_BSC_SC#
+				   ,FNL_USR_ID  = #FNL_USR_ID#
+			       ,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+			       ,FNL_MNU_ID = #FNL_MNU_ID#
+			       ,FNL_MDF_DH = SYSDATE
+			WHERE	EVL_YR = #EVL_YR#
+			AND		EVL_DVSN_CD = #EVL_DVSN_CD#
+			AND		SC_GRN_TG_CD = #SC_GRN_TG_CD#
+			AND		BRD_NO = #SET_ID#
+			AND		BRD_BKNO = #POST_SEQ#
+			<isNotEmpty property="CMMT_SEQ" prepend="AND">
+					CMNT_NO = TO_NUMBER(#CMMT_SEQ#)
+			</isNotEmpty>
+			AND		SC_CAT_CD = '1'
+	</update>
+
+	<update id="AEPGKM034Emain02update" parameterClass="paramMap">
+			MERGE INTO TBAEPGKM016L
+		    USING DUAL
+			   ON ( 
+					    EVL_YR           = #EVL_YR#
+					AND EVL_DVSN_CD     = #EVL_DVSN_CD#
+					AND SC_GRN_TG_CD      = #SC_GRN_TG_CD#
+					AND BRD_NO = #SET_ID#
+					AND BRD_BKNO = #POST_SEQ#
+					<isNotEmpty property="CMMT_SEQ" prepend="AND">
+						CMNT_NO = TO_NUMBER(#CMMT_SEQ#)
+					</isNotEmpty>
+					AND	SC_CAT_CD = '2'
+			  	   )
+			WHEN MATCHED  THEN 		
+				UPDATE
+				SET		SC = #EVL_CLU_SC#
+					   ,FNL_USR_ID  = #FNL_USR_ID#
+				       ,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+				       ,FNL_MNU_ID = #FNL_MNU_ID#
+				       ,FNL_MDF_DH = SYSDATE
+            WHEN NOT MATCHED THEN 
+		        INSERT 
+		        (
+			         EVL_YR	/* 평가년도 */
+					,EVL_DVSN_CD	/* 평가구분코드 */
+					,SC_GRN_TG_CD	/* 점수부여대상코드 */
+					,SNO	/* 순번 */
+					,BRD_NO	/* 게시판번호 */
+					,BRD_BKNO	/* 게시판행번 */
+					,CMNT_NO	/* 댓글번호 */
+					,SC_CAT_CD	/* 점수분류코드 */
+					,SC	/* 점수 */
+					,CNB	/* 전산번호 */
+					,COFM_YN	/* 승인여부 */
+					,FRT_USR_ID	/* 최초사용자ID */
+					,FNL_USR_ID	/* 최종사용자ID */
+					,FNL_DEAL_DPT_CD	/* 최종거래부서코드 */
+					,FNL_MNU_ID	/* 최종메뉴ID */
+					,FRT_REGI_DH	/* 최초등록일시 */
+					,FNL_MDF_DH	/* 최종수정일시 */
+			        )
+			        VALUES
+			        (
+			        #EVL_YR#
+			        , #EVL_DVSN_CD#
+			        , #SC_GRN_TG_CD#
+			        , (SELECT NVL(MAX(TO_NUMBER(SNO)), '0') + 1 FROM TBAEPGKM016L WHERE EVL_YR = #EVL_YR# AND EVL_DVSN_CD = #EVL_DVSN_CD# AND SC_GRN_TG_CD = #SC_GRN_TG_CD#)
+			        , #SET_ID#
+			        , #POST_SEQ#
+			        <isNotEmpty property="CMMT_SEQ">
+			        , #CMMT_SEQ#
+			        </isNotEmpty>
+			        <isEmpty property="CMMT_SEQ">
+			        , ''
+			        </isEmpty>
+			        , '2'
+			        , #EVL_CLU_SC#
+			        , #CNB#
+			        , 'Y'
+			        , #FRT_USR_ID#
+			        , #FNL_USR_ID#
+			        , #FNL_DEAL_DPT_CD#
+			        , #FNL_MNU_ID#
+			        , SYSDATE
+			        , SYSDATE 
+		        )
+	</update>
+	
+	<update id="AEPGKM034Emain03update" parameterClass="paramMap">
+			MERGE INTO TBAEPGKM016L
+		    USING DUAL
+			   ON ( 
+					    EVL_YR           = #EVL_YR#
+					AND EVL_DVSN_CD     = #EVL_DVSN_CD#
+					AND SC_GRN_TG_CD      = #SC_GRN_TG_CD#
+					AND BRD_NO = #SET_ID#
+					AND BRD_BKNO = #POST_SEQ#
+					<isNotEmpty property="CMMT_SEQ" prepend="AND">
+						CMNT_NO = TO_NUMBER(#CMMT_SEQ#)
+					</isNotEmpty>
+					AND	SC_CAT_CD = '3'
+			  	   )
+			WHEN MATCHED  THEN 		
+				UPDATE
+				SET		SC = #EVL_ADD_SC#
+					   ,FNL_USR_ID  = #FNL_USR_ID#
+				       ,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+				       ,FNL_MNU_ID = #FNL_MNU_ID#
+				       ,FNL_MDF_DH = SYSDATE
+
+            WHEN NOT MATCHED THEN 
+		        INSERT 
+		        (
+			         EVL_YR	/* 평가년도 */
+					,EVL_DVSN_CD	/* 평가구분코드 */
+					,SC_GRN_TG_CD	/* 점수부여대상코드 */
+					,SNO	/* 순번 */
+					,BRD_NO	/* 게시판번호 */
+					,BRD_BKNO	/* 게시판행번 */
+					,CMNT_NO	/* 댓글번호 */
+					,SC_CAT_CD	/* 점수분류코드 */
+					,SC	/* 점수 */
+					,CNB	/* 전산번호 */
+					,COFM_YN	/* 승인여부 */
+					,FRT_USR_ID	/* 최초사용자ID */
+					,FNL_USR_ID	/* 최종사용자ID */
+					,FNL_DEAL_DPT_CD	/* 최종거래부서코드 */
+					,FNL_MNU_ID	/* 최종메뉴ID */
+					,FRT_REGI_DH	/* 최초등록일시 */
+					,FNL_MDF_DH	/* 최종수정일시 */
+			        )
+			        VALUES
+			        (
+			        #EVL_YR#
+			        , #EVL_DVSN_CD#
+			        , #SC_GRN_TG_CD#
+			        , (SELECT NVL(MAX(TO_NUMBER(SNO)), '0') + 1 FROM TBAEPGKM016L WHERE EVL_YR = #EVL_YR# AND EVL_DVSN_CD = #EVL_DVSN_CD# AND SC_GRN_TG_CD = #SC_GRN_TG_CD#)
+			        , #SET_ID#
+			        , #POST_SEQ#
+			        <isNotEmpty property="CMMT_SEQ">
+			        , #CMMT_SEQ#
+			        </isNotEmpty>
+			        <isEmpty property="CMMT_SEQ">
+			        , ''
+			        </isEmpty>
+			        , '3'
+			        , #EVL_ADD_SC#
+			        , #CNB#
+			        , 'Y'
+			        , #FRT_USR_ID#
+			        , #FNL_USR_ID#
+			        , #FNL_DEAL_DPT_CD#
+			        , #FNL_MNU_ID#
+			        , SYSDATE
+			        , SYSDATE 
+		        );
+	</update>
+
+	<!-- 평가취소 -->
+	<update id="AEPGKM034ECancleupdate" parameterClass="java.util.Map">
+		DECLARE
+			BEGIN
+			UPDATE	TBAEPGKM016L
+			SET		SC = 0
+				   ,FNL_USR_ID  = #FNL_USR_ID#
+			       ,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+			       ,FNL_MNU_ID = #FNL_MNU_ID#
+			       ,FNL_MDF_DH = SYSDATE
+			WHERE	EVL_YR = #EVL_YR#
+			AND		EVL_DVSN_CD = #EVL_DVSN_CD#
+			AND		SC_GRN_TG_CD = #SC_GRN_TG_CD#
+			AND		BRD_NO = #SET_ID#
+			AND		BRD_BKNO = #POST_SEQ#
+			<isNotEmpty property="CMMT_SEQ" prepend="AND">
+					CMNT_NO = TO_NUMBER(#CMMT_SEQ#)
+			</isNotEmpty>
+			AND		SC_CAT_CD = '1';
+			
+			DELETE 
+			  FROM TBAEPGKM016L
+			 WHERE EVL_YR = #EVL_YR#
+			   AND EVL_DVSN_CD = #EVL_DVSN_CD#
+			   AND SC_GRN_TG_CD = #SC_GRN_TG_CD#
+			   AND BRD_NO = #SET_ID#
+			   AND BRD_BKNO = #POST_SEQ#
+			<isNotEmpty property="CMMT_SEQ" prepend="AND">
+					CMNT_NO = TO_NUMBER(#CMMT_SEQ#)
+			</isNotEmpty>
+			AND		SC_CAT_CD = '2';
+			
+			DELETE 
+			  FROM TBAEPGKM016L
+			 WHERE EVL_YR = #EVL_YR#
+			   AND EVL_DVSN_CD = #EVL_DVSN_CD#
+			   AND SC_GRN_TG_CD = #SC_GRN_TG_CD#
+			   AND BRD_NO = #SET_ID#
+			   AND BRD_BKNO = #POST_SEQ#
+			<isNotEmpty property="CMMT_SEQ" prepend="AND">
+					CMNT_NO = TO_NUMBER(#CMMT_SEQ#)
+			</isNotEmpty>
+			  AND SC_CAT_CD = '3';
+		END;
+	</update>
+</sqlMap>
+

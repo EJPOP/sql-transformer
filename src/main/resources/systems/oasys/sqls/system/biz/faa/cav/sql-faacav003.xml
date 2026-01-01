@@ -1,0 +1,663 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="faa/cav/003"> 
+	<parameterMap id="prcAmCCountParm" class="java.util.HashMap">
+		<parameter property="i_sokwan_cd"		jdbcType="VARCHAR"	javaType="java.lang.String" mode="IN" />
+		<parameter property="i_hoigye_cd"		jdbcType="VARCHAR"	javaType="java.lang.String" mode="IN" />
+		<parameter property="i_gyesan_cd"		jdbcType="VARCHAR"	javaType="java.lang.String" mode="IN" />
+		<parameter property="i_duty_sno"		jdbcType="VARCHAR"	javaType="java.lang.String" mode="IN" />
+		<parameter property="i_sduty_sno"		jdbcType="VARCHAR"	javaType="java.lang.String" mode="IN" />
+		<parameter property="i_prov_year"		jdbcType="VARCHAR"	javaType="java.lang.String" mode="IN" />
+		<parameter property="i_prov_mon"		jdbcType="VARCHAR"	javaType="java.lang.String" mode="IN" />
+		<parameter property="i_sduty"		    jdbcType="VARCHAR"	javaType="java.lang.String" mode="IN" />
+		<parameter property="vRetCode"	        jdbcType="VARCHAR"	javaType="java.lang.String" mode="OUT" />
+		<parameter property="vUserMessage"	    jdbcType="VARCHAR"	javaType="java.lang.String" mode="OUT" />		
+	</parameterMap>
+		
+	<!-- 정정분 일괄접수-->
+	<procedure id="FAACAV003ExecuteAcp" parameterMap="prcAmCCountParm">
+		{ CALL BTJ_AA_AV_006_01(?, ?, ?, ?, ?, ? , ?, ?, ?, ?) }
+	</procedure>
+		 
+	<select id="FAACAV003EMainselect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[  /* faa/cav/003/FAACAV003EMainselect */ ]]>
+		<include refid="include.pageSelct" />
+        <![CDATA[
+			SELECT 	ROWNUM AS KEY
+					,A.COPT_CD||'-'||A.ACNT_CD||'-'||A.BLL_CD||'-'||A.PROF_DRTR_SRNO||'-'||A.DL_XPN_RCDB_PBSVT_SRNO AS PROF_DRTR_CD
+					,A.PROF_YM
+					,A.RCPT_DH
+					,F_AV_ACCMN_NM(A.COPT_CD,A.ACNT_CD,A.BLL_CD ,A.PROF_DRTR_SRNO ,A.DL_XPN_RCDB_PBSVT_SRNO) ORG_NM 
+					,F_AV_BLL_COPT_CD_NM(A.COPT_CD) COPT_NM
+					,F_AV_ACNT_CD_NM(A.ACNT_CD) ACNT_NM
+					,F_AV_BLL_CD_NM(A.BLL_CD, A.DL_XPN_RCDB_PBSVT_SRNO) AS BLL_NM
+					,'정정대기중' AS STATUS
+					,B.BLL_HNDL_STA_CD
+					,(SELECT C.HNDL_STA_YN
+					    FROM TWFAACAV016M C
+					   WHERE C.COPT_CD = A.COPT_CD
+					     AND C.ACNT_CD = A.ACNT_CD
+					     AND C.BLL_CD = A.BLL_CD
+					     AND C.PROF_DRTR_SRNO = A.PROF_DRTR_SRNO
+					     AND C.DL_XPN_RCDB_PBSVT_SRNO = A.DL_XPN_RCDB_PBSVT_SRNO
+					     AND C.PROF_YM = A.PROF_YM) AS HNDL_STA_YN
+					, A.COPT_CD
+					, A.ACNT_CD
+					, A.BLL_CD
+					, A.PROF_DRTR_SRNO
+					, A.DL_XPN_RCDB_PBSVT_SRNO
+					, C.ABLT_DT
+					, C.TNB
+					, C.MDF_PEN_NM
+			  FROM TWFAACAV002H A, 
+			  	   TWFAACAV001M B, 
+			  	   TWFAACAV003M C
+			 WHERE 1=1
+		]]>  
+		<isNotEmpty property="strProfMm">
+			   AND A.PROF_YM     = #strProfYm#
+		</isNotEmpty>
+		<isEmpty property="strProfMm">
+			AND A.PROF_YM     like #strProfYr# || '%'
+		</isEmpty>
+		
+		<![CDATA[
+			   AND A.RCPT_STA_CD = 'W'
+			   AND A.PROF_YM = B.PROF_YM
+			   AND A.COPT_CD = B.COPT_CD
+			   AND A.ACNT_CD = B.ACNT_CD
+			   AND A.BLL_CD  = B.BLL_CD
+			   AND A.PROF_DRTR_SRNO = B.PROF_DRTR_SRNO
+			   AND A.DL_XPN_RCDB_PBSVT_SRNO = B.DL_XPN_RCDB_PBSVT_SRNO
+			   AND B.COPT_CD = C.COPT_CD
+			   AND B.ACNT_CD = C.ACNT_CD
+			   AND B.BLL_CD  = C.BLL_CD
+			   AND B.PROF_DRTR_SRNO = C.PROF_DRTR_SRNO
+			   AND B.DL_XPN_RCDB_PBSVT_SRNO = C.DL_XPN_RCDB_PBSVT_SRNO
+       ]]>
+       
+		<isNotEmpty property="strCoptCd">	 	   
+			   AND A.COPT_CD     = #strCoptCd#
+		</isNotEmpty>   	
+		<isNotEmpty property="strAcntCd">	 	   
+			   AND A.ACNT_CD     = #strAcntCd#
+		</isNotEmpty>  
+		
+		<isNotEmpty property="strBllCd">
+						 <!-- 소관코드 OR 회계코드 중 하나라도 입력했을 경우 -->
+			AND 1 = CASE WHEN #strCoptCd# IS NOT NULL OR #strAcntCd# IS NOT NULL
+						   			 <!-- 증명책임자일련번호를 입력했을 경우 -->
+			               THEN CASE WHEN #strProfDrtrSrno# IS NOT NULL
+			               			   			 <!-- 일상경비출납공무원일련번호를 입력했을 경우 -->
+			                           THEN CASE WHEN #strDlXpnRcdbPbsvtSrno# IS NOT NULL 
+			                                       THEN CASE WHEN A.BLL_CD = #strBllCd# AND A.DL_XPN_RCDB_PBSVT_SRNO = #strDlXpnRcdbPbsvtSrno# THEN '1'
+			                                            END
+			                                     <!-- 일상경비출납공무원일련번호를 입력하지 않았을 경우 --> 
+			                                     ELSE CASE WHEN A.BLL_CD = #strBllCd# THEN '1'
+			                                          END
+			                                END
+			                         <!-- 증명책임자일련번호를 입력하지 않았을 경우 -->
+			                         		   <!-- 계산서코드를 '17,18'로 입력한 경우 -->
+			                         ELSE CASE WHEN #strBllCd# IN ('17', '18')
+			                         			 		   <!-- 관서운영비여부를 '아니오'로 입력한 경우 -->
+			                                     THEN CASE WHEN #strFildGovYn# = 'N' 			                                       
+			                                                 THEN CASE WHEN A.BLL_CD IN ('17', '18') AND A.DL_XPN_RCDB_PBSVT_SRNO = '000' THEN '1'
+			                                                      END
+			                                               <!-- 관서운영비여부를 '예'로 입력한 경우 -->       
+			                                               			 <!-- 일상경비출납공무원일련번호를 입력했을 경우 -->
+			                                               ELSE CASE WHEN #strDlXpnRcdbPbsvtSrno# IS NOT NULL 
+			                                                           THEN CASE WHEN A.BLL_CD IN ('17', '18') AND A.DL_XPN_RCDB_PBSVT_SRNO = #strDlXpnRcdbPbsvtSrno# THEN '1'
+			                                                                END	
+			                                                         <!-- 일상경비출납공무원일련번호를 입력하지 않았을 경우 -->       		                                                            
+			                                                         ELSE CASE WHEN A.BLL_CD IN ('17', '18') AND A.DL_XPN_RCDB_PBSVT_SRNO &lt;&gt; '000' THEN '1'
+			                                                              END
+			                                                    END                                                    
+			                                          END
+			                                   <!-- 계산서코드를 '19'로 입력한 경우 -->       
+			                                   WHEN #strBllCd# = '19'
+			                                   			   <!-- 관서운영비여부를 '아니오'로 입력한 경우 -->
+			                                     THEN CASE WHEN #strFildGovYn# = 'N' 			                                       
+			                                                 THEN CASE WHEN A.BLL_CD = '19' AND A.DL_XPN_RCDB_PBSVT_SRNO = '000' THEN '1'
+			                                                      END
+			                                               <!-- 관서운영비여부를 '예'로 입력한 경우 -->       
+			                                               			 <!-- 일상경비출납공무원일련번호를 입력했을 경우 -->       
+			                                               ELSE CASE WHEN #strDlXpnRcdbPbsvtSrno# IS NOT NULL 
+			                                                           THEN CASE WHEN A.BLL_CD = '19' AND A.DL_XPN_RCDB_PBSVT_SRNO = #strDlXpnRcdbPbsvtSrno# THEN '1'
+			                                                                END		
+			                                                         <!-- 일상경비출납공무원일련번호를 입력하지 않았을 경우 -->        	                                                            
+			                                                         ELSE CASE WHEN A.BLL_CD = '19' AND A.DL_XPN_RCDB_PBSVT_SRNO &lt;&gt; '000' THEN '1'
+			                                                              END
+			                                                    END                                                    
+			                                          END  
+			                                   <!-- 계산서코드를 '22,23,24'로 입력한 경우 -->        
+			                                   WHEN #strBllCd# IN ('22', '23', '24')
+			                         			 		   <!-- 관서운영비여부를 '아니오'로 입력한 경우 -->
+			                                     THEN CASE WHEN #strFildGovYn# = 'N' 			                                       
+			                                                 THEN CASE WHEN A.BLL_CD IN ('22', '23', '24') AND A.DL_XPN_RCDB_PBSVT_SRNO = '000' THEN '1'
+			                                                      END
+			                                               <!-- 관서운영비여부를 '예'로 입력한 경우 -->       
+			                                               			 <!-- 일상경비출납공무원일련번호를 입력했을 경우 -->
+			                                               ELSE CASE WHEN #strDlXpnRcdbPbsvtSrno# IS NOT NULL 
+			                                                           THEN CASE WHEN A.BLL_CD IN ('22', '23', '24') AND A.DL_XPN_RCDB_PBSVT_SRNO = #strDlXpnRcdbPbsvtSrno# THEN '1'
+			                                                                END	
+			                                                         <!-- 일상경비출납공무원일련번호를 입력하지 않았을 경우 -->       		                                                            
+			                                                         ELSE CASE WHEN A.BLL_CD IN ('22', '23', '24') AND A.DL_XPN_RCDB_PBSVT_SRNO &lt;&gt; '000' THEN '1'
+			                                                              END
+			                                                    END                                                    
+			                                          END 
+			                                   <!-- 계산서코드를 '42,43'로 입력한 경우 -->
+			                         		   WHEN #strBllCd# IN ('42', '43')
+			                         		               <!-- 일상경비출납공무원일련번호를 입력했을 경우 -->	                                       
+			                                     THEN CASE WHEN #strDlXpnRcdbPbsvtSrno# IS NOT NULL 
+			                                                 THEN CASE WHEN A.BLL_CD IN ('42', '43') AND A.DL_XPN_RCDB_PBSVT_SRNO = #strDlXpnRcdbPbsvtSrno# THEN '1'
+			                                                      END
+			                                               <!-- 일상경비출납공무원일련번호를 입력하지 않았을 경우 -->       
+			                                               ELSE CASE WHEN A.BLL_CD IN ('42', '43') THEN '1'
+			                                                    END
+			                                          END			                                                                                                        
+			                                   <!-- 그 외의 계산서코드일 경우 -->
+			                         		   ELSE        <!-- 일상경비출납공무원일련번호를 입력했을 경우 -->	                                       
+			                                          CASE WHEN #strDlXpnRcdbPbsvtSrno# IS NOT NULL 
+			                                                 THEN CASE WHEN A.BLL_CD = #strBllCd# AND A.DL_XPN_RCDB_PBSVT_SRNO = #strDlXpnRcdbPbsvtSrno# THEN '1'
+			                                                      END
+			                                               <!-- 일상경비출납공무원일련번호를 입력하지 않았을 경우 -->       
+			                                               ELSE CASE WHEN A.BLL_CD = #strBllCd# THEN '1'
+			                                                    END
+			                                          END                            
+			                              END
+			                    END
+			             <!-- 소관코드 and 회계코드를 입력하지 않았을 경우 -->
+			             ELSE 	 	 <!-- 증명책임자일련번호를 입력했을 경우 -->
+			                    CASE WHEN #strProfDrtrSrno# IS NOT NULL
+			               			   			 <!-- 일상경비출납공무원일련번호를 입력했을 경우 -->
+			                           THEN CASE WHEN #strDlXpnRcdbPbsvtSrno# IS NOT NULL 
+			                                       THEN CASE WHEN A.BLL_CD = #strBllCd# AND A.DL_XPN_RCDB_PBSVT_SRNO = #strDlXpnRcdbPbsvtSrno# THEN '1'
+			                                            END
+			                                     <!-- 일상경비출납공무원일련번호를 입력하지 않았을 경우 --> 
+			                                     ELSE CASE WHEN A.BLL_CD = #strBllCd# THEN '1'
+			                                          END
+			                                END
+			                         <!-- 증명책임자일련번호를 입력하지 않았을 경우 -->
+			                         		   <!-- 계산서코드를 '17,18'로 입력한 경우 -->
+			                         ELSE CASE WHEN #strBllCd# IN ('17', '18')
+			                         			 		   <!-- 관서운영비여부를 '아니오'로 입력한 경우 -->
+			                                     THEN CASE WHEN #strFildGovYn# = 'N' 			                                       
+			                                                 THEN CASE WHEN A.BLL_CD IN ('17', '18') AND A.DL_XPN_RCDB_PBSVT_SRNO = '000' THEN '1'
+			                                                      END
+			                                               <!-- 관서운영비여부를 '예'로 입력한 경우 -->       
+			                                               			 <!-- 일상경비출납공무원일련번호를 입력했을 경우 -->
+			                                               ELSE CASE WHEN #strDlXpnRcdbPbsvtSrno# IS NOT NULL 
+			                                                           THEN CASE WHEN A.BLL_CD IN ('17', '18') AND A.DL_XPN_RCDB_PBSVT_SRNO = #strDlXpnRcdbPbsvtSrno# THEN '1'
+			                                                                END	
+			                                                         <!-- 일상경비출납공무원일련번호를 입력하지 않았을 경우 -->       		                                                            
+			                                                         ELSE CASE WHEN A.BLL_CD IN ('17', '18') AND A.DL_XPN_RCDB_PBSVT_SRNO &lt;&gt; '000' THEN '1'
+			                                                              END
+			                                                    END                                                    
+			                                          END			                                  
+			                                   <!-- 계산서코드를 '19'로 입력한 경우 -->       
+			                                   WHEN #strBllCd# = '19'
+			                                   			   <!-- 관서운영비여부를 '아니오'로 입력한 경우 -->
+			                                     THEN CASE WHEN #strFildGovYn# = 'N' 			                                       
+			                                                 THEN CASE WHEN A.BLL_CD = '19' AND A.DL_XPN_RCDB_PBSVT_SRNO = '000' THEN '1'
+			                                                      END
+			                                               <!-- 관서운영비여부를 '예'로 입력한 경우 -->       
+			                                               			 <!-- 일상경비출납공무원일련번호를 입력했을 경우 -->       
+			                                               ELSE CASE WHEN #strDlXpnRcdbPbsvtSrno# IS NOT NULL 
+			                                                           THEN CASE WHEN A.BLL_CD = '19' AND A.DL_XPN_RCDB_PBSVT_SRNO = #strDlXpnRcdbPbsvtSrno# THEN '1'
+			                                                                END		
+			                                                         <!-- 일상경비출납공무원일련번호를 입력하지 않았을 경우 -->        	                                                            
+			                                                         ELSE CASE WHEN A.BLL_CD = '19' AND A.DL_XPN_RCDB_PBSVT_SRNO &lt;&gt; '000' THEN '1'
+			                                                              END
+			                                                    END                                                    
+			                                          END  
+			                                   <!-- 계산서코드를 '22,23,24'로 입력한 경우 -->        
+			                                   WHEN #strBllCd# IN ('22', '23', '24')
+			                         			 		   <!-- 관서운영비여부를 '아니오'로 입력한 경우 -->
+			                                     THEN CASE WHEN #strFildGovYn# = 'N' 			                                       
+			                                                 THEN CASE WHEN A.BLL_CD IN ('22', '23', '24') AND A.DL_XPN_RCDB_PBSVT_SRNO = '000' THEN '1'
+			                                                      END
+			                                               <!-- 관서운영비여부를 '예'로 입력한 경우 -->       
+			                                               			 <!-- 일상경비출납공무원일련번호를 입력했을 경우 -->
+			                                               ELSE CASE WHEN #strDlXpnRcdbPbsvtSrno# IS NOT NULL 
+			                                                           THEN CASE WHEN A.BLL_CD IN ('22', '23', '24') AND A.DL_XPN_RCDB_PBSVT_SRNO = #strDlXpnRcdbPbsvtSrno# THEN '1'
+			                                                                END	
+			                                                         <!-- 일상경비출납공무원일련번호를 입력하지 않았을 경우 -->       		                                                            
+			                                                         ELSE CASE WHEN A.BLL_CD IN ('22', '23', '24') AND A.DL_XPN_RCDB_PBSVT_SRNO &lt;&gt; '000' THEN '1'
+			                                                              END
+			                                                    END                                                    
+			                                          END 
+			                                   <!-- 계산서코드를 '42,43'로 입력한 경우 -->
+			                         		   WHEN #strBllCd# IN ('42', '43')
+			                         		               <!-- 일상경비출납공무원일련번호를 입력했을 경우 -->	                                       
+			                                     THEN CASE WHEN #strDlXpnRcdbPbsvtSrno# IS NOT NULL 
+			                                                 THEN CASE WHEN A.BLL_CD IN ('42', '43') AND A.DL_XPN_RCDB_PBSVT_SRNO = #strDlXpnRcdbPbsvtSrno# THEN '1'
+			                                                      END
+			                                               <!-- 일상경비출납공무원일련번호를 입력하지 않았을 경우 -->       
+			                                               ELSE CASE WHEN A.BLL_CD IN ('42', '43') THEN '1'
+			                                                    END
+			                                          END			                                                                                                        
+			                                   <!-- 그 외의 계산서코드일 경우 -->
+			                         		   ELSE        <!-- 일상경비출납공무원일련번호를 입력했을 경우 -->	                                       
+			                                          CASE WHEN #strDlXpnRcdbPbsvtSrno# IS NOT NULL 
+			                                                 THEN CASE WHEN A.BLL_CD = #strBllCd# AND A.DL_XPN_RCDB_PBSVT_SRNO = #strDlXpnRcdbPbsvtSrno# THEN '1'
+			                                                      END
+			                                               <!-- 일상경비출납공무원일련번호를 입력하지 않았을 경우 -->       
+			                                               ELSE CASE WHEN A.BLL_CD = #strBllCd# THEN '1'
+			                                                    END
+			                                          END		  
+			                              END
+			                    END                      
+			        END
+		</isNotEmpty> 
+		
+		<isEqual property="strFildGovYn" compareValue="N">
+			<isNotEmpty property="strDlXpnRcdbPbsvtSrno">	
+				AND  A.DL_XPN_RCDB_PBSVT_SRNO = #strDlXpnRcdbPbsvtSrno#
+			</isNotEmpty>
+			<isEmpty property="strDlXpnRcdbPbsvtSrno">	
+				AND  A.DL_XPN_RCDB_PBSVT_SRNO = '000'
+			</isEmpty>	
+		</isEqual>
+		
+		<isEqual property="strFildGovYn" compareValue="Y">
+			<isNotEmpty property="strDlXpnRcdbPbsvtSrno">	
+				AND  A.DL_XPN_RCDB_PBSVT_SRNO = #strDlXpnRcdbPbsvtSrno#
+			</isNotEmpty>
+			<isEmpty property="strDlXpnRcdbPbsvtSrno">	
+				AND  A.DL_XPN_RCDB_PBSVT_SRNO &lt;&gt; '000'
+			</isEmpty>	
+		</isEqual>	
+		
+		<isNotEmpty property="strProfDrtrSrno">	 	   
+			   AND A.PROF_DRTR_SRNO     = #strProfDrtrSrno#
+		</isNotEmpty>
+
+	
+		<![CDATA[
+			   AND A.RCPT_DH = (SELECT MAX(C.RCPT_DH)
+			                      FROM TWFAACAV002H C
+			                     WHERE A.PROF_YM = C.PROF_YM
+			                       AND A.COPT_CD = C.COPT_CD
+			                       AND A.ACNT_CD = C.ACNT_CD
+			                       AND A.BLL_CD  = C.BLL_CD
+			                       AND A.PROF_DRTR_SRNO = C.PROF_DRTR_SRNO
+			                       AND A.DL_XPN_RCDB_PBSVT_SRNO = C.DL_XPN_RCDB_PBSVT_SRNO)
+			 ORDER BY A.BLL_CD, A.COPT_CD, A.ACNT_CD, A.PROF_DRTR_SRNO, A.PROF_YM
+       ]]>  
+		<include refid="include.pageOrder" />
+	</select>
+	 
+
+		 
+	<!--정정분계산서상세화면조회-->
+	<select id="FAACAV003EMainselectDtl" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[  /* faa/cav/003/FAACAV003EMainselectDtl */ ]]>
+        <![CDATA[       
+        SELECT ROWNUM AS KEY,
+               A.COPT_CD||'-'||A.ACNT_CD||'-'||A.BLL_CD||'-'||A.PROF_DRTR_SRNO||'-'|| A.DL_XPN_RCDB_PBSVT_SRNO PROF_DRTR_CD,
+               A.PROF_YM ,
+               A.ACP_DH as RCPT_DH,
+               B.ORG_NM,
+               F_AV_BLL_COPT_CD_NM(A.COPT_CD) COPT_NM,
+               F_AV_ACNT_CD_NM(A.ACNT_CD) ACNT_NM,
+               F_AV_BLL_CD_NM(A.BLL_CD, A.DL_XPN_RCDB_PBSVT_SRNO) BLL_NM,
+               C.BLL_HNDL_STA_CD,
+               D.HNDL_STA_YN,
+               A.COPT_CD,
+               A.ACNT_CD,
+               A.BLL_CD,
+               A.PROF_DRTR_SRNO,
+               A.DL_XPN_RCDB_PBSVT_SRNO,
+               B.ABLT_DT,
+               B.TNB,
+               B.MDF_PEN_NM
+          FROM TWFAACAV005M A ,
+               TWFAACAV003M B 
+               LEFT OUTER JOIN TWFAACAV001M C
+                       ON ( C.COPT_CD = B.COPT_CD
+                       AND C.ACNT_CD = B.ACNT_CD
+                       AND C.BLL_CD = B.BLL_CD
+                       AND C.PROF_DRTR_SRNO = B.PROF_DRTR_SRNO
+                       AND C.DL_XPN_RCDB_PBSVT_SRNO = B.DL_XPN_RCDB_PBSVT_SRNO)
+               LEFT OUTER JOIN TWFAACAV016M D
+                       ON ( D.COPT_CD = B.COPT_CD
+                       AND D.ACNT_CD = B.ACNT_CD
+                       AND D.BLL_CD = B.BLL_CD
+                       AND D.PROF_DRTR_SRNO = B.PROF_DRTR_SRNO
+                       AND D.DL_XPN_RCDB_PBSVT_SRNO = B.DL_XPN_RCDB_PBSVT_SRNO)                       
+              WHERE 1 = 1
+               AND A.COPT_CD = B.COPT_CD
+               AND A.ACNT_CD = B.ACNT_CD
+               AND A.BLL_CD = B.BLL_CD
+               AND A.PROF_DRTR_SRNO = B.PROF_DRTR_SRNO
+               AND A.DL_XPN_RCDB_PBSVT_SRNO = B.DL_XPN_RCDB_PBSVT_SRNO              
+               AND A.ERR_HNDL_STA_CD = 'W' 
+
+		]]>
+		<isNotEmpty property="strProfMm">	 /*증명월이 있으면 */	   
+			   AND A.PROF_YM     = #strProfYm#
+		</isNotEmpty>
+		<isEmpty property="strProfMm">	/*증명월이 없으면 */	
+			   AND A.PROF_YM    BETWEEN  #strProfYr#||'00' AND #strProfYr#||'13'
+		</isEmpty>
+		<isNotEmpty property="strCoptCd">	 	   
+			   AND A.COPT_CD     = #strCoptCd#
+		</isNotEmpty>   	
+		<isNotEmpty property="strAcntCd">	 	   
+			   AND A.ACNT_CD     = #strAcntCd#
+		</isNotEmpty>  
+		<isNotEmpty property="strBllCd">	 	   
+			<isEmpty property="strProfDrtrSrno">
+				<isEqual property="strBllCd" compareValue="17">
+				   AND  A.BLL_CD IN('17','18')
+				</isEqual>
+			</isEmpty> 
+			<isEmpty property="strProfDrtrSrno">
+				<isEqual property="strBllCd" compareValue="22">
+				   AND  A.BLL_CD IN('22','23','24')
+				</isEqual>
+			</isEmpty> 
+			<isEmpty property="strProfDrtrSrno">
+				<isEqual property="strBllCd" compareValue="42">
+				   AND  A.BLL_CD IN('42','43')
+				</isEqual>
+			</isEmpty> 
+			<isNotEmpty property="strProfDrtrSrno">
+				   AND  A.BLL_CD =#strBllCd#
+			</isNotEmpty>
+																				 
+		</isNotEmpty>     
+		<isNotEmpty property="strProfDrtrSrno">	 	   
+			   AND A.PROF_DRTR_SRNO     = #strProfDrtrSrno#
+		</isNotEmpty> 
+		<isNotEmpty property="strDlXpnRcdbPbsvtSrno">	 	   
+			   AND A.DL_XPN_RCDB_PBSVT_SRNO     = #strDlXpnRcdbPbsvtSrno#
+		</isNotEmpty>	 	
+
+		<isEqual property="strFildGovYn" compareValue="Y">
+		 	   AND  A.DL_XPN_RCDB_PBSVT_SRNO != '000'
+		</isEqual>	
+		<isEqual property="strFildGovYn" compareValue="N">
+		 	   AND  A.DL_XPN_RCDB_PBSVT_SRNO = '000'
+		</isEqual>
+ 			ORDER BY KEY,PROF_DRTR_CD,PROF_YM, RCPT_DH
+	</select>
+
+	<!-- 접수오류상세내역 insert-->
+	<insert id="FAACAV003ESubinsert" parameterClass="paramMap">
+		<![CDATA[  /* faa/cav/003/FAACAV003ESubinsert */ ]]>
+		INSERT INTO TWFAACAV006D
+		(
+			 COPT_CD
+			,ACNT_CD
+			,BLL_CD
+			,PROF_DRTR_SRNO
+			,DL_XPN_RCDB_PBSVT_SRNO
+			,PROF_YM
+			,ACP_DH
+			,SRNO
+			,ACP_ERR_CD
+		) VALUES (
+			 #COPT_CD#
+			,#ACNT_CD#
+			,#BLL_CD#
+			,#PROF_DRTR_SRNO#
+			,#DL_XPN_RCDB_PBSVT_SRNO#
+			,#PROF_YM#
+			,#RCPT_DH#
+			,1
+			,'REC['||#RSN_TYP_CD#||']'
+
+		)
+	</insert>	
+	
+	<update id="FAACAV003EMainUpdate" parameterClass="paramMap">
+		<![CDATA[  /* faa/cav/003/FAACAV003EMainUpdate */ ]]>
+		<![CDATA[ 	
+			UPDATE TWFAACAV005M
+			   SET ERR_HNDL_STA_CD   = 'E' 
+
+		]]>	    
+			  WHERE 1=1
+			   AND COPT_CD = #COPT_CD#
+	           AND ACNT_CD = #ACNT_CD#
+	           AND BLL_CD = #BLL_CD#
+	           AND PROF_DRTR_SRNO = #PROF_DRTR_SRNO#
+	           AND DL_XPN_RCDB_PBSVT_SRNO = #DL_XPN_RCDB_PBSVT_SRNO#
+	           AND ACP_DH  =  #RCPT_DH#
+	           AND PROF_YM    = #PROF_YM# 
+	</update>
+	<!-- 수신이력 update-->
+	<update id="FAACAV003ESubUpdate" parameterClass="paramMap">
+		<![CDATA[  /* faa/cav/003/FAACAV003ESubUpdate */ ]]>
+		<![CDATA[ 	
+			UPDATE TWFAACAV002H
+			   SET RCPT_STA_CD   = 'E' 
+
+		]]>	    
+			  WHERE 1=1
+			   AND COPT_CD = #COPT_CD#
+	           AND ACNT_CD = #ACNT_CD#
+	           AND BLL_CD = #BLL_CD#
+	           AND PROF_DRTR_SRNO = #PROF_DRTR_SRNO#
+	           AND DL_XPN_RCDB_PBSVT_SRNO = #DL_XPN_RCDB_PBSVT_SRNO#
+	           AND RCPT_DH  =  #RCPT_DH#
+	           AND PROF_YM    = #PROF_YM# 
+	</update>	
+
+	<!-- 사유서 내역 update-->
+	<update id="FAACAV003ERsnUpdate" parameterClass="paramMap">
+		<![CDATA[  /* faa/cav/003/FAACAV003ERsnUpdate */ ]]>
+		<![CDATA[ 	
+			MERGE INTO TWFAACAV056L
+		    USING DUAL
+			   ON ( 
+				       COPT_CD = #COPT_CD#
+		           AND ACNT_CD = #ACNT_CD#
+		           AND BLL_CD = #BLL_CD#
+		           AND PROF_DRTR_SRNO = #PROF_DRTR_SRNO#
+		           AND DL_XPN_RCDB_PBSVT_SRNO = #DL_XPN_RCDB_PBSVT_SRNO#
+		           AND PROF_YM    = #PROF_YM#
+		           AND ACP_DH  =  #RCPT_DH#
+			  	   )
+			WHEN MATCHED  THEN 		
+				UPDATE SET
+					 RSNANS_ACP_DT = #RSNANS_ACP_DT#,
+					 RSN_TXT = #RSN_TXT#,
+					 ACP_ID = #ACP_ID#,
+					 RSN_TYP_CD = #RSN_TYP_CD#
+		]]>	    
+		<![CDATA[
+            WHEN NOT MATCHED THEN 
+				INSERT 
+				    (
+						PROF_YM
+						,COPT_CD
+						,ACNT_CD
+						,BLL_CD
+						,PROF_DRTR_SRNO
+						,DL_XPN_RCDB_PBSVT_SRNO
+						,ACP_DH
+						,RSNANS_ACP_DT
+						,RSN_TXT
+						,ACP_ID
+						,RSN_TYP_CD
+
+					)  VALUES 
+					(
+						 #PROF_YM#
+						,#COPT_CD#
+						,#ACNT_CD#
+						,#BLL_CD#
+						,#PROF_DRTR_SRNO#
+						,#DL_XPN_RCDB_PBSVT_SRNO#
+						,#RCPT_DH#
+						,#RSNANS_ACP_DT#
+						,#RSN_TXT#
+						,#ACP_ID#
+						,#RSN_TYP_CD#
+					 )
+		]]>
+	</update>	
+
+	<!-- 검산오류내역 update-->
+	<update id="FAACAV003EChckUpdate" parameterClass="paramMap">
+		<![CDATA[  /* faa/cav/003/FAACAV003EChckUpdate */ ]]>
+		<![CDATA[ 	
+			UPDATE TWFAACAV016M
+			   SET HNDL_STA_YN   = 'Y' 
+
+		]]>	    
+			  WHERE 1=1
+			   AND COPT_CD = #COPT_CD#
+	           AND ACNT_CD = #ACNT_CD#
+	           AND BLL_CD = #BLL_CD#
+	           AND PROF_DRTR_SRNO = #PROF_DRTR_SRNO#
+	           AND DL_XPN_RCDB_PBSVT_SRNO = #DL_XPN_RCDB_PBSVT_SRNO#
+	           AND PROF_YM    = #PROF_YM# 
+	</update>		
+	
+	<!-- 계산서처리마스터 update-->
+	<update id="FAACAV003EMstrUpdate" parameterClass="paramMap">
+		<![CDATA[  /* faa/cav/003/FAACAV003EMstrUpdate */ ]]>
+		<![CDATA[ 	
+			UPDATE TWFAACAV001M
+			   SET BLL_HNDL_STA_CD   = 'Y' 
+
+		]]>	    
+			  WHERE 1=1
+			   AND COPT_CD = #COPT_CD#
+	           AND ACNT_CD = #ACNT_CD#
+	           AND BLL_CD = #BLL_CD#
+	           AND PROF_DRTR_SRNO = #PROF_DRTR_SRNO#
+	           AND DL_XPN_RCDB_PBSVT_SRNO = #DL_XPN_RCDB_PBSVT_SRNO#
+	           AND PROF_YM    = #PROF_YM# 
+	</update>	
+
+<!-- 정정분 출력 조회 -->	
+	<select id="FAACAV003ERselect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[  /* faa/cav/003/FAACAV003ERselect */ ]]>
+		<![CDATA[
+			SELECT 	ROWNUM AS KEY
+					,A.COPT_CD||'-'||A.ACNT_CD||'-'||A.BLL_CD||'-'||A.PROF_DRTR_SRNO||'-'||A.DL_XPN_RCDB_PBSVT_SRNO AS 증명책임자부호 
+					,A.PROF_YM AS 증명년월 
+					,TO_CHAR(A.RCPT_DH, 'YYYY-MM-DD HH24:MM:SS') AS 수신일시
+					,F_AV_ACCMN_NM(A.COPT_CD,A.ACNT_CD,A.BLL_CD ,A.PROF_DRTR_SRNO ,A.DL_XPN_RCDB_PBSVT_SRNO) AS 기관명  
+					,F_AV_BLL_CD_NM(A.BLL_CD, A.DL_XPN_RCDB_PBSVT_SRNO) AS 계산서 
+					,F_AV_ACNT_CD_NM(A.ACNT_CD) AS 회계
+					,F_AV_BLL_COPT_CD_NM(A.COPT_CD) AS 소관
+					,A.RCPT_STA_CD AS ACP_DVSN_CD
+					,'정정대기중' AS STATUS
+					,B.BLL_HNDL_STA_CD
+					,(SELECT C.HNDL_STA_YN
+					    FROM TWFAACAV016M C
+					   WHERE C.COPT_CD = A.COPT_CD
+					     AND C.ACNT_CD = A.ACNT_CD
+					     AND C.BLL_CD = A.BLL_CD
+					     AND C.PROF_DRTR_SRNO = A.PROF_DRTR_SRNO
+					     AND C.DL_XPN_RCDB_PBSVT_SRNO = A.DL_XPN_RCDB_PBSVT_SRNO
+					     AND C.PROF_YM = A.PROF_YM) AS HNDL_STA_YN
+			  FROM TWFAACAV002H A, TWFAACAV001M B
+			 WHERE 1=1
+		]]>  
+		<isNotEmpty property="strProfMm">
+			   AND A.PROF_YM     = #strProfYm#
+		</isNotEmpty>
+		<isEmpty property="strProfMm">
+			AND A.PROF_YM     like #strProfYr# || '%'
+		</isEmpty>
+		
+		<![CDATA[
+			   AND A.RCPT_STA_CD = 'W'
+			   AND A.PROF_YM = B.PROF_YM
+			   AND A.COPT_CD = B.COPT_CD
+			   AND A.ACNT_CD = B.ACNT_CD
+			   AND A.BLL_CD  = B.BLL_CD
+			   AND A.PROF_DRTR_SRNO = B.PROF_DRTR_SRNO
+			   AND A.DL_XPN_RCDB_PBSVT_SRNO = B.DL_XPN_RCDB_PBSVT_SRNO
+       ]]>
+       
+		<isNotEmpty property="strCoptCd">	 	   
+			   AND A.COPT_CD     = #strCoptCd#
+		</isNotEmpty>   	
+		<isNotEmpty property="strAcntCd">	 	   
+			   AND A.ACNT_CD     = #strAcntCd#
+		</isNotEmpty>  
+		
+		<isNotEmpty property="strBllCd">
+			<isEqual property="strBllCdType" compareValue="99">
+				AND  A.BLL_CD = #strBllCd#
+			</isEqual>	 	   
+			<isEqual property="strBllCd" compareValue="17">	 	   
+				AND  A.BLL_CD IN('17','18')
+			</isEqual>			
+			<isEqual property="strBllCd" compareValue="22">	 	   
+				AND  A.BLL_CD IN('22','23','24')
+			</isEqual>	
+			<isEqual property="strBllCd" compareValue="42">	 	   
+				AND  A.BLL_CD IN('42','43')
+			</isEqual>	
+		</isNotEmpty>  
+		
+		<isEqual property="strFildGovYn" compareValue="N">
+			<isNotEmpty property="strDlXpnRcdbPbsvtSrno">	
+				AND  A.DL_XPN_RCDB_PBSVT_SRNO = #strDlXpnRcdbPbsvtSrno#
+			</isNotEmpty>
+			<isEmpty property="strDlXpnRcdbPbsvtSrno">	
+				AND  A.DL_XPN_RCDB_PBSVT_SRNO = '000'
+			</isEmpty>	
+		</isEqual>
+		
+		<isEqual property="strFildGovYn" compareValue="Y">
+			<isNotEmpty property="strDlXpnRcdbPbsvtSrno">	
+				AND  A.DL_XPN_RCDB_PBSVT_SRNO = #strDlXpnRcdbPbsvtSrno#
+			</isNotEmpty>
+			<isEmpty property="strDlXpnRcdbPbsvtSrno">	
+				AND  A.DL_XPN_RCDB_PBSVT_SRNO &lt;&gt; '000'
+			</isEmpty>	
+		</isEqual>
+		
+		<isNotEmpty property="strProfDrtrSrno">	 	   
+			   AND A.PROF_DRTR_SRNO     = #strProfDrtrSrno#
+		</isNotEmpty>
+
+	
+		<![CDATA[
+			   AND A.RCPT_DH = (SELECT MAX(C.RCPT_DH)
+			                      FROM TWFAACAV002H C
+			                     WHERE A.PROF_YM = C.PROF_YM
+			                       AND A.COPT_CD = C.COPT_CD
+			                       AND A.ACNT_CD = C.ACNT_CD
+			                       AND A.BLL_CD  = C.BLL_CD
+			                       AND A.PROF_DRTR_SRNO = C.PROF_DRTR_SRNO
+			                       AND A.DL_XPN_RCDB_PBSVT_SRNO = C.DL_XPN_RCDB_PBSVT_SRNO)
+			 ORDER BY A.BLL_CD, A.COPT_CD, A.ACNT_CD, A.PROF_DRTR_SRNO, A.PROF_YM
+       ]]> 
+	</select>
+		
+		
+	<!--파일 조회-->
+	<select id="FAACAV003ExecuteAcp2" parameterClass="paramMap"	resultClass="resultMap">
+		<![CDATA[  /* faa/cav/003/FAACAV003ExecuteAcp2 */ ]]>
+		SELECT 
+     		BU_RUT_NM AS FILE_NM,
+     		BLL_CD
+		FROM TWFAACAV002H A  
+		WHERE A.COPT_CD||A.ACNT_CD||A.BLL_CD||A.PROF_DRTR_SRNO||A.DL_XPN_RCDB_PBSVT_SRNO = REPLACE(#PROF_DRTR_CD#,'-','')
+		AND RCPT_DH = #RCPT_DH#
+		AND PROF_YM = #PROF_YM#
+	</select>
+	
+	<!--파일 조회-->
+	<select id="FAACAV003ERsnTypCdselect" parameterClass="paramMap"	resultClass="resultMap">
+		<![CDATA[  /* faa/cav/003/FAACAV003ERsnTypCdselect */ ]]>
+			SELECT  ACNT_CD AS CD,
+					ACNT_CD_NM AS ORG_CD_NM,
+			        '['||ACNT_CD||']'||ACNT_CD_NM AS CD_NM
+			FROM    TWFAACAV024C
+			WHERE   ACNT_DVSN_CD = '04'
+            AND     LENGTH(ACNT_CD) = 2
+			ORDER BY 1
+	</select>
+</sqlMap> 

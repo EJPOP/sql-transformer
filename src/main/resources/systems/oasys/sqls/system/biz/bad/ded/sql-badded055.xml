@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/ded/055">
+
+	<!--정산집계표 조회-->
+	<select id="BADDED055PMainSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+        SELECT *
+  		  FROM (
+			SELECT D1.BZT_YR									  AS BZT_YR
+			     , D1.BZT_SNO									  AS BZT_SNO
+			     , D1.PCT_CNB									  AS PCT_CNB
+			     , D1.PCT_NM_DISP								  AS PCT_NM_DISP
+			     , D1.RANK_NM									  AS RANK_NM
+			     , NVL(D1.DT_EXS,0) - NVL(D2.DT_EXS,0)            AS DT_EXS           /*일비*/
+			     , NVL(D1.LDC,0) - NVL(D2.LDC,0)                  AS LDC              /*숙박비*/              
+			     , NVL(D1.FDEX,0) - NVL(D2.FDEX,0)                AS FDEX             /*식비*/
+			     , NVL(D1.CPRG_FR_EXS,0) - NVL(D2.CPRG_FR_EXS,0)  AS CPRG_FR_EXS      /*수도권운임 - 2015.05.06 yyh*/
+			     , NVL(D1.SPM_XPN,0) - NVL(D2.SPM_XPN,0)          AS SPM_XPN          /*보충경비*/
+			     , NVL(D1.BZT_DCN,0) - NVL(D2.BZT_DCN,0)          AS BZT_DCN          /*출장일수*/
+			     , NVL(D1.RL_FR_EXS,0) - NVL(D2.RL_FR_EXS,0)      AS RL_FR_EXS        /*철도운임비*/
+			     , NVL(D1.LEAD_EXS,0) - NVL(D2.LEAD_EXS,0)        AS LEAD_EXS         /*지휘비*/
+			     , NVL(D1.AUD_ACTV_RCV_EXS,0) - NVL(D2.AUD_ACTV_RCV_EXS,0) AS AUD_ACTV_RCV_EXS   /*감사활동수용비*/
+			     , NVL(D1.SUM_COST,0) - NVL(D2.SUM_COST,0)        AS SUM_COST         /*국내여비*/
+			     , NVL(D1.ALL_COST,0) - NVL(D2.ALL_COST,0)        AS ALL_COST         /*합계*/
+			     , '' 										  	  AS AJT_YN 		  /*정산완료처리에 flag로 사용*/
+			     , D1.MAX_SNO									  AS MAX_SNO		  /*이력변경번호*/
+			     , D1.AJT_CHG_RSN								  AS AJT_CHG_RSN	  /*정산사유*/
+			     , D3.REL_AUD_YR								  AS REL_AUD_YR
+   				 , D3.REL_AUD_NO								  AS REL_AUD_NO
+                 , D3.AUD_STEP_SNO								  AS AUD_STEP_SNO
+			  FROM (
+			        SELECT D2.*
+			             , MAX_SNO
+			             , AJT_CHG_RSN 
+			          FROM (
+			                    SELECT BZT_YR
+			                         , BZT_SNO
+			                         , PCT_CNB
+			                         , MAX(BZT_AJT_SNO) MAX_SNO
+			                         , MAX(AJT_CHG_RSN) AJT_CHG_RSN
+			                      FROM TBBADDED019H
+			                     WHERE BZT_YR  = #BZT_YR#
+			                       AND BZT_SNO = #BZT_SNO#
+			                       AND NVL(AJT_YN,'N') = 'N'
+			                     GROUP BY BZT_YR , BZT_SNO , PCT_CNB  
+			              ) D1
+			            , VADED001 D2
+			         WHERE 1=1
+			           AND D1.BZT_YR  = D2.BZT_YR
+			           AND D1.BZT_SNO = D2.BZT_SNO
+			           AND D1.PCT_CNB = D2.PCT_CNB
+			           AND D1.MAX_SNO = D2.BZT_AJT_SNO 
+			           AND D1.BZT_YR  = #BZT_YR#
+			           AND D1.BZT_SNO = #BZT_SNO#
+			      ) D1
+			    , (
+			        SELECT D2.* 
+			          FROM (
+			                    SELECT BZT_YR
+			                         , BZT_SNO
+			                         , PCT_CNB
+			                         , MAX(BZT_AJT_SNO) MAX_SNO
+			                      FROM TBBADDED019H
+			                     WHERE BZT_YR  = #BZT_YR#
+			                       AND BZT_SNO = #BZT_SNO#
+			                       AND NVL(AJT_YN,'N') = 'Y'
+			                     GROUP BY BZT_YR , BZT_SNO , PCT_CNB  
+			              ) D1
+			            , VADED001 D2
+			         WHERE 1=1
+			           AND D1.BZT_YR  = D2.BZT_YR
+			           AND D1.BZT_SNO = D2.BZT_SNO
+			           AND D1.PCT_CNB = D2.PCT_CNB
+			           AND D1.MAX_SNO = D2.BZT_AJT_SNO 
+			           AND D1.BZT_YR  = #BZT_YR#
+			           AND D1.BZT_SNO = #BZT_SNO#
+			      ) D2
+			     , TBBADDED002M D3
+			WHERE 1=1
+			  AND D1.BZT_YR  = D2.BZT_YR(+)
+			  AND D1.BZT_SNO = D2.BZT_SNO(+)
+			  AND D1.PCT_CNB = D2.PCT_CNB(+)
+			  AND D1.BZT_YR  = D3.BZT_YR
+			  AND D1.BZT_SNO = D3.BZT_SNO
+			) 	
+			WHERE 1=1
+  			  AND DT_EXS <>0 OR LDC<>0 OR FDEX<>0 OR SPM_XPN<>0 OR BZT_DCN<>0 OR RL_FR_EXS<>0 OR LEAD_EXS<>0 OR AUD_ACTV_RCV_EXS<>0 OR SUM_COST<>0 OR ALL_COST<>0
+  			      OR CPRG_FR_EXS <> 0
+ 	  	    ORDER BY PCT_CNB
+        ]]>
+	</select>  
+
+
+	<!--UPDATE  TBBADDED019H 정산사유 -->
+	<update id="BADDED055PMainUpdate" parameterClass="paramMap">
+    	<![CDATA[ 
+	       UPDATE TBBADDED019H
+	          SET AJT_CHG_RSN = #AJT_CHG_RSN#
+  		]]>
+  		<isNotNull prepend="," property="FNL_USR_ID">	       
+			     FNL_USR_ID = #FNL_USR_ID#
+		</isNotNull>	
+		<isNotNull prepend="," property="FNL_DEAL_DPT_CD">	       
+			     FNL_DEAL_DPT_CD  = #FNL_DEAL_DPT_CD#
+		</isNotNull>		
+		<isNotNull prepend="," property="FNL_MNU_ID">	       
+			     FNL_MNU_ID       = #FNL_MNU_ID#
+		</isNotNull>	
+		<![CDATA[ 
+		        , FNL_MDF_DH = SYSDATE 	 
+	        WHERE 1=1
+	          AND BZT_YR      = #BZT_YR#
+	          AND BZT_SNO     = #BZT_SNO#
+	          AND PCT_CNB     = #PCT_CNB#
+	          AND BZT_AJT_SNO = #MAX_SNO# 
+  		]]>
+	</update>
+
+</sqlMap> 
+

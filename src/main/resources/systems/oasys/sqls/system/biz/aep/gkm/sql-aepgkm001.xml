@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="aep/gkm/001">
+	<select id="AEPGKM001Qevldateselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	'[' || EVL_YR || ' ' || F_CODE_NM('1000355', EVL_DVSN_CD) || ']' || ' ' || TO_CHAR(TO_DATE(EVL_STR_DT), 'YYYY-MM-DD') || ' ~ ' || TO_CHAR(TO_DATE(EVL_END_DT), 'YYYY-MM-DD') AS CD_NM,
+				EVL_YR || EVL_DVSN_CD AS CD,
+				EVL_YR,
+				EVL_DVSN_CD,
+				TO_CHAR(TO_DATE(EVL_ACTV_STR_DT), 'YYYY-MM-DD') || ' ~ ' || TO_CHAR(TO_DATE(EVL_ACTV_END_DT), 'YYYY-MM-DD')	AS EVL_ACTV_DT,
+				DTM_YN
+		FROM	TBAEPGKM011M
+		ORDER BY EVL_YR DESC , EVL_DVSN_CD DESC 
+	</select>
+
+	<select id="AEPGKM001Qmaincolselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	'' AS COL_ID,
+				CASE
+					WHEN SET_DVSN_CD = 'B' AND EVL_CHGR_DVSN_CD = '1'
+					THEN '댓글'
+					WHEN SET_DVSN_CD = 'B' AND EVL_CHGR_DVSN_CD = '2'
+					THEN '질문'
+					WHEN SET_DVSN_CD = 'B' AND EVL_CHGR_DVSN_CD = '3'
+					THEN '답변'
+					ELSE KLD_ACTV_NM
+				END AS COL_NM,
+				SET_DVSN_CD,
+				A.EVL_YR,
+				A.EVL_DVSN_CD,
+				C.SC_GRN_TG_CD,
+				EVL_CHGR_DVSN_CD
+		FROM	TBAEPGKM011M AS A,
+				TBAEPGKM012L AS B,
+				TBAEPGKM006M AS C
+		WHERE	1=1
+		AND		A.EVL_YR = B.EVL_YR
+		AND		A.EVL_DVSN_CD = B.EVL_DVSN_CD
+		AND		B.SC_GRN_TG_CD = C.SC_GRN_TG_CD
+		AND		A.EVL_YR = #EVL_YR#
+		AND		A.EVL_DVSN_CD = #EVL_DVSN_CD#
+		ORDER BY SET_DVSN_CD DESC,
+				 CASE EVL_CHGR_DVSN_CD
+				 	 WHEN '1'
+				 	 THEN 3
+				 	 WHEN '2'
+				 	 THEN 1
+				 	 WHEN '3'
+				 	 THEN 2
+				 END
+	</select>
+
+	<select id="AEPGKM001Qmainselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT  EVL_YR, EVL_DVSN_CD, SC_GRN_TG_CD, CNB, COUNT(1) AS CT, ROUND(SUM(SC)) AS SC
+		FROM    (
+		        SELECT  EVL_YR, EVL_DVSN_CD, SC_GRN_TG_CD, CNB,
+		               (CASE WHEN KNB IS NOT NULL THEN MAX(BSC_SC) + AVG(EVL_SC + ADD_SC) ELSE MAX(BSC_SC) + MAX(EVL_SC) + MAX(ADD_SC) END) AS SC
+		        FROM   (SELECT  A.EVL_YR
+		        				,A.EVL_DVSN_CD
+		        				,A.SC_GRN_TG_CD
+		        				,A.CNB
+		        				,A.KNB
+		        				,A.EVLT_CNB
+		        				,A.BRD_NO
+		        				,A.BRD_BKNO
+		        				,A.CMNT_NO
+		               			,SUM(CASE WHEN A.SC_CAT_CD = 1 THEN SC ELSE 0 END) AS BSC_SC
+		               			,SUM(CASE WHEN A.SC_CAT_CD = 2 THEN SC ELSE 0 END) AS EVL_SC
+		               			,SUM(CASE WHEN A.SC_CAT_CD = 3 THEN SC ELSE 0 END) AS ADD_SC
+		                FROM    TBAEPGKM016L AS A,
+		                		TBAEPGKM012L AS B
+		                WHERE   1=1
+		                AND		A.EVL_YR = B.EVL_YR
+		                AND		A.EVL_DVSN_CD = B.EVL_DVSN_CD
+		                AND		A.SC_GRN_TG_CD = B.SC_GRN_TG_CD
+		                AND     A.CNB = #CNB#
+		                AND     A.EVL_YR = #EVL_YR#
+		                AND     A.EVL_DVSN_CD = #EVL_DVSN_CD#
+		                GROUP BY A.EVL_YR
+		                		,A.EVL_DVSN_CD
+		                		,A.SC_GRN_TG_CD
+		                		,A.CNB
+		                		,A.KNB
+		                		,A.EVLT_CNB
+		                		,A.BRD_NO
+		                		,A.BRD_BKNO
+		                		,A.CMNT_NO
+		                )
+		        WHERE 1=1
+		        GROUP BY EVL_YR
+		        		,EVL_DVSN_CD
+		        		,SC_GRN_TG_CD
+		        		,CNB
+		        		,KNB
+		        )
+		WHERE 1=1
+		GROUP BY EVL_YR
+				,EVL_DVSN_CD
+				,SC_GRN_TG_CD
+				,CNB
+		ORDER BY SC_GRN_TG_CD
+	</select>
+	
+	<select id="AEPGKM001Qsubselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+	SELECT  EVL_YR
+			,EVL_DVSN_CD
+			,SC_GRN_TG_CD
+			,CNB
+			,KNB
+			,KLD_NM
+			,TG_CAT_NM
+			,COFM_YN
+			,ROUND(CASE WHEN KNB IS NOT NULL THEN MAX(BSC_SC) + AVG(EVL_SC + ADD_SC) ELSE MAX(BSC_SC) + MAX(EVL_SC) + MAX(ADD_SC) END) AS SC
+	FROM   (SELECT  A.EVL_YR
+					,A.EVL_DVSN_CD
+					,A.SC_GRN_TG_CD
+					,A.CNB
+					,A.KNB
+					,A.EVLT_CNB
+					,A.BRD_NO
+					,A.BRD_BKNO
+					,A.CMNT_NO
+					,A.COFM_YN
+		           	,SUM(CASE WHEN A.SC_CAT_CD = 1 THEN SC ELSE 0 END) AS BSC_SC
+		           	,SUM(CASE WHEN A.SC_CAT_CD = 2 THEN SC ELSE 0 END) AS EVL_SC
+		           	,SUM(CASE WHEN A.SC_CAT_CD = 3 THEN SC ELSE 0 END) AS ADD_SC
+	               	,C.KLD_NM, D.TG_CAT_NM
+		    FROM    TBAEPGKM016L AS A
+			        ,TBAEPGKM012L AS B
+	                ,TBAEPGKM001M AS C
+	                ,TBAEPGKM017M AS D
+			WHERE   1=1
+			AND		A.EVL_YR = B.EVL_YR
+			AND		A.EVL_DVSN_CD = B.EVL_DVSN_CD
+			AND		A.SC_GRN_TG_CD = B.SC_GRN_TG_CD
+	        AND     A.KNB = C.KNB
+	        AND     A.CNB = C.REGN_CNB
+	        AND     C.KLD_CAT_CD = D.TG_CAT_ID
+			AND     A.CNB = #CNB#
+			AND     A.EVL_YR = #EVL_YR#
+			AND     A.EVL_DVSN_CD = #EVL_DVSN_CD#
+			GROUP BY A.EVL_YR
+					,A.EVL_DVSN_CD
+					,A.SC_GRN_TG_CD
+					,A.CNB
+					,A.KNB
+					,A.EVLT_CNB
+					,A.BRD_NO
+					,A.BRD_BKNO
+					,A.CMNT_NO
+					,A.COFM_YN
+					,C.KLD_NM
+					,D.TG_CAT_NM
+			)
+	WHERE 1=1
+	GROUP BY EVL_YR
+			,EVL_DVSN_CD
+			,SC_GRN_TG_CD
+			,CNB
+			,KNB
+			,KLD_NM
+			,TG_CAT_NM
+			,COFM_YN
+	</select>
+	
+	<!-- 마지막으로 등록된 평가기간을 리턴한다. -->
+	<select id="AEPGKM001QLastEvlYrselect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[	
+			SELECT MAX(TO_NUMBER(EVL_YR || EVL_DVSN_CD)) AS EVL_YR_DVSN_CD
+			  FROM TBAEPGKM011M
+		]]>
+	</select>
+</sqlMap>
+

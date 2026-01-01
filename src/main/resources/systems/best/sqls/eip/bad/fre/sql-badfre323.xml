@@ -1,0 +1,475 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.bad.fre.dao.BADFRE323Mapper">
+
+    <select id="selectEviDocbList" parameterType="paramMap" resultType="egovMap" >
+        /*kr.go.bai.eip.bad.fre.dao.BADFRE323Mapper.selectEviDocbList*/
+        /*증거서류함(그룹)*/
+        <include refid="include.pageSelct" />
+        SELECT
+            ACP_YR  /*감사년도 */
+            ,ACP_SRNO /*감사번호 */
+            ,EVI_DCMB_SNO   /*감사서류함순번 */
+            ,ACP_DVSN_CD /*감사종류코드 */
+            ,ACP_GRN_NO /*감사부여코드 */
+            ,FOLDER_NM  /*폴더명 */
+            ,SORT_SNO   /*정렬순번 */
+            ,FRT_USR_ID  /*최초사용자ID */
+            ,F_USR_INFO_BY_ID(FRT_USR_ID,'2') AS FRT_USR_NM /*최초사용자ID명 */
+            ,TO_CHAR(FRT_REGI_DH,'YYYY-MM-DD') FRT_REGI_DH  /*최초등록일시 */
+            ,(SELECT COUNT(*) FROM TBBADFRE108D D
+            WHERE D.EVI_DCMB_SNO = A.EVI_DCMB_SNO
+            AND A.ACP_YR = D.ACP_YR
+            AND A.ACP_DVSN_CD = D.ACP_DVSN_CD
+            AND A.ACP_SRNO = D.ACP_SRNO) AS CNT
+            FROM TBBADFRE108M A
+          WHERE 1=1
+            <if test='acpYr != null and acpYr != ""'>
+                AND A.ACP_YR = #{acpYr}
+            </if>
+            <if test='acpDvsnCd != null and acpDvsnCd != ""'>
+                AND A.ACP_DVSN_CD = #{acpDvsnCd}
+            </if>
+            <if test='acpSrno != null and acpSrno != ""'>
+                AND A.ACP_SRNO = #{acpSrno}
+            </if>
+            <!--if test='usrId != null and usrId != ""'>
+                AND A.DCMB_CRE_ID = #{usrId}
+            </if-->
+            ORDER BY SORT_SNO ASC
+            <include refid="include.pageOrder" />
+    </select>
+
+    <select id="selectEviDocList" parameterType="paramMap" resultType="egovMap" >
+        /*kr.go.bai.eip.bad.fre.dao.BADFRE323Mapper.selectEviDocList*/
+        /*증거서류*/
+        SELECT
+         	ACP_YR
+            , ACP_DVSN_CD
+            , ACP_SRNO
+            , ACP_DCM_DOC_ID	    /*감사서류문서ID */
+            ,EVI_DCMB_SNO       /*감사서류함순번 */
+            ,EVI_DCM_DVSN_CD	/*증거서류구분코드 */
+            <if test='acpDvsnCd == "1"'>
+            ,F_CODE_NM('1000810', A.EVI_DCM_DVSN_CD) AS EVI_DCM_DVSN_NM	/*증거서류구분코드 */
+            </if>
+            <if test='acpDvsnCd == "2"'>
+            ,F_CODE_NM('1000811', A.EVI_DCM_DVSN_CD) AS EVI_DCM_DVSN_NM	/*증거서류구분코드 */
+            </if>
+            ,FILE_NM	        /*파일명 */
+            ,TO_CHAR(TO_DATE(ISUE_DY,'YYYY-MM-DD'),'YYYY-MM-DD') AS ISUE_DY /*발부일자*/
+            ,SORT_SNO           /*정렬순번 */
+            ,FRT_USR_ID         /*최초사용자ID */
+            ,F_USR_INFO_BY_ID(FRT_USR_ID,'2') AS FRT_USR_NM /*최초사용자ID명 */
+            ,TO_CHAR(FRT_REGI_DH,'YYYY-MM-DD') FRT_REGI_DH  /*최초등록일시 */
+            FROM TBBADFRE108D A
+          WHERE 1=1
+                AND A.ACP_YR = #{acpYr}
+                AND A.ACP_DVSN_CD = #{acpDvsnCd}
+                AND A.ACP_SRNO = #{acpSrno}
+                AND A.EVI_DCMB_SNO = #{eviDcmbSno}
+                <if test='viewId == "BADFRE512E"'>
+                AND A.EVI_DCM_DVSN_CD IN ('10','20')
+                </if>
+             ORDER BY SORT_SNO
+    </select>
+    
+    <select id="selectCompleteCntList" parameterType="paramMap" resultType="egovMap" >
+        /*kr.go.bai.eip.bad.fre.dao.BADFRE323Mapper.selectCompleteCntList*/
+        
+        SELECT
+            ACP_YR,ACP_DVSN_CD,ACP_SRNO,
+            COUNT(EVI_DCM_DVSN_CD) AS CNT
+        
+          FROM (SELECT
+                    ACP_DCM_DOC_ID	    /*감사서류문서ID */
+                    ,EVI_DCMB_SNO       /*감사서류함순번 */
+                    ,EVI_DCM_DVSN_CD	/*증거서류구분코드 */
+                    ,ACP_YR,ACP_DVSN_CD,ACP_SRNO
+                    FROM TBBADFRE108D A
+                  WHERE 1=1
+                    AND (A.ACP_YR,A.ACP_SRNO) IN (SELECT ST1.ACP_YR,ST1.ACP_SRNO 
+                                                    FROM TBBADFRE012M ST1 
+                                                   WHERE 1=1
+                                                   <if test='mgDivCd == "10" or mgDivCd == "20"'>
+                                                     AND ST1.MG_ACP_DVSN_CD=#{acpDvsnCd} 
+                                                     AND ST1.MG_ACP_YR=#{mgAcpYr} 
+                                                     AND ST1.MG_ACP_SRNO=#{mgAcpSrno})
+                                                   </if>
+                                                   <if test='mgDivCd != "10" and mgDivCd != "20"'>
+                                                     AND ST1.ACP_DVSN_CD=#{acpDvsnCd}
+                                                     AND ST1.ACP_YR=#{acpYr} 
+                                                     AND ST1.ACP_SRNO=#{acpSrno})
+                                                   </if>
+                    AND A.EVI_DCMB_SNO = '1'
+                 )
+          WHERE  EVI_DCM_DVSN_CD IN ('50','60')
+          GROUP BY ACP_YR, ACP_DVSN_CD, ACP_SRNO
+    </select>
+
+    <select id="selectMaxEviDcmbSno" parameterType="paramMap" resultType="egovMap">
+        /*kr.go.bai.eip.bad.fre.dao.BADFRE323Mapper.selectMaxEviDcmbSno*/
+        /*감사서류함순번 MAX*/
+        SELECT NVL(MAX(EVI_DCMB_SNO),0)+1 FROM TBBADFRE108M
+        WHERE A.ACP_YR = #{acpYr}
+            <if test='acpSrno != null and acpSrno != ""'>
+                AND A.ACP_SRNO = #{acpSrno}
+            </if>
+    </select>
+
+    <insert id="TBBADFRE108MInsert" parameterType="paramMap">
+        /*kr.go.bai.eip.bad.fre.dao.BADFRE323Mapper.TBBADFRE108MInsert*/
+        /*증거서류함 Insert*/
+        INSERT INTO TBBADFRE108M
+        (
+            ACP_YR  /*감사년도 */
+            ,ACP_SRNO /*감사번호 */
+            ,EVI_DCMB_SNO   /*감사서류함순번 */
+            ,ACP_DVSN_CD /*감사종류코드 */
+            ,ACP_GRN_NO /*감사부여코드 */
+            ,FOLDER_NM  /*폴더명 */
+            ,DCMB_CRE_ID /*서류함생성자ID*/
+            ,SORT_SNO   /*정렬순번 */
+            ,FRT_USR_ID  /*최초사용자ID */
+            ,FNL_USR_ID /*최종사용자ID */
+            ,FNL_DEAL_DPT_CD    /*최종거래부서코드 */
+            ,FNL_MNU_ID /*최종메뉴ID */
+            ,FRT_REGI_DH    /*최초등록일시 */
+            ,FNL_MDF_DH /*최종수정일시 */
+        )
+        values
+        (
+            #{acpYr}        /*감사년도 */
+            ,#{acpSrno}       /*감사번호 */
+            ,(SELECT NVL(MAX(EVI_DCMB_SNO),0)+1 FROM TBBADFRE108M)  /*감사서류함순번 */
+            ,#{acpDvsnCd} /*감사종류코드 */
+            ,#{acpGrnNo} /*감사부여코드 */
+            ,#{folderNm}  /*폴더명 */
+            ,#{usrId}  /*서류함생성자ID */
+            ,(SELECT NVL(MAX(SORT_SNO),0)+1
+                 FROM TBBADFRE108M
+                  WHERE ACP_YR = #{acpYr}
+                  AND ACP_SRNO = #{acpSrno} /*정렬순번 */
+              )
+            ,#{frtUsrId}  /*최초사용자id */
+            ,#{fnlUsrId} /*최종사용자id */
+            ,#{fnlDealDptCd}    /*최종거래부서코드 */
+            ,#{fnlMnuId} /*최종메뉴id */
+            ,SYSDATE    /*최초등록일시 */
+            ,SYSDATE /*최종수정일시 */
+        )
+    </insert>
+
+    <update id="TBBADFRE108MUpdate" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.fre.dao.BADFRE323Mapper.TBBADFRE108MUpdate*/
+    /*증거서류함 Update*/
+        UPDATE TBBADFRE108M
+           SET FOLDER_NM = #{folderNm} /*폴더명 */
+          , SORT_SNO = #{sortSno} /*정렬순번 */
+          , FNL_USR_ID = #{fnlUsrId} /*최종사용자ID */
+          , FNL_DEAL_DPT_CD = #{fnlDealDptCd} /*최종거래부서코드 */
+          , FNL_MNU_ID = #{fnlMnuId} /*최종메뉴ID */
+          , FNL_MDF_DH = sysdate /*최종수정일시 */
+         WHERE EVI_DCMB_SNO = #{eviDcmbSno} /*감사서류함순번 */
+            <if test='acpYr != null and acpYr != ""'>
+                AND ACP_YR = #{acpYr}
+            </if>
+            <if test='acpDvsnCd != null and acpDvsnCd != ""'>
+                AND ACP_DVSN_CD = #{acpDvsnCd}
+            </if>
+            <if test='acpSrno != null and acpSrno != ""'>
+                AND ACP_SRNO = #{acpSrno}
+            </if>
+    </update>
+
+    <delete id="TBBADFRE108MDelete" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.fre.dao.BADFRE323Mapper.TBBADFRE108MDelete*/
+    /*증거서류함 Delete*/
+        DELETE FROM TBBADFRE108M
+        WHERE EVI_DCMB_SNO = #{eviDcmbSno} /*감사서류함순번 */
+            <if test='acpYr != null and acpYr != ""'>
+                AND ACP_YR = #{acpYr}
+            </if>
+            <if test='acpDvsnCd != null and acpDvsnCd != ""'>
+                AND ACP_DVSN_CD = #{acpDvsnCd}
+            </if>
+            <if test='acpSrno != null and acpSrno != ""'>
+                AND ACP_SRNO = #{acpSrno}
+            </if>
+            <if test='eviDcmbSno != null and eviDcmbSno != ""'>
+                AND EVI_DCMB_SNO  = #{eviDcmbSno}
+            </if>
+
+    </delete>
+
+    <insert id="TBBADFRE108DInsert" parameterType="paramMap">
+        /*kr.go.bai.eip.bad.fre.dao.BADFRE323Mapper.TBBADFRE108DInsert*/
+        /*증거서류 Insert*/
+        INSERT INTO TBBADFRE108D
+        (
+            ACP_YR /*감사년도 */
+            ,ACP_SRNO /*감사번호*/
+            ,EVI_DCMB_SNO	/*감사서류함순번 */
+            ,ACP_DCM_DOC_ID	/*감사서류문서ID */
+            ,ACP_DVSN_CD	/*감사종류코드 */
+            ,ACP_GRN_NO	/*감사부여코드 */
+            ,EVI_DCM_DVSN_CD	/*증거서류구분코드 */
+            ,FILE_NM	/*파일명 */
+            ,ISUE_DY	/*발부일자 */
+            ,ACP_DCM_CRE_ID	/*감사서류생성자ID */
+            ,SORT_SNO	/*정렬순번 */
+            ,FRT_USR_ID	/*최초사용자ID */
+            ,FNL_USR_ID	/*최종사용자ID */
+            ,FNL_DEAL_DPT_CD	/*최종거래부서코드 */
+            ,FNL_MNU_ID	/*최종메뉴ID */
+            ,FRT_REGI_DH	/*최초등록일시 */
+            ,FNL_MDF_DH	/*최종수정일시  */
+            ,FILE_SIZE
+        )
+        values
+        (
+            #{acpYr}        /*감사년도 */
+            ,#{acpSrno}       /*감사번호 */
+            ,#{eviDcmbSno}  /*감사서류함순번 */
+            ,#{acpDcmDocId}  /*감사서류문서ID */
+            ,#{acpDvsnCd} /*감사종류코드 */
+            ,#{acpGrnNo} /*감사부여코드 */
+            ,#{eviDcmDvsnCd}	/*증거서류구분코드 */
+            ,#{fileNm}	/*파일명 */
+            ,#{isueDy}  /*발부일자 */
+            ,#{frtUsrId} /*감사서류생성자ID(최초사용자id) */
+            ,(SELECT NVL(MAX(SORT_SNO),0)+1
+                 FROM TBBADFRE108D
+                  WHERE ACP_YR = #{acpYr}
+                  AND ACP_SRNO = #{acpSrno}
+                  AND EVI_DCMB_SNO = #{eviDcmbSno} /*정렬순번 */
+              )
+            ,#{frtUsrId}  /*최초사용자id */
+            ,#{fnlUsrId} /*최종사용자id */
+            ,#{fnlDealDptCd}    /*최종거래부서코드 */
+            ,#{fnlMnuId} /*최종메뉴id */
+            ,SYSDATE    /*최초등록일시 */
+            ,SYSDATE /*최종수정일시 */
+            ,#{fileSize}
+        )
+    </insert>
+
+    <insert id="TBBADFRE108DUpdate" parameterType="paramMap">
+        /*kr.go.bai.eip.bad.fre.dao.BADFRE323Mapper.TBBADFRE108DUpdate*/
+        /*증거서류 Update*/
+        UPDATE TBBADFRE108D
+             SET EVI_DCM_DVSN_CD = #{eviDcmDvsnCd}
+             <if test='isueDy != null and isueDy != ""'>
+                 , ISUE_DY = #{isueDy}
+             </if>
+                 , FNL_USR_ID = #{fnlUsrId} /*최종사용자ID */
+		         , FNL_DEAL_DPT_CD = #{fnlDealDptCd} /*최종거래부서코드 */
+		         , FNL_MNU_ID = #{fnlMnuId} /*최종메뉴ID */
+		         , FNL_MDF_DH = SYSDATE /*최종수정일시 */
+         WHERE ACP_YR = #{acpYr}
+            AND ACP_DVSN_CD = #{acpDvsnCd}
+            AND ACP_SRNO = #{acpSrno}
+            AND EVI_DCMB_SNO  = #{eviDcmbSno}
+            AND ACP_DCM_DOC_ID  = #{acpDcmDocId}
+    </insert>
+
+    <delete id="TBBADFRE108DDelete" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.fre.dao.BADFRE323Mapper.TBBADFRE108DDelete*/
+    /*증거서류 Delete*/
+        DELETE FROM TBBADFRE108D
+        WHERE EVI_DCMB_SNO = #{eviDcmbSno} /*감사서류함순번 */
+            <if test='acpYr != null and acpYr != ""'>
+                AND ACP_YR = #{acpYr}
+            </if>
+            <if test='acpDvsnCd != null and acpDvsnCd != ""'>
+                AND ACP_DVSN_CD = #{acpDvsnCd}
+            </if>
+            <if test='acpSrno != null and acpSrno != ""'>
+                AND ACP_SRNO = #{acpSrno}
+            </if>
+            <if test='eviDcmbSno != null and eviDcmbSno != ""'>
+                AND EVI_DCMB_SNO  = #{eviDcmbSno}
+            </if>
+            <if test='acpDcmDocId != null and acpDcmDocId != ""'>
+                AND ACP_DCM_DOC_ID  = #{acpDcmDocId}
+            </if>
+    </delete>
+
+    <select id="chkFileTBBADFRE110M" parameterType="paramMap" resultType="Integer">
+    /*kr.go.bai.eip.bad.fre.dao.BADFRE323Mapper.chkFileTBBADFRE110M*/
+    /*증거서류 매핑테이블 존재여부*/
+        SELECT COUNT(*) FROM
+        TBBADFRE108D A INNER JOIN TBBADFRE110M B
+            ON A.ACP_YR = B.ACP_YR
+            AND A.ACP_SRNO = B.ACP_SRNO
+            AND A.ACP_DCM_DOC_ID  = B.ACP_DCM_DOC_ID
+            AND A.EVI_DCMB_SNO  = B.EVI_DCMB_SNO
+        WHERE A.ACP_YR = #{acpYr}
+            AND A.ACP_SRNO = #{acpSrno}
+            <if test='eviDcmbSno != null and eviDcmbSno != ""'>
+                <if test='type == null or type == ""'>
+                    AND B.EVI_DCMB_SNO = #{eviDcmbSno}
+                </if>
+            </if>
+            <if test='acpDcmDocId != null and acpDcmDocId != ""'>
+                <if test="type != '' and type eq 'docId'.toString()">
+                    AND A.ACP_DCM_DOC_ID = #{acpDcmDocId}
+                </if>
+            </if>
+    </select>
+
+	<select id="selectEviDocFileList" parameterType="paramMap" resultType="egovMap" >
+        /*kr.go.bai.eip.bad.fre.dao.BADFRE323Mapper.selectEviDocFileList*/
+        /*증거서류*/
+        SELECT
+         	ACP_YR
+            , ACP_DVSN_CD
+            , ACP_SRNO
+            , ACP_DCM_DOC_ID	    /*감사서류문서ID */
+            ,EVI_DCMB_SNO       /*감사서류함순번 */
+            ,EVI_DCM_DVSN_CD	/*증거서류구분코드 */
+            <if test='acpDvsnCd == "1"'>
+            ,F_CODE_NM('1000810', A.EVI_DCM_DVSN_CD) AS EVI_DCM_DVSN_NM	/*증거서류구분코드 */
+            </if>
+            <if test='acpDvsnCd == "2"'>
+            ,F_CODE_NM('1000811', A.EVI_DCM_DVSN_CD) AS EVI_DCM_DVSN_NM	/*증거서류구분코드 */
+            </if>
+            ,FILE_NM	        /*파일명 */
+            ,TO_CHAR(TO_DATE(ISUE_DY,'YYYY-MM-DD'),'YYYY-MM-DD') AS ISUE_DY /*발부일자*/
+            ,SORT_SNO           /*정렬순번 */
+            ,FRT_USR_ID         /*최초사용자ID */
+            ,F_USR_INFO_BY_ID(FRT_USR_ID,'2') AS FRT_USR_NM /*최초사용자ID명 */
+            ,TO_CHAR(FRT_REGI_DH,'YYYY-MM-DD') FRT_REGI_DH  /*최초등록일시 */
+            FROM TBBADFRE118D A
+          WHERE 1=1
+                AND A.ACP_YR = #{acpYr}
+                AND A.ACP_DVSN_CD = #{acpDvsnCd}
+                AND A.ACP_SRNO = #{acpSrno}
+                AND A.EVI_DCMB_SNO = #{eviDcmbSno}
+                <if test='viewId == "BADFRE512E"'>
+                AND A.EVI_DCM_DVSN_CD IN ('10','20')
+                </if>
+             ORDER BY SORT_SNO
+    </select>
+	
+	<insert id="TBBADFRE118DInsert" parameterType="paramMap">
+        /*kr.go.bai.eip.bad.fre.dao.BADFRE323Mapper.TBBADFRE118DInsert*/
+        /*증거서류 Insert*/
+        INSERT INTO TBBADFRE118D
+        (
+            ACP_YR /*감사년도 */
+            ,ACP_SRNO /*감사번호*/
+            ,EVI_DCMB_SNO	/*감사서류함순번 */
+            ,ACP_DCM_DOC_ID	/*감사서류문서ID */
+            ,ACP_DVSN_CD	/*감사종류코드 */
+            ,ACP_GRN_NO	/*감사부여코드 */
+            ,EVI_DCM_DVSN_CD	/*증거서류구분코드 */
+            ,FILE_NM	/*파일명 */
+            ,ISUE_DY	/*발부일자 */
+            ,ACP_DCM_CRE_ID	/*감사서류생성자ID */
+            ,SORT_SNO	/*정렬순번 */
+            ,FRT_USR_ID	/*최초사용자ID */
+            ,FNL_USR_ID	/*최종사용자ID */
+            ,FNL_DEAL_DPT_CD	/*최종거래부서코드 */
+            ,FNL_MNU_ID	/*최종메뉴ID */
+            ,FRT_REGI_DH	/*최초등록일시 */
+            ,FNL_MDF_DH	/*최종수정일시  */
+            ,FILE_SIZE
+        )
+        values
+        (
+            #{acpYr}        /*감사년도 */
+            ,#{acpSrno}       /*감사번호 */
+            ,#{eviDcmbSno}  /*감사서류함순번 */
+            ,#{acpDcmDocId}  /*감사서류문서ID */
+            ,#{acpDvsnCd} /*감사종류코드 */
+            ,#{acpGrnNo} /*감사부여코드 */
+            ,#{eviDcmDvsnCd}	/*증거서류구분코드 */
+            ,#{fileNm}	/*파일명 */
+            ,#{isueDy}  /*발부일자 */
+            ,#{frtUsrId} /*감사서류생성자ID(최초사용자id) */
+            ,(SELECT NVL(MAX(SORT_SNO),0)+1
+                 FROM TBBADFRE108D
+                  WHERE ACP_YR = #{acpYr}
+                  AND ACP_SRNO = #{acpSrno}
+                  AND EVI_DCMB_SNO = #{eviDcmbSno} /*정렬순번 */
+              )
+            ,#{frtUsrId}  /*최초사용자id */
+            ,#{fnlUsrId} /*최종사용자id */
+            ,#{fnlDealDptCd}    /*최종거래부서코드 */
+            ,#{fnlMnuId} /*최종메뉴id */
+            ,SYSDATE    /*최초등록일시 */
+            ,SYSDATE /*최종수정일시 */
+            ,#{fileSize}
+        )
+    </insert>
+    
+    <update id="TBBADFRE118MUpdate" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.fre.dao.BADFRE323Mapper.TBBADFRE118MUpdate*/
+    /*증거서류함 Update*/
+        UPDATE TBBADFRE118M
+           SET FOLDER_NM = #{folderNm} /*폴더명 */
+          , SORT_SNO = #{sortSno} /*정렬순번 */
+          , FNL_USR_ID = #{fnlUsrId} /*최종사용자ID */
+          , FNL_DEAL_DPT_CD = #{fnlDealDptCd} /*최종거래부서코드 */
+          , FNL_MNU_ID = #{fnlMnuId} /*최종메뉴ID */
+          , FNL_MDF_DH = sysdate /*최종수정일시 */
+         WHERE EVI_DCMB_SNO = #{eviDcmbSno} /*감사서류함순번 */
+            <if test='acpYr != null and acpYr != ""'>
+                AND ACP_YR = #{acpYr}
+            </if>
+            <if test='acpDvsnCd != null and acpDvsnCd != ""'>
+                AND ACP_DVSN_CD = #{acpDvsnCd}
+            </if>
+            <if test='acpSrno != null and acpSrno != ""'>
+                AND ACP_SRNO = #{acpSrno}
+            </if>
+    </update>
+    
+    <delete id="TBBADFRE118DDelete" parameterType="paramMap">
+    /*kr.go.bai.eip.bad.fre.dao.BADFRE323Mapper.TBBADFRE118DDelete*/
+    /*증거서류 Delete*/
+        DELETE FROM TBBADFRE118D
+        WHERE EVI_DCMB_SNO = #{eviDcmbSno} /*감사서류함순번 */
+            <if test='acpYr != null and acpYr != ""'>
+                AND ACP_YR = #{acpYr}
+            </if>
+            <if test='acpDvsnCd != null and acpDvsnCd != ""'>
+                AND ACP_DVSN_CD = #{acpDvsnCd}
+            </if>
+            <if test='acpSrno != null and acpSrno != ""'>
+                AND ACP_SRNO = #{acpSrno}
+            </if>
+            <if test='eviDcmbSno != null and eviDcmbSno != ""'>
+                AND EVI_DCMB_SNO  = #{eviDcmbSno}
+            </if>
+            <if test='acpDcmDocId != null and acpDcmDocId != ""'>
+                AND ACP_DCM_DOC_ID  = #{acpDcmDocId}
+            </if>
+    </delete>
+    
+    <select id="chkFileTBBADFRE120M" parameterType="paramMap" resultType="Integer">
+    /*kr.go.bai.eip.bad.fre.dao.BADFRE323Mapper.chkFileTBBADFRE120M*/
+    /*증거서류 매핑테이블 존재여부*/
+        SELECT COUNT(*) FROM
+        TBBADFRE118D A INNER JOIN TBBADFRE120M B
+            ON A.ACP_YR = B.ACP_YR
+            AND A.ACP_SRNO = B.ACP_SRNO
+            AND A.ACP_DCM_DOC_ID  = B.ACP_DCM_DOC_ID
+            AND A.EVI_DCMB_SNO  = B.EVI_DCMB_SNO
+        WHERE A.ACP_YR = #{acpYr}
+            AND A.ACP_SRNO = #{acpSrno}
+            <if test='eviDcmbSno != null and eviDcmbSno != ""'>
+                <if test='type == null or type == ""'>
+                    AND B.EVI_DCMB_SNO = #{eviDcmbSno}
+                </if>
+            </if>
+            <if test='acpDcmDocId != null and acpDcmDocId != ""'>
+                <if test="type != '' and type eq 'docId'.toString()">
+                    AND A.ACP_DCM_DOC_ID = #{acpDcmDocId}
+                </if>
+            </if>
+    </select>
+    
+</mapper>

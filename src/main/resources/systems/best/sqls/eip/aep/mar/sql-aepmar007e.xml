@@ -1,0 +1,593 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.mar.dao.AEPMAR007EMapper">
+
+	<select id="selectRqsList" parameterType="paramMap" resultType="egovMap">
+       /* kr.go.bai.eip.aep.mar.dao.AEPMAR007EMapper.selectRqsList */
+        <include refid="include.pageSelct" />
+            <![CDATA[
+            SELECT A.AUD_YR                                            /* 감사년도 */
+			     , A.AUD_NO                                            /* 감사번호 */
+			     , A.AUD_STEP_CD                                       /* 감사단계코드 */
+			     , A.RPRT_CD                                           /* 보고서구분코드 */
+			     , A.REF_DOC_ID                                        /* 요청문서ID */
+			     , A.RQS_SEQ                                           /* 요청순번 */
+			     , TO_CHAR(A.RQS_REGI_DT,'yyyy.MM.dd') AS RQS_REGI_DT  /* 요청일시(요청일자)*/
+			     , (SELECT F_DPT_INFO(AA.DPT_CD,'1')
+			          FROM TBDCMACM001M AA
+			         WHERE AA.USR_ID = A.RQS_ID )      AS RQS_DPT_NM   /* 요청부서 */
+			     , F_USR_INFO_BY_ID(A.RQS_ID,'1')      AS RQS_CNB      /* 요청자CNB */
+			     , A.RQS_ID                                            /* 요청자ID */
+			     , F_USR_INFO_BY_ID(A.RQS_ID,'2')      AS RQS_NM       /* 요청자성명 */
+			     , A.RQS_RSN                                           /* 요청사유 */
+			     , F_MNG_KND_AUDYRNO(B.AUD_YR, B.AUD_NO, B.AUD_KND_CD, '-') AS AUD_YR_N0   /* 분류번호 */
+			     , B.AUD_SBJ_NM                                        /* 감사사항명 */
+			     , F_CODE_NM('1000786',A.RPRT_CD)      AS AUD_DOC_NM   /* 보고서구분명 */
+			     , C.RPRT_NM                                           /* 보고서명 */
+			     , A.RQS_DAY_NUM                                       /* 요청일수(열람요청일수) */
+			     , A.PRSS_CD                                           /* 진행상태코드 (요청상태) */
+			     , F_CODE_NM('1000902',A.PRSS_CD)      AS PRSS_NM      /* 진행상태명(요청상태)*/
+			     , F_OPEN_EDIT(C.LINK_URL)             AS DOC_TYPE     /* 편집기구분 */ 
+			     , B.AUD_KND_CD                                        /* 감사종류코드 */
+			     , (SELECT MAX(AA.DOC_ID)
+			          FROM TBAEPMAR001M AA 
+			         WHERE AA.AUD_YR = A.AUD_YR
+			           AND AA.AUD_NO = A.AUD_NO
+			           AND AA.AUD_STEP_CD = A.AUD_STEP_CD
+			           AND AA.RPRT_CD = A.RPRT_CD
+			           AND AA.REF_DOC_ID = A.REF_DOC_ID 
+			           AND AA.RCV_REGI_DT = (SELECT MAX(BB.RCV_REGI_DT)
+									           FROM TBAEPMAR001M BB 
+									          WHERE BB.AUD_YR = AA.AUD_YR
+									            AND BB.AUD_NO = AA.AUD_NO
+									            AND BB.AUD_STEP_CD = AA.AUD_STEP_CD
+									            AND BB.RPRT_CD = AA.RPRT_CD
+									            AND BB.REF_DOC_ID = AA.REF_DOC_ID
+									            AND BB.DOC_ID IS NOT NULL))   AS COPY_DOC_ID  /* 복사 DOC_ID ( 최근에 접수된 문서 복사 ) */
+			  FROM TBAEPMAR001M A
+			 INNER JOIN
+			       TBBADDED001M B
+			    ON B.AUD_YR = A.AUD_YR
+			   AND B.AUD_NO = A.AUD_NO
+			 INNER JOIN
+			       (SELECT AA.AUD_YR
+			             , AA.AUD_NO
+			             , AA.AUD_STEP_CD
+			             , AA.DOC_ID
+			             , AA.RPRT_CD
+			             , AA.RPRT_NM
+			             , AA.LINK_URL
+			          FROM TBBADDED103M AA
+			         UNION ALL 
+			        SELECT BB.AUD_YR
+			             , BB.AUD_NO
+			             , 'NO'
+			             , BB.DOC_ID
+			             , DECODE(BB.DOC_TYP_CD,'AD-AR-002','A10300100','AD-AR-003','A10600200','AD-AR-001','A10500200')   AS RPRT_CD /* 감사실시계획서, 감사보고서, 실지감사 종료보고서 'A10300100','A10500200','A10600200' */
+			             , CC.FILE_NAME    AS RPRT_NM
+			             , 'hancom'        AS DOC_TYPE
+			          FROM TBBADDED021M BB  
+			         INNER JOIN
+			               ECM_FILE_LIST_VIEW2 CC
+			            ON CC.DOC_ID = BB.DOC_ID
+			        ) C
+			    ON C.AUD_YR = A.AUD_YR
+			   AND C.AUD_NO = A.AUD_NO
+			   AND C.AUD_STEP_CD = A.AUD_STEP_CD
+			   AND C.DOC_ID = A.REF_DOC_ID
+			 WHERE A.PRSS_CD = '10' /* 요청건만 조회 */
+			  ]]>
+			  
+			  <if test='MaintenanceRoleYn != "Y" '>
+                 <if test="dptCd != null and dptCd != '' ">
+                    AND B.MNG_DPT_CD = #{dptCd} 
+                 </if>
+            </if>
+			   /* 분류번호 (번호) */
+			 <if test="schAudYr != null and schAudYr != ''">
+                    AND B.AUD_YR  = #{schAudYr}
+            </if>
+            /* 분류번호 (감사구분) */
+            <if test="schAudYrNoKndCd != null and schAudYrNoKndCd != ''">
+                    AND B.AUD_KND_CD = #{schAudYrNoKndCd}
+            </if>
+             /* 분류번호 (일련번호) */
+            <if test="schAudNo != null and schAudNo != ''">
+                    AND B.AUD_GRN_NO = #{schAudNo}
+            </if>
+             /* 감사사항명 */
+            <if test="schAudSbjNm != null and schAudSbjNm != ''">
+                    AND B.AUD_SBJ_NM LIKE '%'||#{schAudSbjNm}||'%'
+            </if>
+            /* 요청부서 (상위) */
+			<if test="schSpvBrdvCd != null and schSpvBrdvCd != ''">
+                    AND (SELECT D4.HIRK_DPT_CD 
+                           FROM TBDCMACM002M D4 
+                          WHERE D4.DPT_CD  =  (SELECT AA.DPT_CD
+						                         FROM TBDCMACM001M AA
+									            WHERE AA.USR_ID = A.RQS_ID)
+                            AND D4.USE_YN = 'Y') = #{schSpvBrdvCd} 
+            </if>
+            /* 요청부서  */
+            <if test="schDeptCd != null and schDeptCd != ''">
+                    AND (SELECT AA.DPT_CD
+                           FROM TBDCMACM001M AA
+			              WHERE AA.USR_ID = A.RQS_ID)= #{schDeptCd}
+            </if>
+            /* 보고서 종류 */
+            <if test="schRprtCd != null and schRprtCd != ''">
+                    AND C.RPRT_CD = #{schRprtCd}
+            </if>
+            /* 요청자 */
+            <if test="schRqsId != null and schRqsId != ''">
+                    AND A.RQS_ID = #{schRqsId}
+            </if>
+            /* 요청자명 */
+            <if test="schRqsNm != null and schRqsNm != ''">
+                    AND F_USR_INFO_BY_ID(A.RQS_ID,'2') LIKE '%'||#{schRqsNm}||'%'
+            </if>
+             <![CDATA[
+			 ORDER BY A.RQS_REGI_DT DESC
+            ]]>
+        <include refid="include.pageOrder" />
+    </select>
+    
+    <update id="updateReadRqsAdj">
+       /*kr.go.bai.eip.aep.mar.dao.AEPMAR006EMapper.updateReadRqsAdj*/
+	   UPDATE TBAEPMAR001M  
+	      SET PRSS_CD         = '50'                    /* 진행상태코드 ( 30 = 접수에서 50(승인)으로 변경 2021.05.24 yyh) */
+	        , APV_STA_CD	   = '30'                   /* 결재상태코드 추가 - 2021.05.24 yyh */
+	        , READ_COFM_DH = SYSDATE             /* 열람승인일시 추가 - 2021.05.24 yyh */
+	        
+	        , DOC_ID          = #{docId}                /* 편집문서ID */
+	        , DOC_WRT_ID      = #{usrId}                /* 편집문서ID */
+	        , LINK_URL        = #{linkUrl}              /* 링크주소 */
+	        
+	        , ADJ_DAY_NUM  = CASE WHEN NVL(ADJ_DAY_NUM,0) = 0 THEN RQS_DAY_NUM
+	                                         ELSE ADJ_DAY_NUM
+	                                  END /* 조정일수 */	        
+	          
+	        , RCV_REGI_DT     = SYSDATE                 /* 접수일시 */
+	        , RCV_USR_ID      = #{usrId}                /* 접수자 */
+	        , FNL_USR_ID      = #{usrId}                /* 최종사용자ID */ 
+		    , FNL_DEAL_DPT_CD = #{dptCd}                /* 최종거래부서코드 */
+			, FNL_MNU_ID      = NVL(#{menuNo},'NVL')    /* 최종메뉴ID */
+			, FNL_MDF_DH      = SYSDATE                 /* 최종수정일시 */	
+		WHERE AUD_YR		  = #{audYr}       /* 감사년도 */
+		  AND AUD_NO          = #{audNo}       /* 감사번호 */
+		  AND AUD_STEP_CD     = #{audStepCd}   /* 감사단계코드 */
+		  AND RPRT_CD         = #{rprtCd}      /* 보고서구분코드 */
+		  AND REF_DOC_ID      = #{refDocId}    /* 요청문서ID */
+		  AND RQS_SEQ         = #{rqsSeq}      /* 요청순번 */ 
+		   	
+	</update>
+    
+    <update id="updateReadRqsRet">
+       /*kr.go.bai.eip.aep.mar.dao.AEPMAR006EMapper.updateReadRqsRet*/
+	   UPDATE TBAEPMAR001M  
+	      SET PRSS_CD         = '90'                    /* 진행상태코드 ( 90 = 반려 ) */
+	        , RET_RSN         = #{retRsn}               /* 반려사유 */
+	        , RCV_REGI_DT     = SYSDATE                 /* 접수일시 */
+	        , RCV_USR_ID      = #{usrId}                /* 접수자 */
+	        , FNL_USR_ID      = #{usrId}                /* 최종사용자ID */ 
+		    , FNL_DEAL_DPT_CD = #{dptCd}                /* 최종거래부서코드 */
+			, FNL_MNU_ID      = NVL(#{menuNo},'NVL')    /* 최종메뉴ID */
+			, FNL_MDF_DH      = SYSDATE                 /* 최종수정일시 */	
+		WHERE AUD_YR		  = #{audYr}       /* 감사년도 */
+		  AND AUD_NO          = #{audNo}       /* 감사번호 */
+		  AND AUD_STEP_CD     = #{audStepCd}   /* 감사단계코드 */
+		  AND RPRT_CD         = #{rprtCd}      /* 보고서구분코드 */
+		  AND REF_DOC_ID      = #{refDocId}    /* 요청문서ID */
+		  AND RQS_SEQ         = #{rqsSeq}      /* 요청순번 */ 
+		   	
+	</update>
+	
+	<select id="selectAdjList" parameterType="paramMap" resultType="egovMap">
+       /* kr.go.bai.eip.aep.mar.dao.AEPMAR007EMapper.selectAdjList */
+        <include refid="include.pageSelct" />
+            <![CDATA[
+            SELECT A.AUD_YR                                            /* 감사년도 */
+			     , A.AUD_NO                                            /* 감사번호 */
+			     , A.AUD_STEP_CD                                       /* 감사단계코드 */
+			     , A.RPRT_CD                                           /* 보고서구분코드 */
+			     , A.REF_DOC_ID                                        /* 요청문서ID */
+			     , A.RQS_SEQ                                           /* 요청순번 */
+			     , A.DOC_ID                                            /* 편집문서ID */
+			     , TO_CHAR(A.RQS_REGI_DT,'yyyy.MM.dd') AS RQS_REGI_DT  /* 요청일시(요청일자)*/
+			     , (SELECT F_DPT_INFO(AA.DPT_CD,'1')
+			          FROM TBDCMACM001M AA
+			         WHERE AA.USR_ID = A.RQS_ID )      AS RQS_DPT_NM   /* 요청부서 */
+			     , F_USR_INFO_BY_ID(A.RQS_ID,'1')      AS RQS_CNB      /* 요청자CNB */
+			     , A.RQS_ID                                            /* 요청자ID */
+			     , F_USR_INFO_BY_ID(A.RQS_ID,'2')      AS RQS_NM       /* 요청자성명 */
+			     , TO_CHAR(A.RCV_REGI_DT,'yyyy.MM.dd') AS RCV_REGI_DT  /* 접수일시 */
+			     , A.RCV_USR_ID										   /* 접수자ID */
+			     , F_USR_INFO_BY_ID(A.RCV_USR_ID,'2')  AS RCV_USR_NM   /* 접수자성명 */
+			     , F_MNG_KND_AUDYRNO(B.AUD_YR, B.AUD_NO, B.AUD_KND_CD, '-') AS AUD_YR_N0   /* 분류번호 */
+			     , B.AUD_SBJ_NM                                        /* 감사사항명 */
+			     , F_CODE_NM('1000786',A.RPRT_CD)      AS AUD_DOC_NM   /* 보고서구분명 */
+			     , C.RPRT_NM || ' (열람용)'               AS RPRT_NM      /* 보고서명 */
+			     , A.RQS_DAY_NUM                                       /* 요청일수(열람요청일수) */
+			     , DECODE(A.ADJ_DAY_NUM,A.RQS_DAY_NUM,' ',A.ADJ_DAY_NUM || '일')    AS ADJ_DAY_NUM  /* 조정일수(요청일수와 다른경우 표시) */
+			     , A.PRSS_CD                                           /* 진행상태코드 (요청상태) */
+			     , F_CODE_NM('1000902',A.PRSS_CD)      AS PRSS_NM      /* 진행상태명(요청상태)*/
+			     , A.APV_RQS_ID                                        /* 결제요청ID */
+			     , A.APV_STA_CD                                        /* 결제상태코드 */
+			     , F_CODE_NM('1000773',A.APV_STA_CD)   AS APV_STA_NM   /* 결제상태 */
+			     , F_OPEN_EDIT(A.LINK_URL)             AS DOC_TYPE     /* 편집기구분 */ 
+			     , B.AUD_KND_CD                                        /* 감사종류코드 */
+			  FROM TBAEPMAR001M A
+			 INNER JOIN
+			       TBBADDED001M B
+			    ON B.AUD_YR = A.AUD_YR
+			   AND B.AUD_NO = A.AUD_NO
+			 INNER JOIN
+			       (SELECT AA.AUD_YR
+			             , AA.AUD_NO
+			             , AA.AUD_STEP_CD
+			             , AA.DOC_ID
+			             , AA.RPRT_CD
+			             , AA.RPRT_NM
+			          FROM TBBADDED103M AA
+			         UNION ALL 
+			        SELECT BB.AUD_YR
+			             , BB.AUD_NO
+			             , 'NO'
+			             , BB.DOC_ID
+			             , DECODE(BB.DOC_TYP_CD,'AD-AR-002','A10300100','AD-AR-003','A10600200','AD-AR-001','A10500200')   AS RPRT_CD /* 감사실시계획서, 감사보고서, 실지감사 종료보고서 'A10300100','A10500200','A10600200' */
+			             , CC.FILE_NAME    AS RPRT_NM
+			          FROM TBBADDED021M BB  
+			         INNER JOIN
+			               ECM_FILE_LIST_VIEW2 CC
+			            ON CC.DOC_ID = BB.DOC_ID
+			        ) C
+			    ON C.AUD_YR = A.AUD_YR
+			   AND C.AUD_NO = A.AUD_NO
+			   AND C.AUD_STEP_CD = A.AUD_STEP_CD
+			   AND C.DOC_ID = A.REF_DOC_ID
+			 WHERE A.PRSS_CD IN ('30','40')             /* 접수,처리중 상태만 조회 */
+			  ]]>
+			   <if test='MaintenanceRoleYn != "Y" '>
+			     <if test="dptCd != null and dptCd != ''  ">
+			         AND A.RCV_USR_ID = #{usrId}
+			     </if>
+			 </if>
+			   /* 분류번호 (번호) */
+			 <if test="schAudYr2 != null and schAudYr2 != ''">
+                    AND B.AUD_YR  = #{schAudYr2}
+            </if>
+            /* 분류번호 (감사구분) */
+            <if test="schAudYrNoKndCd2 != null and schAudYrNoKndCd2 != ''">
+                    AND B.AUD_KND_CD = #{schAudYrNoKndCd2}
+            </if>
+            /* 분류번호 (일련번호) */
+            <if test="schAudNo2 != null and schAudNo2 != ''">
+                    AND B.AUD_GRN_NO = #{schAudNo2}
+            </if>
+            /* 감사사항명 */
+            <if test="schAudSbjNm2 != null and schAudSbjNm2 != ''">
+                    AND B.AUD_SBJ_NM LIKE '%'||#{schAudSbjNm2}||'%'
+            </if>
+             /* 요청부서 (상위) */
+			<if test="schSpvBrdvCd2 != null and schSpvBrdvCd2 != ''">
+                    AND (SELECT D4.HIRK_DPT_CD 
+                           FROM TBDCMACM002M D4 
+                          WHERE D4.DPT_CD  = (SELECT AA.DPT_CD
+					                            FROM TBDCMACM001M AA
+								               WHERE AA.USR_ID = A.RQS_ID)
+                            AND D4.USE_YN = 'Y') = #{schSpvBrdvCd2} 
+            </if>
+            /* 요청부서  */
+            <if test="schDeptCd2 != null and schDeptCd2 != ''">
+                    AND (SELECT AA.DPT_CD
+                           FROM TBDCMACM001M AA
+			              WHERE AA.USR_ID = A.RQS_ID) = #{schDeptCd2}
+            </if>
+            /* 보고서 종류 */
+            <if test="schRprtCd2 != null and schRprtCd2 != ''">
+                    AND C.RPRT_CD = #{schRprtCd2}
+            </if>
+            /* 요청자 */
+            <if test="schRqsId2 != null and schRqsId2 != ''">
+                    AND A.RQS_ID = #{schRqsId2}
+            </if>
+            /* 요청자명 */
+            <if test="schRqsNm2 != null and schRqsNm2 != ''">
+                    AND F_USR_INFO_BY_ID(A.RQS_ID,'2') LIKE '%'||#{schRqsNm2}||'%'
+            </if>
+             <![CDATA[
+			 ORDER BY
+			       A.APV_STA_CD
+			     , A.PRSS_CD
+			     , A.RQS_REGI_DT
+			     , A.RCV_REGI_DT
+            ]]>
+        <include refid="include.pageOrder" />
+    </select>
+    
+    <update id="updateAdjCancel">
+       /*kr.go.bai.eip.aep.mar.dao.AEPMAR007EMapper.updateAdjCancel*/
+	   UPDATE TBAEPMAR001M  
+	      SET PRSS_CD         = '10'                    /* 진행상태코드 ( 10 = 접수 ) */
+	        , DOC_ID          = ''                      /* 편집문서ID */
+	        , DOC_WRT_ID      = ''                      /* 편집문서ID */
+	        , LINK_URL        = ''                      /* 링크주소 */
+	        , ADJ_DAY_NUM     = ''		                /* 조정일수 */
+	        , ADJ_DAY_RSN     = ''                      /* 일수조정사유 */  
+	        , RCV_REGI_DT     = ''                      /* 접수일시 */
+	        , RCV_USR_ID      = ''                      /* 접수자 */
+	        , FNL_USR_ID      = #{usrId}                /* 최종사용자ID */ 
+		    , FNL_DEAL_DPT_CD = #{dptCd}                /* 최종거래부서코드 */
+			, FNL_MNU_ID      = NVL(#{menuNo},'NVL')    /* 최종메뉴ID */
+			, FNL_MDF_DH      = SYSDATE                 /* 최종수정일시 */	
+		WHERE AUD_YR		  = #{audYr}       /* 감사년도 */
+		  AND AUD_NO          = #{audNo}       /* 감사번호 */
+		  AND AUD_STEP_CD     = #{audStepCd}   /* 감사단계코드 */
+		  AND RPRT_CD         = #{rprtCd}      /* 보고서구분코드 */
+		  AND REF_DOC_ID      = #{refDocId}    /* 요청문서ID */
+		  AND RQS_SEQ         = #{rqsSeq}      /* 요청순번 */ 
+		   	
+	</update>
+	
+	<select id="selectAdjDayNumInfo" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.aep.mar.dao.AEPMAR007EMapper.selectAdjDayNumInfo*/
+        <![CDATA[
+			SELECT B.AUD_SBJ_NM                                        /* 감사사항명 */
+			     , B.MNG_DPT_CD                                        /* 관리부서 */                                       
+				 , F_DPT_INFO(B.MNG_DPT_CD,'1')        AS MNG_DPT_NM   /* 관리부서명 */
+				 , (SELECT F_DPT_INFO(AA.DPT_CD,'1') || ' ' || NVL(F_CODE_NM('1000176',AA.PST_CD),F_CODE_NM('1000173',AA.RANK_CD)) || ' ' || AA.USR_NAM
+				      FROM TBDCMACM001M AA
+				     WHERE AA.USR_ID = A.RCV_USR_ID )  AS USR_NM       /* 처리자 */
+				 , C.RPRT_NM                                           /* 보고서명 */
+				 , A.RQS_DAY_NUM || '일'                AS RQS_DAY_NUM   /* 요청일수 */
+				 , NVL(A.ADJ_DAY_NUM,A.RQS_DAY_NUM)    AS ADJ_DAY_NUM   /* 조정일수 */
+				 , A.ADJ_DAY_RSN                       AS RSN          /* 일수조정사유 */
+			  FROM TBAEPMAR001M A
+			 INNER JOIN
+				   TBBADDED001M B
+			    ON B.AUD_YR = A.AUD_YR
+			   AND B.AUD_NO = A.AUD_NO
+			 INNER JOIN
+				   (SELECT AA.AUD_YR
+			             , AA.AUD_NO
+			             , AA.AUD_STEP_CD
+			             , AA.DOC_ID
+			             , AA.RPRT_CD
+			             , AA.RPRT_NM
+			          FROM TBBADDED103M AA
+			         UNION ALL 
+			        SELECT BB.AUD_YR
+			             , BB.AUD_NO
+			             , 'NO'
+			             , BB.DOC_ID
+			             , DECODE(BB.DOC_TYP_CD,'AD-AR-002','A10300100','AD-AR-003','A10600200','AD-AR-001','A10500200')   AS RPRT_CD /* 감사실시계획서, 감사보고서, 실지감사 종료보고서 'A10300100','A10500200','A10600200' */
+			             , CC.FILE_NAME    AS RPRT_NM
+			          FROM TBBADDED021M BB  
+			         INNER JOIN
+			               ECM_FILE_LIST_VIEW2 CC
+			            ON CC.DOC_ID = BB.DOC_ID
+			        ) C
+			    ON C.AUD_YR = A.AUD_YR
+			   AND C.AUD_NO = A.AUD_NO
+			   AND C.AUD_STEP_CD = A.AUD_STEP_CD
+			   AND C.DOC_ID = A.REF_DOC_ID
+			 WHERE A.AUD_YR = #{audYr}
+			   AND A.AUD_NO = #{audNo}
+			   AND A.AUD_STEP_CD = #{audStepCd}
+			   AND A.RPRT_CD = #{rprtCd}
+			   AND A.REF_DOC_ID = #{refDocId}
+			   AND RQS_SEQ = #{rqsSeq}
+        ]]>
+    </select>
+    
+    <select id="selectAdjCmptList" parameterType="paramMap" resultType="egovMap">
+       /* kr.go.bai.eip.aep.mar.dao.AEPMAR007EMapper.selectAdjCmptList */
+        <include refid="include.pageSelct" />
+            <![CDATA[
+            SELECT A.AUD_YR                                            /* 감사년도 */
+			     , A.AUD_NO                                            /* 감사번호 */
+			     , A.AUD_STEP_CD                                       /* 감사단계코드 */
+			     , A.RPRT_CD                                           /* 보고서구분코드 */
+			     , A.REF_DOC_ID                                        /* 요청문서ID */
+			     , A.RQS_SEQ                                           /* 요청순번 */
+			     , A.DOC_ID                                            /* 편집문서ID */
+			     , TO_CHAR(A.RQS_REGI_DT,'yyyy.MM.dd') AS RQS_REGI_DT  /* 요청일시(요청일자)*/
+			     , (SELECT F_DPT_INFO(AA.DPT_CD,'1')
+			          FROM TBDCMACM001M AA
+			         WHERE AA.USR_ID = A.RQS_ID )      AS RQS_DPT_NM   /* 요청부서 */
+			     , A.RQS_ID                                            /* 요청자ID */
+			     , F_USR_INFO_BY_ID(A.RQS_ID,'2')      AS RQS_NM       /* 요청자성명 */
+			     , TO_CHAR(A.RCV_REGI_DT,'yyyy.MM.dd') AS RCV_REGI_DT  /* 접수일시 */
+			     , A.RCV_USR_ID										   /* 접수자ID */
+			     , F_USR_INFO_BY_ID(A.RCV_USR_ID,'2')  AS RCV_USR_NM   /* 접수자성명 */
+			     , F_MNG_KND_AUDYRNO(B.AUD_YR, B.AUD_NO, B.AUD_KND_CD, '-') AS AUD_YR_N0   /* 분류번호 */
+			     , B.AUD_SBJ_NM                                        /* 감사사항명 */
+			     , F_CODE_NM('1000786',A.RPRT_CD)      AS AUD_DOC_NM   /* 보고서구분명 */
+			     , C.RPRT_NM || ' (열람용)'               AS RPRT_NM      /* 보고서명 */
+			     , A.RQS_DAY_NUM                                       /* 요청일수(열람요청일수) */
+			     , A.PRSS_CD                                           /* 진행상태코드 (요청상태) */
+			     , F_CODE_NM('1000902',A.PRSS_CD)      AS PRSS_NM      /* 진행상태명(요청상태)*/
+			     , A.APV_RQS_ID                                        /* 결제요청ID */
+			     , A.APV_STA_CD                                        /* 결제상태코드 */
+			     , F_CODE_NM('1000773',A.APV_STA_CD)   AS APV_STA_NM   /* 결제상태 */
+			     , F_OPEN_EDIT(A.LINK_URL)             AS DOC_TYPE     /* 편집기구분 */ 
+			     , B.AUD_KND_CD                                        /* 감사종류코드 */
+                 ,CASE WHEN A.READ_COFM_DH IS NOT NULL THEN TO_CHAR(A.READ_COFM_DH,'yyyy.MM.dd') || ' ~ ' || TO_CHAR(A.READ_COFM_DH + A.ADJ_DAY_NUM-1,'yyyy.MM.dd')
+                       ELSE                                 TO_CHAR(D.APV_DH,'yyyy.MM.dd')       || ' ~ ' || TO_CHAR(D.APV_DH + A.ADJ_DAY_NUM-1,'yyyy.MM.dd')
+                   END                                 AS OPEN_DT      /* 열람기간 */   			     
+			     , A.ADJ_DAY_NUM                                       /* 열람일수 */
+			     , DECODE(A.RQS_DAY_NUM,A.ADJ_DAY_NUM,'N','Y')  AS ADJ_DAY_YN    /* 열람일자 조정여부 */
+			     , TO_CHAR(A.RCV_REGI_DT,'yyyy.MM.dd') AS RCV_REGI_DT  /* 접수일시 */
+			  FROM TBAEPMAR001M A
+			 INNER JOIN
+			       TBBADDED001M B
+			    ON B.AUD_YR = A.AUD_YR
+			   AND B.AUD_NO = A.AUD_NO
+			 INNER JOIN
+			       (SELECT AA.AUD_YR
+			             , AA.AUD_NO
+			             , AA.AUD_STEP_CD
+			             , AA.DOC_ID
+			             , AA.RPRT_CD
+			             , AA.RPRT_NM
+			          FROM TBBADDED103M AA
+			         UNION ALL 
+			        SELECT BB.AUD_YR
+			             , BB.AUD_NO
+			             , 'NO'
+			             , BB.DOC_ID
+			             , DECODE(BB.DOC_TYP_CD,'AD-AR-002','A10300100','AD-AR-003','A10600200','AD-AR-001','A10500200')   AS RPRT_CD /* 감사실시계획서, 감사보고서, 실지감사 종료보고서 'A10300100','A10500200','A10600200' */
+			             , CC.FILE_NAME    AS RPRT_NM
+			          FROM TBBADDED021M BB  
+			         INNER JOIN
+			               ECM_FILE_LIST_VIEW2 CC
+			            ON CC.DOC_ID = BB.DOC_ID
+			        ) C
+			    ON C.AUD_YR = A.AUD_YR
+			   AND C.AUD_NO = A.AUD_NO
+			   AND C.AUD_STEP_CD = A.AUD_STEP_CD
+			   AND C.DOC_ID = A.REF_DOC_ID
+			  LEFT OUTER JOIN
+			      (SELECT AA.APV_DOC_NO
+			            , MAX(AA.APV_DH) AS APV_DH
+                     FROM TBDCMACM023L AA
+                    GROUP BY 
+                          AA.APV_DOC_NO ) D
+                ON D.APV_DOC_NO =  A.APV_RQS_ID
+			 WHERE A.PRSS_CD IN (SELECT AA.CD
+			                       FROM TBDCMACM013C AA
+			                      WHERE AA.CMM_CD_DVSN_CD = '1000902'
+			                        AND AA.USR_DFN_TXT_2 = 'Y'
+			                        AND AA.USE_YN = 'Y')         /* 승인/반려만 조회 */
+			  ]]>
+			   <if test='MaintenanceRoleYn != "Y" '>
+			     <if test="dptCd != null and dptCd != ''  ">
+			           AND A.RCV_USR_ID = #{usrId} 
+			      </if> 
+			  </if>
+			   /* 분류번호 (번호) */
+			 <if test="schAudYr3 != null and schAudYr3 != ''">
+                    AND B.AUD_YR  = #{schAudYr3}
+            </if>
+            /* 분류번호 (감사구분) */
+            <if test="schAudYrNoKndCd3 != null and schAudYrNoKndCd3 != ''">
+                    AND B.AUD_KND_CD = #{schAudYrNoKndCd3}
+            </if>
+            /* 분류번호 (일련번호) */
+            <if test="schAudNo3 != null and schAudNo3 != ''">
+                    AND B.AUD_GRN_NO = #{schAudNo3}
+            </if>
+            /* 감사사항명 */
+            <if test="schAudSbjNm3 != null and schAudSbjNm3 != ''">
+                    AND B.AUD_SBJ_NM LIKE '%'||#{schAudSbjNm3}||'%'
+            </if>
+             /* 요청부서 (상위) */
+			<if test="schSpvBrdvCd3 != null and schSpvBrdvCd3 != ''">
+                    AND (SELECT D4.HIRK_DPT_CD 
+                           FROM TBDCMACM002M D4 
+                          WHERE D4.DPT_CD  = (SELECT AA.DPT_CD
+					                            FROM TBDCMACM001M AA
+								               WHERE AA.USR_ID = A.RQS_ID)
+                            AND D4.USE_YN = 'Y') = #{schSpvBrdvCd3} 
+            </if>
+            /* 요청부서  */
+            <if test="schDeptCd3 != null and schDeptCd3 != ''">
+                    AND (SELECT AA.DPT_CD
+                           FROM TBDCMACM001M AA
+			              WHERE AA.USR_ID = A.RQS_ID) = #{schDeptCd3}
+            </if>
+            /* 보고서 종류 */
+            <if test="schRprtCd3 != null and schRprtCd3 != ''">
+                    AND C.RPRT_CD = #{schRprtCd3}
+            </if>
+            /* 진행상태 */
+            <if test="schPrssCd3 != null and schPrssCd3 != ''">
+                    AND A.PRSS_CD = #{schPrssCd3}
+            </if>
+            /* 요청자 */
+            <if test="schRqsId3 != null and schRqsId3 != ''">
+                    AND A.RQS_ID = #{schRqsId3}
+            </if>
+            /* 요청자명 */
+            <if test="schRqsNm3 != null and schRqsNm3 != ''">
+                    AND F_USR_INFO_BY_ID(A.RQS_ID,'2') LIKE '%'||#{schRqsNm3}||'%'
+            </if>
+            /* 요청일자 */
+            <if test="(schRqsStrDt3 != null and schRqsStrDt3 != '') or (schRqsEndDt3 != null and schRqsEndDt3 != '')">
+                    AND TO_CHAR(A.RQS_REGI_DT,'yyyyMMdd') BETWEEN NVL(#{schRqsStrDt3},'19000101') AND NVL(#{schRqsEndDt3},'29991231')
+            </if>
+            /* 처리일자 */
+            <if test="(schAdjStrDt3 != null and schAdjStrDt3 != '') or (schAdjEndDt3 != null and schAdjEndDt3 != '')">
+                    AND TO_CHAR(A.RCV_REGI_DT,'yyyyMMdd') BETWEEN NVL(#{schAdjStrDt3},'19000101') AND NVL(#{schAdjEndDt3},'29991231')
+            </if>
+             <![CDATA[
+			 ORDER BY
+			       A.RCV_REGI_DT DESC
+			     , A.RQS_REGI_DT DESC
+			     
+            ]]>
+        <include refid="include.pageOrder" />
+    </select>
+    
+    <insert id="sendRqsUsrMsg">
+        /* kr.go.bai.eip.aep.mar.dao.AEPMAR007EMapper.sendRqsUsrMsg */
+    <![CDATA[
+		 INSERT INTO TBDCMACM026L
+		            (
+			              MSG_SNO
+			            , TSK_CAT_CD
+			            , FUNC_CAT_CD
+			            , SEND_ID
+			            , MSG_TP_YN
+			            , MSG_TXT_2
+			            , RCNT_CNT
+			            , RCNT_HIS
+			            , MSG_REGI_DH
+			            , FRT_USR_ID
+			            , FNL_USR_ID
+			            , FNL_DEAL_DPT_CD
+			            , FNL_MNU_ID
+			            , FRT_REGI_DH
+			            , FNL_MDF_DH    
+		            )
+			VALUES
+		            (
+			              (SELECT NVL(MAX(MSG_SNO),'0')+1 AS MSG_SNO FROM TBDCMACM026L)
+			            , 'CM'
+			            , 'CM'
+			            , 'OASYS'
+			            , '0'
+			            , #{sendMsg}
+			            , 1
+			            , #{rqsCnb} /* 요청자 */
+			            , SYSDATE 
+			            , #{usrId}
+			            , #{usrId}
+			            , #{dptCd}
+			            , 'AEPMAR007E'
+			            , SYSDATE
+			            , SYSDATE 
+		            )
+        ]]>
+    </insert>
+    
+    <update id="updateAdjDayNum">
+       /*kr.go.bai.eip.aep.mar.dao.AEPMAR007EMapper.updateAdjCancel*/
+	   UPDATE TBAEPMAR001M  
+	      SET ADJ_DAY_NUM     = #{adjDayNum}            /* 조정일수 */
+	        , ADJ_DAY_RSN     = #{rsn}                  /* 일수조정사유 */ 
+	        , FNL_USR_ID      = #{usrId}                /* 최종사용자ID */ 
+		    , FNL_DEAL_DPT_CD = #{dptCd}                /* 최종거래부서코드 */
+			, FNL_MNU_ID      = NVL(#{menuNo},'NVL')    /* 최종메뉴ID */
+			, FNL_MDF_DH      = SYSDATE                 /* 최종수정일시 */	
+		WHERE AUD_YR		  = #{audYr}       /* 감사년도 */
+		  AND AUD_NO          = #{audNo}       /* 감사번호 */
+		  AND AUD_STEP_CD     = #{audStepCd}   /* 감사단계코드 */
+		  AND RPRT_CD         = #{rprtCd}      /* 보고서구분코드 */
+		  AND REF_DOC_ID      = #{refDocId}    /* 요청문서ID */
+		  AND RQS_SEQ         = #{rqsSeq}      /* 요청순번 */ 
+		   	
+	</update>
+	
+</mapper> 

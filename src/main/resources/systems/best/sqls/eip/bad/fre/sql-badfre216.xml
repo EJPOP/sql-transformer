@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.bad.fre.dao.BADFRE216Mapper">
+
+    <select id="selectUserForMsg" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.bad.fre.dao.BADFRE216Mapper.selectUserForMsg */
+		SELECT CNB
+		     , ETR_PEN_BLT_NM
+		     , RANK_NM
+		     , USR_NAM
+		     , DPT_NM
+		     , RANK_CD
+		  FROM (
+		    /*적출자*/
+			    SELECT B.ETR_PEN_ID                                  AS CNB
+			         , F_DPT_INFO(B.ETR_PEN_BLT_CD,'1')              AS ETR_PEN_BLT_NM
+			         , F_CODE_NM('1000173', B.ETR_PEN_RANK_CD)       AS RANK_NM
+			         , B.ETR_PEN_RANK_CD                             AS RANK_CD
+			         , B.ETR_PEN_NAM                                 AS USR_NAM
+			         , F_DPT_INFO(C.RAL_BLT_DIV_CD,'1')              AS DPT_NM
+			      FROM TBBADFRE012M A
+			INNER JOIN TBBADEAR004M B ON (B.AUD_YR = A.AUD_YR AND B.AUD_NO = A.AUD_NO AND B.DSP_RQ_SNO = A.DSP_RQ_SNO)
+			INNER JOIN TBDCMACM001M C ON (C.CNB = B.ETR_PEN_ID)
+			     WHERE A.ACP_YR = #{acpYr}
+			       AND A.ACP_DVSN_CD = #{acpDvsnCd}
+			       AND A.ACP_SRNO = #{acpSrno}
+			     
+			     UNION
+			    /*과장*/
+			    SELECT B.CNB
+			         , ''                                            AS ETR_PEN_BLT_NM
+			         , F_CODE_NM('1000176', B.PST_CD)                AS RANK_NM
+			         , B.RANK_CD                                     AS RANK_CD
+			         , B.USR_NAM
+			         , F_DPT_INFO(B.RAL_BLT_DIV_CD, '1')             AS DPT_NM
+			      FROM TBBADFRE012M A
+			INNER JOIN TBDCMACM001M B ON (B.DPT_CD = A.BAI_DSP_DIV_CD)
+			     WHERE A.ACP_YR = #{acpYr}
+			       AND A.ACP_DVSN_CD = #{acpDvsnCd}
+			       AND A.ACP_SRNO = #{acpSrno}
+			       AND B.INN_RANK_CD = '30'
+			       
+			     UNION 
+			    /*직무대리*/
+			    SELECT B.CNB
+			         , ''                                            AS ETR_PEN_BLT_NM
+			         , F_CODE_NM('1000176', B.PST_CD)                AS RANK_NM
+			         , B.RANK_CD                                     AS RANK_CD
+			         , B.USR_NAM
+			         , F_DPT_INFO(B.RAL_BLT_DIV_CD, '1')             AS DPT_NM
+			      FROM TBBADFRE012M A
+			INNER JOIN TBDCMACM001M B ON (B.SUB_DPT_CD = A.BAI_DSP_DIV_CD)
+			     WHERE A.ACP_YR = #{acpYr}
+			       AND A.ACP_DVSN_CD = #{acpDvsnCd}
+			       AND A.ACP_SRNO = #{acpSrno}
+			       AND B.SUB_INN_RANK_CD = '30'
+		       )
+		       ORDER BY RANK_CD ASC, CNB ASC
+    </select>
+
+
+
+    <select id="selectAudInfo" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.bad.fre.dao.BADFRE216Mapper.selectAudInfo */
+        		    SELECT A.AUD_YR
+			             , A.AUD_NO
+			             , A.DSP_RQ_SNO
+			             , A.ACP_YR
+			             , A.ACP_DVSN_CD
+			             , A.ACP_SRNO
+			             , (SELECT ST.AUD_SBJ_NM FROM TBBADDED001M ST WHERE ST.AUD_YR = A.AUD_YR AND ST.AUD_NO = A.AUD_NO) AS AUD_SBJ_NM
+			             , CASE WHEN B.AUD_YR >= '2016' 
+			                    THEN F_MNG_KND_AUDYRNO(B.AUD_YR, B.AUD_NO, C.AUD_KND_CD, '-') ||'-'||'시'|| B.DSP_RQ_SNO  
+			                    ELSE F_MNG_KND_AUDYRNO(B.AUD_YR, B.AUD_NO, C.AUD_KND_CD, '-') ||'-'|| B.DSP_RQ_SNO   
+			                     END   							 AS DSP_RQ_SNO_NM                   /*시행번호*/
+			             , F_CODE_NM('1000002',B.DSP_RQ_KND_CD )  AS DSP_RQ_KND_NM
+			             , B.TIT_TXT
+			             , CASE WHEN A.ORG_DSP_KWA_OPIN_PRSS_DT IS NOT NULL THEN 'Y (' || TO_CHAR(TO_DATE(A.ORG_DSP_KWA_OPIN_PRSS_DT), 'YYYY-MM-DD') || ')'
+			                    ELSE 'N'
+			                    END AS ORG_DSP_KWA_OPIN_PRSS_YN
+			             , A.ORG_NM
+			             , A.ACP_YR || DECODE(A.ACP_DVSN_CD,'1','-심사-','-재심-') || A.ACP_SRNO AS ACP_NO
+			          FROM TBBADFRE012M A
+			    INNER JOIN TBBADEAR001M B ON (B.AUD_YR = A.AUD_YR AND B.AUD_NO = A.AUD_NO AND B.DSP_RQ_SNO = A.DSP_RQ_SNO)
+			    INNER JOIN TBBADDED001M C ON (C.AUD_YR = A.AUD_YR AND C.AUD_NO = A.AUD_NO)
+			         WHERE A.ACP_YR = #{acpYr}
+			           AND A.ACP_DVSN_CD = #{acpDvsnCd}
+			           AND A.ACP_SRNO = #{acpSrno}
+    </select>
+    
+    
+    <insert id="BADFRE019ESmsinsert" parameterType="paramMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE216Mapper.BADFRE019ESmsinsert */
+		INSERT
+		  INTO MSG_DATA
+		     ( MSG_SEQ	/*메시지의 고유번호*/
+		     , CUR_STATE /*상태 값(발송요청:0, 전송 중:1, 전송:2, 결과수신:3)*/
+		     , REQ_DATE /*즉시전송 및 예약 일시*/
+		     , CALL_TO /*수신번호*/
+		     , CALL_FROM /*발신번호*/
+		     , MSG_TYPE /*메시지의 TYPE(4: SMS 전송 ,5: URL 전송 ,6: MMS전송)*/
+		     , CONT_SEQ /* MMS 메시지 테이블과 연결되는 키 */
+		     )
+		VALUES
+		     ( MSG_DATA_SEQ.NEXTVAL
+		     , 0
+		     , SYSDATE
+		     , REPLACE((SELECT ST.HOM_TNB FROM TBDCMACM001M ST WHERE ST.CNB = #{cnb})  ,'-','')
+		     , REPLACE((SELECT ST.HNDL_CHGR_TNB_1 || ST.HNDL_CHGR_TNB_2 || ST.HNDL_CHGR_TNB_3 FROM TBBADFRE012M ST WHERE ST.ACP_YR = #{acpYr} AND ST.ACP_DVSN_CD = #{acpDvsnCd} AND ST.ACP_SRNO = #{acpSrno} ) ,'-','')
+		     , 6
+		     , #{maxCnt})
+	</insert>
+</mapper> 

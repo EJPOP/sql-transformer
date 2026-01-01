@@ -1,0 +1,1886 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper">
+    
+    <select id="selectAffComboList" parameterType="paramMap" resultType="egovMap">
+    <![CDATA[
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectAffComboList */
+          SELECT T1.APVR_CD AS CD,
+                 F_CODE_NM('1000176', T1.APVR_CD)||'결재시 처분요구정보' AS CD_NM
+            FROM TBBADDED145M T1
+           WHERE T1.AUD_YR = #{audYr}
+             AND T1.AUD_NO = #{audNo}
+             AND T1.AUD_STEP_CD = 'A1060'
+             AND T1.APVR_CD <> '0010200'
+        GROUP BY T1.APVR_CD
+        ORDER BY CASE WHEN T1.APVR_CD IN ('0013600','0057400','0035400') THEN '0'
+                      WHEN T1.APVR_CD IN ('0015800','0035100','0058100','0013900') THEN '1'
+                      WHEN T1.APVR_CD IN ('0055600','0045900') THEN '2'
+                      WHEN T1.APVR_CD IN ('0055700') THEN '3' END ASC
+        ]]>
+    </select>
+    
+    <select id="selectAffWriterCombo" parameterType="paramMap" resultType="egovMap">
+    <![CDATA[
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectAffWriterCombo */
+            SELECT DISTINCT T1.DOC_WRT_ID AS CD
+                  ,F_USR_INFO_BY_ID(T1.DOC_WRT_ID,'2') AS CD_NM
+              FROM TBBADDED103M T1
+        ]]>
+            <!-- 2019.01.09 hsyun 수사요청, 개별처분요구안 구분 -->
+			<choose>
+				<when test="gubun == 1"> <!-- 개별처분요구안 -->
+			<![CDATA[WHERE T1.RPRT_CD IN ('A10600100','A10601500')]]>
+				</when>
+				<when test="gubun == 2"> <!-- 현지조사 -->
+			<![CDATA[WHERE T1.RPRT_CD IN ('A10601300','A10601320','A10601330','A10601340')]]>
+				</when>
+				<when test="gubun == 3"> <!-- 수사요청 -->
+			<![CDATA[WHERE T1.RPRT_CD IN ('A10601100','A10601700')]]>
+				</when>
+				<otherwise>
+             <![CDATA[WHERE T1.RPRT_CD IN ('A10600100','A10601100', 'A10601300','A10601320','A10601330','A10601340', 'A10601500', 'A10601700')]]>
+				</otherwise>
+			</choose>
+	<![CDATA[
+               AND T1.AUD_YR = #{audYr}
+               AND T1.AUD_NO = #{audNo}
+        ]]>
+    </select>
+    
+    <select id="selectRprtDvsnCombo" parameterType="paramMap" resultType="egovMap">
+    <![CDATA[
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectRprtDvsnCombo */
+            SELECT AUD_DOC_CD AS CD
+                 , DECODE(AUD_DOC_CD, 'A10600100', '개별처분요구안', MAX(DTIL_AUD_DOC_NM)) AS CD_NM
+              FROM TBFDMADM002M 
+             WHERE AUD_DOC_CD IN ('A10600100','A10601100', 'A10601300','A10601320','A10601330','A10601340', 'A10601500', 'A10601700')
+             GROUP BY AUD_DOC_CD
+        ]]>
+    </select>
+    
+    <select id="selectSbcnCnt" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectSbcnCnt */
+        SELECT 
+            SUM(DECODE(REFER_DVSN_CD,'D10',1,0)) AS SBCN_CNT,
+            SUM(DECODE(REFER_DVSN_CD,'E10',1,0)) AS DLG_CNT,
+            SUM(DECODE(REFER_DVSN_CD,'E10',DECODE((SELECT RPRT_CD 
+                                                                                         FROM TBBADDED103M ST1
+                                                                                        WHERE ST1.AUD_YR = T1.AUD_YR
+                                                                                          AND ST1.AUD_NO = T1.AUD_NO
+                                                                                          AND ST1.DOC_ID = T1.DOC_ID),'A10600200',0,1),0)) AS ETC_CNT
+        FROM 
+            TBBADDED145M T1
+            INNER JOIN TBBADDED146M T2
+            ON (T1.AUD_YR = T2.AUD_YR 
+                AND T1.AUD_NO = T2.AUD_NO 
+                AND T1.AUD_STEP_CD = T2.AUD_STEP_CD 
+                AND T1.DOC_ID = T2.DOC_ID 
+                AND T1.APVR_CD = T2.APVR_CD 
+                AND T1.AFF_SNO = T2.AFF_SNO)
+        WHERE T1.AUD_YR = #{audYr}
+        AND T1.AUD_NO = #{audNo}
+        <if test='apvrCd != null and apvrCd != ""'>
+        AND T1.APVR_CD = #{apvrCd}
+        </if>
+    </select>
+    
+    <select id="chkRdPrcs" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.chkRdPrcs */
+        <![CDATA[
+            SELECT STEP1
+               , STEP2
+               , STEP3
+               , STEP4
+               , STEP5
+               , STEP6
+               , ST1.STEP1_SNO
+               , ST1.STEP1_ID
+               , ST2.STEP2_SNO
+               , ST2.STEP2_ID
+            FROM (
+                 SELECT MIN(AUD_MAIN_STEP_SNO) AS STEP1_SNO, MIN(AUD_MAIN_STEP_ID) AS STEP1_ID
+                   FROM TBBADDED102M
+                  WHERE AUD_YR = #{audYr}
+                    AND AUD_NO = #{audNo}
+                    AND AUD_MAIN_STEP_ID = '600101'
+                 ) ST1 
+               , (
+                 SELECT MIN(AUD_MAIN_STEP_SNO) AS STEP2_SNO, MIN(AUD_MAIN_STEP_ID) AS STEP2_ID
+                   FROM TBBADDED102M
+                  WHERE AUD_YR = #{audYr}
+                    AND AUD_NO = #{audNo}
+                    AND AUD_MAIN_STEP_ID = '600201'
+                 ) ST2
+               , (
+                SELECT AUD_MAIN_STEP_ID, CMPT_YN FROM TBBADDED102M
+                WHERE AUD_YR = #{audYr}
+                AND AUD_NO = #{audNo}
+                ) 
+            PIVOT 
+                (MAX(CMPT_YN) 
+                    FOR AUD_MAIN_STEP_ID 
+                    IN (
+                            '600101' AS STEP1
+                            ,'600201' AS STEP2
+                            ,'600301' AS STEP3
+                            ,'600401' AS STEP4
+                            ,'600501' AS STEP5
+                            ,'600601' AS STEP6)
+                )
+        ]]>
+    </select>
+    
+    <select id="selectTBBADDED102B" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectTBBADDED102B */
+        <![CDATA[
+        SELECT * FROM TBBADDED102B
+        WHERE 
+            SUBSTR(AUD_MAIN_STEP_ID,0,2) = '61'     /* 감사결과처리 법무 업무프로세스 61로 시작 */
+        AND AUD_KND_CD = (SELECT SUBSTR(AUD_KND_CD,-1) 
+                                         FROM TBBADDED001M 
+                                         WHERE 
+                                                 AUD_YR = #{audYr} 
+                                         AND AUD_NO = #{audNo}) 
+        ]]>
+    </select>
+    
+    <insert id="insertTBBADDED102M" parameterType="paramMap">
+    /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.insertTBBADDED102M */
+        INSERT INTO TBBADDED102M(AUD_YR
+                               , AUD_NO
+                               , AUD_STEP_CD
+                               , AUD_MAIN_STEP_ID
+                               , AUD_MAIN_STEP_SNO
+                               , AUD_MAIN_SEQ_W
+                               , AUD_MAIN_SEQ_H
+                               , AUD_KND_CD
+                               , AUD_GRN_NO
+                               , MAIN_JOB_NM
+                               , LINK_TYPE
+                               , LINK_URL
+                               , FRT_USR_ID
+                               , FNL_USR_ID
+                               , FNL_DEAL_DPT_CD
+                               , FNL_MNU_ID
+                               , FRT_REGI_DH
+                               , FNL_MDF_DH
+                          VALUES(#{audYr}
+                               , #{audNo}
+                               , #{audStepCd}
+                               , #{audMainStepId}
+                               , (SELECT 
+                                    LPAD(NVL(MAX(TO_NUMBER(AUD_MAIN_STEP_SNO)),0)+1,3,0) 
+                                 FROM TBBADDED102M 
+                                 WHERE 
+                                        AUD_YR = #{audYr} 
+                                 AND AUD_NO = #{audNo}
+                                 AND AUD_STEP_CD = #{audStepCd}
+                                 AND AUD_MAIN_STEP_ID = #{audMainStepId} )
+                               , #{audMainSeqW}
+                               , #{audMainSeqH}
+                               , (SELECT AUD_KND_CD 
+                                FROM TBBADDED001M
+                                WHERE 
+                                    AUD_YR = #{audYr}
+                                AND AUD_NO = #{audNo})
+                                ,(SELECT AUD_GRN_NO 
+                                FROM TBBADDED001M
+                                WHERE 
+                                    AUD_YR = #{audYr}
+                                AND AUD_NO = #{audNo})
+                               , #{audMainStepNm}
+                               , #{linkType}
+                               , #{linkUrl}
+                               , #{usrId}
+                               , #{usrId}
+                               , #{dptCd}
+                               , 'AEPASB006E'
+                               , SYSDATE
+                               , SYSDATE
+                               )
+    </insert>
+    
+    <select id="selectDocParam" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectDocParam */
+        <![CDATA[
+            SELECT AUD_YR, AUD_NO, AUD_STEP_CD, DOC_ID, 
+                AUD_KND_CD,
+                AUD_GRN_NO,
+                RPRT_NM,
+                RPRT_CD,
+                LINK_URL,
+                REF_ID,
+                REF_DY,
+                APV_STA_CD,
+                #{dptCd} AS SND_DPT_CD,
+                #{usrId} AS SNDR_ID,
+                SYSDATE AS SND_DH,
+                #{rcptDptCd} AS RCPT_DPT_CD,
+                AUD_RPRT_DVSN_CD,
+                (SELECT 
+                LPAD(NVL(MAX(TO_NUMBER(SR_DOC_SNO)),0)+1,3,0) 
+                FROM TBBADDED111M 
+                WHERE 
+                    AUD_YR = T1.AUD_YR
+                AND AUD_NO = T1.AUD_YR
+                AND    AUD_STEP_CD = T1.AUD_YR
+                AND    DOC_ID = T1.DOC_ID ) AS SORT_SNO,
+                #{usrId} AS FRT_USR_ID,
+                #{usrId} AS FNL_USR_ID,
+                #{dptCd} AS FNL_DEAL_DPT_CD,
+                'AEPARP001Q' AS FNL_MNU_ID,
+                SYSDATE AS FRT_REGI_DH,
+                SYSDATE AS FNL_MDF_DH
+            FROM TBBADDED103M T1
+            WHERE 
+                AUD_YR = #{audYr}
+            AND AUD_NO = #{audNo}
+            AND AUD_STEP_CD = #{audStepCd}
+            AND DOC_ID = #{docId}
+        ]]>
+    </select>
+    
+    
+    <insert id="insertSendDoc">
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.insertSendDoc */
+        <![CDATA[
+        INSERT INTO TBBADDED111M (
+        AUD_YR, AUD_NO, AUD_STEP_CD, DOC_ID, SR_DOC_SNO, AUD_KND_CD, AUD_GRN_NO, RPRT_NM, RPRT_CD, LINK_URL, DOC_STA_CD,
+            SND_DPT_CD, SNDR_ID, SND_DH, RCPT_DH,RCPT_DPT_CD, AUD_RPRT_DVSN_CD, REF_ID, REF_DY, SORT_SNO, FRT_USR_ID, FNL_USR_ID, FNL_DEAL_DPT_CD, FNL_MNU_ID,
+            FRT_REGI_DH , FNL_MDF_DH)
+        VALUES (#{audYr}, #{audNo}, #{audStepCd}, #{docId},
+            (SELECT 
+                LPAD(NVL(MAX(TO_NUMBER(SR_DOC_SNO)),0)+1,3,0) 
+                FROM TBBADDED111M 
+                WHERE 
+                    AUD_YR = #{audYr}
+                AND AUD_NO = #{audNo}
+                AND    AUD_STEP_CD = #{audStepCd}
+                AND    DOC_ID = #{docId} ),
+                 #{audKndCd}, #{audGrnNo}, #{rprtNm}, #{rprtCd}, #{linkUrl}, '10',
+                 #{sndDptCd}, #{sndrId},SYSDATE,SYSDATE,#{rcptDptCd},#{audRprtDvsnCd}, #{refId}, #{refDy},
+                 (SELECT 
+                LPAD(NVL(MAX(TO_NUMBER(SR_DOC_SNO)),0)+1,3,0) 
+                FROM TBBADDED111M 
+                WHERE 
+                    AUD_YR = #{audYr}
+                AND AUD_NO = #{audNo}
+                AND    AUD_STEP_CD = #{audStepCd}
+                AND    DOC_ID = #{docId} )
+                ,#{frtUsrId},#{fnlUsrId},#{fnlDealDptCd},#{fnlMnuId},SYSDATE,SYSDATE
+         )
+        ]]>
+    </insert>
+
+    <update id="updateAudStep">
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.updateAudStep */
+        <![CDATA[
+       UPDATE TBBADDED102M
+       SET CMPT_YN =  #{cmptYn}
+            , FNL_USR_ID = #{usrId}
+            , FNL_MNU_ID = 'AEPARP001Q'
+            , FNL_MDF_DH = SYSDATE
+       WHERE
+            AUD_YR = #{audYr}
+       AND AUD_NO = #{audNo}
+       AND AUD_STEP_CD = #{audStepCd}
+       AND AUD_MAIN_STEP_ID =  #{audMainStepId}
+       ]]>
+       <if test="audMainStepSno != null and audMainStepSno != ''">
+        AND AUD_MAIN_STEP_SNO =  #{audMainStepSno}
+        </if>
+    </update>
+
+    <select id="selectAffList" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectAffList */
+        <![CDATA[
+            SELECT 
+                AUD_YR,
+                AUD_NO,
+                CASE 
+                    WHEN RLTN_ORG_CD IS NOT NULL THEN F_ORG_INFO(RLTN_ORG_CD,'1')
+                    ELSE '' 
+                END RLTN_ORG_NM,
+                RLTN_ORG_CD,
+                TITLE_NM,
+                F_CODE_NM('1000002',DSP_RQ_CD ) AS DSP_RQ_NM,
+                CASE 
+                    WHEN QST_DOC_ISUE_YN = 'Y' THEN '발부'
+                    ELSE '미발부'
+                END QST_DOC_ISUE_YN,
+                T1.FRT_REGI_DH,
+                TO_CHAR(T1.FRT_REGI_DH,'YYYY"-"MM"-"DD') AS WRIT_DH,
+                F_USR_INFO_BY_ID(T1.FRT_USR_ID,'2') AS WRIT_NM,
+                F_CODE_NM('1000161',APVR_CD) APVR_NM
+            FROM 
+                TBBADDED145M T1
+                JOIN
+                TBBADDED146M T2
+                USING(AUD_YR, AUD_NO, AUD_STEP_CD, DOC_ID, APVR_CD, AFF_SNO)
+            WHERE 
+                AUD_YR = #{audYr}
+            AND AUD_NO = #{audNo}
+            AND AUD_STEP_CD = #{audStepCd}
+            AND APVR_CD = (SELECT MIN(APVR_CD) 
+                           FROM TBBADDED145M
+                           WHERE AUD_YR = #{audYr}
+                           AND  AUD_NO = #{audNo}
+                           AND  AUD_STEP_CD = #{audStepCd})
+            ORDER BY T1.SORT_SNO, T2.SORT_SNO
+        ]]>
+    </select>
+    
+    <select id="selectSendDoc" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectSendDoc */
+        <![CDATA[
+        SELECT 
+            A.RPRT_NM,
+            F_CODE_NM('1000780',DOC_STA_CD) AS DOC_STA_NM, 
+            F_DPT_INFO(RCPT_DPT_CD,'1') AS RCPT_DPT_NM,
+            TO_CHAR(RCPT_DH,'YYYY"-"MM"-"DD') AS RCPT_DH,
+            F_DPT_INFO(SND_DPT_CD,'1') AS SND_DPT_NM,
+            TO_CHAR(SND_DH,'YYYY"-"MM"-"DD') AS SND_DH,
+            AUD_YR, 
+            AUD_NO, 
+            DOC_ID,
+            RPRT_CD,
+            A.REF_ID,
+            (
+             SELECT DECODE(COUNT(T1.DOC_ID),0,'Y','N')
+               FROM TBBADDED103M T1
+              WHERE T1.AUD_YR = AUD_YR
+                AND T1.AUD_NO = AUD_NO
+                AND T1.RPRT_CD = 'A10600410'
+                AND T1.REF_ID = A.REF_ID
+            ) WRT_YN,
+            A.AUD_RPRT_DVSN_CD,
+            F_OPEN_EDIT(A.LINK_URL) AS DOC_TYPE            
+        FROM 
+            TBBADDED103M A 
+            JOIN  TBBADDED111M B
+            USING(AUD_YR, AUD_NO, DOC_ID, RPRT_CD)
+        WHERE
+            AUD_YR =  #{audYr}
+        AND AUD_NO = #{audNo}
+        AND B.AUD_STEP_CD = #{audStepCd}
+        AND RPRT_CD NOT IN ('A10601000', 'A10601000', 'A10602400', 'A10602100', 'A10602200', 'A10602300', 'A10602310')
+        AND (B.SND_DPT_CD = #{dptCd} OR B.RCPT_DPT_CD = #{dptCd})
+        ]]>
+        <if test="refId != null and refId != ''">
+            AND B.REF_ID = #{refId}
+        </if>
+    </select>
+
+    <select id="selectTskDescTxt" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectTskDescTxt */
+        <![CDATA[
+            SELECT 
+                TSK_DESC
+            FROM 
+                TBBADDED101M T1
+                JOIN
+                TBBADDED001M T2
+                USING(AUD_YR, AUD_NO)
+            WHERE 
+                    AUD_YR = #{audYr}
+            AND AUD_NO = #{audNo}
+            AND T1.AUD_STEP_CD = #{audStepCd}
+        ]]>
+    </select>
+
+    <select id="selectDocumentList" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectDocumentList */
+        <![CDATA[
+            SELECT RPRT_NM,
+                   APV_STA_CD,
+                   APV_RQS_ID,
+                   DOC_ID,
+                   APV_SRNO,
+                   PST_NM,
+                   APVR_NM,
+                   APV_DH ,
+                   CASE
+                        WHEN ROW_NUMBER() OVER(PARTITION BY DOC_ID ORDER BY APV_SRNO) = 1 THEN COUNT(*) OVER(PARTITION BY DOC_ID)
+                        ELSE 0
+                   END ROWSPAN_CNT
+              FROM (
+                   SELECT 
+                          A.RPRT_NM ,       /*보고서명 */
+                          A.APV_STA_CD ,    /*결재상태코드 */
+                          B.DOC_ID ,        /*결재문서번호 */
+                          A.APV_RQS_ID,     /*결재요청ID */
+                          B.APV_SRNO ,      /*결재순번 */
+                          B.PST_NM ,        /*결재자직위코드 */
+                          B.APVR_NM ,       /*결재자전산번호 */
+                          B.APV_DH          /*결재일시 */
+                     FROM TBBADDED103M A,
+                          (
+                          SELECT APV_DOC_NO AS DOC_ID ,
+                                 APV_SNO AS APV_SRNO ,
+                                 F_CODE_NM('1000176', APVR_PST_CD) AS PST_NM ,
+                                 F_USR_INFO(APVR_CNB, '2') AS APVR_NM ,
+                                 TO_CHAR(APV_DH, 'YYYY-MM-DD') AS APV_DH
+                            FROM TBDCMACM023L
+                           WHERE APV_SNO <> '0'
+                           UNION ALL
+                          SELECT DH1.DOC_ID,
+                                 DH1.APV_SRNO,
+                                 (SELECT H2.PST_NM AS PST_NM
+                                    FROM TBDCMACM111H H1,
+                                         TBDCMACM112H H2
+                                   WHERE 1=1
+                                     AND H1.RCPT_DT = H2.RCPT_DT
+                                     AND H1.RCPT_ID = H2.RCPT_ID
+                                     AND H1.ONR_DOC_MNG_CRD_ID = DH1.DOC_ID
+                                     AND H2.APVR_ID = DH1.APVR_ID
+                                   GROUP BY H2.PST_NM ) AS PST_NM,
+                                 DH1.APVR_NM,
+                                 DH1.APV_DH
+                            FROM 
+                                 (SELECT ONR_DOC_MNG_CRD_ID AS DOC_ID,
+                                         APV_HIS_SRNO AS APV_SRNO,
+                                         APVR_ID,
+                                         APVR_NM AS APVR_NM,
+                                         TO_CHAR(APV_DH, 'YYYY-MM-DD') AS APV_DH
+                                    FROM TBDCMACM102L D2
+                                   WHERE 1=1
+                                     AND ONR_APV_DVSN_CD <> '10' --(기안자 제외)
+                                      AND NVL(ONR_APV_RSLT_CD,'hh') <>'50'
+                                   ORDER BY DOC_ID,APV_SRNO
+                                 ) DH1 
+                          ) B
+                    WHERE A.AUD_YR = #{audYr}
+                      AND A.AUD_NO = #{audNo}
+                      AND A.AUD_STEP_CD = #{audStepCd}
+                      AND B.DOC_ID = A.APV_RQS_ID
+                )
+    ]]>
+    </select>
+    
+    <select id="selectDocumentList2" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectDocumentList2 */  
+        <![CDATA[
+            SELECT 
+              CASE WHEN A.RPRT_CD IN ('A10600200')
+                   THEN DECODE(1, (
+                                  SELECT 1
+                                    FROM DUAL
+                                   WHERE EXISTS (
+                                                SELECT 1
+                                                  FROM TBBADDED111M B
+                                                 WHERE A.AUD_YR = B.AUD_YR
+                                                   AND A.AUD_NO = B.AUD_NO
+                                                   AND A.AUD_STEP_CD = B.AUD_STEP_CD
+                                                   AND A.DOC_ID = B.DOC_ID
+                                                )
+                                  ), 'N', 'Y')
+                   ELSE 'N'
+               END AS APV_YN            /*결재여부 */
+                 , A.RPRT_NM            /*보고서명 */
+                 , A.APV_STA_CD         /*결재상태코드 */
+                 , F_CODE_NM('1000773',NVL(A.APV_STA_CD,'10')) AS APV_STA_NM /*결재상태명 */
+                 , A.SORT_SNO           /*보고서순번  */
+                 , A.DOC_ID             /*결재문서번호 */
+                 , A.REF_ID             /*참조ID */
+                 , A.REF_DY             /*참조일자 */
+                 , A.APV_RQS_ID         /*결재요청ID */
+                 , A.AUD_RPRT_DVSN_CD   /*감사보고서구분코드 */
+                 , A.RPRT_CD            /*문서종류코드 */
+          FROM TBBADDED103M A
+          WHERE A.AUD_YR = #{audYr}
+           AND A.AUD_NO = #{audNo}
+           AND A.AUD_STEP_CD = #{audStepCd}
+           AND A.AUD_KND_CD = #{audKndCd}
+           ORDER BY A.SORT_SNO
+        ]]>
+    </select>
+
+    <select id="selectAudRprtDvsnCnt" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectAudRprtDvsnCnt */  
+        <![CDATA[
+            SELECT COUNT(AUD_RPRT_DVSN_CD) AS CNT
+              FROM TBBADDED103M
+             WHERE AUD_YR = #{audYr}
+               AND AUD_NO = #{audNo}
+               AND AUD_STEP_CD = #{audStepCd}
+               AND RPRT_CD = 'A10600200'
+               AND AUD_RPRT_DVSN_CD = '10'
+        ]]>
+    </select>
+
+    <update id="updateAudRprtDvsnCd103">
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.updateAudRprtDvsnCd103 */
+        <![CDATA[
+            UPDATE TBBADDED103M
+               SET  AUD_RPRT_DVSN_CD=  #{audRprtDvsnCd}
+             WHERE AUD_YR = #{audYr}
+               AND AUD_NO = #{audNo}
+               AND DOC_ID = #{docId}
+               AND AUD_STEP_CD = #{audStepCd}
+        ]]>
+    </update>
+    
+    <update id="updateAudRprtDvsnCd111">
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.updateAudRprtDvsnCd111 */
+        <![CDATA[
+            UPDATE TBBADDED111M
+               SET  AUD_RPRT_DVSN_CD=  #{audRprtDvsnCd}
+             WHERE AUD_YR = #{audYr}
+               AND AUD_NO = #{audNo}
+               AND DOC_ID = #{docId}
+               AND AUD_STEP_CD = #{audStepCd}
+        ]]>
+    </update>
+    
+    <select id="selectAudRprtDvsnYn" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectAudRprtDvsnYn */  
+        <![CDATA[
+            SELECT DECODE(NVL(AUD_RPRT_DVSN_CD, 'N'), 'N', 'N', 'Y') AS AUD_RPRT_DVSN_YN
+              FROM TBBADDED103M
+             WHERE AUD_YR = #{audYr}
+               AND AUD_NO = #{audNo}
+               AND AUD_STEP_CD = #{audStepCd}
+               AND DOC_ID = #{docId}
+        ]]>
+    </select>
+    
+    <select id="selectAudRprtDocId" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectAudRprtDocId */  
+        <![CDATA[
+            SELECT DTIL_AUD_DOC_NO, DTIL_AUD_DOC_NM, NVL(DOC_ID,HWP_DOC_ID) AS DOC_ID
+              FROM TBFDMADM002M
+             WHERE AUD_DOC_CD = 'A10600200'
+               AND ( ( #{docType} = 'hancom' AND AUD_RPRT_TYPE_CD = SUBSTR(#{audMainStepId}, 4, 3) ) OR
+                     ( #{docType} != 'hancom' AND AUD_RPRT_TYPE_CD = SUBSTR(#{audKndCd}, 3, 1) ) )
+               
+        ]]>
+    </select>
+    
+    <select id="selectDocList2" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectDocList2 */
+        <include refid="include.pageSelct" />
+            SELECT A.RPRT_NM                                                 /*보고서명 */
+                 , A.APV_STA_CD                                              /*결재상태코드 */
+                 , F_CODE_NM('1000773',NVL(A.APV_STA_CD,'10')) AS APV_STA_NM /*결재상태명 */
+                 , A.SORT_SNO                                                /*보고서순번  */
+                 , A.DOC_ID                                                  /*결재문서번호 */
+                 , A.REF_ID                                                  /*참조ID */
+                 , A.REF_DY                                                  /*참조일자 */
+                 , A.APV_RQS_ID                                              /*결재요청ID */
+                 , (SELECT COUNT(A.APV_RQS_ID) FROM TBBADDED103M WHERE APV_RQS_ID = A.APV_RQS_ID) AS APV_RQS_CNT  /*동일결재요청 문서건수 */
+                 , A.AUD_RPRT_DVSN_CD                                        /*감사보고서구분코드 */
+                 , A.RPRT_CD                                                 /*문서종류코드 */
+                 , (SELECT USR_NAM FROM TBDCMACM001M WHERE USR_ID = A.DOC_WRT_ID) AS MAKTER_USER
+                 , DECODE(A.APV_RQS_ID, NULL, 'Y', 'N') AS APV_YN
+                 , (SELECT APV_USR_NM 
+                     FROM (
+                         SELECT 
+                            F_USR_INFO(APVR_CNB,'2') || 
+                            DECODE(APV_DH,NULL,'','('||TO_CHAR(APV_DH,'YYYY-MM-DD')||')') AS APV_USR_NM,
+                            APV_DOC_NO
+                         FROM TBDCMACM023L
+                         WHERE  
+                          APVR_KND_CD = '3'
+                         ORDER BY APV_SNO DESC)
+                     WHERE ROWNUM = 1
+                     AND APV_DOC_NO = A.APV_RQS_ID) AS APV_USR_NM
+                 , (
+                    SELECT MAX(DECODE(RPRT_CD, 'A10600100', '개별처분요구안', 'A10500200', '실지감사종료보고서', B.DTIL_AUD_DOC_NM))
+                      FROM TBFDMADM002M B
+                     WHERE B.AUD_DOC_CD = A.RPRT_CD
+                   ) RPRT_KND_NM
+                 , (SELECT DECODE(ST.AUD_EXEC_HNDL_STA_CD,'9','Y','N') FROM TBBADDED003M ST WHERE ST.AUD_YR = A.AUD_YR AND ST.AUD_NO = A.AUD_NO) AS AUD_EXEC_HNDL_YN
+                 , (SELECT DECODE(COUNT(1), 0, 'N', 'Y') FROM TBDCMACM023H ST1 WHERE ST1.APV_DOC_NO = A.APV_RQS_ID AND ST1.APVR_STA_CD NOT IN ('301', '201')) AS APV_HIS_YN
+                 , F_OPEN_EDIT(A.LINK_URL) AS DOC_TYPE
+              FROM TBBADDED103M AS A
+             WHERE A.AUD_YR = #{audYr}
+               AND A.AUD_NO = #{audNo}
+               AND A.AUD_STEP_CD = #{audStepCd}
+               AND A.AUD_KND_CD = #{audKndCd}
+            <if test="rprtCd != null and rprtCd != ''">
+               AND A.RPRT_CD = #{rprtCd}
+            </if>
+            <choose>
+				<when test="docType == null or docType == ''">
+               AND A.RPRT_CD IN ('A10600100', 'A10601100', 'A10601300','A10601320','A10601330','A10601340', 'A10601500', 'A10601700')
+				</when>
+				<otherwise>
+               AND A.RPRT_CD IN ('A10600100', 'A10601500')
+				</otherwise>
+			</choose>
+            <if test="docWrtId != null and docWrtId != ''">
+               AND A.DOC_WRT_ID = #{docWrtId}
+            </if>
+          ORDER BY A.SORT_SNO
+        <include refid="include.pageOrder" />
+    </select>
+    
+    <select id="selectDocList3" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectDocList3 */
+        <include refid="include.pageSelct" />
+            SELECT A.RPRT_NM                                                 /*보고서명 */
+                 , A.RPRT_NM AS RPRT_NM1                                 
+                 , A.APV_STA_CD                                              /*결재상태코드 */
+                 , F_CODE_NM('1000773',NVL(A.APV_STA_CD,'10')) AS APV_STA_NM /*결재상태명 */
+                 , A.SORT_SNO                                                /*보고서순번  */
+                 , A.DOC_ID                                                  /*결재문서번호 */
+                 , A.REF_ID                                                  /*참조ID */
+                 , A.REF_DY                                                  /*참조일자 */
+                 , A.APV_RQS_ID                                              /*결재요청ID */
+                 , (SELECT COUNT(A.APV_RQS_ID) FROM TBBADDED103M WHERE APV_RQS_ID = A.APV_RQS_ID) AS APV_RQS_CNT  /*동일결재요청 문서건수 */
+                 , A.AUD_RPRT_DVSN_CD                                        /*감사보고서구분코드 */
+                 , A.RPRT_CD                                                 /*문서종류코드 */
+                 , (SELECT USR_NAM FROM TBDCMACM001M WHERE USR_ID = A.DOC_WRT_ID) AS MAKTER_USER
+                 , DECODE(A.APV_RQS_ID, NULL, 'Y', 'N') AS APV_YN
+                 , (SELECT APV_USR_NM 
+                     FROM (
+                         SELECT 
+                            F_USR_INFO(APVR_CNB,'2') || 
+                            DECODE(APV_DH,NULL,'','('||TO_CHAR(APV_DH,'YYYY-MM-DD')||')') AS APV_USR_NM,
+                            APV_DOC_NO
+                         FROM TBDCMACM023L
+                         WHERE  
+                          APVR_KND_CD = '3'
+                         ORDER BY APV_SNO DESC)
+                     WHERE ROWNUM = 1
+                     AND APV_DOC_NO = A.APV_RQS_ID) AS APV_USR_NM
+                 , (
+                    SELECT MAX(DECODE(RPRT_CD, 'A10600100', '개별처분요구안', 'A10500200', '실지감사종료보고서', B.DTIL_AUD_DOC_NM))
+                      FROM TBFDMADM002M B
+                     WHERE B.AUD_DOC_CD = A.RPRT_CD
+                   ) RPRT_KND_NM
+                 , (SELECT DECODE(ST.AUD_EXEC_HNDL_STA_CD,'9','Y','N') FROM TBBADDED003M ST WHERE ST.AUD_YR = A.AUD_YR AND ST.AUD_NO = A.AUD_NO) AS AUD_EXEC_HNDL_YN
+                 , (SELECT DECODE(COUNT(1), 0, 'N', 'Y') FROM TBDCMACM023H ST1 WHERE ST1.APV_DOC_NO = A.APV_RQS_ID AND ST1.APVR_STA_CD NOT IN ('301', '201')) AS APV_HIS_YN
+                 , F_OPEN_EDIT(A.LINK_URL) AS DOC_TYPE
+              FROM TBBADDED103M AS A
+             WHERE A.AUD_YR = #{audYr}
+               AND A.AUD_NO = #{audNo}
+               AND A.AUD_STEP_CD = #{audStepCd}
+               AND A.AUD_KND_CD = #{audKndCd}
+               AND A.RPRT_CD IN ('A10601300', 'A10601320', 'A10601330', 'A10601340')
+            <if test="docWrtId != null and docWrtId != ''">
+               AND A.DOC_WRT_ID = #{docWrtId}
+            </if>
+          ORDER BY A.SORT_SNO
+        <include refid="include.pageOrder" />
+    </select>
+    
+    <select id="selectDocList4" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectDocList4 */
+        <include refid="include.pageSelct" />
+        <![CDATA[
+            SELECT A.RPRT_NM                                                 /*보고서명 */
+            	 , A.RPRT_NM  AS  RPRT_NM1                                              
+                 , A.APV_STA_CD                                              /*결재상태코드 */
+                 , F_CODE_NM('1000773',NVL(A.APV_STA_CD,'10')) AS APV_STA_NM /*결재상태명 */
+                 , A.SORT_SNO                                                /*보고서순번  */
+                 , A.DOC_ID                                                  /*결재문서번호 */
+                 , A.REF_ID                                                  /*참조ID */
+                 , A.REF_DY                                                  /*참조일자 */
+                 , A.APV_RQS_ID                                              /*결재요청ID */
+                 , (SELECT COUNT(A.APV_RQS_ID) FROM TBBADDED103M WHERE APV_RQS_ID = A.APV_RQS_ID) AS APV_RQS_CNT  /*동일결재요청 문서건수 */
+                 , A.AUD_RPRT_DVSN_CD                                        /*감사보고서구분코드 */
+                 , A.RPRT_CD                                                 /*문서종류코드 */
+                 , (SELECT USR_NAM FROM TBDCMACM001M WHERE USR_ID = A.DOC_WRT_ID) AS MAKTER_USER
+                 , DECODE(A.APV_RQS_ID, NULL, 'Y', 'N') AS APV_YN
+                 , (SELECT APV_USR_NM 
+                     FROM (
+                         SELECT 
+                            F_USR_INFO(APVR_CNB,'2') || 
+                            DECODE(APV_DH,NULL,'','('||TO_CHAR(APV_DH,'YYYY-MM-DD')||')') AS APV_USR_NM,
+                            APV_DOC_NO
+                         FROM TBDCMACM023L
+                         WHERE  
+                          (APVR_KND_CD = '3' OR (APVR_KND_CD = '6' AND APVR_PST_CD = '0067400' AND ONR_PST_NM LIKE '%권한대행%'))
+                         ORDER BY APV_SNO DESC)
+                     WHERE ROWNUM = 1
+                     AND APV_DOC_NO = A.APV_RQS_ID) AS APV_USR_NM
+                 , (
+                    SELECT MAX(DECODE(RPRT_CD, 'A10600100', '개별처분요구안', 'A10500200', '실지감사종료보고서', B.DTIL_AUD_DOC_NM))
+                      FROM TBFDMADM002M B
+                     WHERE B.AUD_DOC_CD = A.RPRT_CD
+                   ) RPRT_KND_NM
+                 , (SELECT DECODE(ST.AUD_EXEC_HNDL_STA_CD,'9','Y','N') FROM TBBADDED003M ST WHERE ST.AUD_YR = A.AUD_YR AND ST.AUD_NO = A.AUD_NO) AS AUD_EXEC_HNDL_YN
+                 , (SELECT DECODE(COUNT(1), 0, 'N', 'Y') FROM TBDCMACM023H ST1 WHERE ST1.APV_DOC_NO = A.APV_RQS_ID AND ST1.APVR_STA_CD NOT IN ('301', '201')) AS APV_HIS_YN
+                 , F_OPEN_EDIT(A.LINK_URL) AS DOC_TYPE
+                 , (CASE WHEN A.RPRT_CD = 'A10601100' THEN (SELECT DECODE(COUNT(1),'0','N','Y')
+                                                                            FROM TBBADDED145M T1, TBBADDED126M T2
+                                                                            WHERE 1=1
+                                                                            AND T1.AUD_YR = A.AUD_YR
+                                                                            AND T1.AUD_NO = A.AUD_NO
+                                                                            AND T1.AUD_STEP_CD = A.AUD_STEP_CD
+                                                                            AND T1.AUD_YR = T2.WRK_YR
+                                                                            AND T1.AUD_NO = T2.WRK_NO
+                                                                            AND T1.DOC_ID = A.DOC_ID
+                                                                            AND T1.AUD_STEP_CD = T2.AUD_STEP_CD				
+                                                                            AND T1.AFF_SNO = T2.AFF_SNO																						
+                                                                            AND T1.APVR_CD IN ('0013600','0057400')
+                                                                            AND T2.REQ_STAT_CD >= '30'
+                                                                            )
+	                ELSE (SELECT DECODE(COUNT(1), 0, 'N', 'Y')
+	                       FROM TBBADDED126M T3
+	                       WHERE 1=1
+	                       AND T3.WRK_YR = A.AUD_YR
+	                       AND T3.WRK_NO = A.AUD_NO
+	                       AND T3.LEGAL_REQ_DVSN_CD = '50'
+	                       AND T3.REQ_STAT_CD >= '30'
+	                       AND T3.AUD_DOC_ID = A.DOC_ID
+						  ) 										
+                 END ) AS LEGAL_YN   /*법률자문여부 */
+              FROM TBBADDED103M AS A
+             WHERE A.AUD_YR = #{audYr}
+               AND A.AUD_NO = #{audNo}
+               AND A.AUD_STEP_CD = #{audStepCd}
+               AND A.AUD_KND_CD = #{audKndCd}
+               AND A.RPRT_CD IN ('A10601100', 'A10601700')
+               ]]>
+            <if test="docWrtId != null and docWrtId != ''">
+               AND A.DOC_WRT_ID = #{docWrtId}
+            </if>
+          ORDER BY A.SORT_SNO
+        <include refid="include.pageOrder" />
+    </select>
+    
+    <select id="selectArpList" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectArpList */
+        <include refid="include.pageSelct" />
+            <![CDATA[
+            SELECT G1.*,
+                   G2.REFLECT_YN,
+                   G2.REFLECT_YN AS REFLECT_PYN
+              FROM (
+                SELECT T1.REFER_DVSN_CD,
+                       F_CODE_NM('1000774',T1.REFER_DVSN_CD) AS REFER_DVSN_NM,
+                       T2.RLTN_ORG_CD, /*관계기관*/
+                       F_ORG_INFO(T2.RLTN_ORG_CD,'1') AS RLTN_ORG_NM,
+                       T2.HND_ORG_CD, /*조치기관*/
+                       F_ORG_INFO(T2.HND_ORG_CD,'1') AS HND_ORG_NM,
+                       T2.REF_ORG_CD, /*참고기관*/
+                       F_ORG_INFO(T2.REF_ORG_CD,'1') AS REF_ORG_NM,
+                       DECODE(T2.AFF_DSP_CD, '00', '', 
+                           F_MNG_KND_AUDYRNO(T1.AUD_YR, T1.AUD_NO, T1.AUD_KND_CD, '-')||'-'||T1.AFF_CD||'-'||T2.AFF_DSP_CD) AS AUD_YR_NO,
+                       T1.TITLE_NM,
+                       T2.DSP_RQ_CD,
+                       F_CODE_NM('1000002',T2.DSP_RQ_CD ) AS DSP_RQ_NM,
+                       T2.AUD_YR,
+                       T2.AUD_NO,
+                       T2.AUD_STEP_CD,
+                       T2.DOC_ID,
+                       (
+                        SELECT MAX(T4.DOC_ID)
+                          FROM TBBADDED111M T4
+                         WHERE T4.AUD_YR = T1.AUD_YR
+                           AND T4.AUD_NO = T1.AUD_NO
+                           AND T4.REF_ID = T1.DOC_ID
+                           AND T4.RPRT_CD = 'A10600200'
+                       ) AS COPY_DOC_ID,
+                       T3.AUD_RPRT_DVSN_CD,
+                       F_CODE_NM('1000788', T3.AUD_RPRT_DVSN_CD) AS AUD_RPRT_DVSN_NM,
+                       T2.APVR_CD,
+                       T2.AFF_SNO,
+                       T2.DSP_RQ_SNO,
+                       T2.ACCN_INSP_CD,
+                       T3.RPRT_NM,
+                       T1.RPRT_FILD_ID,
+                       (
+                        SELECT DECODE(COUNT(D.APV_DOC_NO), 0, 'Y', 'N')
+                          FROM TBDCMACM023L D
+                         WHERE T3.APV_RQS_ID = D.APV_DOC_NO
+                           AND D.APV_SNO <> 1
+                           AND T1.APVR_CD = D.APVR_PST_CD
+                           AND D.APVR_STA_CD IN ('202','203','204')
+                       ) AS EDIT_YN,
+                       (
+                        SELECT MAX(DOC_ID)
+                          FROM TBBADDED103M T4
+                         WHERE T4.REF_ID = TO_CHAR(T1.AFF_SNO)
+                           AND T1.AUD_YR = T4.AUD_YR
+                           AND T1.AUD_NO = T4.AUD_NO
+                           AND T4.RPRT_CD = 'A10600500'
+                           AND T4.APV_STA_CD = '30'
+                       ) AS TRTM_DOC_ID,
+                       (
+                        SELECT MAX(RPRT_NM)
+                          FROM TBBADDED103M T4
+                         WHERE T4.REF_ID = TO_CHAR(T1.AFF_SNO)
+                           AND T1.AUD_YR = T4.AUD_YR
+                           AND T1.AUD_NO = T4.AUD_NO
+                           AND T4.RPRT_CD = 'A10600500'
+                           AND T4.APV_STA_CD = '30'
+                       ) AS TRTM_DOC_NM
+                       , T2.KYWD1
+                       , T2.KYWD2
+                       , T2.KYWD3
+                       , T2.KYWD4
+                       , T2.KYWD5
+                       , (SELECT COUNT(ST.CNDIDAT_SRNO) 
+                            FROM TBBADDED146D ST 
+                           WHERE ST.AUD_YR = T2.AUD_YR 
+                             AND ST.AUD_NO = T2.AUD_NO 
+                             AND ST.AUD_STEP_CD = T2.AUD_STEP_CD 
+                             AND ST.DOC_ID = T2.DOC_ID
+                             AND ST.APVR_CD = T2.APVR_CD
+                             AND ST.AFF_SNO = T2.AFF_SNO
+                             AND ST.DSP_RQ_SNO = T2.DSP_RQ_SNO) AS CNDIDAT_CNT
+                       ,(SELECT COUNT(DISTINCT F_MNG_KND_AUDYRNO(ST2.AUD_YR, ST2.AUD_NO, ST3.AUD_KND_CD, '-'))
+         		           FROM TBBADDED146D ST
+           	         INNER JOIN TBBADDED146D ST2 ON (ST2.CNDIDT_NM = ST.CNDIDT_NM AND ST2.CNDIDT_YMD = ST.CNDIDT_YMD)
+                     INNER JOIN TBBADDED001M ST3 ON (ST3.AUD_YR = ST2.AUD_YR AND ST3.AUD_NO = ST2.AUD_NO)
+       		         INNER JOIN TBBADDED146M ST4 ON (ST4.AUD_YR = ST2.AUD_YR AND ST4.AUD_NO = ST2.AUD_NO AND ST4.AUD_STEP_CD = ST2.AUD_STEP_CD AND ST4.DOC_ID = ST2.DOC_ID AND ST4.APVR_CD = ST2.APVR_CD AND ST4.AFF_SNO = ST2.AFF_SNO AND ST4.DSP_RQ_SNO = ST2.DSP_RQ_SNO)
+		                  WHERE ST.AUD_YR = T2.AUD_YR
+		                    AND ST.AUD_NO = T2.AUD_NO
+		                    AND ST.AUD_STEP_CD = T2.AUD_STEP_CD
+		                    AND ST.DOC_ID = T2.DOC_ID
+		                    AND ST.APVR_CD = T2.APVR_CD
+		                    AND ST.AFF_SNO = T2.AFF_SNO
+		                    AND ST.DSP_RQ_SNO = T2.DSP_RQ_SNO
+		                    AND (ST2.AUD_YR <> T2.AUD_YR OR ST2.AUD_NO <> T2.AUD_NO)) AS REL_AUD_CNT
+		                , CASE WHEN T2.DSP_RQ_CD IN ('410', '210', '620', '623') THEN 'Y'
+		                       ELSE 'N' END AS CNDIDAT_VIEW_YN
+                  FROM TBBADDED145M AS T1
+            INNER JOIN TBBADDED146M AS T2 ON T1.AUD_YR = T2.AUD_YR
+                                         AND T1.AUD_NO = T2.AUD_NO
+                                         AND T1.AUD_STEP_CD = T2.AUD_STEP_CD
+                                         AND T1.DOC_ID = T2.DOC_ID
+                                         AND T1.APVR_CD = T2.APVR_CD
+                                         AND T1.AFF_SNO = T2.AFF_SNO
+            INNER JOIN TBBADDED103M AS T3 ON T1.AUD_YR = T3.AUD_YR
+                                         AND T1.AUD_NO = T3.AUD_NO
+                                         AND T1.DOC_ID = T3.DOC_ID
+                 WHERE T1.AUD_YR      = #{audYr}
+                   AND T1.AUD_NO      = #{audNo}
+                   AND T1.AUD_STEP_CD = #{audStepCd}
+        ]]>
+                   <if test='apvrCd != null and apvrCd != ""'>
+                   AND T1.APVR_CD     = #{apvrCd}
+                   </if>
+        <if test="docId != null and docId != ''">
+                   AND T1.DOC_ID =  #{docId}
+        </if>
+                 ORDER BY CASE WHEN T3.RPRT_CD = 'A10600200' 
+                               THEN DECODE(T3.AUD_RPRT_DVSN_CD, '10', 1, '20', 2, '30', 3, '40', 4)
+                               WHEN T3.RPRT_CD IN ('A10601300','A10601320','A10601330','A10601340')
+                               THEN 5
+                               WHEN T3.RPRT_CD = 'A10601100'
+                               THEN 6
+                               WHEN T3.RPRT_CD = 'A10601700'
+                               THEN 7
+                               ELSE 8
+                          END
+                         ,T1.SORT_SNO
+                         ,T2.SORT_SNO  ) G1
+             LEFT JOIN TBBADDED118M AS G2 ON G1.AUD_YR = G2.AUD_YR
+                                         AND G1.AUD_NO = G2.AUD_NO
+                                         AND G1.AUD_STEP_CD = G2.AUD_STEP_CD
+                                         AND G1.TRTM_DOC_ID = G2.REVIEW_DOC_ID
+        <include refid="include.pageOrder" />
+    </select>
+    
+    <update id="updateBADDED105M" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.updateBADDED105M */
+        UPDATE TBBADDED145M SET REFER_DVSN_CD = #{referDvsnCd}
+                               ,TITLE_NM      = #{titleNm}
+                          WHERE AUD_YR      = #{audYr}
+                            AND AUD_NO      = #{audNo}
+                            AND AUD_STEP_CD = #{audStepCd}
+                            AND DOC_ID      = #{docId}
+                            AND APVR_CD     = #{apvrCd}
+                            AND AFF_SNO     = #{affSno}
+    </update>
+    
+    <update id="updateBADDED106M" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.updateBADDED106M */
+        UPDATE TBBADDED146M SET RLTN_ORG_CD = #{rltnOrgCd}
+                                ,HND_ORG_CD  = #{hndOrgCd}
+                                ,REF_ORG_CD  = #{refOrgCd}
+                                ,DSP_RQ_CD   = #{dspRqCd}
+                                ,ACCN_INSP_CD   = #{accnInspCd}
+                                ,KYWD1       = REPLACE(#{kywd1}, ' ', '')
+                                ,KYWD2       = REPLACE(#{kywd2}, ' ', '')
+                                ,KYWD3       = REPLACE(#{kywd3}, ' ', '')
+                                ,KYWD4       = REPLACE(#{kywd4}, ' ', '')
+                                ,KYWD5       = REPLACE(#{kywd5}, ' ', '')
+                          WHERE AUD_YR      = #{audYr}
+                            AND AUD_NO      = #{audNo}
+                            AND AUD_STEP_CD = #{audStepCd}
+                            AND DOC_ID      = #{docId}
+                            AND APVR_CD     = #{apvrCd}
+                            AND AFF_SNO     = #{affSno}
+                            ANd DSP_RQ_SNO  = #{dspRqSno}
+    </update>
+    
+    <select id="selectAffExists" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectAffExists */
+            SELECT AUD_STEP_CD, APVR_CD
+              FROM TBBADDED145M
+             WHERE AUD_YR = #{audYr}
+               AND AUD_NO = #{audNo}
+               AND AUD_STEP_CD IN ('A1050', 'A1060', 'A1070')
+               AND APVR_CD IN ('0010200', '0013600', '0015800', '0035100', '0058100', '0055600', '0055700', '0010600', 'A1070', '0045900') /* 0045900 : 본부장 추가 */
+             GROUP BY AUD_STEP_CD, APVR_CD
+             ORDER BY AUD_STEP_CD, APVR_CD
+    </select>
+    
+    <select id="selectMppCmptYn" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectMppCmptYn */
+            SELECT
+            <if test="_0013600 != null and _0013600 != ''">
+            DECODE(( 
+                    SELECT COUNT(BB.AUD_YR) AS CNT
+                      FROM TBBADDED145M BB
+                         , TBBADDED146M CC
+                     WHERE BB.AUD_YR = #{audYr}
+                       AND BB.AUD_NO = #{audNo}
+                       AND BB.AUD_YR = CC.AUD_YR
+                       AND BB.AUD_NO = CC.AUD_NO
+                       AND BB.AFF_SNO = CC.AFF_SNO
+                       AND BB.AUD_STEP_CD = 'A1050'
+                       AND BB.AUD_STEP_CD = CC.AUD_STEP_CD
+                       AND BB.APVR_CD = '0010200'
+                       AND BB.APVR_CD = CC.APVR_CD
+                       AND NOT EXISTS (
+                                       SELECT 1 
+                                         FROM TBBADDED147M ZZ
+                                        WHERE ZZ.AUD_YR = BB.AUD_YR
+                                          AND ZZ.AUD_NO = BB.AUD_NO
+                                          AND ZZ.PRE_AFF_NO = (SELECT F_MNG_KND_AUDYRNO(ST1.AUD_YR, ST1.AUD_NO, ST1.AUD_KND_CD, '-')
+                                                                                                          FROM TBBADDED001M ST1
+                                                                                                         WHERE ST1.AUD_YR = ZZ.AUD_YR
+                                                                                                           AND ST1.AUD_NO = ZZ.AUD_NO) || '-' || BB.AFF_CD || '-' || CC.AFF_DSP_CD
+                                          AND ZZ.AUD_STEP_CD = 'A1060'
+                                          AND ZZ.APVR_CD = '0013600'
+                                      )
+                   )
+                   +
+                   (
+                    SELECT COUNT(BB.AUD_YR) AS CNT
+                      FROM TBBADDED145M BB
+                         , TBBADDED146M CC
+                     WHERE BB.AUD_YR = #{audYr}
+                       AND BB.AUD_NO = #{audNo}
+                       AND BB.AUD_YR = CC.AUD_YR
+                       AND BB.AUD_NO = CC.AUD_NO
+                       AND BB.AFF_SNO = CC.AFF_SNO
+                       AND BB.AUD_STEP_CD = 'A1060'
+                       AND BB.AUD_STEP_CD = CC.AUD_STEP_CD
+                       AND BB.APVR_CD = '0013600'
+                       AND BB.APVR_CD = CC.APVR_CD
+                       AND NOT EXISTS (
+                                       SELECT 1 
+                                         FROM TBBADDED147M ZZ
+                                        WHERE ZZ.AUD_YR = BB.AUD_YR
+                                          AND ZZ.AUD_NO = BB.AUD_NO
+                                          AND ZZ.AFF_SNO = BB.AFF_SNO
+                                          AND ZZ.DSP_RQ_SNO = CC.DSP_RQ_SNO
+                                          AND ZZ.AUD_STEP_CD = BB.AUD_STEP_CD
+                                          AND ZZ.APVR_CD = BB.APVR_CD
+                                      ) 
+                   ), 0, 'N', 'Y') AS CMPT_YN_0013600
+            </if>
+            <if test="_0013600 == null or _0013600 == ''">
+                   'Y' AS CMPT_YN_0013600
+            </if>
+            <if test="_0015800 != null and _0015800 != ''">
+          , DECODE(( 
+                    SELECT COUNT(BB.AUD_YR) AS CNT
+                      FROM TBBADDED145M BB
+                         , TBBADDED146M CC
+                     WHERE BB.AUD_YR = #{audYr}
+                       AND BB.AUD_NO = #{audNo}
+                       AND BB.AUD_YR = CC.AUD_YR
+                       AND BB.AUD_NO = CC.AUD_NO
+                       AND BB.AFF_SNO = CC.AFF_SNO
+                       AND BB.AUD_STEP_CD = 'A1060'
+                       AND BB.AUD_STEP_CD = CC.AUD_STEP_CD
+                       AND BB.APVR_CD = '0013600'
+                       AND BB.APVR_CD = CC.APVR_CD
+                       AND NOT EXISTS (
+                                       SELECT 1 
+                                         FROM TBBADDED147M ZZ
+                                        WHERE ZZ.AUD_YR = BB.AUD_YR
+                                          AND ZZ.AUD_NO = BB.AUD_NO
+                                          AND ZZ.PRE_AFF_NO = (SELECT F_MNG_KND_AUDYRNO(ST1.AUD_YR, ST1.AUD_NO, ST1.AUD_KND_CD, '-')
+                                                                                                          FROM TBBADDED001M ST1
+                                                                                                         WHERE ST1.AUD_YR = ZZ.AUD_YR
+                                                                                                           AND ST1.AUD_NO = ZZ.AUD_NO) || '-' || BB.AFF_CD || '-' || CC.AFF_DSP_CD
+                                          AND ZZ.AUD_STEP_CD = 'A1060'
+                                          AND ZZ.APVR_CD IN ('0015800', '0035100', '0058100')
+                                      )
+                   )
+                   +
+                   (
+                    SELECT COUNT(BB.AUD_YR) AS CNT
+                      FROM TBBADDED145M BB
+                         , TBBADDED146M CC
+                     WHERE BB.AUD_YR = #{audYr}
+                       AND BB.AUD_NO = #{audNo}
+                       AND BB.AUD_YR = CC.AUD_YR
+                       AND BB.AUD_NO = CC.AUD_NO
+                       AND BB.AFF_SNO = CC.AFF_SNO
+                       AND BB.AUD_STEP_CD = 'A1060'
+                       AND BB.AUD_STEP_CD = CC.AUD_STEP_CD
+                       AND BB.APVR_CD IN ('0015800', '0035100', '0058100')
+                       AND BB.APVR_CD = CC.APVR_CD
+                       AND NOT EXISTS (
+                                       SELECT 1 
+                                         FROM TBBADDED147M ZZ
+                                        WHERE ZZ.AUD_YR = BB.AUD_YR
+                                          AND ZZ.AUD_NO = BB.AUD_NO
+                                          AND ZZ.AFF_SNO = BB.AFF_SNO
+                                          AND ZZ.DSP_RQ_SNO = CC.DSP_RQ_SNO
+                                          AND ZZ.AUD_STEP_CD = BB.AUD_STEP_CD
+                                          AND ZZ.APVR_CD = BB.APVR_CD
+                                      ) 
+                   ), 0, 'N', 'Y') AS CMPT_YN_0015800
+            </if>
+            <if test="_0015800 == null or _0015800 == ''">
+                 , 'Y' AS CMPT_YN_0015800
+            </if>
+            <if test="_0055600 != null and _0055600 != ''">
+          , DECODE(( 
+                    SELECT COUNT(BB.AUD_YR) AS CNT
+                      FROM TBBADDED145M BB
+                         , TBBADDED146M CC
+                     WHERE BB.AUD_YR = #{audYr}
+                       AND BB.AUD_NO = #{audNo}
+                       AND BB.AUD_YR = CC.AUD_YR
+                       AND BB.AUD_NO = CC.AUD_NO
+                       AND BB.AFF_SNO = CC.AFF_SNO
+                       AND BB.AUD_STEP_CD = 'A1060'
+                       AND BB.AUD_STEP_CD = CC.AUD_STEP_CD
+                       AND BB.APVR_CD IN ('0015800', '0035100', '0058100')
+                       AND BB.APVR_CD = CC.APVR_CD
+                       AND NOT EXISTS (
+                                       SELECT 1 
+                                         FROM TBBADDED147M ZZ
+                                        WHERE ZZ.AUD_YR = BB.AUD_YR
+                                          AND ZZ.AUD_NO = BB.AUD_NO
+                                          AND ZZ.PRE_AFF_NO = (SELECT F_MNG_KND_AUDYRNO(ST1.AUD_YR, ST1.AUD_NO, ST1.AUD_KND_CD, '-')
+                                                                                                          FROM TBBADDED001M ST1
+                                                                                                         WHERE ST1.AUD_YR = ZZ.AUD_YR
+                                                                                                           AND ST1.AUD_NO = ZZ.AUD_NO) || '-' || BB.AFF_CD || '-' || CC.AFF_DSP_CD
+                                          AND ZZ.AUD_STEP_CD = 'A1060'
+                                          AND ZZ.APVR_CD IN ('0055600', '0045900')
+                                      )
+                   ) 
+                   +
+                   (
+                    SELECT COUNT(BB.AUD_YR) AS CNT
+                      FROM TBBADDED145M BB
+                         , TBBADDED146M CC
+                     WHERE BB.AUD_YR = #{audYr}
+                       AND BB.AUD_NO = #{audNo}
+                       AND BB.AUD_YR = CC.AUD_YR
+                       AND BB.AUD_NO = CC.AUD_NO
+                       AND BB.AFF_SNO = CC.AFF_SNO
+                       AND BB.AUD_STEP_CD = 'A1060'
+                       AND BB.AUD_STEP_CD = CC.AUD_STEP_CD
+                       AND BB.APVR_CD IN ('0055600', '0045900')
+                       AND BB.APVR_CD = CC.APVR_CD
+                       AND NOT EXISTS (
+                                       SELECT 1 
+                                         FROM TBBADDED147M ZZ
+                                        WHERE ZZ.AUD_YR = BB.AUD_YR
+                                          AND ZZ.AUD_NO = BB.AUD_NO
+                                          AND ZZ.AFF_SNO = BB.AFF_SNO
+                                          AND ZZ.DSP_RQ_SNO = CC.DSP_RQ_SNO
+                                          AND ZZ.AUD_STEP_CD = BB.AUD_STEP_CD
+                                          AND ZZ.APVR_CD = BB.APVR_CD
+                                      ) 
+                   ), 0, 'N', 'Y') AS CMPT_YN_0055600
+            </if>
+            <if test="_0055600 == null or _0055600 == ''">
+                 , 'Y' AS CMPT_YN_0055600
+            </if>
+            <if test="_0055700 != null and _0055700 != ''">
+          , DECODE(( 
+                    SELECT COUNT(BB.AUD_YR) AS CNT
+                      FROM TBBADDED145M BB
+                         , TBBADDED146M CC
+                     WHERE BB.AUD_YR = #{audYr}
+                       AND BB.AUD_NO = #{audNo}
+                       AND BB.AUD_YR = CC.AUD_YR
+                       AND BB.AUD_NO = CC.AUD_NO
+                       AND BB.AFF_SNO = CC.AFF_SNO
+                       AND BB.AUD_STEP_CD = 'A1060'
+                       AND BB.AUD_STEP_CD = CC.AUD_STEP_CD
+                       AND BB.APVR_CD IN ('0055600', '0045900')
+                       AND BB.APVR_CD = CC.APVR_CD
+                       AND NOT EXISTS (
+                                       SELECT 1 
+                                         FROM TBBADDED147M ZZ
+                                        WHERE ZZ.AUD_YR = BB.AUD_YR
+                                          AND ZZ.AUD_NO = BB.AUD_NO
+                                          AND ZZ.PRE_AFF_NO = (SELECT F_MNG_KND_AUDYRNO(ST1.AUD_YR, ST1.AUD_NO, ST1.AUD_KND_CD, '-')
+                                                                                                          FROM TBBADDED001M ST1
+                                                                                                         WHERE ST1.AUD_YR = ZZ.AUD_YR
+                                                                                                           AND ST1.AUD_NO = ZZ.AUD_NO) || '-' || BB.AFF_CD || '-' || CC.AFF_DSP_CD
+                                          AND ZZ.AUD_STEP_CD = 'A1060'
+                                          AND ZZ.APVR_CD = '0055700'
+                                      )
+                   )
+                   +
+                   (
+                    SELECT COUNT(BB.AUD_YR) AS CNT
+                      FROM TBBADDED145M BB
+                         , TBBADDED146M CC
+                     WHERE BB.AUD_YR = #{audYr}
+                       AND BB.AUD_NO = #{audNo}
+                       AND BB.AUD_YR = CC.AUD_YR
+                       AND BB.AUD_NO = CC.AUD_NO
+                       AND BB.AFF_SNO = CC.AFF_SNO
+                       AND BB.AUD_STEP_CD = 'A1060'
+                       AND BB.AUD_STEP_CD = CC.AUD_STEP_CD
+                       AND BB.APVR_CD = '0055700'
+                       AND BB.APVR_CD = CC.APVR_CD
+                       AND NOT EXISTS (
+                                       SELECT 1 
+                                         FROM TBBADDED147M ZZ
+                                        WHERE ZZ.AUD_YR = BB.AUD_YR
+                                          AND ZZ.AUD_NO = BB.AUD_NO
+                                          AND ZZ.AFF_SNO = BB.AFF_SNO
+                                          AND ZZ.DSP_RQ_SNO = CC.DSP_RQ_SNO
+                                          AND ZZ.AUD_STEP_CD = BB.AUD_STEP_CD
+                                          AND ZZ.APVR_CD = BB.APVR_CD
+                                      ) 
+                   ), 0, 'N', 'Y') AS CMPT_YN_0055700
+            </if>
+            <if test="_0055700 == null or _0055700 == ''">
+                 , 'Y' AS CMPT_YN_0055700
+            </if>
+            <if test="_0010600 != null and _0010600 != ''">
+          , DECODE(( 
+                    SELECT COUNT(BB.AUD_YR) AS CNT
+                      FROM TBBADDED145M BB
+                         , TBBADDED146M CC
+                     WHERE BB.AUD_YR = #{audYr}
+                       AND BB.AUD_NO = #{audNo}
+                       AND BB.AUD_YR = CC.AUD_YR
+                       AND BB.AUD_NO = CC.AUD_NO
+                       AND BB.AFF_SNO = CC.AFF_SNO
+                       AND BB.AUD_STEP_CD = 'A1060'
+                       AND BB.AUD_STEP_CD = CC.AUD_STEP_CD
+                       AND BB.APVR_CD = '0055700'
+                       AND BB.APVR_CD = CC.APVR_CD
+                       AND NOT EXISTS (
+                                       SELECT 1 
+                                         FROM TBBADDED147M ZZ
+                                        WHERE ZZ.AUD_YR = BB.AUD_YR
+                                          AND ZZ.AUD_NO = BB.AUD_NO
+                                          AND ZZ.PRE_AFF_NO = (SELECT F_MNG_KND_AUDYRNO(ST1.AUD_YR, ST1.AUD_NO, ST1.AUD_KND_CD, '-')
+                                                                                                          FROM TBBADDED001M ST1
+                                                                                                         WHERE ST1.AUD_YR = ZZ.AUD_YR
+                                                                                                           AND ST1.AUD_NO = ZZ.AUD_NO) || '-' || BB.AFF_CD || '-' || CC.AFF_DSP_CD
+                                          AND ZZ.AUD_STEP_CD = 'A1070'
+                                          AND ZZ.APVR_CD = '0010600'
+                                      )
+                   )
+                   +
+                   (
+                    SELECT COUNT(BB.AUD_YR) AS CNT
+                      FROM TBBADDED145M BB
+                         , TBBADDED146M CC
+                     WHERE BB.AUD_YR = #{audYr}
+                       AND BB.AUD_NO = #{audNo}
+                       AND BB.AUD_YR = CC.AUD_YR
+                       AND BB.AUD_NO = CC.AUD_NO
+                       AND BB.AFF_SNO = CC.AFF_SNO
+                       AND BB.AUD_STEP_CD = 'A1070'
+                       AND BB.AUD_STEP_CD = CC.AUD_STEP_CD
+                       AND BB.APVR_CD = '0010600'
+                       AND BB.APVR_CD = CC.APVR_CD
+                       AND NOT EXISTS (
+                                       SELECT 1 
+                                         FROM TBBADDED147M ZZ
+                                        WHERE ZZ.AUD_YR = BB.AUD_YR
+                                          AND ZZ.AUD_NO = BB.AUD_NO
+                                          AND ZZ.AFF_SNO = BB.AFF_SNO
+                                          AND ZZ.DSP_RQ_SNO = CC.DSP_RQ_SNO
+                                          AND ZZ.AUD_STEP_CD = BB.AUD_STEP_CD
+                                          AND ZZ.APVR_CD = BB.APVR_CD
+                                      ) 
+                   ), 0, 'N', 'Y') AS CMPT_YN_0010600
+            </if>
+            <if test="_0010600 == null or _0010600 == ''">
+                 , 'Y' AS CMPT_YN_0010600
+            </if>
+            <if test="_A1070 != null and _A1070 != ''">
+          , DECODE(( 
+                    SELECT COUNT(BB.AUD_YR) AS CNT
+                      FROM TBBADDED145M BB
+                         , TBBADDED146M CC
+                     WHERE BB.AUD_YR = #{audYr}
+                       AND BB.AUD_NO = #{audNo}
+                       AND BB.AUD_YR = CC.AUD_YR
+                       AND BB.AUD_NO = CC.AUD_NO
+                       AND BB.AFF_SNO = CC.AFF_SNO
+                       AND BB.AUD_STEP_CD = 'A1070'
+                       AND BB.AUD_STEP_CD = CC.AUD_STEP_CD
+                       AND BB.APVR_CD = '0010600'
+                       AND BB.APVR_CD = CC.APVR_CD
+                       AND NOT EXISTS (
+                                       SELECT 1 
+                                         FROM TBBADDED147M ZZ
+                                        WHERE ZZ.AUD_YR = BB.AUD_YR
+                                          AND ZZ.AUD_NO = BB.AUD_NO
+                                          AND ZZ.PRE_AFF_NO = (SELECT F_MNG_KND_AUDYRNO(ST1.AUD_YR, ST1.AUD_NO, ST1.AUD_KND_CD, '-')
+                                                                                                          FROM TBBADDED001M ST1
+                                                                                                         WHERE ST1.AUD_YR = ZZ.AUD_YR
+                                                                                                           AND ST1.AUD_NO = ZZ.AUD_NO) || '-' || BB.AFF_CD || '-' || CC.AFF_DSP_CD
+                                          AND ZZ.AUD_STEP_CD = 'A1070'
+                                          AND ZZ.APVR_CD = 'A1070'
+                                      )
+                   )
+                   +
+                   (
+                    SELECT COUNT(BB.AUD_YR) AS CNT
+                      FROM TBBADDED145M BB
+                         , TBBADDED146M CC
+                         , TBBADDED103M DD
+                     WHERE BB.AUD_YR = #{audYr}
+                       AND BB.AUD_NO = #{audNo}
+                       AND BB.AUD_YR = CC.AUD_YR
+                       AND BB.AUD_NO = CC.AUD_NO
+                       AND BB.AFF_SNO = CC.AFF_SNO
+                       AND BB.AUD_YR = DD.AUD_YR
+                       AND BB.AUD_NO = DD.AUD_NO
+                       AND BB.DOC_ID = DD.DOC_ID
+                       AND DD.RPRT_CD = 'A10600200'
+                       AND BB.AUD_STEP_CD = 'A1070'
+                       AND BB.AUD_STEP_CD = CC.AUD_STEP_CD
+                       AND BB.APVR_CD = 'A1070'
+                       AND BB.APVR_CD = CC.APVR_CD
+                       AND NOT EXISTS (
+                                       SELECT 1 
+                                         FROM TBBADDED147M ZZ
+                                        WHERE ZZ.AUD_YR = BB.AUD_YR
+                                          AND ZZ.AUD_NO = BB.AUD_NO
+                                          AND ZZ.AFF_SNO = BB.AFF_SNO
+                                          AND ZZ.DSP_RQ_SNO = CC.DSP_RQ_SNO
+                                          AND ZZ.AUD_STEP_CD = BB.AUD_STEP_CD
+                                          AND ZZ.APVR_CD = BB.APVR_CD
+                                      ) 
+                   ), 0, 'N', 'Y') AS CMPT_YN_A1070
+            </if>
+            <if test="_A1070 == null or _A1070 == ''">
+                 , 'Y' AS CMPT_YN_A1070
+            </if>
+              FROM DUAL
+    </select>
+    
+    <select id="selectDvchfApvrYn" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectDvchfApvrYn */
+        <![CDATA[
+            SELECT DECODE(COUNT(*), 0, 'N', 'Y') AS DVCHF_APVR_YN
+              FROM TBBADDED103M C
+             INNER JOIN TBDCMACM023L D ON D.APV_DOC_NO = C.APV_RQS_ID
+                                      AND D.APV_SNO != 1
+                                      AND D.APVR_STA_CD IN ('202','203','204')
+                                      AND D.APVR_PST_CD IN ('0013600', '0057400')
+             WHERE C.RPRT_CD = 'A10600200'
+               AND C.DOC_ID = #{docId}
+        ]]>
+    </select>
+    
+    <select id="selectRprtFildMppYn" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectRprtFildMppYn */
+        <![CDATA[
+            SELECT DECODE(COUNT(1), 0, 'N', 'Y') AS RPRT_FILD_MPP_YN
+                 FROM TBBADDED145M
+                WHERE DOC_ID = #{docId}
+                  AND APVR_CD = '0013600'
+                  AND RPRT_FILD_ID IS NOT NULL
+        ]]>
+    </select>
+    
+    <select id="selectGrtTmpId" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectGrtTmpId */  
+        <![CDATA[
+            SELECT MAX(DOC_ID) AS TMP_ID
+              FROM TBFDMADM002M
+             WHERE AUD_DOC_CD = 'A10600410'
+        ]]>
+    </select>
+    
+    <select id="selectGrtYn" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectGrtYn */  
+        <![CDATA[
+            SELECT DECODE(COUNT(1), 0, 'N', 'Y') AS GRT_YN
+              FROM TBBADDED103M 
+             WHERE RPRT_CD = 'A10600410'
+               AND REF_ID = #{docId} 
+        ]]>
+    </select>
+    
+    <select id="selectApvDrftUsrYn" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectApvDrftUsrYn */  
+        <![CDATA[
+        SELECT DECODE(COUNT(1),0,'N','Y') AS DRFT_USR_YN
+          FROM TBDCMACM023L
+         WHERE APV_DOC_NO = #{apvRqsId}
+           AND APVR_KND_CD = '1'
+           AND APVR_CNB = #{cnb} 
+        ]]>
+    </select>
+    
+    <select id="selectApvAbleYn" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectApvAbleYn */  
+        <![CDATA[
+            SELECT COUNT(1) AS CNT
+                  ,SUM(DECODE(T1.AFF_CD, '00', 1, 0)) AS AFF_RESET_CNT
+                  ,SUM(DECODE(T2.AFF_DSP_CD, '00', 1, 0)) AS AFF_DSP_RESET_CNT
+                  ,SUM(DECODE(NVL(T1.RPRT_FILD_ID,''), '', 1, 0)) AS FILD_ID_NULL_CNT
+                  ,SUM(DECODE(T1.APVR_CD,NVL(T4.APVR_PST_CD,'0013600'),DECODE(T1.REFER_DVSN_CD,'D10',1,0),0)) AS SBCN_CNT
+                  ,SUM(DECODE(T1.APVR_CD,NVL(T4.APVR_PST_CD,'0013600'),DECODE(T1.REFER_DVSN_CD,'E10',1,0),0)) AS DLG_CNT
+                  ,MAX(RPRT_NM) AS RPRT_NM
+                  ,MAX(NVL(T4.APVR_PST_CD,'0013600')) AS APV_PST_CD
+                  ,MAX(F_CODE_NM('1000176',NVL(T4.APVR_PST_CD,'0013600'))) AS APV_PST_NM
+                  ,MAX((SELECT COUNT(1) 
+                          FROM TBBADDED145M ST1 
+                         WHERE ST1.AUD_YR = T1.AUD_YR 
+                           AND ST1.AUD_NO = T2.AUD_NO
+                           AND ST1.AUD_STEP_CD = T2.AUD_STEP_CD
+                           AND ST1.APVR_CD = NVL(T4.APVR_PST_CD,'0013600')
+                           AND ST1.DOC_ID = T2.DOC_ID)) AS AFF_CNT
+                  ,MAX((SELECT COUNT(1) 
+                          FROM TBBADDED146M ST1 
+                         WHERE ST1.AUD_YR = T1.AUD_YR 
+                           AND ST1.AUD_NO = T2.AUD_NO
+                           AND ST1.AUD_STEP_CD = T2.AUD_STEP_CD
+                           AND ST1.APVR_CD = NVL(T4.APVR_PST_CD,'0013600')
+                           AND ST1.DOC_ID = T2.DOC_ID)) AS DSP_RQ_CNT
+                  ,MAX(T2.KYWD1) AS KYWD1
+                  ,MAX(T2.KYWD2) AS KYWD2
+                  ,MAX(T2.KYWD3) AS KYWD3
+                  ,MAX(T2.KYWD4) AS KYWD4
+                  ,MAX(T2.KYWD5) AS KYWD5
+              FROM TBBADDED145M T1
+                   INNER JOIN TBBADDED146M T2 
+                   ON (T1.AUD_YR = T2.AUD_YR
+                       AND T1.AUD_NO = T2.AUD_NO
+                       AND T1.AUD_STEP_CD = T2.AUD_STEP_CD
+                       AND T1.APVR_CD = T2.APVR_CD
+                       AND T1.DOC_ID = T2.DOC_ID
+                       AND T1.AFF_SNO = T2.AFF_SNO)
+                   INNER JOIN TBBADDED103M T3
+                   ON (T1.AUD_YR = T3.AUD_YR
+                       AND T1.AUD_NO = T3.AUD_NO
+                       AND T1.DOC_ID = T3.DOC_ID)
+                   INNER JOIN (
+                             SELECT AUD_YR, AUD_NO, AUD_STEP_CD, DOC_ID, APVR_CD AS APVR_PST_CD
+                              FROM (SELECT DISTINCT AUD_YR,
+                                           AUD_NO,
+                                           AUD_STEP_CD,
+                                           DOC_ID,
+                                           APVR_CD,
+                                           DECODE(APVR_CD, '0013600', 1, '0015800', 2, '0035100', 3, '0058100', 4, '0055600', 5, '0045900', 6, '0055700', 7) AS APVR_LV
+                                      FROM TBBADDED145M
+                                     WHERE AUD_YR = #{audYr}
+                                       AND AUD_NO = #{audNo}
+                                       AND DOC_ID = #{docId} )
+                             WHERE APVR_LV = (SELECT MAX(DECODE(APVR_CD, '0013600', 1, '0015800', 2, '0035100', 3, '0058100', 4, '0055600', 5, '0045900', 6, '0055700', 7))
+                                                FROM TBBADDED145M
+                                               WHERE AUD_YR = #{audYr}
+                                                 AND AUD_NO = #{audNo}
+                                                 AND DOC_ID = #{docId})
+                                ) T4
+                   ON (T4.AUD_YR = T1.AUD_YR
+                       AND T4.AUD_NO = T1.AUD_NO
+                       AND T4.AUD_STEP_CD = T1.AUD_STEP_CD
+                       AND T4.DOC_ID = T1.DOC_ID)
+             WHERE T1.AUD_YR = #{audYr}
+               AND T1.AUD_NO = #{audNo}
+               AND ((T1.AUD_STEP_CD  = 'A1070' AND T1.REF_DOC_ID = #{docId}) OR
+                       (T1.DOC_ID = #{docId} AND T1.AUD_STEP_CD  <> 'A1070' ))
+               AND T1.AUD_STEP_CD <> 'A1050'
+        ]]>
+    </select>
+    
+    <update id="saveTrtmDocSortSno">
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.saveTrtmDocSortSno */
+       UPDATE TBBADDED103M
+       SET SORT_SNO =  #{sortSno}
+            , FNL_USR_ID = #{usrId}
+            , FNL_MNU_ID = 'AEPARP001Q'
+            , FNL_MDF_DH = SYSDATE
+       WHERE
+            AUD_YR = #{audYr}
+       AND AUD_NO = #{audNo}
+       AND DOC_ID = #{docId}
+    </update>
+    
+    <select id="selectMfexStatus" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectMfexStatus */  
+        <![CDATA[
+            SELECT SUM(OM) AS OM_CNT
+                  ,SUM(RCV) AS RCV_CNT
+                  ,SUM(OM)+SUM(RCV) AS OM_RCV_CNT
+              FROM (
+                SELECT DECODE(SPV_DPT_OM_YN, 'Y', 1, 0) AS OM
+                      ,DECODE(SPV_DPT_RCV_YN, 'Y', 1, 0) AS RCV
+                  FROM TBCSPKDE103M
+                 WHERE AUD_YR = #{audYr}
+                   AND AUD_NO = #{audNo} )
+        ]]>
+    </select>
+    
+    <select id="selectLegalStatus" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectLegalStatus */  
+        <![CDATA[
+            SELECT COUNT(1) LEGAL_CNT
+              FROM TBBADDED126M
+             WHERE WRK_YR = #{audYr}
+               AND WRK_NO = #{audNo}
+               AND WRK_DVSN_CD = 'A10'
+        ]]>
+    </select>
+    
+    <select id="selectFnlApvrCd" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectFnlApvrCd */  
+        <![CDATA[
+            SELECT APVR_PST_CD
+              FROM (
+                SELECT T2.APVR_PST_CD
+                  FROM TBBADDED103M T1
+                 INNER JOIN TBDCMACM023L T2 ON
+                        T1.APV_RQS_ID = T2.APV_DOC_NO
+                    AND T1.DOC_ID = #{docId}
+                 ORDER BY T2.APV_SNO DESC )
+             WHERE ROWNUM = 1 
+        ]]>
+    </select>
+    
+    <select id="selectSecAudYn" parameterType="paramMap" resultType="egovMap">
+    <![CDATA[
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectSecAudYn */
+          SELECT NVL(T1.SEC_AUD_YN, 'N') AS SEC_AUD_YN
+            FROM TBBADDED001M T1
+           WHERE T1.AUD_YR = #{audYr}
+             AND T1.AUD_NO = #{audNo}
+        ]]>
+    </select>
+    
+    
+     <update id="updateEditorWrkApplY">
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.updateEditorWrkApplY */
+        <![CDATA[
+            UPDATE TBBADDED103M
+               SET FNL_MDF_DH = SYSDATE
+               ]]>
+               <if test='editorWrkApplYn != null and editorWrkApplYn != ""'>
+               , EDITOR_WRK_APPL_YN =  #{editorWrkApplYn}
+               </if>
+               <if test='opinWrkApplYn != null and opinWrkApplYn != ""'>
+               , OPIN_WRK_APPL_YN =  #{opinWrkApplYn}
+               </if>
+             WHERE AUD_YR = #{audYr}
+               AND AUD_NO = #{audNo}
+               AND DOC_ID = #{docId}
+               AND AUD_STEP_CD = #{audStepCd}
+        
+    </update>
+    
+    <select id="selectSbcnRegiCntA" parameterType="paramMap" resultType="egovMap">
+    	/* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectSbcnRegiCntA */
+    	<![CDATA[
+	    	SELECT COUNT(CMPT_YN) AS SBCN_REGI_CNT
+	          FROM TBBADDED102M
+	         WHERE AUD_YR = #{audYr}
+	           AND AUD_NO = #{audNo}
+	           AND AUD_STEP_CD = 'A1060' 
+	           AND AUD_MAIN_STEP_SNO ='2'
+    	]]>
+    </select>
+    
+    <select id="selectDocWritKndCd" parameterType="paramMap" resultType="egovMap">
+    	/* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectDocWritKndCd */
+    	<![CDATA[
+	    	SELECT DOC_WRIT_KND_CD
+	          FROM TBBADDED001M
+	         WHERE AUD_YR = #{audYr}
+	           AND AUD_NO = #{audNo}
+    	]]>
+    </select>
+
+    <select id="selectExcptDptYn" parameterType="paramMap" resultType="string">
+    <![CDATA[
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectExcptDptYn */
+          SELECT CASE WHEN A.MNG_DPT_CD IN (SELECT ST.CD 
+                                              FROM TBDCMACM013C ST
+                                             WHERE ST.CMM_CD_DVSN_CD = '1000897'
+                                               AND ST.CD <> '000000000'
+                                               AND ST.USR_DFN_TXT_1 IN (B.DVSN_CD, '2')) THEN 'Y' ELSE 'N' END AS EXCPT_DPT_YN 
+            FROM TBBADDED001M A
+ LEFT OUTER JOIN (SELECT AUD_YR, AUD_NO, MIN(DECODE(DVSN_CD, '1', '1','2')) AS DVSN_CD
+                    FROM TBBADDED030L 
+                   WHERE AUD_YR = #{audYr} 
+                     AND AUD_NO = #{audNo}
+                GROUP BY AUD_YR, AUD_NO) B ON (B.AUD_YR = A.AUD_YR AND B.AUD_NO = A.AUD_NO)
+           WHERE A.AUD_YR = #{audYr} 
+             AND A.AUD_NO = #{audNo}
+        ]]>
+    </select>
+    
+    
+    <select id="selectApvHisYn" parameterType="paramMap" resultType="string">
+        <![CDATA[
+         /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectApvHisYn */
+            SELECT DECODE(COUNT(B.APV_DH),0,'N','Y') AS APV_HIS_YN
+              FROM TBBADDED103M A
+        INNER JOIN TBDCMACM023H B ON (B.APV_DOC_NO = A.APV_RQS_ID)
+             WHERE A.AUD_YR = #{audYr} 
+               AND A.AUD_NO = #{audNo}
+               AND A.RPRT_CD = #{rprtCd}
+        ]]>
+    </select>
+    
+    
+     <select id="selectExcptInfoDptYn" parameterType="paramMap" resultType="string">
+    <![CDATA[
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectExcptInfoDptYn */
+          SELECT  CASE WHEN COUNT(B.CD) > 0 AND B.USR_DFN_TXT_1 IS NOT NULL  AND EXISTS (SELECT 1 FROM TBBADDED030L T1 WHERE T1.AUD_YR = A.AUD_YR AND T1.AUD_NO = A.AUD_NO AND T1.DVSN_CD IN (1,2))  THEN 'Y'
+                            WHEN COUNT(B.CD) > 0 AND B.USR_DFN_TXT_1 IS NULL  THEN 'Y' 
+                            ELSE 'N' END AS EXCPT_DPT_YN
+            FROM TBBADDED001M A 
+                    LEFT OUTER JOIN TBDCMACM013C B
+                                     ON B.CMM_CD_DVSN_CD = '1000922'
+                                    AND B.CD <> '000000000'
+                                    AND A.MNG_DPT_CD = B.CD
+           WHERE A.AUD_YR = #{audYr} 
+             AND A.AUD_NO = #{audNo}
+            GROUP BY A.AUD_YR,A.AUD_NO,  B.USR_DFN_TXT_1
+        ]]>
+    </select>
+    
+     <select id="selectinfoRptTargetYn" parameterType="paramMap" resultType="string">
+    <![CDATA[
+        /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectinfoRptTargetYn */
+          SELECT CASE WHEN SYSDATE >= TO_DATE('20200701', 'YYYYMMDD') THEN 'Y' ELSE 'N' END AS INFO_RPT_TARGET_YN FROM DUAL
+        ]]>
+    </select>
+    
+    
+    <select id="selectInfoRprtWrtYn" parameterType="paramMap" resultType="string">
+        <![CDATA[
+           /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectInfoRprtWrtYn */
+           SELECT DECODE(COUNT(A.DOC_ID), 0, 'N', 'Y') AS INFO_RPRT_WRT_YN
+           FROM TBBADDED103M  A
+          WHERE A.AUD_YR = #{audYr}
+            AND A.AUD_NO = #{audNo}   
+            AND A.RPRT_CD = #{rprtCd}
+        ]]>
+    </select>
+    
+    
+    <select id="selectOpinBrfYn" parameterType="paramMap" resultType="egovMap">
+    	/* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectOpinBrfYn */
+    	<![CDATA[
+            SELECT CASE WHEN NVL(OPIN_BRF_CNT, 0) = 0 THEN 'Y'
+                    ELSE 'N'
+                   END AS OPIN_BRF_YN /* 검토보고입력여부 */
+                  ,CASE WHEN NVL(RCV_REGI_CD_CNT, 0) = 0 THEN 'N'
+                    ELSE 'Y'
+                   END AS RCV_REGI_YN /* 접수여부 */
+                  ,CASE WHEN NVL(OPIN_SND_CNT, 0) = 0 THEN 'N'
+                    ELSE 'Y'
+                   END AS OPIN_SND_YN /* 의견서발신여부 */
+              FROM (
+                    SELECT SUM(NVL(CASE WHEN C.OPIN_NO_YN = 'N' THEN DECODE( SUBSTR(D.OPIN_BRF_TXT, 1, 3000), NULL, '1', '0')
+                                   END , 0)
+                           ) AS OPIN_BRF_CNT                                                            /* 검토보고 미입력된 건수 */
+                          ,COUNT(DISTINCT E.RCV_REGI_CD) AS RCV_REGI_CD_CNT                             /* 감사품질접수 건수 */
+                          ,SUM(DECODE(E.OPIN_SND_YN, 'Y', '1', '0')) AS OPIN_SND_CNT                    /* 의견서 발신 건수 */
+                      FROM TBBADDED145M B
+           LEFT OUTER JOIN TBBADDED141M C ON (C.AUD_YR = B.AUD_YR AND C.AUD_NO = B.AUD_NO AND C.AUD_STEP_CD = B.AUD_STEP_CD AND C.DOC_ID = B.DOC_ID AND C.APVR_CD = B.APVR_CD AND C.AFF_SNO = B.AFF_SNO AND C.RPRT_FILD_ID = B.RPRT_FILD_ID)
+           LEFT OUTER JOIN TBBADDED142D D ON (D.AUD_YR = B.AUD_YR AND D.AUD_NO = B.AUD_NO AND D.AUD_STEP_CD = B.AUD_STEP_CD AND D.APVR_CD = B.APVR_CD AND D.AFF_SNO = B.AFF_SNO AND D.RPRT_FILD_ID = B.RPRT_FILD_ID AND D.RPRT_CD = 'A10600530')
+           LEFT OUTER JOIN TBBADDED140M E ON (E.AUD_YR = B.AUD_YR AND E.AUD_NO = B.AUD_NO AND E.AUD_STEP_CD = B.AUD_STEP_CD AND E.DOC_ID = B.DOC_ID)
+                     WHERE B.AUD_YR = #{audYr} 
+                       AND B.AUD_NO = #{audNo}
+                       AND B.AUD_STEP_CD = #{audStepCd}
+                       AND B.APVR_CD IN ('0015800','0035100','0058100','0013900')
+                       AND B.DOC_ID = #{docId}
+                    )
+    	]]>
+    </select>
+    
+    <select id="selectOvrOpinBrfYn" parameterType="paramMap" resultType="egovMap">
+    /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectOvrOpinBrfYn */
+    <![CDATA[
+       SELECT CASE WHEN A.OPIN_BRF_CNT = 0 THEN 'Y'
+               ELSE 'N'
+              END AS OVR_OPIN_BRF_YN /* 종합검토보고 완료 여부 */
+             ,DECODE(OPIN_BRF_CNT, 0, 0, NULL, 1, 1) AS OPIN_BRF_CNT /* 종합검토보고 미완료된 건수 */
+           FROM
+         (SELECT DECODE(#{ovrOpinYn}, 'Y', 0, SUM(DECODE(SUBSTR(T2.OPIN_BRF_TXT, 1, 3000), NULL, '1', '0'))) AS OPIN_BRF_CNT
+            FROM TBBADDED141M T1
+ LEFT OUTER JOIN TBBADDED142D T2 ON (T1.AUD_YR = T2.AUD_YR AND T1.AUD_NO = T2.AUD_NO AND T1.AUD_STEP_CD = T2.AUD_STEP_CD AND T1.APVR_CD = T2.APVR_CD AND T1.AFF_SNO = T2.AFF_SNO AND T1.RPRT_FILD_ID = T2.RPRT_FILD_ID AND T2.RPRT_CD = 'A10600530')
+           WHERE T1.AUD_YR = #{audYr} 
+             AND T1.AUD_NO = #{audNo}
+             AND T1.AUD_STEP_CD = 'A1060'
+             AND T1.APVR_CD IN ('0015800','0035100','0058100','0013900')
+             AND T1.RPRT_FILD_ID = '000000000000000000'
+             AND T1.DOC_ID = #{docId}
+             AND T1.OPIN_NO_YN = 'N'
+             AND EXISTS (SELECT 1 FROM TBBADDED103M B WHERE B.AUD_YR = T2.AUD_YR AND B.AUD_NO = T2.AUD_NO AND B.DOC_ID = T2.DOC_ID AND B.REF_DOC_ID = T1.DOC_ID)) A
+    	]]>
+    </select>
+    
+    
+    <select id="selectExptPassYn" parameterType="paramMap" resultType="string">
+    	/* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectExptPassYn */
+    	     SELECT DECODE(COUNT(EXPT_PRB_CD),0,'Y','N') AS PASS_YN
+               FROM TBBADDED144M
+              WHERE AUD_YR      = #{audYr} 
+                AND AUD_NO      = #{audNo}
+                AND AUD_STEP_CD = 'A1030'
+                AND F_MNG_KND_AUDYRNO(AUD_YR, AUD_NO, AUD_KND_CD, '-') || '-' || EXPT_PRB_CD NOT IN (
+                      SELECT DISTINCT A.PRE_AFF_NO
+                        FROM TBBADDED147M A
+                  INNER JOIN TBBADDED147M B ON (B.AUD_YR = A.AUD_YR AND B.AUD_NO = A.AUD_NO AND B.AFF_NO = A.PRE_AFF_NO)
+				       WHERE A.AUD_YR      = #{audYr} 
+                         AND A.AUD_NO      = #{audNo}
+                         AND A.AUD_STEP_CD = 'A1050'
+                        UNION
+                      SELECT DISTINCT A.AFF_NO
+                        FROM TBBADDED148M A 
+                       WHERE A.AUD_YR      = #{audYr} 
+                         AND A.AUD_NO      = #{audNo}
+                         AND A.AUD_STEP_CD = 'A1030'
+                         AND A.AFF_MPP_DVSN_CD IN ('A90','A91','A92','A99')
+                )
+    </select>
+    
+    <select id="selectAudRprtPassYn" parameterType="paramMap" resultType="string">
+    	/* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper.selectAudRprtPassYn */
+    	<![CDATA[
+    	        --종료보고 이후 단계코드 및 결재자코드
+                WITH TABLE_PST AS (
+                     --종료보고->과장
+                     SELECT '0010200' AS PRE_PST_CD, 'A1050'   AS PRE_AUD_STEP_CD, '0013600'   AS PST_CD, 'A1060'   AS AUD_STEP_CD   FROM DUAL
+                     UNION 
+                     SELECT '0010200' AS PRE_PST_CD, 'A1050'   AS PRE_AUD_STEP_CD, '0057400'   AS PST_CD, 'A1060'   AS AUD_STEP_CD   FROM DUAL
+                     UNION 
+                     SELECT '0010200' AS PRE_PST_CD, 'A1050'   AS PRE_AUD_STEP_CD, '0035400'   AS PST_CD, 'A1060'   AS AUD_STEP_CD   FROM DUAL
+                     --과장->국장
+                     UNION 
+                     SELECT '0013600' AS PRE_PST_CD, 'A1060'   AS PRE_AUD_STEP_CD, '0015800'   AS PST_CD, 'A1060'   AS AUD_STEP_CD   FROM DUAL
+                     UNION  
+                     SELECT '0057400' AS PRE_PST_CD, 'A1060'   AS PRE_AUD_STEP_CD, '0015800'   AS PST_CD, 'A1060'   AS AUD_STEP_CD   FROM DUAL
+                     UNION 
+                     SELECT '0035400' AS PRE_PST_CD, 'A1060'   AS PRE_AUD_STEP_CD, '0015800'   AS PST_CD, 'A1060'   AS AUD_STEP_CD   FROM DUAL
+                     UNION 
+                     SELECT '0013600' AS PRE_PST_CD, 'A1060'   AS PRE_AUD_STEP_CD, '0035100'   AS PST_CD, 'A1060'   AS AUD_STEP_CD   FROM DUAL
+                     UNION 
+                     SELECT '0057400' AS PRE_PST_CD, 'A1060'   AS PRE_AUD_STEP_CD, '0035100'   AS PST_CD, 'A1060'   AS AUD_STEP_CD   FROM DUAL
+                     UNION 
+                     SELECT '0035400' AS PRE_PST_CD, 'A1060'   AS PRE_AUD_STEP_CD, '0035100'   AS PST_CD, 'A1060'   AS AUD_STEP_CD   FROM DUAL
+                     UNION 
+                     SELECT '0013600' AS PRE_PST_CD, 'A1060'   AS PRE_AUD_STEP_CD, '0058100'   AS PST_CD, 'A1060'   AS AUD_STEP_CD   FROM DUAL
+                     UNION 
+                     SELECT '0057400' AS PRE_PST_CD, 'A1060'   AS PRE_AUD_STEP_CD, '0058100'   AS PST_CD, 'A1060'   AS AUD_STEP_CD   FROM DUAL
+                     UNION 
+                     SELECT '0035400' AS PRE_PST_CD, 'A1060'   AS PRE_AUD_STEP_CD, '0058100'   AS PST_CD, 'A1060'   AS AUD_STEP_CD   FROM DUAL
+                     --국장->차장
+                     UNION 
+                     SELECT '0015800' AS PRE_PST_CD, 'A1060'   AS PRE_AUD_STEP_CD, '0055600'   AS PST_CD, 'A1060'   AS AUD_STEP_CD   FROM DUAL
+                     UNION 
+                     SELECT '0035100' AS PRE_PST_CD, 'A1060'   AS PRE_AUD_STEP_CD, '0055600'   AS PST_CD, 'A1060'   AS AUD_STEP_CD   FROM DUAL
+                     UNION 
+                     SELECT '0058100' AS PRE_PST_CD, 'A1060'   AS PRE_AUD_STEP_CD, '0055600'   AS PST_CD, 'A1060'   AS AUD_STEP_CD   FROM DUAL
+                     UNION
+                     SELECT '0013900' AS PRE_PST_CD, 'A1060'   AS PRE_AUD_STEP_CD, '0055600'   AS PST_CD, 'A1060'   AS AUD_STEP_CD   FROM DUAL
+                     UNION
+                     SELECT '0015800' AS PRE_PST_CD, 'A1060'   AS PRE_AUD_STEP_CD, '0045900'   AS PST_CD, 'A1060'   AS AUD_STEP_CD   FROM DUAL
+                     UNION 
+                     SELECT '0035100' AS PRE_PST_CD, 'A1060'   AS PRE_AUD_STEP_CD, '0045900'   AS PST_CD, 'A1060'   AS AUD_STEP_CD   FROM DUAL
+                     UNION 
+                     SELECT '0058100' AS PRE_PST_CD, 'A1060'   AS PRE_AUD_STEP_CD, '0045900'   AS PST_CD, 'A1060'   AS AUD_STEP_CD   FROM DUAL
+                     UNION
+                     SELECT '0013900' AS PRE_PST_CD, 'A1060'   AS PRE_AUD_STEP_CD, '0045900'   AS PST_CD, 'A1060'   AS AUD_STEP_CD   FROM DUAL
+                     --차장->총장
+                     UNION
+                     SELECT '0055600' AS PRE_PST_CD, 'A1060'   AS PRE_AUD_STEP_CD, '0055700'   AS PST_CD, 'A1060'   AS AUD_STEP_CD   FROM DUAL
+                     UNION
+                     SELECT '0045900' AS PRE_PST_CD, 'A1060'   AS PRE_AUD_STEP_CD, '0055700'   AS PST_CD, 'A1060'   AS AUD_STEP_CD   FROM DUAL     
+                     --총장->위원                
+                     UNION 
+                     SELECT '0055700' AS PRE_PST_CD, 'A1060'   AS PRE_AUD_STEP_CD, '0010600'   AS PST_CD, 'A1070'   AS AUD_STEP_CD   FROM DUAL
+                     --위원->부의결과
+                     UNION 
+                     SELECT '0010600' AS PRE_PST_CD, 'A1070'   AS PRE_AUD_STEP_CD, 'A107001'   AS PST_CD, 'A1070'   AS AUD_STEP_CD   FROM DUAL
+                     --부의결과->시행
+                     UNION 
+                     SELECT 'A107001' AS PRE_PST_CD, 'A1070'   AS PRE_AUD_STEP_CD, 'A1070'     AS PST_CD, 'A1070'   AS AUD_STEP_CD   FROM DUAL
+                 )
+      
+                 --총 사유 입력 필요 건 (종류변경건 + 신규입력건 + 분건 + 합건 + 다음단계 미연결건) - 사유입력건
+                 SELECT DECODE(COUNT(A.AFF_NO),0,'Y','N') AS PASS_YN
+                   FROM (
+		                  --부의변경 및 종류변경 목록
+		                      SELECT A.AUD_YR, A.AUD_NO, A.AUD_STEP_CD, A.DOC_ID, A.APVR_CD, A.AFF_SNO, A.DSP_RQ_SNO, A.MPP_SEQ, A.PRE_AFF_NO, A.AFF_NO, 'CENTER' AS MPP_POSITION
+		                        FROM TBBADDED147M A
+		                  INNER JOIN TABLE_PST B ON (B.AUD_STEP_CD = A.AUD_STEP_CD AND B.PST_CD = A.APVR_CD)
+		                  INNER JOIN TBBADDED147M C ON (C.AUD_YR = A.AUD_YR AND C.AUD_NO = A.AUD_NO AND C.AUD_STEP_CD = B.PRE_AUD_STEP_CD AND C.APVR_CD = B.PRE_PST_CD AND C.AFF_NO = A.PRE_AFF_NO)
+		                    --현단계 및 이전단계 사건정보
+		                  INNER JOIN TBBADDED145M D ON (D.AUD_YR = A.AUD_YR AND D.AUD_NO = A.AUD_NO AND D.AUD_STEP_CD = A.AUD_STEP_CD AND D.DOC_ID = A.DOC_ID AND D.APVR_CD = A.APVR_CD AND D.AFF_SNO = A.AFF_SNO)
+		                  INNER JOIN TBBADDED145M E ON (E.AUD_YR = C.AUD_YR AND E.AUD_NO = C.AUD_NO AND E.AUD_STEP_CD = C.AUD_STEP_CD AND E.DOC_ID = C.DOC_ID AND E.APVR_CD = C.APVR_CD AND E.AFF_SNO = C.AFF_SNO)
+		                    --현단계 및 이전단계처분요구
+		                  INNER JOIN TBBADDED146M F ON (F.AUD_YR = A.AUD_YR AND F.AUD_NO = A.AUD_NO AND F.AUD_STEP_CD = A.AUD_STEP_CD AND F.DOC_ID = A.DOC_ID AND F.APVR_CD = A.APVR_CD AND F.AFF_SNO = A.AFF_SNO AND F.DSP_RQ_SNO = A.DSP_RQ_SNO)
+		                  INNER JOIN TBBADDED146M G ON (G.AUD_YR = C.AUD_YR AND G.AUD_NO = C.AUD_NO AND G.AUD_STEP_CD = C.AUD_STEP_CD AND G.DOC_ID = C.DOC_ID AND G.APVR_CD = C.APVR_CD AND G.AFF_SNO = C.AFF_SNO AND G.DSP_RQ_SNO = C.DSP_RQ_SNO)
+						       WHERE A.AUD_YR         = #{audYr}
+		                         AND A.AUD_NO         = #{audNo}
+		                         AND A.DOC_ID         = #{docId}
+		                         AND (F.DSP_RQ_CD <> G.DSP_RQ_CD OR D.REFER_DVSN_CD <> E.REFER_DVSN_CD)
+		                  UNION 
+		                  --신규입력 목록
+		                  SELECT A.AUD_YR, A.AUD_NO, A.AUD_STEP_CD, A.DOC_ID, A.APVR_CD, A.AFF_SNO, A.DSP_RQ_SNO, A.MPP_SEQ, A.PRE_AFF_NO, A.AFF_NO, 'FRONT' AS MPP_POSITION
+		                   FROM TBBADDED147M A
+		                  WHERE A.AUD_YR         = #{audYr}
+				             AND A.AUD_NO         = #{audNo}
+				             AND A.DOC_ID         = #{docId}
+				             AND A.PRE_AFF_NO IS NULL
+		                  UNION
+		                  --분건 목록
+		                  SELECT B.AUD_YR, B.AUD_NO, B.AUD_STEP_CD, B.DOC_ID, B.APVR_CD, B.AFF_SNO, B.DSP_RQ_SNO, B.MPP_SEQ, B.PRE_AFF_NO, B.AFF_NO, 'CENTER' AS MPP_POSITION
+		                    FROM (
+		                         SELECT K.AUD_YR, K.AUD_NO, K.AUD_STEP_CD, K.DOC_ID, K.APVR_CD, K.AFF_SNO, K.PRE_AFF_NO
+		                           FROM (
+		                                 SELECT DISTINCT H.AUD_YR, H.AUD_NO, H.AUD_STEP_CD, H.DOC_ID, H.APVR_CD, H.AFF_SNO, H.PRE_AFF_NO, H.AFF_NO
+				                           FROM TBBADDED147M H
+				                     INNER JOIN TABLE_PST I ON (I.AUD_STEP_CD = H.AUD_STEP_CD AND I.PST_CD = H.APVR_CD)
+				                     INNER JOIN TBBADDED147M J ON (J.AUD_YR = H.AUD_YR AND J.AUD_NO = H.AUD_NO AND J.AUD_STEP_CD = I.PRE_AUD_STEP_CD AND J.APVR_CD = I.PRE_PST_CD AND J.AFF_NO = H.PRE_AFF_NO)
+				                          WHERE H.AUD_YR         = #{audYr}
+				                            AND H.AUD_NO         = #{audNo}
+				                            AND H.DOC_ID         = #{docId}
+				                         ) K
+				               GROUP BY K.AUD_YR, K.AUD_NO, K.AUD_STEP_CD, K.DOC_ID, K.APVR_CD, K.AFF_SNO, K.PRE_AFF_NO
+				                 HAVING COUNT(K.AFF_NO) > 1
+				                  ) A 
+				       INNER JOIN TBBADDED147M B ON (B.AUD_YR = A.AUD_YR AND B.AUD_NO = A.AUD_NO AND B.AUD_STEP_CD = A.AUD_STEP_CD AND B.APVR_CD = A.APVR_CD AND B.AFF_SNO = A.AFF_SNO AND B.PRE_AFF_NO = A.PRE_AFF_NO)
+		                   UNION
+				           --합건 목록
+				           SELECT B.AUD_YR, B.AUD_NO, B.AUD_STEP_CD, B.DOC_ID, B.APVR_CD, B.AFF_SNO, B.DSP_RQ_SNO, B.MPP_SEQ, B.PRE_AFF_NO, B.AFF_NO, 'CENTER' AS MPP_POSITION
+                             FROM (                      
+	                             SELECT A.AUD_YR, A.AUD_NO, A.AUD_STEP_CD, A.DOC_ID, A.APVR_CD, A.AFF_SNO, A.DSP_RQ_SNO, A.RPRT_FILD_ID, A.AFF_NO
+					                 FROM (      
+					                     SELECT DISTINCT A.AUD_YR, A.AUD_NO, A.AUD_STEP_CD, A.DOC_ID, A.APVR_CD, A.AFF_SNO, A.DSP_RQ_SNO, A.RPRT_FILD_ID, A.PRE_AFF_NO, A.AFF_NO
+					                       FROM TBBADDED147M A
+					                 INNER JOIN TABLE_PST B ON (B.AUD_STEP_CD = A.AUD_STEP_CD AND B.PST_CD = A.APVR_CD)
+					                 INNER JOIN TBBADDED147M C ON (C.AUD_YR = A.AUD_YR AND C.AUD_NO = A.AUD_NO AND C.AUD_STEP_CD = B.PRE_AUD_STEP_CD AND C.APVR_CD = B.PRE_PST_CD AND C.AFF_NO = A.PRE_AFF_NO)
+					                      WHERE A.AUD_YR         = #{audYr}
+					                        AND A.AUD_NO         = #{audNo}
+					                        AND A.DOC_ID         = #{docId}
+					                      ) A
+					              GROUP BY A.AUD_YR, A.AUD_NO, A.AUD_STEP_CD, A.DOC_ID, A.APVR_CD, A.AFF_SNO, A.DSP_RQ_SNO, A.RPRT_FILD_ID, A.AFF_NO
+					                HAVING COUNT(A.PRE_AFF_NO) > 1
+				                  ) A
+				       INNER JOIN TBBADDED147M B ON (B.AUD_YR = A.AUD_YR AND B.AUD_NO = A.AUD_NO AND B.AUD_STEP_CD = A.AUD_STEP_CD AND B.APVR_CD = A.APVR_CD AND B.AFF_SNO = A.AFF_SNO AND B.DSP_RQ_SNO = A.DSP_RQ_SNO AND B.AFF_NO = A.AFF_NO)
+		     	           UNION
+				           --다음단계 미연결건 목록
+		                   SELECT A.AUD_YR, A.AUD_NO, A.AUD_STEP_CD, A.DOC_ID, A.APVR_CD, A.AFF_SNO, A.DSP_RQ_SNO, A.MPP_SEQ, A.PRE_AFF_NO, A.AFF_NO, 'TAIL' AS MPP_POSITION
+		                     FROM TBBADDED147M A
+		          LEFT OUTER JOIN (
+				                      SELECT A.AUD_YR, A.AUD_NO, A.AUD_STEP_CD, A.DOC_ID, A.APVR_CD, A.AFF_SNO, A.DSP_RQ_SNO, A.MPP_SEQ, A.PRE_AFF_NO, A.AFF_NO
+				                        FROM TBBADDED147M A
+				                  INNER JOIN TABLE_PST B ON (B.PRE_AUD_STEP_CD = A.AUD_STEP_CD AND B.PRE_PST_CD = A.APVR_CD)
+				                  INNER JOIN TBBADDED147M C ON (C.AUD_YR = A.AUD_YR AND C.AUD_NO = A.AUD_NO AND C.AUD_STEP_CD = B.AUD_STEP_CD AND C.APVR_CD = B.PST_CD AND C.PRE_AFF_NO = A.AFF_NO)
+								       WHERE A.AUD_YR         = #{audYr}
+				                         AND A.AUD_NO         = #{audNo}
+				                         AND A.DOC_ID         = #{docId}
+				                     ) B ON (B.AUD_YR = A.AUD_YR AND B.AUD_NO = A.AUD_NO AND B.AUD_STEP_CD = A.AUD_STEP_CD AND B.APVR_CD = A.APVR_CD AND B.AFF_SNO = A.AFF_SNO AND B.DSP_RQ_SNO = A.DSP_RQ_SNO AND B.AFF_NO = A.AFF_NO) 
+			                   WHERE A.AUD_YR         = #{audYr}
+			                     AND A.AUD_NO         = #{audNo}
+			                     AND A.DOC_ID         = #{docId}
+			                     AND B.AUD_YR IS NULL
+			                     AND (A.AUD_STEP_CD, A.DOC_ID, A.APVR_CD) IN (
+			                              SELECT DISTINCT A.AUD_STEP_CD, A.DOC_ID, A.APVR_CD
+					                        FROM TBBADDED147M A
+					                  INNER JOIN TABLE_PST B ON (B.PRE_AUD_STEP_CD = A.AUD_STEP_CD AND B.PRE_PST_CD = A.APVR_CD)
+					                  INNER JOIN TBBADDED147M C ON (C.AUD_YR = A.AUD_YR AND C.AUD_NO = A.AUD_NO AND C.AUD_STEP_CD = B.AUD_STEP_CD AND C.APVR_CD = B.PST_CD AND C.PRE_AFF_NO = A.AFF_NO)
+									       WHERE A.AUD_YR         = #{audYr}
+					                         AND A.AUD_NO         = #{audNo}
+					                         AND A.DOC_ID         = #{docId}
+					                )
+    	                ) A
+    	                
+    	                --사유입력 제외(신규입력)
+    	                WHERE (A.AUD_YR, A.AUD_NO, A.AUD_STEP_CD, A.DOC_ID, A.APVR_CD, A.AFF_NO, A.MPP_POSITION) 
+		                  NOT IN (
+		                     SELECT B.AUD_YR, B.AUD_NO, B.AUD_STEP_CD, B.DOC_ID, B.APVR_CD, B.AFF_NO, 'FRONT' AS MPP_POSITION
+		                       FROM TBBADDED148M B
+		                      WHERE B.AUD_YR         = #{audYr}
+		                        AND B.AUD_NO         = #{audNo}
+		                        AND B.DOC_ID         = #{docId}
+		                        AND B.AFF_MPP_DVSN_CD IN ('D50', 'D81')
+		                 )
+		                 --사유 입력 건 제외(별도,기타,불문,보류)
+		                 AND (A.AUD_YR, A.AUD_NO, A.AUD_STEP_CD, A.DOC_ID, A.APVR_CD, A.AFF_NO, A.MPP_POSITION) 
+		                   NOT IN (
+		                     SELECT B.AUD_YR, B.AUD_NO, B.AUD_STEP_CD, B.DOC_ID, B.APVR_CD, B.AFF_NO, 'TAIL' AS MPP_POSITION
+		                       FROM TBBADDED148M B
+		                      WHERE B.AUD_YR         = #{audYr}
+		                        AND B.AUD_NO         = #{audNo}
+		                        AND B.DOC_ID         = #{docId}
+		                        AND B.AFF_MPP_DVSN_CD IN ('D70','D80','D90','D99')
+		                   )
+		                 --사유 입력 건 제외(분건, 종류변경, 부의변경)
+		                 AND (A.AUD_YR, A.AUD_NO, A.AUD_STEP_CD, A.DOC_ID, A.APVR_CD, A.AFF_SNO, A.PRE_AFF_NO, A.MPP_POSITION) 
+		                   NOT IN (
+		                     SELECT A.AUD_YR, A.AUD_NO, A.AUD_STEP_CD, A.DOC_ID, A.APVR_CD, A.AFF_SNO, A.PRE_AFF_NO, 'CENTER' AS MPP_POSITION
+                               FROM TBBADDED147M A
+                         INNER JOIN TABLE_PST B ON (B.AUD_STEP_CD = A.AUD_STEP_CD AND B.PST_CD = A.APVR_CD)
+                         INNER JOIN TBBADDED147M C ON (C.AUD_YR = A.AUD_YR AND C.AUD_NO = A.AUD_NO AND C.AUD_STEP_CD = B.PRE_AUD_STEP_CD AND C.APVR_CD = B.PRE_PST_CD AND C.AFF_NO = A.PRE_AFF_NO)
+                         INNER JOIN TBBADDED148M D ON (D.AUD_YR = C.AUD_YR AND D.AUD_NO = C.AUD_NO AND D.AUD_STEP_CD = C.AUD_STEP_CD AND D.DOC_ID = C.DOC_ID AND D.APVR_CD = C.APVR_CD AND D.AFF_SNO = C.AFF_SNO AND D.DSP_RQ_SNO = C.DSP_RQ_SNO AND D.AFF_NO = C.AFF_NO)
+		                      WHERE A.AUD_YR         = #{audYr}
+                                AND A.AUD_NO         = #{audNo}
+		                        AND A.DOC_ID         = #{docId}
+		                        AND D.AFF_MPP_DVSN_CD IN ('D40','D20','D21')
+		                 )
+		                 --사유 입력 건 제외(합건, 종류변경, 부의변경)
+		                 AND (A.AUD_YR, A.AUD_NO, A.AUD_STEP_CD, A.DOC_ID, A.APVR_CD, A.AFF_NO, A.MPP_POSITION) 
+		                   NOT IN (
+		                       SELECT E.AUD_YR, E.AUD_NO, E.AUD_STEP_CD, E.DOC_ID, E.APVR_CD, E.AFF_NO, 'CENTER' AS MPP_POSITION
+                               FROM TBBADDED147M A
+                         INNER JOIN TABLE_PST B ON (B.AUD_STEP_CD = A.AUD_STEP_CD AND B.PST_CD = A.APVR_CD)
+                         INNER JOIN TBBADDED147M C ON (C.AUD_YR = A.AUD_YR AND C.AUD_NO = A.AUD_NO AND C.AUD_STEP_CD = B.PRE_AUD_STEP_CD AND C.APVR_CD = B.PRE_PST_CD AND C.AFF_NO = A.PRE_AFF_NO)
+                         INNER JOIN TBBADDED148M D ON (D.AUD_YR = C.AUD_YR AND D.AUD_NO = C.AUD_NO AND D.AUD_STEP_CD = C.AUD_STEP_CD AND D.DOC_ID = C.DOC_ID AND D.APVR_CD = C.APVR_CD AND D.AFF_SNO = C.AFF_SNO AND D.DSP_RQ_SNO = C.DSP_RQ_SNO AND D.AFF_NO = C.AFF_NO)
+                         INNER JOIN TBBADDED147M E ON (E.AUD_YR = A.AUD_YR AND E.AUD_NO = A.AUD_NO AND E.AUD_STEP_CD = A.AUD_STEP_CD AND E.DOC_ID = A.DOC_ID AND E.APVR_CD = A.APVR_CD AND E.AFF_NO = A.AFF_NO)
+		                      WHERE A.AUD_YR         = #{audYr}
+                                AND A.AUD_NO         = #{audNo}
+		                        AND A.DOC_ID         = #{docId}
+		                        AND D.AFF_MPP_DVSN_CD IN ('D30','D20','D21')
+		                 )
+		     ]]>
+    </select>
+    
+    <select id="selectOpinBrfCnt" parameterType="paramMap" resultType="integer">
+    /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper."selectOpinBrfCnt" */
+    	<![CDATA[
+	    	SELECT COUNT(DISTINCT T1.AFF_SNO) AS CNT
+			  FROM TBBADDED145M T1
+   LEFT OUTER JOIN TBBADDED141M T2 ON (T1.AUD_YR = T2.AUD_YR AND T1.AUD_NO = T2.AUD_NO AND T1.AUD_STEP_CD = T2.AUD_STEP_CD AND T1.DOC_ID = T2.DOC_ID AND T1.APVR_CD = T2.APVR_CD AND T1.AFF_SNO = T2.AFF_SNO AND T1.RPRT_FILD_ID = T2.RPRT_FILD_ID)
+   LEFT OUTER JOIN TBBADDED142D T3 ON (T3.AUD_YR = T1.AUD_YR AND T3.AUD_NO = T1.AUD_NO AND T3.AUD_STEP_CD = T1.AUD_STEP_CD AND T3.APVR_CD = T1.APVR_CD AND T3.AFF_SNO = T1.AFF_SNO AND T3.RPRT_FILD_ID = T1.RPRT_FILD_ID AND T3.RPRT_CD = 'A10600530')
+			 WHERE T1.AUD_YR = #{audYr}
+			   AND T1.AUD_NO = #{audNo}
+			   AND T1.AUD_STEP_CD = #{audStepCd}
+			   AND T1.APVR_CD IN ('0015800','0035100','0058100','0013900')
+			   AND T1.DOC_ID = #{docId}
+			   AND NVL(T2.OPIN_NO_YN, 'N') = 'N'
+			   AND T3.OPIN_BRF_TXT IS NULL
+    	]]>
+    </select>
+    
+    <select id="selectOvrOpinYn" parameterType="paramMap" resultType="String">
+    /* kr.go.bai.eip.aep.arp.dao.AEPARP001QMapper."selectOvrOpinYn" */
+    	<![CDATA[
+	    	SELECT OPIN_NO_YN
+			  FROM TBBADDED141M
+			 WHERE AUD_YR = #{audYr}
+			   AND AUD_NO = #{audNo}
+			   AND RPRT_FILD_ID = '000000000000000000'
+			   AND DOC_ID = #{docId}
+    	]]>
+    </select>
+    
+</mapper>

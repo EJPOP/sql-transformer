@@ -1,0 +1,1031 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="dcm/acm/065">
+	<select id="DCMACM065QMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		<include refid = "include.pageSelct"/>
+		<![CDATA[
+			SELECT 	T1.YR
+					,NVL(T1.ACP_DT, T1.APL_DT) AS ACP_DT /*신청접수일*/
+					,T1.APL_CNB
+					,T1.DPT_CD
+					,F_DPT_INFO(T1.DPT_CD,'1') AS DPT_NM
+					,T1.RANK_CD
+					,F_CODE_NM('1000173',T1.RANK_CD) AS RANK_NM
+					,T1.APL_NAM
+					,T1.GEN_ADMN_DVSN_CD
+					,F_CODE_NM('1000852',T1.GEN_ADMN_DVSN_CD) AS GEN_ADMN_DVSN_NM /* 직렬 */
+					,T1.BZT_TREXP_RCIT_BNK_CD                       AS BZT_TREXP_RCIT_BNK_CD /* 출장여비수령은행코드 */
+            		,F_CODE_NM('1000166', T1.BZT_TREXP_RCIT_BNK_CD) AS BZT_TREXP_RCIT_BNK_NM /* 출장여비수령은행명 */
+					,DGUARD.DECRYPT('TB_ENC','EAN', T1.BZT_TREXP_RCIT_EAN) AS BZT_TREXP_RCIT_EAN /*주석해제시 컬럼명 확인*/
+            		 /*,T1.BZT_TREXP_RCIT_EAN                          AS BZT_TREXP_RCIT_EAN    출장여비수령암호화계좌번호 */
+            		,T1.SRNO   /* 일련번호  */
+					,T1.SPH /* 분야 */
+					,T1.DTIL_SPH /* 세부분야 */
+					,T1.APVR_DT /* 승인일 */
+					,T1.APVR_AM /* 승인금액 */
+					,T1.APL_AM /* 신청금액 */
+					,T1.DOC_ID
+					,T1.SPRT_EXPT_AM /* 지원예상금액 */
+					,T1.PMT_AM /* 지급금액 */
+					,T1.TIT_NM  /* 제목 */
+					,T1.HNDL_STEP  /* 처리상태 */
+					,TO_CHAR(T1.APV_DT, 'YYYY-MM-DD') AS APV_DT /* 결재일 */
+					,T1.FRT_REGI_DH 
+					,T1.APV_DOC_NO					
+			FROM	TBDCMACM065M T1
+			WHERE	1=1
+			
+		]]>	
+		
+		<isNotEmpty property="strYr">
+			AND  T1.YR = #strYr# 
+		</isNotEmpty>
+			
+		<isNotEmpty property="strSrno">
+			AND  T1.SRNO = #strSrno# 
+		</isNotEmpty>
+		
+		<isNotEmpty property="strCNB">
+			AND T1.APL_CNB = #strCNB# 
+		</isNotEmpty>
+		
+		<isEqual property="strAUTH_CD" compareValue="ALL">
+        	AND	 (T1.APL_CNB = #strCnb# OR T1.HNDL_STEP <![CDATA[ >= ]]> '2') /* ALL 권한자이면 모든 '신청'된 등록 사항을 조회 */
+        	<isNotEmpty property="strDPT_CD2">
+				AND  T1.DPT_CD = #strDPT_CD2# 
+			</isNotEmpty>
+        </isEqual>
+        
+		<!-- 직렬 -->
+		<isNotEmpty property="strGEN_ADMN_DVSN_CD">
+			AND	T1.GEN_ADMN_DVSN_CD = #strGEN_ADMN_DVSN_CD#
+		</isNotEmpty>
+		
+		<isNotEmpty property="strHNDL_STEP">
+			AND  T1.HNDL_STEP = #strHNDL_STEP# 
+		</isNotEmpty>
+		
+		<isNotEmpty property="strSPH">
+			AND  T1.SPH = #strSPH# 
+		</isNotEmpty>
+		
+		<!-- 제목 -->
+		<isNotEmpty prepend="AND" property="strTIT_NM">
+			T1.TIT_NM LIKE '%'||#strTIT_NM# ||'%'
+		</isNotEmpty>
+		
+		<!-- 신청일 -->
+		<isNotEmpty property="strACP_DTS">
+			<![CDATA[
+				AND	TO_CHAR(NVL(T1.ACP_DT, T1.APL_DT) ,'YYYYMMDD') >= #strACP_DTS# 
+			]]>				
+		</isNotEmpty>
+		<isNotEmpty property="strACP_DTE">
+			<![CDATA[
+				AND	TO_CHAR(NVL(T1.ACP_DT, T1.APL_DT) ,'YYYYMMDD') <= #strACP_DTE# 
+			]]>			
+		</isNotEmpty>
+		
+		<include refid = "include.pageOrder"/> 
+	</select>
+	
+	<select id="DCMACM065QSelectRate" parameterClass="paramMap" resultClass="String"> 
+		WITH BASE AS (
+		    SELECT NVL((SELECT SPRT_AM FROM TBDCMACM067M WHERE YR = #strYr# AND DVSN_CD = '1'),0) AS COL1 /*예산액*/                                                    
+                 , (SELECT NVL(SUM(PMT_AM),0) FROM TBDCMACM065M WHERE YR = #strYr# AND HNDL_STEP IN ('3','6','7')) AS COL2  /*누적확정액*/
+              FROM DUAL
+		)
+		
+		SELECT DECODE((SELECT COL1 FROM BASE),0,0,ROUND((SELECT COL2 FROM BASE ) / (SELECT COL1 FROM BASE ),2) * 100) || '%' AS RATE 		        
+		  FROM DUAL	
+	</select>
+
+	<select id="DCMACM065EMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT 	T1.YR
+					,NVL(T1.ACP_DT, T1.APL_DT) AS ACP_DT
+					,T1.APL_CNB
+					,T1.DPT_CD
+					,F_DPT_INFO(T1.DPT_CD,'1') AS DPT_NM
+					,T1.RANK_CD
+					,F_CODE_NM('1000173',T1.RANK_CD) AS RANK_NM
+					,T1.APL_NAM
+					,T1.GEN_ADMN_DVSN_CD
+					,F_CODE_NM('1000852',T1.GEN_ADMN_DVSN_CD) AS GEN_ADMN_DVSN_NM /* 직렬 */
+					,T1.APL_NAM || '(' || T1.APL_CNB || ')'  AS APL_INFO1
+					,F_DPT_INFO(T1.DPT_CD,'1') || ' ' || F_CODE_NM('1000173',T1.RANK_CD)  || ' ' || F_CODE_NM('1000852',T1.GEN_ADMN_DVSN_CD) AS APL_INFO2
+					,T1.BZT_TREXP_RCIT_BNK_CD                       AS BZT_TREXP_RCIT_BNK_CD /* 출장여비수령은행코드 */
+            		,F_CODE_NM('1000166', T1.BZT_TREXP_RCIT_BNK_CD) AS BZT_TREXP_RCIT_BNK_NM /* 출장여비수령은행명 */
+					,REGEXP_REPLACE((DGUARD.DECRYPT('TB_ENC','EAN', T1.BZT_TREXP_RCIT_EAN)) ,'[^0-9]') AS BZT_TREXP_RCIT_EAN /*주석해제시 컬럼명 확인*/
+            		/*,T1.BZT_TREXP_RCIT_EAN                          AS BZT_TREXP_RCIT_EAN     출장여비수령암호화계좌번호 */
+            		,T1.SRNO   /* 일련번호  */
+					,T1.SPH /* 분야 */
+					,T1.DTIL_SPH /* 세부분야 */
+					,T1.APVR_DT /* 승인일 */
+					,T1.APVR_AM /* 승인금액 */
+					,T1.APVR_CNB /* 승인자 전산번호 */
+					,F_USR_INFO(T1.APVR_CNB, '2') AS APVR_NAM /* 승인자 이름 */
+					,T1.APL_AM /* 신청금액 */
+					,(SELECT DOC_ID FROM TBDCMACM065L Z 
+			 		WHERE Z.YR = T1.YR 
+			 		AND	Z.SRNO = T1.SRNO) AS DOC_ID
+					,T1.SPRT_EXPT_AM /* 지급예상금액 */
+					,T1.PMT_AM /* 지급금액 */
+					,T1.NCSY /*필요성*/
+					,T1.PRSS_PLN /*진행계획*/
+					,T1.TIT_NM  /* 제목 */
+					,T1.DTIL1 /* 상세1 */
+					,T1.DTIL2 /* 상세2 */
+					,T1.DTIL3 /* 상세3 */
+					,T1.DTIL4 /* 상세4 */
+					,T1.DTIL5 /* 상세5 */
+					,T1.HNDL_STEP  /* 처리상태 */
+					,TO_CHAR(T1.APV_DT, 'YYYY.MM.DD') AS APV_DT /* 결재일 */
+					,T1.APV_DOC_NO
+					,T1.APV_HIS /* 미승인내역  */
+					,T1.PART_APV_HIS /* 부분승인내역  */
+					,(SELECT EPRT_SPH FROM TBDCMACM065D3 WHERE CNB = #strUserCnb#) AS EPRT_SPH
+			FROM	TBDCMACM065M T1
+			WHERE	1=1
+			
+		]]>
+		<isNotEmpty property="strYr">
+			AND  T1.YR = #strYr# 
+		</isNotEmpty>
+				
+		<isNotEmpty property="strSrno">
+			AND  T1.SRNO = #strSrno# 
+		</isNotEmpty>
+            
+		
+	</select>
+
+	<select id="DCMACM065ESubSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[       
+			SELECT A.YR
+			     , A.SRNO
+			     , A.BOOK_NUM
+			     , A.DTIL_SPH
+			     , A.BOOK_NM
+			     , A.CAT_SYM
+			     , A.PBL_NM
+			     , A.ATR_NM
+			     , A.BOOK_AM
+			  FROM TBDCMACM065B A  /* 도서정보내역 */
+			 WHERE A.YR   = #strYr#
+			   AND A.SRNO = #strSrno#
+			ORDER BY A.BOOK_NUM
+		]]>
+	</select>
+
+
+	<select id="DCMACM065EUserSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT	NVl(D1.BZT_TREXP_RCIT_BNK_CD
+				,(SELECT T.BZT_TREXP_RCIT_BNK_CD
+				FROM (SELECT T1.BZT_TREXP_RCIT_BNK_CD
+						FROM TBDCMACM065M T1
+					    WHERE T1.APL_CNB = #strUserCnb#
+				        ORDER BY T1.APL_DT DESC) T WHERE ROWNUM =1  ) 
+				) AS BZT_TREXP_RCIT_BNK_CD /* 사용자정보 기본은행이 없을때 가장 최근에 사용한 계좌 가져오기 */
+				,NVl(REGEXP_REPLACE((DGUARD.DECRYPT('TB_ENC','EAN', D1.BZT_TREXP_RCIT_EAN)) ,'[^0-9]') /* D1.BZT_TREXP_RCIT_EAN */
+				,(SELECT REGEXP_REPLACE((DGUARD.DECRYPT('TB_ENC','EAN', T.BZT_TREXP_RCIT_EAN)) ,'[^0-9]') /* T.BZT_TREXP_RCIT_EAN  */
+				FROM (SELECT T1.BZT_TREXP_RCIT_EAN
+						FROM TBDCMACM065M T1
+					    WHERE T1.APL_CNB = #strUserCnb#
+				        ORDER BY T1.APL_DT DESC) T WHERE ROWNUM =1  ) 
+				) AS BZT_TREXP_RCIT_EAN /* 사용자정보 기본계좌가 없을때 가장 최근에 사용한 계좌 가져오기 */
+				,D1.GEN_ADMN_DVSN_CD
+				,F_CODE_NM('1000852',D1.GEN_ADMN_DVSN_CD) AS GEN_ADMN_DVSN_NM /* 직렬 */
+				,D1.RANK_CD
+				,F_CODE_NM('1000173',D1.RANK_CD) AS RANK_NM
+				,(SELECT EPRT_SPH FROM TBDCMACM065D3 WHERE CNB = #strUserCnb#) AS EPRT_SPH
+				FROM	TBDCMACM001M D1 
+				WHERE	D1.CNB = #strUserCnb#
+	]]>
+	</select>
+	
+	<select id="DCMACM065ESectSelect" parameterClass="paramMap"	resultClass="resultMap">
+     
+		SELECT CD, CD_NM, USR_DFN_TXT_1,USR_DFN_TXT_2
+		FROM TBDCMACM013C
+		WHERE 1=1
+			AND USE_YN = 'Y'
+			AND CMM_CD_DVSN_CD='1000887'
+			AND CD != '000000000'
+		ORDER BY USR_DFN_TXT_1,OTPT_SEQ,TO_NUMBER(REGEXP_REPLACE(CD ,'[^0-9]'))
+
+	</select>
+
+	<select id="DCMACM065QMgYrLtdSelect"  parameterClass="paramMap" resultClass="resultMap">
+     
+		SELECT
+            NVL(COUNT(A.SPRT_AM),'0') AS SPRT_AM,
+            NVL(B.SPRT_LTD,'0') AS SPRT_LTD
+		FROM TBDCMACM065D1 A, TBDCMACM065D2 B
+		WHERE 1=1
+			AND A.YR = B.YR(+)
+			AND A.YR = TO_CHAR(SYSDATE,'YYYY')
+            GROUP BY A.YR,B.SPRT_LTD
+	</select>
+	
+	<select id="DCMACM065D2CntSelect" parameterClass="paramMap" resultClass="resultMap">     
+		SELECT COUNT(*) AS CNT
+		FROM TBDCMACM065D2
+		WHERE 1=1
+			AND YR = #strYr2#
+	</select>
+	
+	<select id="DCMACM065D2SelectSprtLtd" parameterClass="paramMap" resultClass="resultMap">     
+		SELECT SPRT_LTD
+		FROM TBDCMACM065D2
+		WHERE 1=1
+			AND YR = #strYr2#
+	</select>
+	
+	<select id="DCMACM065EMYrSprtSelect"  parameterClass="paramMap" resultClass="resultMap">
+		SELECT SPH, SPRT_AM, SPRT_RT, KBN
+			FROM TBDCMACM065D1  
+			WHERE 1=1 
+			AND KBN = ( NVL((SELECT KBN FROM TBDCMACM065D3 WHERE CNB = #strUserCnb#),
+                                DECODE((SELECT COUNT(CNB) FROM TBDCMACM001M WHERE INN_RANK_CD BETWEEN '14' AND '30' 
+                                AND USR_DVSN_CD='1'
+                                AND DPT_CD  != '880880'
+                                AND USR_ID NOT LIKE 'test%'
+                                AND CNB = #strUserCnb#),'0','1','6'))       
+                      )
+			AND TO_CHAR(SYSDATE,'YYYY') = YR
+			ORDER BY SPH
+	
+	</select>
+	
+	<select id="DCMACM065EPsnSumSelect"  parameterClass="paramMap" resultClass="resultMap">
+		SELECT APL_NAM, COUNT(PMT_AM) AS PCNT, NVL(SUM(PMT_AM),0) AS PMT_SUM
+			,NVL((SELECT SUM(PMT_AM) AS PMT_SUM_01    
+				FROM TBDCMACM065M 
+				WHERE APL_CNB =  #strUserCnb#
+				AND YR = TO_CHAR(SYSDATE,'YYYY')
+				AND (SPH ='01' OR SPH ='08')
+				AND (HNDL_STEP='3' OR HNDL_STEP='6' OR HNDL_STEP='7' ) 
+				GROUP BY APL_NAM ),0)  AS PMT_SUM_01  /* 직무분야건 표시 */
+ 			,NVL((SELECT SUM(PMT_AM) AS PMT_SUM_02    
+				FROM TBDCMACM065M 
+				WHERE APL_CNB =  #strUserCnb#
+				AND YR = TO_CHAR(SYSDATE,'YYYY')
+				AND (SPH ='02' OR SPH ='06' OR SPH ='07')
+				AND (HNDL_STEP='3'  OR HNDL_STEP='6'  OR HNDL_STEP='7' ) 
+				GROUP BY APL_NAM ),0) AS PMT_SUM_02    /* 어학분야건 표시 */ 
+     		,NVL((SELECT SUM(PMT_AM) AS PMT_SUM_03    
+				FROM TBDCMACM065M 
+				WHERE APL_CNB =  #strUserCnb#
+				AND YR = TO_CHAR(SYSDATE,'YYYY')
+				AND SPH ='03'
+				AND (HNDL_STEP='3' OR HNDL_STEP='6' OR HNDL_STEP='7' )   /* 승인된것만 표시 */
+				GROUP BY APL_NAM ),0) AS PMT_SUM_03  /* 도서분야건 표시 */
+			FROM TBDCMACM065M 
+			WHERE APL_CNB = #strUserCnb#
+			AND YR = TO_CHAR(SYSDATE,'YYYY')
+			AND SPH IN ('01','02','03','06','07','08')
+			AND (HNDL_STEP='3' OR HNDL_STEP='6' OR HNDL_STEP='7' )  /* 신청~승인된것만 표시 */
+			GROUP BY APL_NAM 
+	</select>
+	
+	<select id="DCMACM065EPreSumSelect"  parameterClass="paramMap" resultClass="resultMap">
+		SELECT NVL((SELECT SUM(PMT_AM) AS PMT_SUM_01    
+				FROM TBDCMACM065M 
+				WHERE APL_CNB =  #strUserCnb#
+				AND YR = TO_CHAR(SYSDATE,'YYYY')
+				AND (SPH ='01' OR SPH ='08')
+				AND (HNDL_STEP='2' OR HNDL_STEP='3' OR HNDL_STEP='6' OR HNDL_STEP='7' ) 
+				GROUP BY APL_NAM ),0)  AS PMT_SUM_01  /* 직무분야건 표시 */
+ 			,NVL((SELECT SUM(PMT_AM) AS PMT_SUM_02    
+				FROM TBDCMACM065M 
+				WHERE APL_CNB =  #strUserCnb#
+				AND YR = TO_CHAR(SYSDATE,'YYYY')
+				AND (SPH ='02' OR SPH ='06' OR SPH ='07')
+				AND (HNDL_STEP='2' OR HNDL_STEP='3'  OR HNDL_STEP='6'  OR HNDL_STEP='7' ) 
+				GROUP BY APL_NAM ),0) AS PMT_SUM_02    /* 어학분야건 표시 */ 
+     		,NVL((SELECT SUM(PMT_AM) AS PMT_SUM_03    
+				FROM TBDCMACM065M 
+				WHERE APL_CNB =  #strUserCnb#
+				AND YR = TO_CHAR(SYSDATE,'YYYY')
+				AND SPH ='03'
+				AND (HNDL_STEP='2' OR HNDL_STEP='3' OR HNDL_STEP='6' OR HNDL_STEP='7' )   /* 승인된것만 표시 */
+				GROUP BY APL_NAM ),0) AS PMT_SUM_03  /* 도서분야건 표시 */
+			FROM TBDCMACM065M 
+			WHERE APL_CNB = #strUserCnb#
+			AND YR = TO_CHAR(SYSDATE,'YYYY')
+			AND SPH IN ('01','02','03','06','07','08')
+			AND (HNDL_STEP='2' OR HNDL_STEP='3' OR HNDL_STEP='6' OR HNDL_STEP='7' )  /* 신청~승인된것만 표시 */
+			GROUP BY APL_NAM 
+	</select>
+	
+	
+	<insert id="DCMACM065ESprtInsert" parameterClass="paramMap">
+		
+			INSERT INTO	TBDCMACM065M
+				(
+					 YR
+					, APL_DT
+					, APL_CNB
+					, SRNO
+					, DPT_CD
+					, RANK_CD
+					, APL_NAM
+					, GEN_ADMN_DVSN_CD
+					, BZT_TREXP_RCIT_BNK_CD
+					, BZT_TREXP_RCIT_EAN
+					, SPH
+					, DTIL_SPH
+					, APL_AM
+					, SPRT_EXPT_AM
+					, PMT_AM
+					, TIT_NM
+					, NCSY
+					, PRSS_PLN
+					, DTIL1
+			        , DTIL2
+			        , DTIL3
+			        , DTIL4
+			        , DTIL5
+			        , HNDL_STEP
+			        , APVR_DT
+					, APVR_CNB
+			        , APV_HIS
+			        , PART_APV_HIS
+		        	<isEqual property="HNDL_STEP" compareValue="2">
+		        	, ACP_DT
+		        	</isEqual>
+					, FRT_USR_ID
+					, FNL_USR_ID
+					, FNL_MNU_ID
+					, FRT_REGI_DH
+					, FNL_MDF_DH
+				)
+			VALUES	(
+						TO_CHAR(SYSDATE,'YYYY')
+						, TO_CHAR(SYSDATE,'YYYYMMDD')
+						, #APL_CNB#
+						,(	SELECT 	NVL(MAX(SRNO),0)+1 
+							FROM 	TBDCMACM065M
+						)
+						, F_USR_INFO(#APL_CNB#, '5')/*DPT_CD*/
+						, F_USR_INFO(#APL_CNB#, '3') /*RANK_CD*/
+						, F_USR_INFO(#APL_CNB#, '2') /* USR_NAM*/ 
+						,(	SELECT GEN_ADMN_DVSN_CD FROM TBDCMACM001M WHERE CNB= #APL_CNB# )
+						, #BZT_TREXP_RCIT_BNK_CD#
+						, DGUARD.ENCRYPT('TB_ENC','EAN', #BZT_TREXP_RCIT_EAN#)  /*주석해제시 컬럼명 확인 로컬시 변경*/
+						, #SPH#
+						, #DTIL_SPH#
+						, #APL_AM# /* 신청금액 */ 
+						, #SPRT_EXPT_AM# /* 지원예상금액 */ 
+						, #PMT_AM# /* 승인금액 */ 
+						, #TIT_NM#
+						, #NCSY#
+	        			, #PRSS_PLN#
+	        			, #DTIL1#
+	        			, #DTIL2#
+	        			, #DTIL3#
+	        			, #DTIL4#
+	        			, #DTIL5#
+	        			, #HNDL_STEP# /*1:작성  2:신청  3:승인  4:미승인  5:반려  6:결재중 7:지급*/
+	        			, #APVR_DT#
+						, #APVR_CNB#
+	        			, #APV_HIS#
+	        			, #PART_APV_HIS#
+			        	<isEqual property="HNDL_STEP" compareValue="2">
+			        	, SYSDATE
+			        	</isEqual>
+						, #FNL_USR_ID#
+						, #FNL_USR_ID#
+						, #FNL_MNU_ID#
+						, SYSDATE
+						, SYSDATE
+					)
+	</insert>
+	
+	<update id="DCMACM065EupdateMain" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBDCMACM065M
+			SET		BZT_TREXP_RCIT_BNK_CD = #BZT_TREXP_RCIT_BNK_CD#
+					,BZT_TREXP_RCIT_EAN = DGUARD.ENCRYPT('TB_ENC','EAN', #BZT_TREXP_RCIT_EAN#)  /*주석해제시 컬럼명 확인*/
+					/*,BZT_TREXP_RCIT_EAN = BZT_TREXP_RCIT_EAN */
+					,SPH = #SPH#  /* 분야 */
+					,DTIL_SPH = #DTIL_SPH# /* 세부분야 */
+					,APVR_DT = #APVR_DT#  /* 승인일 */
+					,APVR_CNB = #APVR_CNB#  /* 승인자 */
+					,PMT_AM = #PMT_AM# /* 지급금액 */
+					,APL_AM = #APL_AM# /* 신청금액 */
+					,SPRT_EXPT_AM = #SPRT_EXPT_AM# /* 지원예상금액 */
+					,NCSY = #NCSY# /* 필요성 */
+					,PRSS_PLN = #PRSS_PLN# /* 진행계획 */
+					,TIT_NM = #TIT_NM# /* 제목 */
+					,DTIL1 = #DTIL1# /* 상세1 */
+					,DTIL2 = #DTIL2# /* 상세2 */
+					,DTIL3 = #DTIL3# /* 상세3 */
+					,DTIL4 = #DTIL4# /* 상세4 */
+					,DTIL5 = #DTIL5# /* 상세5 */
+					,HNDL_STEP = #HNDL_STEP# /*처리상태*/
+					,APV_HIS = #APV_HIS# /*미승인 내역*/
+					,PART_APV_HIS = #PART_APV_HIS# /*부분승인 내역*/
+					,FNL_MDF_DH = SYSDATE
+					,FNL_USR_ID = #FNL_USR_ID#
+					,FNL_MNU_ID = #FNL_MNU_ID#
+		]]>
+			<isEqual property="HNDL_STEP" compareValue="2">
+					,ACP_DT = SYSDATE
+			</isEqual>
+			<isEqual property="HNDL_STEP" compareValue="1">
+					,ACP_DT = ''
+			</isEqual>
+			WHERE	YR = #YR#
+			AND		SRNO = #SRNO#
+		
+	</update>
+	
+	<select id="DCMACM065EMainKeyValueSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[       
+			SELECT TO_CHAR(SYSDATE, 'YYYY')               AS YR
+			     , (SELECT NVL(MAX(SRNO), 0) + 1
+		              FROM TBDCMACM065M ) AS SRNO 
+		      FROM DUAL
+		]]>
+	</select>
+	<insert id="DCMACM065EFileInsert" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBDCMACM065L
+        	(
+        			YR,
+        			SRNO,
+        			DOC_ID,
+        			FRT_USR_ID,
+        			FNL_USR_ID,
+        			FNL_MNU_ID,
+        			FRT_REGI_DH,
+        			FNL_MDF_DH
+        	) VALUES (
+        			#YR#,
+	        		#SRNO#,
+	        		#DOC_ID#,
+	        		#FRT_USR_ID#,
+	        		#FNL_USR_ID#,
+	        		#FNL_MNU_ID#,
+	        		SYSDATE,
+	        		SYSDATE
+        	)
+        ]]>
+	</insert>
+	
+	<delete id="DCMACM065EdeleteMain" parameterClass="paramMap">
+		<![CDATA[
+			DELETE	
+			FROM	TBDCMACM065M
+			WHERE	YR = #YR#
+			AND		SRNO = #SRNO#
+		]]>
+	</delete>
+	
+	<delete id="DCMACM065EFileDelete" parameterClass="paramMap">
+		<![CDATA[
+			DELETE	
+			FROM	TBDCMACM065L
+			WHERE	YR = #YR#
+			AND		SRNO = #SRNO#
+		]]>
+	</delete>
+	
+	<delete id="DCMACM065EBookDelete" parameterClass="paramMap">
+		<![CDATA[
+			DELETE	
+			FROM	TBDCMACM065B
+			WHERE	YR = #YR#
+			AND		SRNO = #SRNO#
+		]]>
+	</delete>
+	<select id="DCMACM065QExcelExportSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[ 
+			SELECT ROW_NUMBER() OVER(ORDER BY DPT_SNO ASC) AS NUM,	A.* 
+ 				FROM ( SELECT 
+					T1.YR /* 연도 */
+					,(SELECT DPT_SNO FROM TBDCMACM002M WHERE DPT_CD = T1.DPT_CD) AS DPT_SNO
+					,F_DPT_INFO(T1.DPT_CD,'1') AS DPT_NM /* 부서 */
+					,F_CODE_NM('1000173',T1.RANK_CD) AS RANK_NM /* 직급 */
+					,F_CODE_NM('1000176',T2.PST_CD) AS PST_NM /* 직위 */
+					,(CASE WHEN (SELECT COUNT(CNB) FROM TBDCMACM065D3 WHERE CNB = T1.APL_CNB ) > 0 THEN 'Y' ELSE 'N' END ) AS SPRT_YN /* 전문인력여부 */
+					,T1.APL_CNB /* 신청자 전산번호 */
+					,T1.APL_NAM /* 신청자 명 */
+					,F_CODE_NM('1000852',T1.GEN_ADMN_DVSN_CD) AS GEN_ADMN_DVSN_NM /* 직렬 */
+					,TO_CHAR(NVL(T1.ACP_DT, T1.APL_DT), 'YYYY.MM.DD') AS ACP_DT /* 신청일 */
+					,T1.TIT_NM  /* 제목 */
+					,F_CODE_NM('1000887',T1.DTIL_SPH) AS DTIL_SPH  /* 세부분야 */
+					,(CASE WHEN T1.SPH = '01' THEN T1.APL_AM ELSE NULL END ) TITLE1 /* 직무 */
+					,(CASE WHEN T1.SPH = '08' THEN T1.APL_AM ELSE NULL END ) TITLE8 /* 직무 (응시료)*/
+					,(CASE WHEN T1.SPH = '02' THEN T1.APL_AM ELSE NULL END ) TITLE2 /* 어학(강의-50%) */
+					,(CASE WHEN T1.SPH = '06' THEN T1.APL_AM ELSE NULL END ) TITLE3 /* 어학(응시료) */
+					,(CASE WHEN T1.SPH = '07' THEN T1.APL_AM ELSE NULL END ) TITLE4 /* 어학(강의-100%) */
+					,(CASE WHEN T1.SPH = '03' THEN T1.APL_AM ELSE NULL END ) TITLE5 /* 도서 */
+					,(CASE WHEN T1.SPH = '04' THEN T1.APL_AM ELSE NULL END ) TITLE6 /* 지식 */
+					,T1.APL_AM  /* 신청금액 */
+					,T1.SPRT_EXPT_AM /* 지급예상금액 */
+					,T1.NCSY /*필요성*/
+					,T1.PRSS_PLN /*진행계획*/
+					,T1.DTIL1 /* 상세1 */
+					,T1.DTIL2 /* 상세2 */
+					,T1.DTIL3 /* 상세3 */
+					,T1.DTIL4 /* 상세4 */
+					,T1.DTIL5 /* 상세5 */
+            		,F_CODE_NM('1000166', T1.BZT_TREXP_RCIT_BNK_CD) AS BNK_NM /* 출장여비수령은행명 */
+					,DGUARD.DECRYPT('TB_ENC','EAN', T1.BZT_TREXP_RCIT_EAN) AS EAN /*주석해제시 컬럼명 확인*/
+            		/*,T1.BZT_TREXP_RCIT_EAN                          AS EAN     출장여비수령암호화계좌번호 */
+					,TO_CHAR(T1.APV_DT, 'YYYY.MM.DD') AS APV_DT /* 결재일 (지급일) */
+					,T1.PMT_AM /* 지급금액 */
+					,F_CODE_NM('1000884',T1.HNDL_STEP) AS HNDL_STEP  /* 처리상태 */
+					
+			FROM	TBDCMACM065M T1,TBDCMACM001M T2
+			WHERE	1=1 AND T1.APL_CNB = T2.CNB
+		]]>
+		<isNotEmpty property="strYr">
+			AND  T1.YR = #strYr# 
+		</isNotEmpty>
+			
+		<isNotEmpty property="strSrno">
+			AND  T1.SRNO = #strSrno# 
+		</isNotEmpty>
+            
+		<isNotEmpty property="strCNB">
+			AND T1.APL_CNB = #strCNB# 
+		</isNotEmpty>
+		
+        <isEqual property="strAUTH_CD" compareValue="ALL">
+        	AND	 (T1.APL_CNB = #strCnb# OR T1.HNDL_STEP <![CDATA[ >= ]]> '2') /* ALL 권한자이면 모든 '신청'된 등록 사항을 조회 */
+        	<isNotEmpty property="strDPT_CD2">
+				AND  T1.DPT_CD = #strDPT_CD2# 
+			</isNotEmpty>
+        </isEqual>
+		<!-- 직렬 -->
+		<isNotEmpty property="strGEN_ADMN_DVSN_CD">
+			AND	T1.GEN_ADMN_DVSN_CD = #strGEN_ADMN_DVSN_CD#
+			
+		</isNotEmpty>
+		
+		<isNotEmpty property="strHNDL_STEP">
+			AND  T1.HNDL_STEP = #strHNDL_STEP# 
+		</isNotEmpty>
+		
+		<isNotEmpty property="strSPH">
+			AND  T1.SPH = #strSPH# 
+		</isNotEmpty>
+		
+		<!-- 제목 -->
+		<isNotEmpty prepend="AND" property="strTIT_NM">
+			T1.TIT_NM LIKE '%'||#strTIT_NM# ||'%'
+		</isNotEmpty>
+		
+		<!-- 신청일 -->
+		<isNotEmpty property="strACP_DTS">
+			<![CDATA[
+				AND	TO_CHAR(NVL(T1.ACP_DT, T1.APL_DT) ,'YYYYMMDD') >= #strACP_DTS# 
+			]]>
+		</isNotEmpty>
+		<isNotEmpty property="strACP_DTE">
+			<![CDATA[
+				AND	TO_CHAR(NVL(T1.ACP_DT, T1.APL_DT) ,'YYYYMMDD') <= #strACP_DTE# 
+			]]>				
+		</isNotEmpty>
+		ORDER BY DPT_SNO ASC, T1.APL_NAM, T1.ACP_DT DESC, T1.APL_DT DESC, T1.SPH ASC ) A
+	</select>
+	
+	
+	<select id="DCMACM065APMainApvSelect" parameterClass="paramMap" 	resultClass="resultMap">
+	
+        <![CDATA[
+			SELECT 	T1.YR
+					,TO_CHAR(NVL(T1.ACP_DT, T1.APL_DT), 'YYYY.MM.DD') AS ACP_DT
+					,T1.APL_CNB
+					,T1.DPT_CD
+					,F_DPT_INFO(T1.DPT_CD,'1') AS DPT_NM
+					,T1.RANK_CD
+					,F_CODE_NM('1000173',T1.RANK_CD) AS RANK_NM
+					,T1.APL_NAM
+					,T1.GEN_ADMN_DVSN_CD
+					,F_CODE_NM('1000852',T1.GEN_ADMN_DVSN_CD) AS GEN_ADMN_DVSN_NM /* 직렬 */
+					,T1.BZT_TREXP_RCIT_BNK_CD                       AS BZT_TREXP_RCIT_BNK_CD /* 출장여비수령은행코드 */
+            		,F_CODE_NM('1000166', T1.BZT_TREXP_RCIT_BNK_CD) AS BZT_TREXP_RCIT_BNK_NM /* 출장여비수령은행명 */
+					,DGUARD.DECRYPT('TB_ENC','EAN', T1.BZT_TREXP_RCIT_EAN) AS BZT_TREXP_RCIT_EAN /*주석해제시 컬럼명 확인*/
+            		/*,T1.BZT_TREXP_RCIT_EAN                          AS BZT_TREXP_RCIT_EAN     출장여비수령암호화계좌번호 */
+            		,T1.SRNO   /* 일련번호  */
+					,T1.SPH /* 분야 */
+					,T1.DTIL_SPH /* 세부분야 */
+					,T1.APVR_DT /* 승인일 */
+					,T1.APVR_AM /* 승인금액 */
+					,T1.APL_AM /* 신청금액 */
+					,T1.DOC_ID
+					,T1.SPRT_EXPT_AM /* 지원예상금액 */
+					,T1.PMT_AM /* 지급금액 */
+					,T1.TIT_NM  /* 제목 */
+					,T1.HNDL_STEP  /* 처리상태 */
+					,TO_CHAR(T1.APV_DT, 'YYYY.MM.DD') AS APV_DT /* 결재일 */
+					,T1.FRT_REGI_DH 
+					,T1.APV_DOC_NO
+                    ,(SELECT NVL(SUM(T2.PMT_AM),0) FROM TBDCMACM065M T2 WHERE T2.YR= TO_CHAR(SYSDATE,'YYYY') AND T2.HNDL_STEP='7') AS SYS_PMT_AM
+                    ]]>	
+                    
+                    ,(SELECT SUM(T3.PMT_AM) FROM TBDCMACM065M T3 WHERE 1=1
+								                    <isNotEmpty property = "parentKey">
+											AND  T3.SRNO IN
+											<iterate property = "parentKey" open="(" close=")" conjunction=",">
+												#parentKey[]#
+											</iterate>
+										</isNotEmpty>
+										<isNotEmpty property="strYr"><!-- 신청년도 -->
+										AND T3.YR =  #strYr#
+										</isNotEmpty>
+										<isNotEmpty property="strApvDocNo"><!-- 결쟂문서번호 -->
+										AND T3.APV_DOC_NO =  #strApvDocNo#
+										</isNotEmpty>
+                    
+                    ) AS THIS_PMT_AM
+			FROM	TBDCMACM065M T1
+			WHERE	1=1
+			
+		
+		
+		
+		<isNotEmpty property = "parentKey">
+			AND  T1.SRNO IN
+			<iterate property = "parentKey" open="(" close=")" conjunction=",">
+				#parentKey[]#
+			</iterate>
+		</isNotEmpty>
+		<isNotEmpty property="strYr"><!-- 신청년도 -->
+		AND T1.YR =  #strYr#
+		</isNotEmpty>
+		<isNotEmpty property="strApvDocNo"><!-- 결쟂문서번호 -->
+		AND T1.APV_DOC_NO =  #strApvDocNo#
+		</isNotEmpty>
+		
+	</select>
+	
+	<select id="DCMACM065QSelectApvDocNoList" parameterClass="paramMap" 	resultClass="resultMap">
+	
+        <![CDATA[
+			SELECT a.SRNO,a.APV_DOC_NO,a.YR
+			FROM
+				TBDCMACM065M a
+			WHERE 1=1
+		]]>	
+		
+		<isNotEmpty property="strDocNo"><!-- 결재문서번호 -->
+		AND a.APV_DOC_NO =  #strDocNo#
+		</isNotEmpty>		
+	</select>
+	
+	<!-- 결재처리정보를 수정한다 -->
+	<update id="DCMACM065APApvInfoupdate" parameterClass="paramMap">
+           UPDATE TBDCMACM065M                    		
+              SET APV_DOC_NO        = #APV_DOC_NO#,		/* 결재문서번호 */
+                  HNDL_STEP    	    = #HNDL_STEP#,
+                  APV_DT    	    = SYSDATE
+           WHERE 1=1
+          	<isNotEmpty property = "parentKey">
+				 AND SRNO IN
+				<iterate property = "parentKey" open="(" close=")" conjunction=",">
+					#parentKey[]#
+				</iterate>
+			</isNotEmpty>
+	</update>
+	
+	<!-- 결재처리정보를 수정한다 -->	
+	<update id="DCMACM065APApvDocInfoupdate" parameterClass="paramMap">
+           UPDATE TBDCMACM065M                    		
+              SET APV_DOC_NO        = #APV_DOC_NO#,		/* 결재문서번호 */
+                  HNDL_STEP    		= #HNDL_STEP#,
+                  APV_DT    	    = SYSDATE
+           WHERE 1=1
+           <isNotEmpty property="strApvDocNo"><!-- 결재문서번호 -->
+			 AND APV_DOC_NO = #strApvDocNo#
+		   </isNotEmpty>
+			
+	</update>
+	
+	
+	<select id="DCMACM065D1MainSelect1" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT 	T1.YR
+					,T1.KBN
+					,T1.SPH
+					,T1.SPRT_AM
+					,T1.SPRT_RT
+			FROM	TBDCMACM065D1 T1
+			WHERE	1=1
+		]]>
+		<isNotEmpty property="strYr">
+			AND  T1.YR = #strYr# 
+		</isNotEmpty>
+		<isNotEmpty property="strKbn">
+			AND  T1.KBN = #strKbn# 
+		</isNotEmpty>
+		
+		<isNotEmpty property="strSph">
+			AND  T1.SPH = #strSph# 
+		</isNotEmpty>
+			
+	</select>
+	<select id="dcmacm065D1CntSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT 	COUNT(*) AS CNT
+			FROM	TBDCMACM065D1 T1
+			WHERE	1=1
+		]]>
+			AND  T1.YR = #YR# 
+			AND  T1.KBN = #KBN# 
+			AND  T1.SPH = #SPH# 
+			
+	</select>
+	
+	<update id="dcmacm065D1Update" parameterClass="paramMap">
+	<![CDATA[
+			UPDATE	TBDCMACM065D1
+			SET		YR = #YR# /* 신청일 */
+					,KBN = #KBN# /* 구분 */
+					,SPH = #SPH#  /* 분야 */
+					,SPRT_AM = #SPRT_AM# /* 지원금액 */
+					,SPRT_RT = #SPRT_RT#  /* 지원요율 */
+			WHERE	YR = #YR#
+			AND		KBN = #KBN#
+			AND		SPH = #SPH#
+		]]>
+	</update>
+	
+	<insert id="dcmacm065D1Insert" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBDCMACM065D1
+        	(
+        			YR,
+        			KBN,
+        			SPH,
+        			SPRT_AM,
+        			SPRT_RT
+        	) VALUES (
+        			#YR#,
+	        		#KBN#,
+	        		#SPH#,
+	        		#SPRT_AM#,
+	        		#SPRT_RT#
+        	)
+        ]]>
+	</insert>
+	
+	<delete id="dcmacm065D1Delete" parameterClass="paramMap">
+		DELETE
+		TBDCMACM065D1
+		WHERE YR = #YR#
+		AND	KBN = #KBN#
+		AND	SPH = #SPH#
+	</delete>
+	
+	
+	<select id="DCMACM065D3MainSelect3" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT 	T1.CNB
+					,T1.USR_NAM
+					,T1.RANK_CD
+					,F_CODE_NM('1000173',T1.RANK_CD) AS RANK_NM
+					,T1.DPT_CD
+					,F_DPT_INFO(T1.DPT_CD,'1') AS DPT_NM
+					,T1.EPRT_SPH
+					,(SELECT CD_NM FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD='1000888' AND CD=T1.KBN) KBN_NM
+					,KBN
+			FROM	TBDCMACM065D3 T1
+			WHERE	1=1
+		]]>
+		<isNotEmpty property="strUsrCnb">
+			AND  T1.CNB = #strUsrCnb# 
+		</isNotEmpty>
+		<isNotEmpty property="strNam">
+			AND  T1.USR_NAM LIKE '%'|| #strNam#  ||'%'
+		</isNotEmpty>
+		<!-- 분야검색 -->
+		<isNotEmpty prepend="AND" property="strEprtSph">
+			T1.EPRT_SPH LIKE '%'||#strEprtSph# ||'%'
+		</isNotEmpty>
+	</select>
+	
+	<delete id="dcmacm065D3Delete" parameterClass="paramMap">
+		DELETE
+		TBDCMACM065D3
+		WHERE CNB = #CNB#
+	</delete>
+	
+	<insert id="dcmacm065D3Insert" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBDCMACM065D3
+        	(
+        			CNB,
+					USR_NAM,
+					RANK_CD,
+					DPT_CD,
+					EPRT_SPH,
+					KBN,
+        			FRT_USR_ID,
+					FNL_USR_ID,
+					FNL_MNU_ID,
+					FRT_REGI_DH,
+					FNL_MDF_DH
+        			
+        	) VALUES (
+        			#CNB#,
+	        		#USR_NAM#,
+	        		#RANK_CD#,
+	        		#DPT_CD#,
+	        		#EPRT_SPH#,
+	        		#KBN#,
+					#FNL_USR_ID#,
+					#FNL_USR_ID#,
+					#FNL_MNU_ID#,
+					SYSDATE,
+					SYSDATE
+        	)
+        	
+        ]]>
+	</insert>
+	
+	
+	<update id="dcmacm065D3Update" parameterClass="paramMap">
+	<![CDATA[
+			UPDATE	TBDCMACM065D3
+			SET		CNB = #CNB# /* 전산번호 */
+					,USR_NAM = #USR_NAM# /* 사용자명 */
+					,RANK_CD = #RANK_CD#  /* 직급코드 */
+					,DPT_CD = #DPT_CD# /* 부서코드 */
+					,EPRT_SPH = #EPRT_SPH#  /* 전문분야 */
+					,KBN = #KBN#  /* 전문분야 */
+			WHERE	CNB = #CNB#
+		]]>
+	</update>
+	
+	<select id="dcmacm065D3CntSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT 	COUNT(*) AS CNT
+			FROM	TBDCMACM065D3 T1
+			WHERE	1=1
+		]]>
+			AND  T1.CNB = #CNB# 
+			
+	</select>
+	
+	
+	
+	
+	<insert id="dcmacm065D2Insert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO	TBDCMACM065D2
+				(
+					 YR
+					, SPRT_LTD
+				)
+			VALUES	(
+	        			  #strYr2#
+	        			, #strSprtLtd#
+					)
+		]]>
+	</insert>
+	
+	<update id="dcmacm065D2Update" parameterClass="paramMap">
+	<![CDATA[
+			UPDATE	TBDCMACM065D2
+			SET		SPRT_LTD = #strSprtLtd# /* 사용제한여부 */
+			WHERE	YR = #strYr2#
+		]]>
+	</update>
+	
+	<insert id="dcmacm065EMsgInsert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO
+			TBDCMACM026L
+			(
+			  MSG_SNO
+			, TSK_CAT_CD
+			, FUNC_CAT_CD
+			, SEND_ID
+	        , MSG_TP_YN
+	        , MSG_TXT_2
+	        , RCNT_CNT
+	        , RCNT_HIS
+	        , MSG_REGI_DH
+			, FRT_USR_ID
+			, FNL_USR_ID
+			, FNL_DEAL_DPT_CD
+			, FNL_MNU_ID
+			, FRT_REGI_DH
+			, FNL_MDF_DH
+			)
+			VALUES
+			(
+			  (SELECT NVL(MAX(MSG_SNO),0)+1 FROM TBDCMACM026L)
+			, 'SP'
+			, 'BO'
+			, #FNL_USR_ID#
+	        , '0'
+	        , #MSG_TXT#
+	        , 1
+	        , #APL_CNB#
+	        , SYSDATE
+			, #FNL_USR_ID#
+			, #FNL_USR_ID#
+			, #FNL_DEAL_DPT_CD#
+			, #FNL_MNU_ID#
+			, SYSDATE
+			, SYSDATE
+			);
+			
+		]]>
+	</insert>
+	<select id="DCMACM065BookCdSelect" parameterClass="paramMap"	resultClass="resultMap">
+     
+		SELECT CD, CD_NM, USE_YN
+		FROM TBDCMACM013C
+		WHERE 1=1
+			AND CMM_CD_DVSN_CD='1000887'
+			AND CD != '000000000'
+			AND USR_DFN_TXT_1 = '03'
+		ORDER BY TO_NUMBER(REGEXP_REPLACE(CD ,'[^0-9]'))
+
+	</select>
+	
+	<update id="DCMACM065BookCdUpdate" parameterClass="paramMap">
+	<![CDATA[
+			UPDATE	TBDCMACM013C
+			SET		USE_YN = #USE_YN# /* 사용여부 */
+			WHERE	
+			CMM_CD_DVSN_CD='1000887'
+			AND CD = #CD#
+			AND USR_DFN_TXT_1 = '03'
+		]]>
+	</update>
+	
+	<!-- 상세카운트 -->   
+	<select id="DCMACM065ESubCnt" parameterClass="paramMap" resultClass="Integer">
+		<![CDATA[       
+			SELECT COUNT(YR)
+			  FROM TBDCMACM065B A  /* 도서내역 */
+			 WHERE A.YR     = #YR#
+			   AND A.SRNO   = #SRNO#
+		]]>
+	</select>
+	<insert id="DCMACM065EinsertSub" parameterClass="paramMap">
+		INSERT INTO TBDCMACM065B (
+		                          YR            
+		                        , SRNO           
+		                        , BOOK_NUM             /* 성명 */
+		                        , DTIL_SPH         /* 한자성명 */
+		                        , BOOK_NM /* */
+		                        , CAT_SYM      /* 소속기관코드 */
+		                        , PBL_NM         /* 계급코드 */
+		                        , ATR_NM       /* 직무등급코드 */               
+		                        , BOOK_AM      /* 최초사용자ID */
+		                         ) 
+		                  VALUES (
+		                          #YR#
+		                        , #SRNO#
+		                        , (SELECT NVL(MAX(BOOK_NUM), 0) + 1
+		                             FROM TBDCMACM065B
+		                            WHERE YR   = #YR#
+		                              AND SRNO = #SRNO#)
+		                        , #DTIL_SPH#
+		                        , #BOOK_NM#
+		                        , #CAT_SYM#
+		                        , #PBL_NM#
+		                        , #ATR_NM#
+		                        , #BOOK_AM#
+				                 )
+	</insert>
+
+	<update id="DCMACM065EupdateSub"  parameterClass="paramMap">
+		
+		UPDATE TBDCMACM065B
+		   SET YR				= #YR#
+		     , SRNO				= #SRNO#
+		     , BOOK_NUM			= #BOOK_NUM#
+		     , DTIL_SPH			= #DTIL_SPH#
+		     , BOOK_NM			= #BOOK_NM#
+		     , CAT_SYM			= #CAT_SYM#
+		     , PBL_NM			= #PBL_NM#
+		     , ATR_NM			= #ATR_NM#
+		     , BOOK_AM			= #BOOK_AM#
+		 WHERE YR			= #YR#
+		   AND SRNO			= #SRNO#
+		   AND BOOK_NUM 	= #BOOK_NUM#
+		
+		
+	</update>
+	
+	<!--도서정보 정보 삭제 -->
+	<delete id="DCMACM065EdeleteSub" parameterClass="paramMap">
+		DELETE TBDCMACM065B
+		 WHERE YR          = #YR#
+		   AND SRNO        = #SRNO#	
+		   AND BOOK_NUM    = #BOOK_NUM#
+	</delete>
+</sqlMap> 

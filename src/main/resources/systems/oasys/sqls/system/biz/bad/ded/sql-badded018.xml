@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/ded/018">
+
+	<!-- 조회조건 데이터 조회  -->
+	<select id="BADDED018QUserInfoselect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT F_DPT_INFO(D2.HIRK_DPT_CD, '1') AS UP_DEPT_NM 
+			     , F_DPT_INFO(D1.DPT_CD, '1')      AS DEPT_NM
+			     , D1.USR_NAM                      AS USER_NM
+			     , D1.CNB                          AS USER_CNB
+			  FROM TBDCMACM001M D1
+			     , TBDCMACM002M D2
+			 WHERE D1.DPT_CD = D2.DPT_CD
+			   AND D1.CNB    = #strUserCnb#
+        ]]>
+	</select>
+	
+	<!-- #################################### 개인내역(국내여행비 등) 시작 ################################# -->
+	
+	<select id="BADDED018Qselect1-1" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT CNB,  /*전산번호*/
+			       USR_NAM,  /*유저명*/
+			       DPT_CD,  /*부서코드*/
+			       F_DPT_INFO(USR.DPT_CD,'1') DPT_NM,  /*부서명*/
+			       F_CODE_NM('1000173',USR.RANK_CD ) POS_CLASS_NM  /*직급명*/
+			  FROM TBDCMACM001M USR
+			 WHERE 1=1
+			   AND CNB = #strUserCnb#
+        ]]>
+	</select>	
+	
+	<select id="BADDED018Qselect1-2" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT SITU.REL_AUD_YR,  /*감사년도*/
+			       SITU.REL_AUD_NO,  /*감사순번*/
+			       SITU.AUD_STEP_SNO,  /*감사단계*/
+			       MAX(CASE WHEN T1.AUD_YR >= '2016' 
+			                 THEN F_CODE_NM('1000739',T1.AUD_KND_CD)
+			            ELSE '-' 
+			        END)     AS AUD_YR_NO_KND_NM,			       
+			       #strUserCnb# AS CNB
+			  FROM TBBADDED002M SITU,
+			       TBBADDED011L TE,
+			       TBBADDED001M T1
+			 WHERE SITU.BZT_YR = TE.BZT_YR
+			   AND SITU.BZT_SNO = TE.BZT_SNO
+			   AND SITU.BZT_DVSN_CD = '1'
+			   AND SITU.REL_AUD_YR = T1.AUD_YR
+			   AND SITU.REL_AUD_NO = T1.AUD_NO
+			   AND TE.PCT_CNB     = #strUserCnb#
+			   AND TE.BZT_STR_DT >= #strBztStrDt#
+			   AND TE.BZT_END_DT <= #strBztEndDt#
+			   AND TE.FNL_YN = 'Y'
+			 GROUP BY SITU.REL_AUD_YR,
+			       SITU.REL_AUD_NO,
+			       SITU.AUD_STEP_SNO
+			 ORDER BY SITU.REL_AUD_YR, SITU.REL_AUD_NO, SITU.AUD_STEP_SNO
+        ]]>
+	</select>	
+	
+	<select id="BADDED018Qselect1-3" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT F_CODE_NM('1000739',AUD.AUD_KND_CD) AUD_EXEC_DVSN_CD_NM,   /*감사종류*/
+			       F_MNG_KND_AUDYRNO(AUD.AUD_YR, AUD.AUD_NO, AUD.AUD_KND_CD, '-') ||'-'||SITU.AUD_STEP_SNO AS AUD_YR_SNO, /*감사연번호*/
+			       SITU.TIT_TXT, /*감사출장명*/
+			       F_CODE_NM('1000001',TE.RGN_CD) LCL_NM,  /*지역명*/
+			       TE.BZT_STR_DT,  /*출장시작일*/
+			       TE.BZT_END_DT,  /*출장종료일*/
+			       TE.BZT_DCN,   /*출장일수*/
+			       TE.LODG_DCN,  /*숙박일수*/
+			       TE.LDC,  /*숙박비*/
+			       TE.FDEX,  /*식비*/
+			       TE.DT_EXS,  /*일비*/
+			       TE.CALC_YN,  /*계산여부*/
+			       TE.LDC + TE.FDEX + TE.DT_EXS AS SUM_ALL,  /*숙박비 + 식비 +  일비 합계*/
+			       TE.PCT_CNB,
+			       TE.PCT_CNB AS CNB
+			  FROM TBBADDED002M SITU,
+			       TBBADDED011L TE,
+			       TBBADDED001M AUD
+			 WHERE SITU.BZT_YR = TE.BZT_YR
+			   AND SITU.BZT_SNO = TE.BZT_SNO
+			   AND SITU.BZT_DVSN_CD = '1'
+			   AND TE.PCT_CNB     = #strUserCnb#
+			   AND TE.BZT_STR_DT >= #strBztStrDt#
+			   AND TE.BZT_END_DT <= #strBztEndDt#
+			   AND TE.FNL_YN = 'Y'
+			   AND AUD.AUD_YR = SITU.REL_AUD_YR
+			   AND AUD.AUD_NO = SITU.REL_AUD_NO
+			   AND SITU.REL_AUD_YR   = #MASTER_REL_AUD_YR#
+			   AND SITU.REL_AUD_NO   = #MASTER_REL_AUD_NO#
+			   AND SITU.AUD_STEP_SNO = #MASTER_AUD_STEP_SNO#
+        ]]>
+	</select>	
+	
+	<select id="BADDED018Qselect1-4" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT SUM(TE.BZT_DCN) TRIP_DAY, /*총 출장일수*/
+			       SUM(TE.LODG_DCN) LODG_DCN,  /*총 숙박일수*/
+			       SUM(TE.LDC) LDC,  /*총 숙박비*/
+			       SUM(TE.FDEX) FDEX,  /*총 식비*/
+			       SUM(TE.DT_EXS) DT_EXS, /*총 일비*/
+			       SUM(TE.LDC + TE.FDEX + TE.DT_EXS) AS SUM_ALL, /* 총 숙박비 + 총 식비 +  총 일비 합계*/
+			       #strUserCnb# AS CNB
+			  FROM TBBADDED002M SITU,
+			       TBBADDED011L TE
+			 WHERE SITU.BZT_YR = TE.BZT_YR
+			   AND SITU.BZT_SNO = TE.BZT_SNO
+			   AND SITU.BZT_DVSN_CD = '1'
+			   AND TE.PCT_CNB = #strUserCnb#
+			   AND TE.BZT_STR_DT >= #strBztStrDt#
+			   AND TE.BZT_END_DT <= #strBztEndDt#
+			   AND TE.FNL_YN = 'Y'
+			   AND SITU.REL_AUD_YR   = #MASTER_REL_AUD_YR#
+			   AND SITU.REL_AUD_NO   = #MASTER_REL_AUD_NO#
+			   AND SITU.AUD_STEP_SNO = #MASTER_AUD_STEP_SNO#
+        ]]>
+	</select>	
+	<!-- #################################### 개인내역(국내여행비 등) 조회 끝 ################################# -->
+	
+	<!-- #################################### 개인내역(지휘비 등) 조회 시작 ################################# -->
+	<select id="BADDED018Qselect2-1" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT CNB,  /*전산번호*/
+			       USR_NAM,  /*유저명*/
+			       DPT_CD,  /*부서코드*/
+			       F_DPT_INFO(USR.DPT_CD,'1') DPT_NM,  /*부서명*/
+			       F_CODE_NM('1000173',USR.RANK_CD ) POS_CLASS_NM  /*직급명*/
+			  FROM TBDCMACM001M USR
+			 WHERE 1=1
+			   AND CNB = #strUserCnb#
+        ]]>
+	</select>
+	
+	<select id="BADDED018Qselect2-2" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+		    SELECT '1' NO,
+			       SITU.BZT_YR,  /*출장년도*/
+			       SITU.BZT_SNO,  /*출장순번*/
+			       F_CODE_NM('1000739',AUD.AUD_KND_CD) AUD_EXEC_DVSN_CD_NM,  /*감사종류명*/
+			       CASE WHEN AUD.AUD_YR >= '2016' 
+			                 THEN F_CODE_NM('1000739',AUD.AUD_KND_CD)
+			            ELSE '-' 
+			        END                                        AS AUD_YR_NO_KND_NM, 			       
+			       SITU.REL_AUD_YR,  /*감사년도*/
+			       SITU.REL_AUD_NO,  /*감사순번*/
+			       SITU.AUD_STEP_SNO,  /*감사단계번호*/
+			       SITU.TIT_TXT,      /*출장명*/
+			       TE.BZT_STR_DT,    /*출장시작일*/
+			       TE.BZT_END_DT,    /*출장종료일*/
+			       TE.BZT_DCN,       /*출장일수*/
+			       TE.LODG_DCN,      /*숙박일수*/
+			       TE.SPM_XPN,       /*보충경비*/
+			       TE.PCT_CNB AS CNB,
+			       (
+			       CASE
+			         WHEN SITU.BZT_TL_CNB = TE.PCT_CNB THEN TE.LEAD_EXS
+			         ELSE 0
+			       END) AS LEAD_EXS,  /*지휘비*/
+			       NVL(TFD.RL_FR_EXS, 0) + NVL(TE.CPRG_FR_EXS,0) AS RL_FR_EXS,  /*교통비*/
+			       TE.SPM_XPN + (CASE
+			                       WHEN SITU.BZT_TL_CNB = TE.PCT_CNB THEN TE.LEAD_EXS
+			                       ELSE 0
+			                     END) + NVL(TFD.RL_FR_EXS, 0) + NVL(TE.CPRG_FR_EXS,0) AS SUM_ALL /*보충경비 + 지휘비 + 교통비 + 수도권운임비 합계*/
+			  FROM TBBADDED002M SITU,
+			       TBBADDED001M AUD,
+			       (SELECT BZT_YR,
+			               BZT_SNO,
+			               PCT_CNB,
+			               MIN(BZT_STR_DT) AS BZT_STR_DT,
+			               MAX(BZT_END_DT) AS BZT_END_DT,
+			               SUM(BZT_DCN) AS BZT_DCN,
+			               SUM(LODG_DCN) AS LODG_DCN,
+			               SUM(SPM_XPN) AS SPM_XPN,
+			               SUM(CPRG_FR_EXS) AS CPRG_FR_EXS, /*수도권운임비 추가 - 2015.05.11 yyh*/
+			               SUM(SUM(LEAD_EXS)) OVER (PARTITION BY BZT_YR, BZT_SNO) LEAD_EXS
+			          FROM TBBADDED011L
+			         WHERE 1=1
+			           AND PCT_CNB = #strUserCnb#
+			           AND BZT_STR_DT  >= #strBztStrDt#
+			           AND BZT_END_DT  <= #strBztEndDt#
+			           AND FNL_YN = 'Y'
+			         GROUP BY BZT_YR,
+			               BZT_SNO,
+			               PCT_CNB) TE,
+			       (SELECT BZT_YR,
+			               BZT_SNO,
+			               PCT_CNB,
+			               SUM(RL_FR_EXS) AS RL_FR_EXS
+			          FROM TBBADDED017L
+			         WHERE 1=1
+			           AND PCT_CNB = #strUserCnb#
+			           AND FNL_YN = 'Y'
+			         GROUP BY BZT_YR,
+			               BZT_SNO,
+			               PCT_CNB) TFD
+			 WHERE 1=1
+			   AND TE.PCT_CNB = #strUserCnb#
+			   AND TFD.BZT_YR(+) = TE.BZT_YR
+			   AND TFD.BZT_SNO(+) = TE.BZT_SNO
+			   AND TFD.PCT_CNB (+) = TE.PCT_CNB
+			   AND SITU.BZT_YR = TE.BZT_YR
+			   AND SITU.BZT_SNO = TE.BZT_SNO
+			   AND AUD.AUD_YR = SITU.REL_AUD_YR
+			   AND AUD.AUD_NO = SITU.REL_AUD_NO
+			   AND SITU.BZT_DVSN_CD = '1' 
+        ]]>
+	</select>
+	<!-- #################################### 개인내역(지휘비 등) 조회 끝 ################################# -->
+		
+</sqlMap> 
+

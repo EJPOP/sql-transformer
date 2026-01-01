@@ -1,0 +1,71 @@
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd" >
+<sqlMap namespace="csp/bii/725">
+
+	<!-- 마일리지내역 조회-->
+	<select id="CSPBII725QMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT A.YE                         /* 연도 */
+			     , A.SRNO                       /* 일련번호 */
+			     , A.INF_DVSN_CD                /* 정보구분코드 */
+			     , '3'           AS HNDL_ORD_CD /* 처리지시코드[3:감사대상] */
+			     , A.HNDL_DPT_CD                /* 처리부서코드 */			     
+			     , A.FDLTY_SC                   /* 신뢰성 */
+			     , A.RIBLY_SC                   /* 충실성 */
+			     , A.UTL_SC                     /* 활용가능성 */
+			     , TO_CHAR(TO_DATE(SMT_DT),'YYYY.MM.DD') AS SMT_DT
+			     , (SELECT	B.HOM_TNB
+			     	FROM	TBDCMACM001M B
+			     	WHERE A.PRSR_CNB = B.CNB ) AS HOM_TNB
+			     ,A.TIT_TXT
+			     ,A.OPEN_YN
+			     ,(SELECT	B.RANK_CD
+			     	FROM	TBDCMACM001M B
+			     	WHERE A.PRSR_CNB = B.CNB ) AS RANK_CD
+			     	,(SELECT	B.USR_NAM
+			     	FROM	TBDCMACM001M B
+			     	WHERE A.PRSR_CNB = B.CNB ) AS USR_NAM
+			     	,F_USR_INFO(BLE_CHGR_CNB,'2') AS BLE_CHGR_NAM
+			  FROM TBCSPBII170M A
+			 WHERE A.AUD_INF_PRSS_STA_CD IN ('10','13')	/* 감사정보진행상태코드[10:제출접수] */
+			   AND A.ACP_DT BETWEEN #strStrAcpDt# AND #strEndAcpDt#
+		]]>
+			<isNotEmpty property="strBLE_CHGR_CNB">
+				AND A.BLE_CHGR_CNB = #strBLE_CHGR_CNB#
+			</isNotEmpty>		
+		<![CDATA[
+			ORDER BY A.YE
+		       , A.SRNO
+		]]>
+		
+	</select>	
+	
+	<!-- 일괄이송시 감사기본정보 수정 -->
+	<!-- 일괄이송시 소관부서 변경이 없을시 처리부서, 공개여부 업데이트를 치지 않는다. -->
+	<update id="CSPBII725EMainUpdate" parameterClass="paramMap">
+		UPDATE TBCSPBII170M                       
+		   SET INF_DVSN_CD         = #INF_DVSN_CD#                                                          /* 정보구분코드*/
+		     , HNDL_ORD_CD         = #HNDL_ORD_CD#                                                          /* 처리지시코드 */
+		     , FDLTY_SC            = #FDLTY_SC#                                                             /* 충실성 */
+		     , UTL_SC              = #UTL_SC#                                                               /* 활용가능성 */
+		     , RIBLY_SC            = #RIBLY_SC#                                                             /* 신뢰성 */
+		     , TRNF_DT             = TO_CHAR(SYSDATE, 'YYYYMMDD')                                           /* 이송일 */
+		     , AUD_INF_PRSS_STA_CD = DECODE(#HNDL_ORD_CD#, '7', '99', '15')                                 /* 감사정보진행상태코드 처리지시코드가[7:폐기]일 경우 [99:완료] 그 외[15:이송완료] */
+		     , TRNF_ACP_DT         = DECODE(#HNDL_ORD_CD#, '7', TO_CHAR(SYSDATE, 'YYYYMMDD'), TRNF_ACP_DT)  /* 처리지시코드가[7:폐기]일 경우 이송접수일 수정  */
+		     , CMPT_DT             = DECODE(#HNDL_ORD_CD#, '7', TO_CHAR(SYSDATE, 'YYYYMMDD'), CMPT_DT)      /* 처리지시코드가[7:폐기]일 경우 완료일 수정*/
+		     , HNDL_RSLT_CD        = DECODE(#HNDL_ORD_CD#, '7', '88', HNDL_RSLT_CD)                         /* 처리지시코드가[7:폐기]일 경우 처리결과코드[88:종결] 수정*/
+		     , FNL_USR_ID          = #FNL_USR_ID#                                                           /* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD     = #FNL_DEAL_DPT_CD#                                                      /* 최종거래부서코드 */
+		     , FNL_MNU_ID          = #FNL_MNU_ID#                                                           /* 최종메뉴ID */
+		     , FNL_MDF_DH          = SYSDATE      
+		     <dynamic>
+				<isNotEmpty property="HNDL_DPT_CD">
+					, HNDL_DPT_CD         = #HNDL_DPT_CD#                                                          /* 처리부서코드  */
+				</isNotEmpty>	
+				<isNotEmpty property="OPEN_YN">
+					, OPEN_YN         = #OPEN_YN#                                                          /* 공개여부  */
+				</isNotEmpty>     
+		     </dynamic>                                                          /* 최종수정일시 */
+		 WHERE YE   = #YE#
+		   AND SRNO = #SRNO#
+	</update>
+</sqlMap>

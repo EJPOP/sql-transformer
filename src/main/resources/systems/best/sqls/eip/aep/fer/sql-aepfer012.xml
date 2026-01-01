@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.fer.dao.AEPFER012QMapper">
+    
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap" >
+            /* kr.go.bai.eip.aep.fer.dao.AEPFER012QMapper.selectMainList */
+            SELECT ROW_NUMBER() OVER(ORDER BY A1.AUD_NO) AS ROW_NUM
+                  , A1.AUD_YR        --년도
+                  ,A1.AUD_NO        --번호
+                  ,A1.SPV_BRDV_CD   --주관국과코드
+                  ,NVL(F_DPT_INFO((SELECT A2.HIRK_DPT_CD
+                                  FROM TBDCMACM002M A2
+                                 WHERE A2.DPT_CD = A1.SPV_BRDV_CD), '4'),F_DPT_INFO(A1.SPV_BRDV_CD, '4')) AS HIRK_DPT_NM    /* 국 */
+                  , F_DPT_INFO(A1.SPV_BRDV_CD, '4') AS AUD_DPT_NM    /* 과 */
+                  ,(SELECT A2.DPT_NM
+                      FROM TBDCMACM002M A2
+                     WHERE A2.DPT_CD = A1.SPV_BRDV_CD) AS AUD_DPT_FULL_NM    --주관국과명
+                  ,A1.AUD_SBJ_NM    --감사사항명
+                  ,F_MNG_KND_AUDYRNO(A1.AUD_YR, A1.AUD_NO, A1.AUD_KND_CD, '-') AS AUD_YR_NO --분류번호
+                  ,F_CODE_NM('1000739',A1.AUD_KND_CD) AS AUD_KND_NM              --종류1
+                  ,NVL(DECODE(F_CODE_NM('1000337',A1.REQ_DVSN_CD),'감사제보','제보',SUBSTR(F_CODE_NM('1000337',A1.REQ_DVSN_CD),0,2)),'-') AS AUD_KND2_NM    --종류2
+                  ,F_CODE_NM('1000027',A1.AUD_SCL_CD) AS AUD_SCL_CD     --감사단위
+                  ,(SELECT MIN(TO_CHAR(TO_DATE(A3.ENF_APV_DT),'YYYY"-"MM"-"DD')) FROM TBBADDED003M A3
+                     WHERE A3.AUD_YR = A1.AUD_YR
+                       AND A3.AUD_NO = A1.AUD_NO) AS ENF_DT             --최초시행일
+                  ----------------------------------------시행
+                  ,A2.TRTM_SBCN_NOC --부의
+                  ,A2.TRTM_DLG_NOC  --위임
+                  ,A2.TRTM_SBCN_NOC + A2.TRTM_DLG_NOC AS TRTM_SBTT_NOC  --소계
+                  ,A2.TRTM_SPT_NOC  --(현지)
+                  ,A2.TRTM_SBCN_NOC + A2.TRTM_DLG_NOC + A2.TRTM_SPT_NOC AS TRTM_TOT_NOC -- 합계
+                  ,(SELECT TRIM(AGGR_CONCAT(F_CODE_NM('1000173',F_USR_INFO(CNB,'3'))||' '||F_USR_INFO(CNB,'2'), ', '))
+                      FROM TBBADDED031L ST1
+                     WHERE ST1.AUDTOR_DVSN_CD = '1'
+                       AND ST1.AUD_YR         = A1.AUD_YR
+                       AND ST1.AUD_NO         = A1.AUD_NO) AS SPVR_NM    -- 주관자
+                  ,(SELECT TRIM(AGGR_CONCAT(F_CODE_NM('1000173',F_USR_INFO(CNB,'3'))||' '||F_USR_INFO(CNB,'2'), ', '))
+                      FROM TBBADDED031L ST1
+                     WHERE ST1.AUDTOR_DVSN_CD = '2'
+                       AND ST1.AUD_YR = A1.AUD_YR
+                       AND ST1.AUD_NO = A1.AUD_NO) AS AST_NM    -- 보조자
+                  ,NVL((SELECT AGGR_CONCAT(SBCN_NBC, ', ')
+                      FROM (SELECT DISTINCT AUD_YR, AUD_NO, SBCN_NBC FROM TBBADDED113M) ST2
+                     WHERE ST2.AUD_YR = A1.AUD_YR
+                       AND ST2.AUD_NO = A1.AUD_NO),'전부위임') AS SBCN_NBC  -- 감사위원회의 회차
+                  ,(SELECT DECODE(ST3.SYT_TRTM_DVSN_YN,'Y','종합','')
+                      FROM TBBADDED103M ST3
+                     WHERE ST3.RPRT_CD = 'A10600200'
+                       AND ST3.AUD_RPRT_DVSN_CD = '10'
+                       AND ST3.AUD_YR = A1.AUD_YR
+                       AND ST3.AUD_NO = A1.AUD_NO) AS SYT_TRTM_DVSN_YN   -- 종합처리안 여부
+                  ,(SELECT DECODE(ST4.EXTN_PRD_COFM_DT,NULL,NULL,'연장'||ST4.EXTN_PRD_COFM_DT)
+                      FROM TBBADDED003M ST4
+                     WHERE ST4.AUD_YR = A1.AUD_YR
+                       AND ST4.AUD_NO = A1.AUD_NO) AS EXTN_PRD_COFM_DT   -- 연장일
+              FROM TBBADDED001M A1
+                  ,(SELECT A.AUD_YR
+                          ,A.AUD_NO
+                          ,SUM((CASE WHEN A.REFER_DVSN_CD = 'D10' AND B.DSP_RQ_CD NOT IN ('390','391','395','396','490','495') THEN 1 ELSE 0 END)) AS TRTM_SBCN_NOC   -- 부의시행건수(현지제외)
+                          ,SUM((CASE WHEN A.REFER_DVSN_CD = 'E10' AND B.DSP_RQ_CD NOT IN ('390','391','395','396','490','495') THEN 1 ELSE 0 END)) AS TRTM_DLG_NOC    -- 위임시행건수(현지재외)
+                          ,SUM((CASE WHEN B.DSP_RQ_CD IN ('390','391','395','396','490','495') THEN 1 ELSE 0 END)) AS TRTM_SPT_NOC                                    -- 현지시행건수 ★현지조치 보고서건수로 가져와야함★
+                      FROM TBBADDED145M A
+                          ,TBBADDED146M B
+                          ,TBBADEAR002D C
+                          ,TBBADEAR001M D
+                   WHERE A.AUD_YR       = B.AUD_YR
+                     AND A.AUD_NO       = B.AUD_NO
+                     AND A.AUD_STEP_CD  = B.AUD_STEP_CD
+                     AND A.DOC_ID       = B.DOC_ID
+                     AND A.APVR_CD      = B.APVR_CD
+                     AND A.AFF_SNO      = B.AFF_SNO
+                     AND A.AUD_YR = D.AUD_YR
+                     AND A.AUD_NO = D.AUD_NO
+                     AND B.DSP_RQ_SNO = D.AUD_DSP_RQ_SNO
+                     AND A.AUD_YR       = C.AUD_YR
+                     AND A.AUD_NO       = C.AUD_NO
+                     AND D.DSP_RQ_SNO   = C.DSP_RQ_SNO
+                     AND A.AUD_YR       = #{srcAudYr} --PARAM
+                     AND A.AUD_STEP_CD  = 'A1070'
+                     AND (A.APVR_CD     = '0010600' OR  A.APVR_CD = 'A1070') -- 주심위원,부의 단계 처분요구
+                     AND (B.FNL_YN      = 'Y'       AND A.FNL_YN  = 'Y')
+                     AND C.ENF_DT IS NOT NULL
+                   GROUP BY A.AUD_YR, A.AUD_NO) A2
+             WHERE A1.AUD_YR = #{srcAudYr} --PARAM
+               AND A1.AUD_YR = A2.AUD_YR
+               AND A1.AUD_NO = A2.AUD_NO
+               ORDER BY A1.AUD_NO
+    </select>
+    
+</mapper> 

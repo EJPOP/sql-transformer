@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.fer.dao.AEPFER008QMapper">
+    
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.aep.fer.dao.AEPFER008QMapper.selectMainList */
+		<![CDATA[
+			SELECT A.AUD_YR             --감사연도
+			      ,A.AUD_NO             --감사번호
+			      ,A.DOC_ID             --문서ID
+			      ,F_MNG_KND_AUDYRNO(B.AUD_YR, B.AUD_NO, B.AUD_KND_CD, '-') AS AUD_YR_NO --감사번호    
+			      ,(SELECT T4.ABR_DPT_NM_1
+						 FROM TBDCMACM002M T4
+						WHERE T4.DPT_CD = (SELECT A2.HIRK_DPT_CD
+						                     FROM TBDCMACM002M A2
+						                    WHERE A2.DPT_CD =  B.SPV_BRDV_CD)
+						   AND T4.USE_YN = 'Y'
+						   AND ROWNUM = 1)       AS HIRK_DPT_NM  --국			   
+			      ,(SELECT T4.ABR_DPT_NM_1
+					 FROM TBDCMACM002M T4
+					WHERE T4.DPT_CD = B.SPV_BRDV_CD
+					   AND T4.USE_YN = 'Y'
+					   AND ROWNUM = 1)                           AS AUD_DPT_NM   --과
+			      ,(SELECT T1.CD_NM
+					 FROM TBDCMACM013C T1
+					WHERE T1.CMM_CD_DVSN_CD = '1000788'
+					  AND T1.CD = A.AUD_RPRT_DVSN_CD
+					  AND ROWNUM = 1)   AS AUD_RPRT_DVSN_NM  --보고서구분명
+			      ,B.AUD_SBJ_NM         --감사명
+			      ,DECODE(E.CMT_SQ,NULL,(SELECT CASE WHEN COUNT(*) = 0 THEN '사건0건'
+			                                         WHEN SUM(DECODE(S1.REFER_DVSN_CD,'D10',1,0)) = 0 THEN '전부위임'
+			                                    ELSE '부의'
+			                                     END
+			                               FROM TBBADDED145M S1
+			                              WHERE 1=1
+			                                AND S1.AUD_YR  = A.AUD_YR
+			                                AND S1.AUD_NO  = A.AUD_NO
+			                                AND S1.DOC_ID  = A.DOC_ID
+			                                AND S1.APVR_CD = 'A1070'),E.CMT_SQ||'회') AS CMT_SQ
+			      ,E.DSP_RQ_NM_LT       --처분요구목록
+			      ,E.DSP_RQ_CNT         --처분요구건수
+			      ,(SELECT TO_CHAR(TO_DATE(MIN(S3.ENF_DT)),'YY-MM-DD')
+			          FROM TBBADEAR001M S2
+			              ,TBBADEAR002D S3
+			              ,TBBADDED146M S4
+			              ,TBBADDED103M S5
+			         WHERE 1=1
+			           AND S2.AUD_YR            = S3.AUD_YR
+			           AND S2.AUD_NO            = S3.AUD_NO
+			           AND S2.DSP_RQ_SNO        = S3.DSP_RQ_SNO
+			           AND S2.AUD_YR            = S4.AUD_YR
+			           AND S2.AUD_NO            = S4.AUD_NO
+			           AND S2.AUD_DSP_RQ_SNO    = S4.DSP_RQ_SNO
+			           AND S2.AUD_YR            = S5.AUD_YR
+			           AND S2.AUD_NO            = S5.AUD_NO
+			           AND S4.DOC_ID            = S5.DOC_ID
+			           AND S2.AUD_YR            = A.AUD_YR
+			           AND S2.AUD_NO            = A.AUD_NO
+			           AND S5.DOC_ID            = A.DOC_ID
+			           AND S4.APVR_CD           = 'A1070'
+			           AND S2.DSP_RQ_KND_CD NOT IN ('390','391','395','396','490','495','730')
+			         GROUP BY S2.AUD_YR,S2.AUD_NO,S5.DOC_ID,S5.AUD_RPRT_DVSN_CD) AS ENF_DT --시행일
+			      ,(SELECT TO_CHAR(TO_DATE(MIN(S3.ENF_DT)),'YY-MM-DD')
+			          FROM TBBADEAR001M S2
+			              ,TBBADEAR002D S3
+			              ,TBBADDED146M S4
+			              ,TBBADDED103M S5
+			         WHERE 1=1
+			           AND S2.AUD_YR            = S3.AUD_YR
+			           AND S2.AUD_NO            = S3.AUD_NO
+			           AND S2.DSP_RQ_SNO        = S3.DSP_RQ_SNO
+			           AND S2.AUD_YR            = S4.AUD_YR
+			           AND S2.AUD_NO            = S4.AUD_NO
+			           AND S2.AUD_DSP_RQ_SNO    = S4.DSP_RQ_SNO
+			           AND S2.AUD_YR            = S5.AUD_YR
+			           AND S2.AUD_NO            = S5.AUD_NO
+			           AND S4.DOC_ID            = S5.DOC_ID
+			           AND S2.AUD_YR            = A.AUD_YR
+			           AND S2.AUD_NO            = A.AUD_NO
+			           AND S5.AUD_RPRT_DVSN_CD  = '10'
+			           AND S4.APVR_CD           = 'A1070'
+			           AND S2.DSP_RQ_KND_CD NOT IN ('390','391','395','396','490','495','730')
+			         GROUP BY S2.AUD_YR,S2.AUD_NO,S5.DOC_ID,S5.AUD_RPRT_DVSN_CD) AS ENF_DT_MAIN --본안시행일
+			  FROM TBBADDED103M A
+			      ,TBBADDED001M B
+			      ,(SELECT D.AUD_YR
+			              ,D.AUD_NO
+			              ,D.DOC_ID
+			              ,MIN(D.SBCN_DY) AS SBCN_DY
+			              ,MIN(D.CMT_SQ)  AS CMT_SQ
+			              ,AGGR_CONCAT(D.DSP_RQ_NM||D.DSP_RQ_CNT,', ') AS DSP_RQ_NM_LT
+			              ,SUM(D.DSP_RQ_CNT) AS DSP_RQ_CNT
+			          FROM (SELECT F.AUD_YR
+			                      ,F.AUD_NO
+			                      ,F.DOC_ID
+			                      ,C.SBCN_DY                      
+			                      ,(SELECT T1.CD_NM
+									 FROM TBDCMACM013C T1
+									WHERE T1.CMM_CD_DVSN_CD = '1000002'
+									  AND T1.CD = F.DSP_RQ_CD
+									  AND ROWNUM = 1) AS DSP_RQ_NM
+			                      ,(SELECT C1.CMT_SQ FROM TBBADDED120M C1 WHERE C1.CMT_DY = C.SBCN_DY) AS CMT_SQ
+			                      ,COUNT(F.DSP_RQ_CD) AS DSP_RQ_CNT
+			                  FROM TBBADDED146M F
+			                      ,TBBADDED113M C
+			                 WHERE F.AUD_YR     = C.AUD_YR(+)
+			                   AND F.AUD_NO     = C.AUD_NO(+)
+			                   AND F.DOC_ID     = C.DOC_ID(+)
+			                   AND F.APVR_CD    = C.APVR_CD(+)
+			                   AND F.AFF_SNO    = C.AFF_SNO(+)
+			                   AND F.DSP_RQ_SNO = C.DSP_RQ_SNO(+)
+			                   AND F.AUD_YR = #{srcAudYr}
+			                   AND F.APVR_CD = '0010600'
+			                 GROUP BY F.AUD_YR,F.AUD_NO,F.DOC_ID,C.SBCN_DY,F.DSP_RQ_CD,C.DSP_RQ_CD
+			                 ORDER BY F.AUD_YR,F.AUD_NO,F.DOC_ID
+			               ) D
+			         GROUP BY D.AUD_YR,D.AUD_NO,D.DOC_ID
+			       ) E
+			 WHERE 1=1
+			   AND A.AUD_YR            = B.AUD_YR(+)
+			   AND A.AUD_NO            = B.AUD_NO(+)
+			   AND A.AUD_YR            = E.AUD_YR(+)
+			   AND A.AUD_NO            = E.AUD_NO(+)
+			   AND A.DOC_ID            = E.DOC_ID(+)
+			   AND A.AUD_YR            = #{srcAudYr}         --PARAM
+			   AND A.RPRT_CD           = 'A10600200'    --감사보고서
+			   AND A.APV_STA_CD        = '30'           --결재완료
+			   AND A.AUD_RPRT_DVSN_CD <> '10'           --본안제외
+			   AND SUBSTR(A.AUD_RPRT_DVSN_CD,2) <> '1'  --최종보고서 제외
+			 ORDER BY A.AUD_RPRT_DVSN_CD,A.AUD_YR,A.AUD_NO
+		 ]]>
+    </select>
+    
+</mapper> 

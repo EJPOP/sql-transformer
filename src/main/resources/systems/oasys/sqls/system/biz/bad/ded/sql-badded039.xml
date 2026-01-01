@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/ded/039">
+
+	<select id="badded039ToDptAllSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+    <![CDATA[       
+
+		SELECT  BASE.BZT_YR,  
+		        BASE.BZT_SNO,           
+		        BASE.AUD_KND_CD,
+		       F_CODE_NM('1000007',BASE.AUD_KND_CD) AS AUD_KND_NM,
+		        BASE.REL_AUD_YR,  
+		        BASE.REL_AUD_NO,  
+		        BASE.AUD_STEP_SNO, 
+		       
+		        NVL(APTD.SUM_AUD_DCN,BASE.AUD_DCN) AUD_DCN,   
+		        BASE.TIT_TXT, 
+		        BASE.BZT_BRDV_CD,
+		        F_DPT_INFO( BASE.BZT_BRDV_CD,'1') AS  BZT_BRDV_NM,
+		        BASE.AUD_BZT_KND_CD,          
+		        BASE.BZT_TL_RANK_CD, 
+		        F_USR_INFO(BASE.BZT_TL_CNB,'2') AS TRIP_LEADER_NM,       
+		        BASE.BZT_BRDV_CD,          
+		        BASE.NOP_CNT||nvl2(BASE.EXT_NOP_CNT,'('||BASE.EXT_NOP_CNT||')','') AS NOP_CNT,
+		        BASE.EXT_NOP_CNT AS EXT_NOP_CNT,          
+		        BASE.AUD_STR_DT, 
+		        BASE.AUD_END_DT, 
+		        BASE.ORG_CNT,          
+		        BASE.REP_ORG_NM,
+		        BASE.REP_ORG_NM||DECODE((BASE.ORG_CNT-1),0,'',' 외 '||(BASE.ORG_CNT-1)) AS ORG_NM_CNT, 
+		       TO_CHAR(TO_DATE(BASE.AUD_STR_DT,'YYYYMMDD'),'MM.DD')||'~'|| TO_CHAR(TO_DATE(BASE.AUD_END_DT,'YYYYMMDD'),'MM.DD') AS AUD_STR_END
+		   FROM  (SELECT SITU.BZT_YR,
+				       SITU.BZT_SNO,
+				       AUD.AUD_KND_CD,
+				       SITU.REL_AUD_YR,
+				       SITU.REL_AUD_NO,
+				       SITU.AUD_STEP_SNO,
+				       SITU.AUD_DCN,
+				       SITU.TIT_TXT,
+				        AUD.SPVR_CNB,
+				
+				       SITU.AUD_BZT_KND_CD,
+				       SITU.BZT_TL_RANK_CD,
+				       SITU.BZT_TL_CNB,
+				       SITU.BZT_BRDV_CD,
+				       PSON.CNT AS NOP_CNT,
+				       PSON.EXT_CNT AS EXT_NOP_CNT,
+				       SITU.AUD_STR_DT,
+				       SITU.AUD_END_DT,
+				       TTO.ORG_CNT,
+				       ORG.ORG_NM AS REP_ORG_NM
+				  FROM TBBADDED002M SITU,
+				       TBBADDED001M AUD,
+				       TBDCMACM015M ORG,
+				       (SELECT BZT_YR,
+				               BZT_SNO,
+				               SUM(
+				                    CASE
+				                      WHEN AS1.STF_DVSN_CD != '0' THEN 1
+				                    END) AS EXT_CNT,
+				               COUNT(*) AS CNT
+				          FROM (SELECT BZT_YR,
+				                       BZT_SNO,
+				                       PCT_CNB,
+				                       STF_DVSN_CD
+				                  FROM TBBADDED005L
+								  
+						     ]]>
+                          	<isNotEmpty property="strDate">	 
+                          	 
+		                         WHERE 1 = 1  
+		                      <![CDATA[
+                                   AND BZT_STR_DT <=#strDate# /*TO_CHAR(SYSDATE,'YYYYMMDD')*/
+                                   AND BZT_END_DT >=#strDate#/*TO_CHAR(SYSDATE,'YYYYMMDD')*/
+                                      ]]>
+                            
+                               </isNotEmpty>       
+                                    
+                         	<![CDATA[           
+								  
+				                 GROUP BY BZT_YR,
+				                       BZT_SNO,
+				                       PCT_CNB,
+				                       STF_DVSN_CD ) AS1
+				         GROUP BY BZT_YR,
+				               BZT_SNO) PSON,
+				       (SELECT BZT_YR,
+				               BZT_SNO,
+				               MIN(O.ORG_CD) AS REP_ORG_CD,
+				               COUNT(O.ORG_CD) AS ORG_CNT
+				          FROM (SELECT BZT_YR,
+				                       BZT_SNO,
+				                       ORG_CD
+				                  FROM TBBADDED008L
+				                 GROUP BY BZT_YR,
+				                       BZT_SNO,
+				                       ORG_CD) AS O
+				         GROUP BY BZT_YR,
+				               BZT_SNO) AS TTO
+				 WHERE AUD.AUD_YR = SITU.REL_AUD_YR
+				   AND AUD.AUD_NO = SITU.REL_AUD_NO
+				   AND TTO.BZT_YR = SITU.BZT_YR
+				   AND TTO.BZT_SNO = SITU.BZT_SNO
+				   AND PSON.BZT_YR(+) = SITU.BZT_YR
+				   AND PSON.BZT_SNO(+) = SITU.BZT_SNO
+				   AND ORG.ORG_CD(+) = TTO.REP_ORG_CD
+				   AND SITU.BZT_DVSN_CD ='1'
+                 ]]>
+                 
+				/* 감찰담당관실은 조회시 제외하며, 로그인 한 담당자가 감찰담당관일때만 포함하여 모두 보임 - 2016.01.04 yyh */
+				<isNotNull  property="strExmpDptYn">
+					<isNotEmpty property="strExmpDptYn">
+					    <isEqual property="strExmpDptYn" compareValue="Y">
+					      	AND AUD.SPV_BRDV_CD != '100100'
+					    </isEqual>
+					</isNotEmpty>	                 
+				 </isNotNull>
+				 
+				 <![CDATA[				   
+				   
+				   ) BASE,    
+		
+			      (SELECT TMA.BZT_YR, TMA.BZT_SNO,TMA.PCT_CNB, SUM(NVL(PTD.AUD_DCN,0)) SUM_AUD_DCN  
+			       FROM TBBADDED005L TMA, TBBADDED006L PTD  
+			       WHERE TMA.BZT_YR = PTD.BZT_YR  
+			       AND TMA.BZT_SNO = PTD.BZT_SNO  
+			       AND TMA.TEAM_SNO = PTD.TEAM_SNO  
+			       AND TMA.PCT_ALC_SNO = PTD.PCT_ALC_SNO  
+			       GROUP BY TMA.BZT_YR, TMA.BZT_SNO, TMA.PCT_CNB) APTD  
+				 
+				 WHERE 1=1
+			 
+			        AND APTD.BZT_YR(+) = BASE.BZT_YR  
+			        AND APTD.BZT_SNO(+) = BASE.BZT_SNO  
+			        AND APTD.PCT_CNB(+) =     BASE.SPVR_CNB
+		          ]]>
+		     <isNotEmpty property="strDptCd">	 
+		           AND BASE.BZT_BRDV_CD = #strDptCd#
+		     </isNotEmpty> 
+		      <isNotEmpty property="strDate">
+		      </isNotEmpty> 
+				 <![CDATA[
+		            AND  BASE.AUD_STR_DT <=#strDate#/*TO_CHAR(SYSDATE,'YYYYMMDD')*/
+		            AND BASE.AUD_END_DT >= #strDate#/*TO_CHAR(SYSDATE,'YYYYMMDD')*/
+		                   ]]>
+	
+		
+		         ORDER BY BASE.BZT_BRDV_CD 
+		                 
+		
+		    
+        
+        
+     </select>
+        
+   <select id="badded039ToDptSumSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+    <![CDATA[     
+       SELECT
+              COUNT(*)||' 개 사항 '||NVL(SUM(PSON.CNT),0)||'명(수견/차출'||NVL(SUM(PSON.EXT_CNT),0)||'명)' AS ALL_SUM,
+              NVL(SUM(CASE WHEN SUBSTR(AUD.AUD_KND_CD,3,1) = '3' AND SITU.AUD_BZT_KND_CD IN ('02','03') THEN 1 END),0)||'개 사항 '||
+              NVL( SUM(CASE WHEN SUBSTR(AUD.AUD_KND_CD,3,1) = '3'AND SITU.AUD_BZT_KND_CD IN ('02','03')  THEN PSON.CNT END),0)||'명' AS CD3_SUM,
+              
+              NVL(SUM(CASE WHEN SUBSTR(AUD.AUD_KND_CD,3,1) = '1' AND SITU.AUD_BZT_KND_CD IN ('02','03') THEN 1 END),0)||'개 사항 '||
+              NVL(SUM(CASE WHEN SUBSTR(AUD.AUD_KND_CD,3,1) = '1' AND SITU.AUD_BZT_KND_CD IN ('02','03') THEN PSON.CNT END),0)||'명' AS CD1_SUM,
+               
+              NVL(SUM(CASE WHEN SUBSTR(AUD.AUD_KND_CD,3,1) = '2' AND SITU.AUD_BZT_KND_CD IN ('02','03') THEN 1 END),0)||'개 사항 '||
+              NVL(SUM(CASE WHEN SUBSTR(AUD.AUD_KND_CD,3,1) = '2' AND SITU.AUD_BZT_KND_CD IN ('02','03') THEN PSON.CNT END),0)||'명' AS CD2_SUM,
+              
+              NVL(SUM(CASE WHEN SUBSTR(AUD.AUD_KND_CD,3,1) = '4' AND SITU.AUD_BZT_KND_CD IN ('02','03') THEN 1 END),0)||'개 사항 '||
+              NVL(SUM(CASE WHEN SUBSTR(AUD.AUD_KND_CD,3,1) = '4' AND  SITU.AUD_BZT_KND_CD IN ('02','03')  THEN PSON.CNT END),0)||'명' AS CD4_SUM,
+              
+              NVL(SUM(CASE WHEN SUBSTR(AUD.AUD_KND_CD,3,1) >  '4' OR SITU.AUD_BZT_KND_CD NOT IN ('02','03') THEN 1 END),0)||'개 사항 '||
+              NVL(SUM(CASE WHEN SUBSTR(AUD.AUD_KND_CD,3,1) > '4' OR SITU.AUD_BZT_KND_CD NOT IN ('02','03') THEN PSON.CNT END),0)||'명' AS CD5_SUM,        
+              
+              NVL(SUM(CASE WHEN SUBSTR(AUD.AUD_KND_CD,3,1) = '1' AND SITU.AUD_BZT_KND_CD IN ('02','03') THEN 1 END),0)  AS AUD_EXEC_DVSN_CD1_SUM,
+              NVL(SUM(CASE WHEN SUBSTR(AUD.AUD_KND_CD,3,1) = '2' AND SITU.AUD_BZT_KND_CD IN ('02','03') THEN 1 END),0) AS AUD_EXEC_DVSN_CD2_SUM,
+              NVL(SUM(CASE WHEN SUBSTR(AUD.AUD_KND_CD,3,1) = '3' AND SITU.AUD_BZT_KND_CD IN ('02','03') THEN 1 END),0) AS AUD_EXEC_DVSN_CD3_SUM,
+              NVL(SUM(CASE WHEN SUBSTR(AUD.AUD_KND_CD,3,1) = '4' AND SITU.AUD_BZT_KND_CD IN ('02','03') THEN 1 END),0) AS AUD_EXEC_DVSN_CD4_SUM,
+                  
+              NVL(SUM(CASE WHEN SUBSTR(AUD.AUD_KND_CD,3,1) = '1' AND SITU.AUD_BZT_KND_CD IN ('02','03') THEN PSON.CNT END),0) AS AUD_EXEC_DVSN_CD1_NOP_CNT,
+              NVL(SUM(CASE WHEN SUBSTR(AUD.AUD_KND_CD,3,1) = '2' AND SITU.AUD_BZT_KND_CD IN ('02','03') THEN PSON.CNT END),0) AS AUD_EXEC_DVSN_CD2_NOP_CNT,
+              NVL( SUM(CASE WHEN SUBSTR(AUD.AUD_KND_CD,3,1) = '3'AND SITU.AUD_BZT_KND_CD IN ('02','03')  THEN PSON.CNT END),0) AS AUD_EXEC_DVSN_CD3_NOP_CNT,
+              NVL(SUM(CASE WHEN SUBSTR(AUD.AUD_KND_CD,3,1) = '4' AND  SITU.AUD_BZT_KND_CD IN ('02','03')  THEN PSON.CNT END),0) AS AUD_EXEC_DVSN_CD4_NOP_CNT,
+             
+              NVL(SUM(CASE WHEN SUBSTR(AUD.AUD_KND_CD,3,1) = '1' AND SITU.AUD_BZT_KND_CD IN ('02','03') THEN PSON.EXT_CNT END),0) AS AUD_EXEC_DVSN_CD1_EXT_NOP_CNT,
+              NVL(SUM(CASE WHEN SUBSTR(AUD.AUD_KND_CD,3,1) = '2' AND SITU.AUD_BZT_KND_CD IN ('02','03') THEN PSON.EXT_CNT END),0) AS AUD_EXEC_DVSN_CD2_EXT_NOP_CNT,
+              NVL(SUM(CASE WHEN SUBSTR(AUD.AUD_KND_CD,3,1) = '3' AND SITU.AUD_BZT_KND_CD IN ('02','03') THEN PSON.EXT_CNT END),0) AS AUD_EXEC_DVSN_CD3_EXT_NOP_CNT,
+              NVL(SUM(CASE WHEN SUBSTR(AUD.AUD_KND_CD,3,1) = '4' AND SITU.AUD_BZT_KND_CD IN ('02','03') THEN PSON.EXT_CNT END),0) AS AUD_EXEC_DVSN_CD4_EXT_NOP_CNT,
+              NVL(SUM(CASE WHEN SUBSTR(AUD.AUD_KND_CD,3,1) > '4' OR SITU.AUD_BZT_KND_CD NOT IN ('02','03') THEN PSON.EXT_CNT END),0) AS AUD_EXEC_DVSN_CD_STT_RMK_EXT_NOP_CNT
+              
+            FROM TBBADDED002M SITU, TBBADDED001M AUD,
+            (SELECT BZT_YR,BZT_SNO, SUM(CASE WHEN  AS1.STF_DVSN_CD !='0' THEN 1 END) AS EXT_CNT, COUNT(*) AS CNT
+              FROM (SELECT BZT_YR,BZT_SNO,PCT_CNB,STF_DVSN_CD
+                  FROM TBBADDED005L 
+                 WHERE  BZT_STR_DT <= TO_CHAR(SYSDATE,'YYYYMMDD')
+                   AND BZT_END_DT >=TO_CHAR(SYSDATE,'YYYYMMDD')
+                  GROUP BY BZT_YR,BZT_SNO,PCT_CNB,STF_DVSN_CD) AS1
+              GROUP BY BZT_YR, BZT_SNO) PSON
+            WHERE AUD.AUD_YR = SITU.REL_AUD_YR
+              AND AUD.AUD_NO = SITU.REL_AUD_NO
+              AND PSON.BZT_YR(+) = SITU.BZT_YR
+              AND PSON.BZT_SNO(+) = SITU.BZT_SNO
+              AND SITU.BZT_DVSN_CD ='1'
+              
+              AND SITU.AUD_STR_DT <= #strDate#/*TO_CHAR(SYSDATE,'YYYYMMDD')*/
+              AND SITU.AUD_END_DT >= #strDate#/*TO_CHAR(SYSDATE,'YYYYMMDD')*/
+     ]]>
+     
+		/* 감찰담당관실은 조회시 제외하며, 로그인 한 담당자가 감찰담당관일때만 포함하여 모두 보임 - 2016.01.04 yyh */
+		<isNotNull  property="strExmpDptYn">
+			<isNotEmpty property="strExmpDptYn">
+			    <isEqual property="strExmpDptYn" compareValue="Y">
+			      	AND AUD.SPV_BRDV_CD != '100100'
+			    </isEqual>
+			</isNotEmpty>	                 
+		 </isNotNull>       
+     
+     
+	</select>
+</sqlMap> 

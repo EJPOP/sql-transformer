@@ -1,0 +1,494 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.go.bai.eip.aep.rla.dao.AEPRLA001QMapper">
+    
+    <!-- 법률자문 관리 목록 조회 -->
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA001QMapper.selectMainList */
+        <include refid="include.pageSelct" />
+        <![CDATA[
+   	    SELECT WRK_YR
+			 , WRK_NO
+			 , AUD_YR_NO
+			 , AUD_SBJ_NM
+			 , CD_NM
+			 , AFF_NO
+			 , LEGAL_REQ_DH
+			 , LEGAL_RPL_DH
+			 , TITLE_NM
+			 , WRK_DVSN_NM
+			 , LEGAL_REQ_DVSN_NM
+			 , LEGAL_REQ_SRNO
+			 , DECODE(LEGAL_DPT_CD, '160000', '법률자문관I', '160100', '법률자문관II', '') AS LEGAL_DPT_NM
+		  FROM (SELECT D1.WRK_YR
+					 , D1.WRK_NO
+					 , F_MNG_KND_AUDYRNO(D1.WRK_YR, D1.WRK_NO, D2.AUD_KND_CD, '-')
+					                                              AS AUD_YR_NO
+					 , D2.AUD_SBJ_NM 
+					 , F_DPT_INFO(D2.MNG_DPT_CD, '1') 			  AS CD_NM
+					 , CASE WHEN D4.AFF_CD IS NOT NULL
+					        THEN F_MNG_KND_AUDYRNO(D1.WRK_YR, D1.WRK_NO, D2.AUD_KND_CD, '-') || '-' || D4.AFF_CD
+						    ELSE ''
+					    END                                       AS AFF_NO
+					 , TO_CHAR(D1.LEGAL_REQ_DH, 'YYYY-MM-DD') 	  AS LEGAL_REQ_DH
+					 , TO_CHAR((SELECT REQ_STAT_CHG_DH 
+								  FROM TBBADDED126M T1
+								 WHERE 1=1
+								   AND T1.REQ_STAT_CD       = '60'
+								   AND T1.WRK_NO            = D1.WRK_NO 
+							 	   AND T1.WRK_DVSN_CD       = D1.WRK_DVSN_CD
+							 	   AND T1.AUD_STEP_CD       = D1.AUD_STEP_CD
+							 	   AND T1.LEGAL_REQ_DVSN_CD = D1.LEGAL_REQ_DVSN_CD
+							 	   AND T1.LEGAL_REQ_SRNO    = D1.LEGAL_REQ_SRNO ), 'YYYY-MM-DD')
+							 	                                  AS LEGAL_RPL_DH
+					 , D4.TITLE_NM
+					 , F_CODE_NM('1000787', D1.WRK_DVSN_CD)       AS WRK_DVSN_NM	
+					 , F_CODE_NM('1000828', D1.LEGAL_REQ_DVSN_CD) AS LEGAL_REQ_DVSN_NM
+					 , D1.LEGAL_REQ_SRNO
+					 , D1.LEGAL_DPT_CD
+				  FROM TBBADDED126M D1
+		    INNER JOIN TBBADDED001M D2 ON (D2.AUD_YR   = D1.WRK_YR 
+					 		           AND D2.AUD_NO   = D1.WRK_NO)
+	   LEFT OUTER JOIN TBBADDED145M D4 ON (D4.AUD_YR   = D1.WRK_YR
+			             	           AND D4.AUD_NO   = D1.WRK_NO
+			             	           AND D4.AFF_SNO  = D1.AFF_SNO
+			             	           AND D4.APVR_CD IN (SELECT NVL(MAX(APVR_CD), '0013600')
+				                                            FROM (SELECT RANK() OVER (PARTITION BY T2.DOC_ID ORDER BY DECODE(T2.APVR_CD, 'A1070', 1, '0010600', 2, '0055700', 3, '0055600', 4, '0045900', 5, '0015800', 6, '0035100', 7, '0058100', 8, '0013600', 9, 99) ASC) AS RN
+							                                           , T2.APVR_CD
+							                                           , T2.DOC_ID
+							                                           , T2.AUD_YR
+							                                           , T2.AUD_NO
+							                                        FROM TBBADDED145M T2
+				                                                   WHERE 1=1
+				                                                     AND T2.APVR_CD <> '0010200'
+				                                                   GROUP BY T2.AUD_YR
+				                                                          , T2.AUD_NO
+				                                                          , T2.DOC_ID
+				                                                          , T2.APVR_CD)
+							                               WHERE 1=1
+							                                 AND RN        = 1
+							                                 AND D4.DOC_ID = DOC_ID
+							                                 AND D4.AUD_YR = AUD_YR
+							                                 AND D4.AUD_NO = AUD_NO))
+			     WHERE 1=1
+        ]]>
+        <if test="schAudYr != null and schAudYr != ''">
+                   AND D1.WRK_YR            = #{schAudYr}
+        </if>
+        <if test="schAudYrNoKndCd != null and schAudYrNoKndCd != ''">
+                   AND D2.AUD_KND_CD        = #{schAudYrNoKndCd}
+        </if>
+        <if test="schAudGrnNo != null and schAudGrnNo != ''">
+                   AND D2.AUD_GRN_NO        = #{schAudGrnNo}
+        </if>
+        <if test="schAudSbjNm != null and schAudSbjNm != ''">
+                   AND D2.AUD_SBJ_NM     LIKE '%'||#{schAudSbjNm}||'%'
+        </if>
+        <if test="schAudYr2 != null and schAudYr2 != ''">
+                   AND D1.WRK_YR            = #{schAudYr2}
+        </if>
+        <if test="schAudYrNoKndCd2 != null and schAudYrNoKndCd2 != ''">
+                   AND D2.AUD_KND_CD        = #{schAudYrNoKndCd2}
+        </if>
+        <if test="schAudGrnNo2 != null and schAudGrnNo2 != ''">
+                   AND D2.AUD_GRN_NO        = #{schAudGrnNo2}
+        </if>
+        <if test="schAudGrnNo2 != null and schAudGrnNo2 != ''">
+                   AND D2.AUD_GRN_NO        = #{schAudGrnNo2}
+        </if>
+        <if test="schAffSno != null and schAffSno != ''">
+                   AND D1.AFF_SNO           = #{schAffSno}
+        </if>
+        <if test="schAudSbjNm2 != null and schAudSbjNm2 != ''">
+                   AND D4.TITLE_NM       LIKE '%'||#{schAudSbjNm2}||'%'
+        </if>
+        <if test="schWrkDvsnCd != null and schWrkDvsnCd != ''">
+                   AND D1.WRK_DVSN_CD       = #{schWrkDvsnCd}
+        </if>
+        <if test="schlegalReqDvsnCd != null and schlegalReqDvsnCd != ''">
+                   AND D1.LEGAL_REQ_DVSN_CD = #{schlegalReqDvsnCd}
+        </if>
+        <if test="reqStartDate != null and reqStartDate != ''">
+        <![CDATA[
+                   AND D1.LEGAL_REQ_DH     >= #{reqStartDate}
+        ]]>
+        </if>
+        <if test="reqEndDate != null and reqEndDate != ''">
+        <![CDATA[
+			       AND D1.LEGAL_REQ_DH     <= #{reqEndDate}
+        ]]>
+        </if>
+        <if test="rplStartDate != null and rplStartDate != ''">
+        <![CDATA[
+			       AND D1.REQ_STAT_CD       = '60'
+				   AND D1.REQ_STAT_CHG_DH  >= #{rplStartDate}
+        ]]>
+        </if>
+        <if test="rplEndDate != null and rplEndDate != ''">
+        <![CDATA[
+				   AND D1.REQ_STAT_CD       = '60'
+				   AND D1.REQ_STAT_CHG_DH  <= #{rplEndDate}
+        ]]>
+        </if>			      		
+        <if test="schDptCd != null and schDptCd != ''">
+				   AND D1.LEGAL_DPT_CD      = #{schDptCd}
+        </if>						   		
+		<![CDATA[
+				   AND D1.WRK_DVSN_CD      IN ('A10')
+				   AND D1.REQ_STAT_CD BETWEEN 20 AND 70
+				   AND D1.HIDDEN_YN         = 'N'
+                 UNION ALL
+		        SELECT D1.WRK_YR
+					 , D1.WRK_NO
+					 , D2.ACP_YR || '-' || DECODE(D2.ACP_DVSN_CD, '1', '심사', '2', '재심', '3', '재심판정') || '-' || DECODE(D2.ORG_ACP_SRNO, null, D2.ACP_SRNO, D2.ORG_ACP_SRNO)
+					                                              AS AUD_YR_NO
+	 				 , D2.TIT_NM
+					 , F_DPT_INFO(D2.DPT_CD, '1') 				  AS CD_NM
+					 , ''										  AS AFF_NO		
+					 , TO_CHAR(D1.LEGAL_REQ_DH, 'YYYY-MM-DD') 	  AS LEGAL_REQ_DH		   				
+					 , TO_CHAR((SELECT REQ_STAT_CHG_DH 
+								  FROM TBBADDED126M T1
+								 WHERE 1=1
+								   AND REQ_STAT_CD          = '60'
+								   AND T1.WRK_NO            = D1.WRK_NO 
+								   AND T1.WRK_DVSN_CD       = D1.WRK_DVSN_CD
+								   AND T1.AUD_STEP_CD       = D1.AUD_STEP_CD
+								   AND T1.LEGAL_REQ_DVSN_CD = D1.LEGAL_REQ_DVSN_CD
+								   AND T1.LEGAL_REQ_SRNO    = D1.LEGAL_REQ_SRNO ), 'YYYY-MM-DD')
+								                                  AS LEGAL_RPL_DH	
+					 , ''										  AS AUD_SBJ_NM											
+					 , F_CODE_NM('1000787', D1.WRK_DVSN_CD)       AS WRK_DVSN_NM	
+					 , F_CODE_NM('1000828', D1.LEGAL_REQ_DVSN_CD) AS LEGAL_REQ_DVSN_NM
+					 , D1.LEGAL_REQ_SRNO											
+					 , D1.LEGAL_DPT_CD
+			      FROM TBBADDED126M D1
+	   LEFT OUTER JOIN TBBADFRE012M D2 ON (D2.ACP_YR   = D1.WRK_YR 
+									   AND D2.ACP_SRNO = D1.WRK_NO
+									   AND DECODE(D2.ACP_DVSN_CD, '1', 'D10', '2', 'E10')
+									                   = D1.WRK_DVSN_CD)
+	   LEFT OUTER JOIN TBBADDED145M D4 ON (D4.AUD_YR   = D1.WRK_YR
+								   	   AND D4.AUD_NO   = D1.WRK_NO
+									   AND D4.AFF_SNO  = D1.AFF_SNO
+									   AND D4.APVR_CD IN (SELECT NVL(MAX(APVR_CD), '0013600')
+															FROM (SELECT RANK() OVER (PARTITION BY T2.DOC_ID ORDER BY DECODE(T2.APVR_CD, 'A1070', 1, '0010600', 2, '0055700', 3, '0055600', 4, '0045900', 5, '0015800', 6, '0035100', 7, '0058100', 8, '0013600', 9, 99) ASC) AS RN
+																	   , T2.APVR_CD
+																	   , T2.DOC_ID
+																	   , T2.AUD_YR
+																	   , T2.AUD_NO
+																    FROM TBBADDED145M T2
+																   WHERE 1=1
+																     AND T2.APVR_CD <> '0010200'
+																   GROUP BY T2.AUD_YR
+																          , T2.AUD_NO
+																          , T2.DOC_ID
+																          , T2.APVR_CD)   
+														   WHERE 1=1
+														     AND RN        = 1
+															 AND D4.DOC_ID = DOC_ID
+															 AND D4.AUD_YR = AUD_YR
+															 AND D4.AUD_NO = AUD_NO))
+				 WHERE 1=1
+        ]]>
+        <if test="schAudYr != null and schAudYr != ''">
+                   AND D1.WRK_YR            = #{schAudYr}
+        </if>
+        <if test="schAudYrNoKndCd != null and schAudYrNoKndCd != ''">
+                   AND D2.ACP_DVSN_CD       = #{schAudYrNoKndCd}
+        </if>               
+        <if test="schAudGrnNo != null and schAudGrnNo != ''">
+                   AND D2.ACP_SRNO          = #{schAudGrnNo}
+        </if>
+        <if test="schAudSbjNm != null and schAudSbjNm != ''">
+                   AND D2.TIT_NM         LIKE '%'||#{schAudSbjNm}||'%'
+        </if>
+        <if test="schWrkDvsnCd != null and schWrkDvsnCd != ''">
+                   AND D1.WRK_DVSN_CD       = #{schWrkDvsnCd}
+        </if>
+        <if test="schlegalReqDvsnCd != null and schlegalReqDvsnCd != ''">
+                   AND D1.LEGAL_REQ_DVSN_CD = #{schlegalReqDvsnCd}
+        </if>
+        <if test="reqStartDate != null and reqStartDate != ''">
+        <![CDATA[
+		           AND D1.LEGAL_REQ_DH     >= #{reqStartDate}
+        ]]>
+        </if>
+        <if test="reqEndDate != null and reqEndDate != ''">
+        <![CDATA[
+				   AND D1.LEGAL_REQ_DH     <= #{reqEndDate}
+        ]]>
+        </if>
+        <if test="rplStartDate != null and rplStartDate != ''">
+		<![CDATA[
+				   AND D1.REQ_STAT_CD       = '60'
+				   AND D1.REQ_STAT_CHG_DH  >= #{rplStartDate}
+        ]]>
+        </if>
+        <if test="rplEndDate != null and rplEndDate != ''">
+        <![CDATA[
+				   AND D1.REQ_STAT_CD       = '60'
+				   AND D1.REQ_STAT_CHG_DH  <= #{rplEndDate}
+		]]>
+        </if>
+        <if test="schDptCd != null and schDptCd != ''">
+				   AND D1.LEGAL_DPT_CD      = #{schDptCd}
+        </if>
+		<![CDATA[
+			       AND D1.WRK_DVSN_CD      IN ('D10', 'E10')
+			       AND D1.REQ_STAT_CD BETWEEN 20 AND 70
+			       AND D1.HIDDEN_YN         = 'N'		
+			       
+			     UNION ALL
+			    SELECT D1.WRK_YR
+	                 , D1.WRK_NO
+	                 , D2.ACP_YR || '-' || DECODE(D2.REQ_DVSN_CD, '1', '제보', '2', '국민', '3', '공익', '4', '국회', '5', '부감', '6', '청금') || '-' || SUBSTRING(D2.CVPT_ACP_NO, 3, 3)
+	                                                              AS AUD_YR_NO
+	                 , D2.TIT_NM
+	                 , F_DPT_INFO(D2.ACP_DPT_CD , '1')            AS CD_NM
+	                 , ''                                         AS AFF_NO       
+	                 , TO_CHAR(D1.LEGAL_REQ_DH, 'YYYY-MM-DD')     AS LEGAL_REQ_DH                     
+	                 , TO_CHAR((SELECT REQ_STAT_CHG_DH 
+	                              FROM TBBADDED126M T1
+	                             WHERE 1=1
+	                               AND T1.REQ_STAT_CD       = '60'
+	                               AND T1.WRK_NO            = D1.WRK_NO 
+	                               AND T1.WRK_DVSN_CD       = D1.WRK_DVSN_CD
+	                               AND T1.AUD_STEP_CD       = D1.AUD_STEP_CD
+	                               AND T1.LEGAL_REQ_DVSN_CD = D1.LEGAL_REQ_DVSN_CD
+	                               AND T1.LEGAL_REQ_SRNO    = D1.LEGAL_REQ_SRNO), 'YYYY-MM-DD')
+	                                                              AS LEGAL_RPL_DH 
+	                 , ''                                         AS AUD_SBJ_NM                                           
+	                 , F_CODE_NM('1000787', D1.WRK_DVSN_CD)       AS WRK_DVSN_NM    
+	                 , F_CODE_NM('1000828', D1.LEGAL_REQ_DVSN_CD) AS LEGAL_REQ_DVSN_NM
+	                 , D1.LEGAL_REQ_SRNO
+	                 , D1.LEGAL_DPT_CD
+                  FROM TBBADDED126M D1
+       LEFT OUTER JOIN TBCSPDCP101M D2 ON (D2.ACP_YR      = D1.WRK_YR 
+                                       AND D2.CVPT_ACP_NO = D1.WRK_NO
+                                       AND DECODE(D2.REQ_DVSN_CD, '1', 'B10', '2', 'C10', '3', 'C10', '4', 'C10')
+                                                          = D1.WRK_DVSN_CD)
+                        
+                 WHERE 1=1
+        ]]>
+        <if test="schAudYr != null and schAudYr != ''">
+                   AND D1.WRK_YR            = #{schAudYr}
+        </if>
+        <if test="schAudYrNoKndCd != null and schAudYrNoKndCd != ''">
+                   AND D2.REQ_DVSN_CD       = #{schAudYrNoKndCd}
+        </if>               
+        <if test="schAudGrnNo != null and schAudGrnNo != ''">
+                   AND D2.CVPT_ACP_NO       = #{schAudGrnNo}
+        </if>
+        <if test="schAudSbjNm != null and schAudSbjNm != ''">
+                   AND D2.TIT_NM         LIKE '%'||#{schAudSbjNm}||'%'
+        </if>
+        <if test="schWrkDvsnCd != null and schWrkDvsnCd != ''">
+                   AND D1.WRK_DVSN_CD       = #{schWrkDvsnCd}
+        </if>
+        <if test="schlegalReqDvsnCd != null and schlegalReqDvsnCd != ''">
+                   AND D1.LEGAL_REQ_DVSN_CD = #{schlegalReqDvsnCd}
+        </if>
+        <if test="reqStartDate != null and reqStartDate != ''">
+        <![CDATA[
+                   AND D1.LEGAL_REQ_DH     >= #{reqStartDate}
+        ]]>
+        </if>
+        <if test="reqEndDate != null and reqEndDate != ''">
+        <![CDATA[
+                   AND D1.LEGAL_REQ_DH     <= #{reqEndDate}
+        ]]>
+        </if>
+        <if test="rplStartDate != null and rplStartDate != ''">
+        <![CDATA[
+                   AND D1.REQ_STAT_CD       = '60'
+                   AND D1.REQ_STAT_CHG_DH  >= #{rplStartDate}
+        ]]>
+        </if>
+        <if test="rplEndDate != null and rplEndDate != ''">
+        <![CDATA[
+                   AND D1.REQ_STAT_CD       = '60'
+                   AND D1.REQ_STAT_CHG_DH  <= #{rplEndDate}
+        ]]>
+        </if>
+        <if test="schDptCd != null and schDptCd != ''">
+                   AND D1.LEGAL_DPT_CD      = #{schDptCd}
+        </if>
+        <![CDATA[
+                   AND D1.WRK_DVSN_CD      IN ('B10','C10')
+                   AND D1.REQ_STAT_CD BETWEEN 20 AND 70
+                   AND D1.HIDDEN_YN         = 'N'
+			   
+			   
+			   
+			   
+			   
+			   
+			    UNION ALL
+			    SELECT D1.WRK_YR
+	                 , D1.WRK_NO
+	                 , D2.ACP_YR || '-' || '부감' || '-' || SUBSTRING(D2.CVPT_ACP_NO, 3, 3)
+	                                                              AS AUD_YR_NO
+	                 , D2.TIT_NM
+	                 , F_DPT_INFO(D2.ACP_DPT_CD , '1')            AS CD_NM
+	                 , ''                                         AS AFF_NO       
+	                 , TO_CHAR(D1.LEGAL_REQ_DH, 'YYYY-MM-DD')     AS LEGAL_REQ_DH                     
+	                 , TO_CHAR((SELECT REQ_STAT_CHG_DH 
+	                              FROM TBBADDED126M T1
+	                             WHERE 1=1
+	                               AND T1.REQ_STAT_CD       = '60'
+	                               AND T1.WRK_NO            = D1.WRK_NO 
+	                               AND T1.WRK_DVSN_CD       = D1.WRK_DVSN_CD
+	                               AND T1.AUD_STEP_CD       = D1.AUD_STEP_CD
+	                               AND T1.LEGAL_REQ_DVSN_CD = D1.LEGAL_REQ_DVSN_CD
+	                               AND T1.LEGAL_REQ_SRNO    = D1.LEGAL_REQ_SRNO), 'YYYY-MM-DD')
+	                                                              AS LEGAL_RPL_DH 
+	                 , ''                                         AS AUD_SBJ_NM                                           
+	                 , F_CODE_NM('1000787', D1.WRK_DVSN_CD)       AS WRK_DVSN_NM    
+	                 , F_CODE_NM('1000828', D1.LEGAL_REQ_DVSN_CD) AS LEGAL_REQ_DVSN_NM
+	                 , D1.LEGAL_REQ_SRNO
+	                 , D1.LEGAL_DPT_CD
+                  FROM TBBADDED126M D1
+       LEFT OUTER JOIN TBCORCOR101M D2 ON (D2.ACP_YR      = D1.WRK_YR 
+                                       AND D2.CVPT_ACP_NO = D1.WRK_NO
+                                       AND DECODE(D2.REQ_DVSN_CD, '5', 'F10', '')
+                                                          = D1.WRK_DVSN_CD)
+                        
+                 WHERE 1=1
+        ]]>
+        <if test="schAudYr != null and schAudYr != ''">
+                   AND D1.WRK_YR            = #{schAudYr}
+        </if>
+        <if test="schAudYrNoKndCd != null and schAudYrNoKndCd != ''">
+                   AND D2.REQ_DVSN_CD       = #{schAudYrNoKndCd}
+        </if>               
+        <if test="schAudGrnNo != null and schAudGrnNo != ''">
+                   AND D2.CVPT_ACP_NO       = #{schAudGrnNo}
+        </if>
+        <if test="schAudSbjNm != null and schAudSbjNm != ''">
+                   AND D2.TIT_NM         LIKE '%'||#{schAudSbjNm}||'%'
+        </if>
+        <if test="schWrkDvsnCd != null and schWrkDvsnCd != ''">
+                   AND D1.WRK_DVSN_CD       = #{schWrkDvsnCd}
+        </if>
+        <if test="schlegalReqDvsnCd != null and schlegalReqDvsnCd != ''">
+                   AND D1.LEGAL_REQ_DVSN_CD = #{schlegalReqDvsnCd}
+        </if>
+        <if test="reqStartDate != null and reqStartDate != ''">
+        <![CDATA[
+                   AND D1.LEGAL_REQ_DH     >= #{reqStartDate}
+        ]]>
+        </if>
+        <if test="reqEndDate != null and reqEndDate != ''">
+        <![CDATA[
+                   AND D1.LEGAL_REQ_DH     <= #{reqEndDate}
+        ]]>
+        </if>
+        <if test="rplStartDate != null and rplStartDate != ''">
+        <![CDATA[
+                   AND D1.REQ_STAT_CD       = '60'
+                   AND D1.REQ_STAT_CHG_DH  >= #{rplStartDate}
+        ]]>
+        </if>
+        <if test="rplEndDate != null and rplEndDate != ''">
+        <![CDATA[
+                   AND D1.REQ_STAT_CD       = '60'
+                   AND D1.REQ_STAT_CHG_DH  <= #{rplEndDate}
+        ]]>
+        </if>
+        <if test="schDptCd != null and schDptCd != ''">
+                   AND D1.LEGAL_DPT_CD      = #{schDptCd}
+        </if>
+        <![CDATA[
+                   AND D1.WRK_DVSN_CD      IN ('F10')
+                   AND D1.REQ_STAT_CD BETWEEN 20 AND 70
+                   AND D1.HIDDEN_YN         = 'N'
+			   
+			   
+			    UNION ALL
+			    SELECT D1.WRK_YR
+	                 , D1.WRK_NO
+	                 , D2.ACP_YR || '-' || '청금' || '-' || SUBSTRING(D2.CVPT_ACP_NO, 3, 3)
+	                                                              AS AUD_YR_NO
+	                 , D2.TIT_NM
+	                 , F_DPT_INFO(D2.ACP_DPT_CD , '1')            AS CD_NM
+	                 , ''                                         AS AFF_NO       
+	                 , TO_CHAR(D1.LEGAL_REQ_DH, 'YYYY-MM-DD')     AS LEGAL_REQ_DH                     
+	                 , TO_CHAR((SELECT REQ_STAT_CHG_DH 
+	                              FROM TBBADDED126M T1
+	                             WHERE 1=1
+	                               AND T1.REQ_STAT_CD       = '60'
+	                               AND T1.WRK_NO            = D1.WRK_NO 
+	                               AND T1.WRK_DVSN_CD       = D1.WRK_DVSN_CD
+	                               AND T1.AUD_STEP_CD       = D1.AUD_STEP_CD
+	                               AND T1.LEGAL_REQ_DVSN_CD = D1.LEGAL_REQ_DVSN_CD
+	                               AND T1.LEGAL_REQ_SRNO    = D1.LEGAL_REQ_SRNO), 'YYYY-MM-DD')
+	                                                              AS LEGAL_RPL_DH 
+	                 , ''                                         AS AUD_SBJ_NM                                           
+	                 , F_CODE_NM('1000787', D1.WRK_DVSN_CD)       AS WRK_DVSN_NM    
+	                 , F_CODE_NM('1000828', D1.LEGAL_REQ_DVSN_CD) AS LEGAL_REQ_DVSN_NM
+	                 , D1.LEGAL_REQ_SRNO
+	                 , D1.LEGAL_DPT_CD
+                  FROM TBBADDED126M D1
+       LEFT OUTER JOIN TBDCPDCP101M D2 ON (D2.ACP_YR      = D1.WRK_YR 
+                                       AND D2.CVPT_ACP_NO = D1.WRK_NO
+                                       AND DECODE(D2.REQ_DVSN_CD, '6', 'G10', '')
+                                                          = D1.WRK_DVSN_CD)
+                        
+                 WHERE 1=1
+        ]]>
+        <if test="schAudYr != null and schAudYr != ''">
+                   AND D1.WRK_YR            = #{schAudYr}
+        </if>
+        <if test="schAudYrNoKndCd != null and schAudYrNoKndCd != ''">
+                   AND D2.REQ_DVSN_CD       = #{schAudYrNoKndCd}
+        </if>               
+        <if test="schAudGrnNo != null and schAudGrnNo != ''">
+                   AND D2.CVPT_ACP_NO       = #{schAudGrnNo}
+        </if>
+        <if test="schAudSbjNm != null and schAudSbjNm != ''">
+                   AND D2.TIT_NM         LIKE '%'||#{schAudSbjNm}||'%'
+        </if>
+        <if test="schWrkDvsnCd != null and schWrkDvsnCd != ''">
+                   AND D1.WRK_DVSN_CD       = #{schWrkDvsnCd}
+        </if>
+        <if test="schlegalReqDvsnCd != null and schlegalReqDvsnCd != ''">
+                   AND D1.LEGAL_REQ_DVSN_CD = #{schlegalReqDvsnCd}
+        </if>
+        <if test="reqStartDate != null and reqStartDate != ''">
+        <![CDATA[
+                   AND D1.LEGAL_REQ_DH     >= #{reqStartDate}
+        ]]>
+        </if>
+        <if test="reqEndDate != null and reqEndDate != ''">
+        <![CDATA[
+                   AND D1.LEGAL_REQ_DH     <= #{reqEndDate}
+        ]]>
+        </if>
+        <if test="rplStartDate != null and rplStartDate != ''">
+        <![CDATA[
+                   AND D1.REQ_STAT_CD       = '60'
+                   AND D1.REQ_STAT_CHG_DH  >= #{rplStartDate}
+        ]]>
+        </if>
+        <if test="rplEndDate != null and rplEndDate != ''">
+        <![CDATA[
+                   AND D1.REQ_STAT_CD       = '60'
+                   AND D1.REQ_STAT_CHG_DH  <= #{rplEndDate}
+        ]]>
+        </if>
+        <if test="schDptCd != null and schDptCd != ''">
+                   AND D1.LEGAL_DPT_CD      = #{schDptCd}
+        </if>
+        <![CDATA[
+                   AND D1.WRK_DVSN_CD      IN ('G10')
+                   AND D1.REQ_STAT_CD BETWEEN 20 AND 70
+                   AND D1.HIDDEN_YN         = 'N'
+			   
+			   )
+	     WHERE 1=1
+		 ORDER BY LEGAL_REQ_DH DESC
+		        , WRK_YR DESC
+		        , LEGAL_REQ_SRNO DESC
+        ]]>
+        <include refid="include.pageOrder" />
+    </select>
+</mapper>

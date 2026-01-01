@@ -1,0 +1,398 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="aep/gkm/014">
+	<select id="aepgkm014select" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+	<include refid="include.pageSelct" />
+	                    SELECT	A.AUD_YR AS AUD_YR<!-- 감사년도 -->
+								,A.AUD_NO AS AUD_NO<!-- 감사번호 -->
+								,A.AUD_YR||'-'|| A.AUD_NO AS AUD_YR_NO<!-- 감사연번호 -->
+								,TO_CHAR(TO_DATE( A.AUD_STR_DT, 'YYYYMMDD'), 'YYYY.MM.DD')||'~'||TO_CHAR(TO_DATE( A.AUD_END_DT, 'YYYYMMDD'), 'YYYY.MM.DD') AS AUD_STR_END
+								,A.AUD_SBJ_NM AS AUD_SBJ_NM<!-- 감사사항명 -->
+								,A.ORG_CD AS ORG_CD<!-- 대상기관코드 -->
+								,A.AUD_STR_DT AS AUD_STR_DT<!-- 감사시작일 -->
+								,A.AUD_END_DT AS AUD_END_DT<!-- 감사종료일 -->
+								,A.AUD_KND_CD AS AUD_KND_CD<!-- 감사종류코드 -->
+								,F_CODE_NM('1000007', A.AUD_KND_CD) AS AUD_KND_NM<!-- 감사종류명 -->
+								,A.SPVR_BRDV_CD AS SPVR_BRDV_CD<!-- 주관국과코드 -->
+								<!-- 처분요구전 필요 데이터 -->
+								,A.AUD_YR || '-' || A.AUD_NO || '-' || B.DSP_RQ_SNO AS DSP_RQ_YR_NO_SNO<!-- 처분요구번호 --> 
+								,B.DSP_RQ_SNO AS DSP_RQ_SNO<!-- 처분요구순번 -->
+								,B.DSP_RQ_KND_CD AS DSP_RQ_KND_CD<!-- 처분요구종류코드 -->
+								,F_CODE_NM('1000002',B.DSP_RQ_KND_CD) AS DSP_RQ_KND_NM<!-- 처분요구종류명 -->
+								,B.TIT_TXT AS TIT_TXT<!-- 처분요구명 -->
+								,F_DPT_INFO(A.SPVR_BRDV_CD,'1') AS DPT_NM
+						FROM	(
+								SELECT	C.AUD_YR AS AUD_YR
+										,C.AUD_NO AS AUD_NO
+										,MAX(C.AUD_SBJ_NM) AS AUD_SBJ_NM
+										,MIN(A.ORG_CD) AS ORG_CD
+										,MAX(A.TEAM_SNO) TEAM_SNO
+										,MIN(B.AUD_STR_DT) AUD_STR_DT
+										,MAX(B.AUD_END_DT) AUD_END_DT
+										,MAX(B.AUD_DCN) AS AUD_DCN
+				<!-- 						MAX(B.BZT_TL_CNB) AS AUD_BZT_KND_CD출장반장전산번호, -->
+				<!-- 						MAX(B.AUD_BZT_KND_CD) AS AUD_BZT_KND_CD감사출장종류코드, -->
+				<!-- 						MAX(C.AUD_TASK_CD) AS AUD_TASK_CD감사과제코드, -->
+										,MAX(C.ORG_DVSN_CD) AS ORG_DVSN_CD<!-- 기관구분코드 -->
+										,MAX(C.AUD_KND_CD) AS AUD_KND_CD<!-- 감사종류코드 -->
+										,MAX(C.SPVR_BRDV_CD) AS SPVR_BRDV_CD<!-- 주관국과코드 -->
+				<!-- 						MAX(C.AUD_WAY_CD) AS AUD_WAY_CD감사방법코드, -->
+								FROM	TBBADDED008L A
+										,TBBADDED002M B
+										,TBBADDED001M C
+								WHERE	1=1
+								AND		A.BZT_YR = B.BZT_YR
+								AND		A.BZT_SNO = B.BZT_SNO
+								AND 	B.BZT_DVSN_CD = '1'
+								AND 	C.AUD_YR = B.REL_AUD_YR
+								AND		C.AUD_NO = B.REL_AUD_NO
+								<isNotEmpty property="ORG_CD" prepend="AND">
+										A.ORG_CD = #ORG_CD#<!-- 대상기관 -->
+								</isNotEmpty>
+								<isNotEmpty property="AUD_YR" prepend="AND">
+										C.AUD_YR = #AUD_YR#<!-- 년도 -->
+								</isNotEmpty>
+								<isNotEmpty property="AUD_KND_CD" prepend="AND">
+										C.AUD_KND_CD = #AUD_KND_CD#<!-- 감사종류 -->
+								</isNotEmpty>
+								<isNotEmpty property="AUD_SBJ_NM" prepend="AND">
+										C.AUD_SBJ_NM LIKE '%' || #AUD_SBJ_NM# || '%'<!-- 감사사항명 -->
+								</isNotEmpty>
+								<isNotEmpty property="AUD_YR_NO" prepend="AND">
+										C.AUD_YR||C.AUD_NO = #AUD_YR_NO#<!-- 감사연번호 -->
+								</isNotEmpty>
+								GROUP BY C.AUD_YR
+										,C.AUD_NO
+								) AS A
+								,TBBADEAR001M B
+								,TBBADEAR002D C
+								<isNotEmpty property="ETR_PEN_NM" prepend=",">
+								,TBBADEAR004M D <!-- 감사자를 검색조건에 입력할때만 조인 -->
+								</isNotEmpty>
+						WHERE	A.AUD_YR = B.AUD_YR
+						AND 	A.AUD_NO = B.AUD_NO
+						AND 	B.AUD_YR = C.AUD_YR
+						AND 	B.AUD_NO = C.AUD_NO
+						AND 	B.DSP_RQ_SNO = C.DSP_RQ_SNO
+						<isNotEmpty property="ETR_PEN_NAM" prepend="AND">
+					 			B.AUD_YR = D.AUD_YR
+						</isNotEmpty>
+						<isNotEmpty property="ETR_PEN_NAM" prepend="AND">
+							 	B.AUD_NO = D.AUD_NO
+						</isNotEmpty>
+						<isNotEmpty property="ETR_PEN_NAM" prepend="AND">
+							 	B.DSP_RQ_SNO = D.DSP_RQ_SNO
+						</isNotEmpty>
+						<isNotEmpty property="ETR_PEN_NAM" prepend="AND">
+								D.ETR_PEN_NAM LIKE '%' || #ETR_PEN_NAM# || '%' <!-- 검색조건 감사자 입력시 추가 -->
+						</isNotEmpty>
+						<isNotEmpty property="TIT_TXT" prepend="AND">
+								B.TIT_TXT LIKE '%' || #TIT_TXT# || '%'
+						</isNotEmpty>
+				<!-- 		AND		ETR_PEN_ID = ? 검색조건 감사자ID 입력시 추가 -->
+						AND		C.DTM_STA_CD !='0'
+						ORDER BY A.AUD_YR DESC
+								,A.AUD_NO
+	        <include refid="include.pageOrder" />
+	</select>
+	
+	<!-- jsp 단 쿼리 -->
+	<select id="AEPGKM014P.SELECT" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	A.*, B.ORG_NM<!-- 대상기관명 -->, C.DPT_NM<!-- 주관국과명 -->
+		FROM	(
+				SELECT	FLOOR((ROWNUM - 1) / #SRN# + 1) AS PAGE, ROWNUM, A.*
+				FROM	(
+						SELECT	A.AUD_YR AS AUD_YR<!-- 감사년도 -->,
+								A.AUD_NO AS AUD_NO<!-- 감사번호 -->,
+								A.AUD_YR||'-'|| A.AUD_NO AS AUD_YR_NO<!-- 감사연번호 -->,
+								A.AUD_SBJ_NM AS AUD_SBJ_NM<!-- 감사사항명 -->,
+								A.ORG_CD AS ORG_CD<!-- 대상기관코드 -->,
+								A.AUD_STR_DT AS AUD_STR_DT<!-- 감사시작일 -->,
+								A.AUD_END_DT AS AUD_END_DT<!-- 감사종료일 -->,
+								A.AUD_KND_CD AS AUD_KND_CD<!-- 감사종류코드 -->,
+								F_CODE_NM('1000007',A.AUD_KND_CD) AS AUD_KND_NM<!-- 감사종류명 -->,
+								A.SPVR_BRDV_CD AS SPVR_BRDV_CD<!-- 주관국과코드 -->,
+								<!-- 처분요구전 필요 데이터 -->
+								A.AUD_YR || '-' || A.AUD_NO || '-' || B.DSP_RQ_SNO AS DSP_RQ_YR_NO_SNO<!-- 처분요구번호 -->, 
+								B.DSP_RQ_SNO AS DSP_RQ_SNO<!-- 처분요구순번 -->,
+								B.DSP_RQ_KND_CD AS DSP_RQ_KND_CD<!-- 처분요구종류코드 -->,
+								F_CODE_NM('1000002',B.DSP_RQ_KND_CD) AS DSP_RQ_KND_NM<!-- 처분요구종류명 -->,
+								B.TIT_TXT AS TIT_TXT<!-- 처분요구명 -->
+						FROM	(
+								SELECT	C.AUD_YR AS AUD_YR,
+										C.AUD_NO AS AUD_NO,
+										MAX(C.AUD_SBJ_NM) AS AUD_SBJ_NM,
+										MIN(A.ORG_CD) AS ORG_CD,
+										MAX(A.TEAM_SNO) TEAM_SNO,
+										MIN(B.AUD_STR_DT) AUD_STR_DT,
+										MAX(B.AUD_END_DT) AUD_END_DT,
+										MAX(B.AUD_DCN) AS AUD_DCN,
+				<!-- 						MAX(B.BZT_TL_CNB) AS AUD_BZT_KND_CD출장반장전산번호, -->
+				<!-- 						MAX(B.AUD_BZT_KND_CD) AS AUD_BZT_KND_CD감사출장종류코드, -->
+				<!-- 						MAX(C.AUD_TASK_CD) AS AUD_TASK_CD감사과제코드, -->
+										MAX(C.ORG_DVSN_CD) AS ORG_DVSN_CD<!-- 기관구분코드 -->,
+										MAX(C.AUD_KND_CD) AS AUD_KND_CD<!-- 감사종류코드 -->,
+										MAX(C.SPVR_BRDV_CD) AS SPVR_BRDV_CD<!-- 주관국과코드 -->
+				<!-- 						MAX(C.AUD_WAY_CD) AS AUD_WAY_CD감사방법코드, -->
+								FROM	TBBADDED008L A, TBBADDED002M B, TBBADDED001M C
+								WHERE	1=1
+								AND		A.BZT_YR = B.BZT_YR
+								AND		A.BZT_SNO = B.BZT_SNO
+								AND 	B.BZT_DVSN_CD = '1'
+								AND 	C.AUD_YR = B.REL_AUD_YR
+								AND		C.AUD_NO = B.REL_AUD_NO
+								<isNotEmpty property="ORG_CD" prepend="AND">
+										A.ORG_CD = #ORG_CD#<!-- 대상기관 -->
+								</isNotEmpty>
+								<isNotEmpty property="AUD_YR" prepend="AND">
+										C.AUD_YR = #AUD_YR#<!-- 년도 -->
+								</isNotEmpty>
+								<isNotEmpty property="AUD_KND_CD" prepend="AND">
+										C.AUD_KND_CD = #AUD_KND_CD#<!-- 감사종류 -->
+								</isNotEmpty>
+								<isNotEmpty property="AUD_SBJ_NM" prepend="AND">
+										C.AUD_SBJ_NM LIKE '%' || #AUD_SBJ_NM# || '%'<!-- 감사사항명 -->
+								</isNotEmpty>
+								<isNotEmpty property="AUD_YR_NO" prepend="AND">
+										C.AUD_YR||C.AUD_NO = #AUD_YR_NO#<!-- 감사연번호 -->
+								</isNotEmpty>
+								GROUP BY C.AUD_YR, C.AUD_NO
+								) AS A,
+								TBBADEAR001M B,
+								TBBADEAR002D C
+								<isNotEmpty property="ETR_PEN_NM" prepend=",">
+								TBBADEAR004M D <!-- 감사자를 검색조건에 입력할때만 조인 -->
+								</isNotEmpty>
+						WHERE	A.AUD_YR = B.AUD_YR
+						AND 	A.AUD_NO = B.AUD_NO
+						AND 	B.AUD_YR = C.AUD_YR
+						AND 	B.AUD_NO = C.AUD_NO
+						AND 	B.DSP_RQ_SNO = C.DSP_RQ_SNO
+						<isNotEmpty property="ETR_PEN_NAM" prepend="AND">
+					 	B.AUD_YR = D.AUD_YR
+						</isNotEmpty>
+						<isNotEmpty property="ETR_PEN_NAM" prepend="AND">
+							 	B.AUD_NO = D.AUD_NO
+						</isNotEmpty>
+						<isNotEmpty property="ETR_PEN_NAM" prepend="AND">
+							 	B.DSP_RQ_SNO = D.DSP_RQ_SNO
+						</isNotEmpty>
+						<isNotEmpty property="ETR_PEN_NAM" prepend="AND">
+								D.ETR_PEN_NAM LIKE '%' || #ETR_PEN_NAM# || '%' <!-- 검색조건 감사자 입력시 추가 -->
+						</isNotEmpty>
+						<isNotEmpty property="TIT_TXT" prepend="AND">
+								B.TIT_TXT LIKE '%' || #TIT_TXT# || '%'
+						</isNotEmpty>
+				<!-- 		AND		ETR_PEN_ID = ? 검색조건 감사자ID 입력시 추가 -->
+						AND		C.DTM_STA_CD !='0'
+						ORDER BY A.AUD_YR DESC, A.AUD_NO
+						) AS A
+				) AS A,
+				TBDCMACM015M B,
+				TBDCMACM002M C
+		WHERE	A.ORG_CD = B.ORG_CD
+		AND		A.SPVR_BRDV_CD = C.DPT_CD(+)
+		AND		PAGE = #CPN#
+	</select>
+	
+	<select id="AEPGKM014P.SELECT.TAB" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	TAB,
+				MIN(PAGE) AS MIN_PAGE,
+				MAX(PAGE) AS MAX_PAGE
+		FROM	(
+				SELECT	FLOOR((PAGE - 1) / 10) AS TAB,
+						PAGE
+				FROM	(
+						SELECT	FLOOR((ROWNUM - 1) / #SRN# + 1) AS PAGE, ROWNUM
+						FROM	(
+								SELECT	B.TIT_TXT AS TIT_TXT<!-- 처분요구명 -->
+								FROM	(
+										SELECT	C.AUD_YR AS AUD_YR<!-- 감사년도 -->,
+												C.AUD_NO AS AUD_NO<!-- 감사번호 -->,
+												MAX(C.AUD_SBJ_NM) AS AUD_SBJ_NM,
+												MIN(A.ORG_CD) AS ORG_CD,
+												MAX(A.TEAM_SNO) TEAM_SNO,
+												MIN(B.AUD_STR_DT) AUD_STR_DT,
+												MAX(B.AUD_END_DT) AUD_END_DT,
+												MAX(B.AUD_DCN) AS AUD_DCN,
+												MAX(C.ORG_DVSN_CD) AS ORG_DVSN_CD<!-- 기관구분코드 -->,
+												MAX(C.AUD_KND_CD) AS AUD_KND_CD<!-- 감사종류코드 -->,
+												MAX(C.SPVR_BRDV_CD) AS SPVR_BRDV_CD<!-- 주관국과코드 -->
+												
+										FROM	TBBADDED008L A, TBBADDED002M B, TBBADDED001M C
+										WHERE	1=1
+										AND		A.BZT_YR = B.BZT_YR
+										AND		A.BZT_SNO = B.BZT_SNO
+										AND 	B.BZT_DVSN_CD = '1'
+										AND 	C.AUD_YR = B.REL_AUD_YR
+										AND		C.AUD_NO = B.REL_AUD_NO
+										<isNotEmpty property="ORG_CD" prepend="AND">
+												A.ORG_CD = #ORG_CD#<!-- 대상기관 -->
+										</isNotEmpty>
+										<isNotEmpty property="AUD_YR" prepend="AND">
+												C.AUD_YR = #AUD_YR#<!-- 년도 -->
+										</isNotEmpty>
+										<isNotEmpty property="AUD_KND_CD" prepend="AND">
+												C.AUD_KND_CD = #AUD_KND_CD#<!-- 감사종류 -->
+										</isNotEmpty>
+										<isNotEmpty property="AUD_SBJ_NM" prepend="AND">
+												C.AUD_SBJ_NM LIKE '%' || #AUD_SBJ_NM# || '%'<!-- 감사사항명 -->
+										</isNotEmpty>
+										<isNotEmpty property="AUD_YR_NO" prepend="AND">
+												C.AUD_YR||C.AUD_NO = #AUD_YR_NO#<!-- 감사연번호 -->
+										</isNotEmpty>
+										GROUP BY C.AUD_YR, C.AUD_NO
+										) AS A,
+										TBBADEAR001M B,
+										TBBADEAR002D C
+										<isNotEmpty property="ETR_PEN_NM" prepend=",">
+										TBBADEAR004M D <!-- 감사자를 검색조건에 입력할때만 조인 -->
+										</isNotEmpty>
+								WHERE	A.AUD_YR = B.AUD_YR
+								AND 	A.AUD_NO = B.AUD_NO
+								AND 	B.AUD_YR = C.AUD_YR
+								AND 	B.AUD_NO = C.AUD_NO
+								AND 	B.DSP_RQ_SNO = C.DSP_RQ_SNO
+								<isNotEmpty property="ETR_PEN_NAM" prepend="AND">
+									 	B.AUD_YR = D.AUD_YR
+								</isNotEmpty>
+								<isNotEmpty property="ETR_PEN_NAM" prepend="AND">
+									 	B.AUD_NO = D.AUD_NO
+								</isNotEmpty>
+								<isNotEmpty property="ETR_PEN_NAM" prepend="AND">
+									 	B.DSP_RQ_SNO = D.DSP_RQ_SNO
+								</isNotEmpty>
+								<isNotEmpty property="ETR_PEN_NAM" prepend="AND">
+										D.ETR_PEN_NAM LIKE '%' || #ETR_PEN_NAM# || '%' <!-- 검색조건 감사자 입력시 추가 -->
+								</isNotEmpty>
+								<isNotEmpty property="TIT_TXT" prepend="AND">
+										B.TIT_TXT LIKE '%' || #TIT_TXT# || '%'
+								</isNotEmpty>
+								AND		C.DTM_STA_CD !='0'
+								ORDER BY A.AUD_YR DESC, A.AUD_NO
+								)
+						)
+				)
+		WHERE	TAB = #TAB#
+		GROUP BY TAB
+	</select>
+	
+	<select id="AEPGKM014P.TOTAL" parameterClass="java.util.Map" resultClass="java.lang.Integer">
+		SELECT	MAX(FLOOR((ROWNUM - 1) / #SRN# + 1)) AS TOTAL
+		FROM	(
+				SELECT	B.TIT_TXT AS TIT_TXT<!-- 처분요구명 -->
+				FROM	(
+						SELECT	C.AUD_YR AS AUD_YR<!-- 감사년도 -->,
+								C.AUD_NO AS AUD_NO<!-- 감사번호 -->,
+								MAX(C.AUD_SBJ_NM) AS AUD_SBJ_NM,
+								MIN(A.ORG_CD) AS ORG_CD,
+								MAX(A.TEAM_SNO) TEAM_SNO,
+								MIN(B.AUD_STR_DT) AUD_STR_DT,
+								MAX(B.AUD_END_DT) AUD_END_DT,
+								MAX(B.AUD_DCN) AS AUD_DCN,
+								MAX(C.ORG_DVSN_CD) AS ORG_DVSN_CD<!-- 기관구분코드 -->,
+								MAX(C.AUD_KND_CD) AS AUD_KND_CD<!-- 감사종류코드 -->,
+								MAX(C.SPVR_BRDV_CD) AS SPVR_BRDV_CD<!-- 주관국과코드 -->
+						FROM	TBBADDED008L A, TBBADDED002M B, TBBADDED001M C
+						WHERE	1=1
+						AND		A.BZT_YR = B.BZT_YR
+						AND		A.BZT_SNO = B.BZT_SNO
+						AND 	B.BZT_DVSN_CD = '1'
+						AND 	C.AUD_YR = B.REL_AUD_YR
+						AND		C.AUD_NO = B.REL_AUD_NO
+						<isNotEmpty property="ORG_CD" prepend="AND">
+								A.ORG_CD = #ORG_CD#<!-- 대상기관 -->
+						</isNotEmpty>
+						<isNotEmpty property="AUD_YR" prepend="AND">
+								C.AUD_YR = #AUD_YR#<!-- 년도 -->
+						</isNotEmpty>
+						<isNotEmpty property="AUD_KND_CD" prepend="AND">
+								C.AUD_KND_CD = #AUD_KND_CD#<!-- 감사종류 -->
+						</isNotEmpty>
+						<isNotEmpty property="AUD_SBJ_NM" prepend="AND">
+								C.AUD_SBJ_NM LIKE '%' || #AUD_SBJ_NM# || '%'<!-- 감사사항명 -->
+						</isNotEmpty>
+						<isNotEmpty property="AUD_YR_NO" prepend="AND">
+								C.AUD_YR||C.AUD_NO = #AUD_YR_NO#<!-- 감사연번호 -->
+						</isNotEmpty>
+						GROUP BY C.AUD_YR, C.AUD_NO
+						) AS A,
+						TBBADEAR001M B,
+						TBBADEAR002D C
+						<isNotEmpty property="ETR_PEN_NM" prepend=",">
+						TBBADEAR004M D <!-- 감사자를 검색조건에 입력할때만 조인 -->
+						</isNotEmpty>
+				WHERE	A.AUD_YR = B.AUD_YR
+				AND 	A.AUD_NO = B.AUD_NO
+				AND 	B.AUD_YR = C.AUD_YR
+				AND 	B.AUD_NO = C.AUD_NO
+				AND 	B.DSP_RQ_SNO = C.DSP_RQ_SNO
+				<isNotEmpty property="ETR_PEN_NAM" prepend="AND">
+					 	B.AUD_YR = D.AUD_YR
+				</isNotEmpty>
+				<isNotEmpty property="ETR_PEN_NAM" prepend="AND">
+					 	B.AUD_NO = D.AUD_NO
+				</isNotEmpty>
+				<isNotEmpty property="ETR_PEN_NAM" prepend="AND">
+					 	B.DSP_RQ_SNO = D.DSP_RQ_SNO
+				</isNotEmpty>
+				<isNotEmpty property="ETR_PEN_NAM" prepend="AND">
+						D.ETR_PEN_NAM LIKE '%' || #ETR_PEN_NAM# || '%' <!-- 검색조건 감사자 입력시 추가 -->
+				</isNotEmpty>
+				<isNotEmpty property="TIT_TXT" prepend="AND">
+						B.TIT_TXT LIKE '%' || #TIT_TXT# || '%'
+				</isNotEmpty>
+				AND		C.DTM_STA_CD !='0'
+				ORDER BY A.AUD_YR DESC, A.AUD_NO
+				)
+	</select>
+	
+	<select id="AEPGKM014P.SELECT.AUD_YR" resultClass="java.util.HashMap">
+		SELECT	DISTINCT AUD_YR
+		FROM	TBBADDED001M
+	</select>
+	
+	<select id="AEPGKM014P.SELECT.AUD_KND_CD" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	AUD_KND_CD, AUD_KND_NM, COUNT(AUD_KND_CD) AS COUNT
+		FROM	(
+				SELECT	A.AUD_KND_CD AS AUD_KND_CD<!-- 감사종류코드 -->,
+						F_CODE_NM('1000007',A.AUD_KND_CD) AS AUD_KND_NM<!-- 감사종류명 -->
+				FROM	(
+						SELECT	C.AUD_YR AS AUD_YR,
+								C.AUD_NO AS AUD_NO,
+								MAX(C.AUD_SBJ_NM) AS AUD_SBJ_NM,
+								MIN(A.ORG_CD) AS ORG_CD,
+								MAX(A.TEAM_SNO) TEAM_SNO,
+								MIN(B.AUD_STR_DT) AUD_STR_DT,
+								MAX(B.AUD_END_DT) AUD_END_DT,
+								MAX(B.AUD_DCN) AS AUD_DCN,
+								MAX(C.ORG_DVSN_CD) AS ORG_DVSN_CD<!-- 기관구분코드 -->,
+								MAX(C.AUD_KND_CD) AS AUD_KND_CD<!-- 감사종류코드 -->,
+								MAX(C.SPVR_BRDV_CD) AS SPVR_BRDV_CD<!-- 주관국과코드 -->
+						FROM	TBBADDED008L A, TBBADDED002M B, TBBADDED001M C
+						WHERE	1=1
+						AND		A.BZT_YR = B.BZT_YR
+						AND		A.BZT_SNO = B.BZT_SNO
+						AND 	B.BZT_DVSN_CD = '1'
+						AND 	C.AUD_YR = B.REL_AUD_YR
+						AND		C.AUD_NO = B.REL_AUD_NO
+						<isNotEmpty property="AUD_YR" prepend="AND">
+								C.AUD_YR = #AUD_YR# <!-- 감사년도 -->
+						</isNotEmpty>
+						GROUP BY C.AUD_YR, C.AUD_NO
+						) AS A,
+						TBBADEAR001M B,
+						TBBADEAR002D C
+				WHERE	A.AUD_YR = B.AUD_YR
+				AND 	A.AUD_NO = B.AUD_NO
+				AND 	B.AUD_YR = C.AUD_YR
+				AND 	B.AUD_NO = C.AUD_NO
+				AND 	B.DSP_RQ_SNO = C.DSP_RQ_SNO
+				AND		C.DTM_STA_CD !='0'
+				ORDER BY A.AUD_YR DESC, A.AUD_NO
+				)
+			GROUP BY AUD_KND_CD, AUD_KND_NM
+	</select>
+</sqlMap>
+

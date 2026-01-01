@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.csp.dcp.dao.CSPDCP143Mapper">
+	
+	<select id="CSPDCP143QMainSelect" parameterType="paramMap"  resultType="egovMap">
+		<![CDATA[
+			WITH CODE_DATA AS (
+			                    SELECT T1.CD
+			                          ,T1.CD_NM
+			                      FROM TBDCMACM013C T1
+			                     WHERE T1.CMM_CD_DVSN_CD = '1000946'
+			                       AND T1.CD <> '000000000'
+			                     UNION SELECT 'P' AS CD, '일반민원' AS CD_NM  FROM DUAL
+			                   )
+			    ,DATA AS (
+			              SELECT NVL(SUBSTR(T1.TG_ORG_CAT_CD, '0', '1'),'P') AS TG_ORG_CAT_CD
+			                    ,T1.CVPT_HNDL_STA_CD
+			                    ,T1.ACP_DH
+			                    ,T3.CVPT_HNDL_DVSN_CD
+			                    ,CASE WHEN T1.CVPT_HNDL_STA_CD = '80' THEN T1.FNL_MDF_DH 
+			                          WHEN T1.CVPT_HNDL_STA_CD = '70' THEN NVL(T1.CVPT_WDW_DH , T2.FNL_HNDL_DH )
+			                          ELSE T2.FNL_HNDL_DH
+			                     END AS FNL_HNDL_DH
+			                FROM TBCSPDCP101M T1
+			                    ,TBCSPDCP201M T2
+			                    ,( SELECT S1.REQ_DVSN_CD, S1.ACP_YR, S1.CVPT_ACP_NO, S1.CVPT_HNDL_DVSN_CD
+			                         FROM TBCSPDCP205L S1
+			                        WHERE (S1.REQ_DVSN_CD, S1.ACP_YR, S1.CVPT_ACP_NO, S1.SRNO) IN ( SELECT S2.REQ_DVSN_CD, S2.ACP_YR, S2.CVPT_ACP_NO, MIN(S2.SRNO)
+			                                                                                          FROM TBCSPDCP205L S2
+			                                                                                         GROUP BY S2.REQ_DVSN_CD, S2.ACP_YR, S2.CVPT_ACP_NO
+			                                                                                      )
+			                     ) AS T3
+			               WHERE T1.REQ_DVSN_CD = T2.REQ_DVSN_CD
+			                 AND T1.ACP_YR = T2.ACP_YR
+			                 AND T1.CVPT_ACP_NO = T2.CVPT_ACP_NO
+			                 AND T1.REQ_DVSN_CD = T3.REQ_DVSN_CD(+)
+			                 AND T1.ACP_YR = T3.ACP_YR(+)
+			                 AND T1.CVPT_ACP_NO = T3.CVPT_ACP_nO(+)
+			                 AND T1.RM_CVPT_ACP_NO IS NOT NULL
+			                 AND T2.CVPT_KND_DVSN_CD = '3'
+			                 AND TO_CHAR(T1.ACP_DH,'YYYYMMDD') BETWEEN #{acpDhs} AND #{acpDhe}
+		]]>
+		<if test='searchKey == "Y"'>
+		<![CDATA[
+			                 AND (T1.REQ_DVSN_CD, T1.ACP_YR, T1.CVPT_ACP_NO) NOT IN ( SELECT S1.SUC_REQ_DVSN_CD, S1.SUC_ACP_YR, S1.SUC_CVPT_ACP_NO
+			                                                                            FROM TBCSPDCP105L S1
+			                                                                        )
+		]]>
+		</if>
+		
+		<![CDATA[
+			             )
+			             SELECT T2.CD
+			                   ,T2.CD_NM
+			                   ,NVL(T1.ACP_CNT,0) AS ACP_CNT
+			                   ,NVL(T1.SUM_HNDL_CNT,0) AS SUM_HNDL_CNT
+			                   ,NVL(T1.HNDL_CNT1,0) AS HNDL_CNT1
+			                   ,NVL(T1.HNDL_CNT2,0) AS HNDL_CNT2
+			                   ,NVL(T1.HNDL_CNT3,0) AS HNDL_CNT3
+			                   ,NVL(T1.HNDL_CNT4,0) AS HNDL_CNT4
+			                   ,NVL(T1.HNDL_CNT5,0) AS HNDL_CNT5
+			                   ,NVL(T1.HNDL_CNT6,0) AS HNDL_CNT6
+			                   ,NVL(T1.WDW_CNT,0) AS WDW_CNT
+			                   ,NVL(T1.RE_CNT,0) AS RE_CNT
+			                   ,NVL(T1.ING_CNT,0) AS ING_CNT
+			               FROM (
+			                     SELECT T1.TG_ORG_CAT_CD
+			                           ,COUNT(*) AS ACP_CNT
+			                           ,SUM(CASE WHEN T1.CVPT_HNDL_STA_CD = '60' AND T1.CVPT_HNDL_DVSN_CD IN ('10','20','30','40','50','90','100') THEN 1 ELSE 0 END) AS SUM_HNDL_CNT /*단순종결*/
+			                           ,SUM(CASE WHEN T1.CVPT_HNDL_STA_CD = '60' AND T1.CVPT_HNDL_DVSN_CD = '10' THEN 1 ELSE 0 END) AS HNDL_CNT1 /*단순종결*/
+			                           ,SUM(CASE WHEN T1.CVPT_HNDL_STA_CD = '60' AND T1.CVPT_HNDL_DVSN_CD = '20' THEN 1 ELSE 0 END) AS HNDL_CNT2 /*조사종결*/
+			                           ,SUM(CASE WHEN T1.CVPT_HNDL_STA_CD = '60' AND T1.CVPT_HNDL_DVSN_CD IN ('30','40','90') THEN 1 ELSE 0 END) AS HNDL_CNT3 /*해소시정*/
+			                           ,SUM(CASE WHEN T1.CVPT_HNDL_STA_CD = '60' AND T1.CVPT_HNDL_DVSN_CD = '50' THEN 1 ELSE 0 END) AS HNDL_CNT4 /*감사실시*/
+			                           ,SUM(CASE WHEN T1.CVPT_HNDL_STA_CD = '60' AND T1.CVPT_HNDL_DVSN_CD = '100' THEN 1 ELSE 0 END) AS HNDL_CNT5 /*배부*/
+			                           ,SUM(CASE WHEN T1.CVPT_HNDL_STA_CD = '60' AND T1.CVPT_HNDL_DVSN_CD = '80' THEN 1 ELSE 0 END) AS HNDL_CNT6 /*이첩*/
+			                           ,SUM(CASE WHEN T1.CVPT_HNDL_STA_CD = '70' THEN 1 ELSE 0 END) AS WDW_CNT /*취하*/
+			                           ,SUM(CASE WHEN T1.CVPT_HNDL_STA_CD = '80' THEN 1 ELSE 0 END) AS RE_CNT /*재분류(신문고반송)*/
+			                           ,SUM(CASE WHEN T1.CVPT_HNDL_STA_CD NOT IN ('60','70','80') THEN 1 ELSE 0 END) AS ING_CNT /*재분류(신문고반송)*/
+			                       FROM DATA T1
+			                     GROUP BY (T1.TG_ORG_CAT_CD)
+			                    ) AS T1
+			                    ,CODE_DATA T2
+			              WHERE T2.CD = T1.TG_ORG_CAT_CD(+)
+			              UNION ALL
+			              SELECT '99' AS CD, '합계' AS CD_NM
+			                    ,COUNT(*) AS ACP_CNT
+			                    ,NVL(SUM(CASE WHEN T1.CVPT_HNDL_STA_CD = '60' AND T1.CVPT_HNDL_DVSN_CD IN ('10','20','30','40','50','90','100') THEN 1 ELSE 0 END),0) AS SUM_HNDL_CNT /*단순종결*/
+			                    ,NVL(SUM(CASE WHEN T1.CVPT_HNDL_STA_CD = '60' AND T1.CVPT_HNDL_DVSN_CD = '10' THEN 1 ELSE 0 END),0) AS HNDL_CNT1 /*단순종결*/
+			                    ,NVL(SUM(CASE WHEN T1.CVPT_HNDL_STA_CD = '60' AND T1.CVPT_HNDL_DVSN_CD = '20' THEN 1 ELSE 0 END),0) AS HNDL_CNT2 /*조사종결*/
+			                    ,NVL(SUM(CASE WHEN T1.CVPT_HNDL_STA_CD = '60' AND T1.CVPT_HNDL_DVSN_CD IN ('30','40','90') THEN 1 ELSE 0 END),0) AS HNDL_CNT3 /*해소시정*/
+			                    ,NVL(SUM(CASE WHEN T1.CVPT_HNDL_STA_CD = '60' AND T1.CVPT_HNDL_DVSN_CD = '50' THEN 1 ELSE 0 END),0) AS HNDL_CNT4 /*감사실시*/
+			                    ,NVL(SUM(CASE WHEN T1.CVPT_HNDL_STA_CD = '60' AND T1.CVPT_HNDL_DVSN_CD = '100' THEN 1 ELSE 0 END),0) AS HNDL_CNT5 /*배부*/
+			                    ,NVL(SUM(CASE WHEN T1.CVPT_HNDL_STA_CD = '60' AND T1.CVPT_HNDL_DVSN_CD = '80' THEN 1 ELSE 0 END),0) AS HNDL_CNT6 /*이첩*/
+			                    ,NVL(SUM(CASE WHEN T1.CVPT_HNDL_STA_CD = '70' THEN 1 ELSE 0 END),0) AS WDW_CNT /*취하*/
+			                    ,NVL(SUM(CASE WHEN T1.CVPT_HNDL_STA_CD = '80' THEN 1 ELSE 0 END),0) AS RE_CNT /*재분류(신문고반송)*/
+			                    ,NVL(SUM(CASE WHEN T1.CVPT_HNDL_STA_CD NOT IN ('60','70','80') THEN 1 ELSE 0 END),0) AS ING_CNT /*재분류(신문고반송)*/
+			                FROM DATA T1
+			              ORDER BY CD
+		]]>
+	</select>
+</mapper>

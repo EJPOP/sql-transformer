@@ -1,0 +1,374 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/gda/008">
+	
+	<!--관련법령통보 조회-->
+	<select id="BADGDA008EMainselect" parameterClass="paramMap" resultClass="resultMap">
+	      
+	      SELECT 
+                 F_ORG_INFO(ORG_CD,'1') || '-' ||
+                 YR                     || '-' ||
+                 SRNO                                            AS NTF_NO       /* 통보번호 */	             
+                ,ORG_CD                                                          /* 기관코드 */
+                ,F_ORG_INFO(ORG_CD,'1')                          AS ORG_NM       /* 기관명 */
+                ,YR                                                              /* 년도 */
+                ,SRNO                                                            /* 일련번호 */
+                ,DPT_CD                                                          /* 부서코드 */
+                ,F_DPT_INFO(DPT_CD, '1') AS DPT_NM                               /* 부서명 */
+                ,ACP_STA_CD                                                      /* 접수상태코드 */ 
+                ,CASE WHEN ACP_STA_CD IN ('58','59')      THEN '미접수'
+                      WHEN ACP_STA_CD IN ('71','72','76') THEN '처리중' 
+                      WHEN ACP_STA_CD = '75'              THEN '결재중' 
+                      WHEN ACP_STA_CD = '77'              THEN '완결'
+                      ELSE ACP_STA_CD 
+                  END                                              AS ACP_STA_NM  /* 접수상태코드명(처리상태) */
+                ,ACP_DT                                                           /* 접수일 */
+                ,RCEP_ID                                                          /* 접수자ID */
+                ,HNDL_DT                                                          /* 처리일 */
+                ,HNDL_PEN_ID                                                      /* 처리자ID */
+                ,CPLT_DT                                                          /* 완결일 */
+                ,DTM_YN                                                           /* 확정여부 */
+                ,DTM_DH                                                           /* 확정일시 */
+                ,HNDL_OPIN_CD                                                     /* 처리의견코드 */
+                ,CASE WHEN HNDL_OPIN_CD IS NOT NULL 
+                           THEN F_CODE_NM('1000200', HNDL_OPIN_CD)
+                      ELSE '미처리'
+                  END                                          AS  HNDL_OPIN_NM   /* 처리의견명 */                
+                ,APV_DOC_NO                                                       /* 결재문서번호 */
+                ,NTF_TIT_NM                                                       /* 통보제목명 */
+                ,NTF_TXT                                                          /* 통보내용 */
+                ,CONT_DT                                                          /* 계약일 */
+                ,CONT_WAY_CD                                                      /* 계약방법코드 */
+                ,F_CODE_NM('1000204', CONT_WAY_CD)            AS CONT_WAY_NM      /* 계약방법명 */
+                ,CONT_DVSN_CD                                                     /* 계약구분코드 */
+                ,F_CODE_NM('1000205', CONT_DVSN_CD)           AS CONT_DVSN_NM     /* 계약구분명 */
+                ,CONT_AM                                                          /* 계약금액 */
+                /* ,APS_EVL_AMT                                                      감정평가액 */
+                /* ,DSP_ACQ_DVSN_CD                                                  처분취득구분코드 */
+                /* ,F_CODE_NM('1000210', DSP_ACQ_DVSN_CD)    AS DSP_ACQ_DVSN_NM      처분취득구분명 */
+                ,LAW_NTF_DVSN_CD                                                  /* 법령통보구분코드 */
+                ,F_CODE_NM('1000652', LAW_NTF_DVSN_CD)       AS LAW_NTF_DVSN_NM   /* 법령통보구분명 */
+                ,REL_LAW_NTF_CD                                                   /* 관련법령통보코드 */
+                ,CASE WHEN REL_LAW_NTF_CD IS NOT NULL THEN F_CODE_NM('1000653', REL_LAW_NTF_CD)    
+                      ELSE CONT_BAS_TXT 
+                  END                                        AS REL_LAW_NTF_NM    /* 관련법령통보명 */                
+                ,BAI_RPT_MNG_NO                                                   /* 감사원보고관리번호 */
+                ,BAI_RPT_DT                                                       /* 감사원보고일 */
+                ,DEL_YN                                                           /* 삭제여부 */
+                ,REGI_DT                                                          /* 등록일 */
+                ,REGN_ID                                                          /* 등록자ID */
+                ,HNDL_STT_TXT                                                     /* 처리상황내용 */
+                ,CMT_SBCN_TXT                                                     /* 위원회부의내용 */
+                ,ENF_DT                                                           /* 시행일 */
+                ,AUD_MTRL_RMK                                                     /* 감사자료비고 */
+                ,AUD_MTRL_YR                                                      /* 감사자료년도 */
+                ,AUD_MTRL_DPT_CD                                                  /* 감사자료부서코드 */
+                ,AUD_MTRL_SRNO                                                    /* 감사자료일련번호 */
+                ,CON_RET_KY_NM                                                    /* 연계반려키명 */
+                ,CON_YR                                                           /* 연계년도 */
+                ,CON_SRNO                                                         /* 연계일련번호 */
+                ,DOC_ID                                                           /* 문서ID */
+                ,DOC_TYP_CD                                                       /* 문서유형코드 */	
+            FROM TBBADGDA004M  /* 관련법령 통지통보 */
+           WHERE 1=1 
+             AND ACP_STA_CD  != '51'           
+             
+             AND DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #strDptAuth#, '', #strDptCd#)))
+        
+		<isNotEmpty property="strDptCd2">
+             AND DPT_CD = #strDptCd2#
+        </isNotEmpty> 
+           
+		<!-- 접수일자 -->
+		<isNotEmpty property="strAcpDtStr">	
+			AND ACP_DT  BETWEEN #strAcpDtStr#  AND #strAcpDtEnd#    /* 접수일자 */
+		</isNotEmpty>
+		               
+        <!-- 처리구분코드 --> 
+        <isNotEqual property="strHndlStaDvsnCd" compareValue="0">
+            <!-- 미결-->
+            <isEqual property="strHndlStaDvsnCd" compareValue="1">
+                AND ACP_STA_CD IN ('58', '59', '71', '72', '75', '76')  
+            </isEqual>
+            <!-- 처리중 -->
+            <isEqual property="strHndlStaDvsnCd" compareValue="3">
+                AND ACP_STA_CD IN ('71', '72', '76') 
+            </isEqual>
+            <!-- 결재중 -->
+            <isEqual property="strHndlStaDvsnCd" compareValue="4">
+                AND ACP_STA_CD = '75'   
+            </isEqual>
+            <!-- 완결 -->
+            <isEqual property="strHndlStaDvsnCd" compareValue="5">
+                AND ACP_STA_CD = '77' 
+            </isEqual>
+        </isNotEqual>
+                            
+        <!-- 통보구분 -->
+		<isNotEqual property="strLawNtfDvsnCd" compareValue="0">
+        	AND LAW_NTF_DVSN_CD = #strLawNtfDvsnCd#
+		</isNotEqual>
+		                
+        <!-- 관계기관 -->
+        <isNotEmpty property="strOrgCd">	
+            AND ORG_CD = #strOrgCd#
+        </isNotEmpty>
+        
+        <!-- 처리결과 -->
+        <isNotNull property="strHndlOpinCdCnt">				
+			<isEqual property="strHndlOpinCdCnt" compareValue="1">
+            	AND HNDL_OPIN_CD = #strHndlOpinCd1#
+            </isEqual>
+			<isEqual property="strHndlOpinCdCnt" compareValue="2">
+        		AND HNDL_OPIN_CD IN (#strHndlOpinCd1#, #strHndlOpinCd2#)
+			</isEqual>
+			<isEqual property="strHndlOpinCdCnt" compareValue="3">
+				AND HNDL_OPIN_CD IN (#strHndlOpinCd1#, #strHndlOpinCd2#, #strHndlOpinCd3#)
+			</isEqual>
+			<isEqual property="strHndlOpinCdCnt" compareValue="4">
+				AND HNDL_OPIN_CD IN (#strHndlOpinCd1#, #strHndlOpinCd2#, #strHndlOpinCd3#, #strHndlOpinCd4#)
+			</isEqual>  		
+			<isEqual property="strHndlOpinCdCnt" compareValue="5">
+				AND HNDL_OPIN_CD IN (#strHndlOpinCd1#, #strHndlOpinCd2#, #strHndlOpinCd3#, #strHndlOpinCd4#, #strHndlOpinCd5#)
+			</isEqual>  				
+		</isNotNull>
+        
+        <!-- 검색어 -->
+        <isNotEmpty property="strSchTxt">
+	       	<!-- 전체조회 -->
+			<isEqual property="strSchDvsn" compareValue="0">
+				AND (NTF_TIT_NM LIKE '%' || #strSchTxt# || '%'  OR NTF_TXT LIKE '%' || #strSchTxt# || '%')
+	        </isEqual>
+	        
+	        <!-- 제목조회 -->
+	        <isEqual property="strSchDvsn" compareValue="1">
+	        	AND NTF_TIT_NM  LIKE '%' || #strSchTxt# || '%'
+	        </isEqual>
+	        
+	        <!-- 내용조회 -->
+	        <isEqual property="strSchDvsn" compareValue="2">
+	        	AND NTF_TXT LIKE '%' || #strSchTxt# || '%'
+	        </isEqual>        
+        </isNotEmpty>
+        
+        ORDER BY ACP_DT DESC 
+                ,ORG_CD
+                ,YR DESC
+                ,SRNO DESC
+	</select>
+	
+	<!-- 관련법령통보 접수 -->
+	<update id="BADGDA008EAcpupdate" parameterClass="paramMap">
+           UPDATE TBBADGDA004M                                   /* 관련법령통지통보 */ 
+              SET ACP_STA_CD      = '71'                         /* 접수상태코드 (71:대상기관발송문서접수) */
+                 ,ACP_DT          = TO_CHAR(SYSDATE,'YYYYMMDD')  /* 접수일자 */
+                 ,RCEP_ID         = #FNL_USR_ID#                 /* 접수자ID */
+                 ,FNL_USR_ID      = #FNL_USR_ID#                 /* 최종사용자ID */   
+                 ,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#            /* 최종거래부서코드 */
+                 ,FNL_MNU_ID      = #FNL_MNU_ID#                 /* 최종메뉴ID */      
+                 ,FNL_MDF_DH      = SYSDATE                      /* 최종수정일시 */                 
+            WHERE ORG_CD          = #ORG_CD#                     /* 기관코드 */ 
+              AND YR              = #YR#                         /* 년도 */
+              AND SRNO            = #SRNO#                       /* 일련번호 */  
+              AND LAW_NTF_DVSN_CD = #LAW_NTF_DVSN_CD#            /* 법령통보구분코드 */
+	</update>
+	
+	<!-- 관련법령통보 delete -->
+	<update id="BADGDA008EMaindelete" parameterClass="paramMap">
+           DELETE 
+             FROM TBBADGDA004M                                   /* 관련법령통지통보 */ 
+            WHERE ORG_CD          = #ORG_CD#                     /* 기관코드 */ 
+              AND YR              = #YR#                         /* 년도 */
+              AND SRNO            = #SRNO#                       /* 일련번호 */  
+              AND LAW_NTF_DVSN_CD = #LAW_NTF_DVSN_CD#            /* 법령통보구분코드 */              
+	</update>
+
+
+    <!-- 통보사항기본삭제이력 insert-->
+	<insert id="BADGDA008EDelHstinsert" parameterClass="paramMap">
+         INSERT INTO TBBADGDA005H   /* 통보사항기본삭제이력 */
+         ( 
+               CON_NO                  /* 연계번호 */        
+             , NTF_DVSN_CD             /* 통보구분코드 */
+             , ORG_CD                  /* 기관코드 */     
+             , YR                      /* 년도 */
+             , NNB                     /* 통보번호 */
+             , USE_YN                  /* 사용여부 */     
+             , CON_RET_KY_NM           /* 연계반려키명 - 2016.06.24 yyh */                 
+             , RET_RSN_TXT             /* 반려사유내용 - 2016.12.13 yyh */             
+             , FRT_USR_ID              /* 최초사용자ID */    
+             , FNL_USR_ID              /* 최종사용자ID */    
+             , FNL_DEAL_DPT_CD         /* 최종거래부서코드 */
+             , FNL_MNU_ID              /* 최종메뉴ID */      
+             , FRT_REGI_DH             /* 최초등록일시 */    
+             , FNL_MDF_DH              /* 최종수정일시 */    
+         ) VALUES (
+               (SELECT NVL(MAX(CON_NO),0) + 1
+                  FROM TBBADGDA005H)   /* 연계번호 */
+             , #NTF_DVSN_CD#           /* 통보구분코드 */        
+             , #ORG_CD#                /* 기관코드 */    
+             , #YR#                    /* 년도 */        
+             , #NNB#                   /* 통보번호 */
+             , #USE_YN#                /* 사용여부 */
+             , #CON_RET_KY_NM#         /* 연계반려키명 */
+             , #RET_RSN_TXT#           /* 반려사유내용 */             
+             , #FRT_USR_ID#            /* 최초사용자ID */    
+             , #FNL_USR_ID#            /* 최종사용자ID */    
+             , #FNL_DEAL_DPT_CD#       /* 최종거래부서코드 */
+             , #FNL_MNU_ID#            /* 최종메뉴ID */      
+             , SYSDATE                 /* 최초등록일시 */    
+             , SYSDATE                 /* 최종수정일시 */    
+         )
+	</insert>
+	
+	<!-- 목록출력 리스트 조회-->
+	<select id="BADGDA008EReportListselect" parameterClass="paramMap" resultClass="resultMap">
+          SELECT   
+                <!-- 조회조건 -->
+              	 DECODE(#strHndlStaDvsnCd#, 0, '전체', F_CODE_NM ('1000587', #strHndlStaDvsnCd#)) 
+              	                                                              AS CND_HNDL_DVSN_NM  /* 처리구분 */
+		            <isNotNull property="strHndlOpinCdCnt">				
+						<isEqual property="strHndlOpinCdCnt" compareValue="1">
+		                	,F_CODE_NM('1000200', #strHndlOpinCd1#)           AS CND_HNDL_OPIN_NM  /* 처리결과 */ 
+		                </isEqual>
+		                <isEqual property="strHndlOpinCdCnt" compareValue="2">
+		                	,F_CODE_NM('1000200', #strHndlOpinCd1#) || ', ' || 
+		                	 F_CODE_NM('1000200', #strHndlOpinCd2#)           AS CND_HNDL_OPIN_NM  /* 처리결과 */ 
+		                </isEqual>
+		                <isEqual property="strHndlOpinCdCnt" compareValue="3">
+		                	,F_CODE_NM('1000200', #strHndlOpinCd1#) || ', ' || 
+		                	 F_CODE_NM('1000200', #strHndlOpinCd2#) || ', ' || 
+		                	 F_CODE_NM('1000200', #strHndlOpinCd3#)           AS CND_HNDL_OPIN_NM  /* 처리결과 */ 
+		                </isEqual>                
+		                <isEqual property="strHndlOpinCdCnt" compareValue="4">
+		                	,F_CODE_NM('1000200', #strHndlOpinCd1#) || ', ' || 
+		                	 F_CODE_NM('1000200', #strHndlOpinCd2#) || ', ' || 
+		                	 F_CODE_NM('1000200', #strHndlOpinCd3#) || ', ' || 
+		                	 F_CODE_NM('1000200', #strHndlOpinCd4#)           AS CND_HNDL_OPIN_NM  /* 처리결과 */ 
+		                </isEqual>
+		                <isEqual property="strHndlOpinCdCnt" compareValue="5">
+		                	,F_CODE_NM('1000200', #strHndlOpinCd1#) || ', ' || 
+		                	 F_CODE_NM('1000200', #strHndlOpinCd2#) || ', ' || 
+		                	 F_CODE_NM('1000200', #strHndlOpinCd3#) || ', ' ||
+		                	 F_CODE_NM('1000200', #strHndlOpinCd4#) || ', ' || 
+		                	 F_CODE_NM('1000200', #strHndlOpinCd5#)           AS CND_HNDL_OPIN_NM  /* 처리결과 */ 
+		                </isEqual>                   		                                   
+		            </isNotNull>
+		            <isNull property="strHndlOpinCdCnt">
+		                ,''                                                   AS CND_HNDL_OPIN_NM  /* 처리결과 */ 	
+		            </isNull> 
+		        ,F_ORG_INFO(#strOrgCd#,'1')                                   AS CND_ORG_NM        /* 관계기관 */               	      
+              	,#strSchTxt#                                                 AS CND_SCH_TXT       /* 검색어 */   
+          
+          		
+          		<!-- 목록 -->
+                ,F_ORG_INFO(ORG_CD,'1') || '-' ||
+                 YR                     || '-' ||
+                 SRNO                                                         AS NTF_NO            /* 통보번호 */                 
+                ,F_CODE_NM('1000652', LAW_NTF_DVSN_CD)                        AS LAW_NTF_DVSN_NM   /* 법령통보구분명 */
+                ,CASE WHEN REL_LAW_NTF_CD IS NOT NULL THEN F_CODE_NM('1000653', REL_LAW_NTF_CD)    
+                      ELSE CONT_BAS_TXT 
+                  END                                                         AS REL_LAW_NTF_NM    /* 관련법령통보명 */   
+                ,NTF_TIT_NM                                                                        /* 통보제목명 */  
+                ,CASE WHEN ACP_STA_CD IN ('58','59')      THEN '미접수'
+                      WHEN ACP_STA_CD IN ('71','72','76') THEN '처리중' 
+                      WHEN ACP_STA_CD = '75'              THEN '결재중' 
+                      WHEN ACP_STA_CD = '77'              THEN '완결'
+                      ELSE ACP_STA_CD 
+                  END                                                         AS ACP_STA_NM        /* 접수상태코드명(처리상태) */        
+                ,CASE WHEN HNDL_OPIN_CD IS NOT NULL 
+                           THEN F_CODE_NM('1000200', HNDL_OPIN_CD)
+                      ELSE '미처리'
+                  END                                                         AS HNDL_OPIN_NM   /* 처리의견명 */   
+                ,TO_CHAR(TO_DATE(CPLT_DT),'YYYY.MM.DD')                       AS CPLT_DT        /* 완결일 */    
+                ,TO_CHAR(TO_DATE(ACP_DT),'YYYY.MM.DD')                        AS ACP_DT         /* 접수일 */                                                                      
+            FROM TBBADGDA004M    /* 관련법령통지통보 */
+           WHERE 1=1 
+             AND ACP_STA_CD  != '51'  
+             
+             AND DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #strDptAuth#, '', #strDptCd#)))
+                
+		<isNotEmpty property="strDptCd2">
+             AND DPT_CD = #strDptCd2#
+        </isNotEmpty> 
+           
+		<!-- 접수일자 -->
+		<isNotEmpty property="strAcpDtStr">	
+			AND ACP_DT  BETWEEN #strAcpDtStr#  AND #strAcpDtEnd#    /* 접수일자 */
+		</isNotEmpty>
+		               
+        <!-- 처리구분코드 --> 
+        <isNotEqual property="strHndlStaDvsnCd" compareValue="0">
+            <!-- 미결-->
+            <isEqual property="strHndlStaDvsnCd" compareValue="1">
+                AND ACP_STA_CD IN ('58', '59', '71', '72', '75', '76')  
+            </isEqual>
+            <!-- 처리중 -->
+            <isEqual property="strHndlStaDvsnCd" compareValue="3">
+                AND ACP_STA_CD IN ('71', '72', '76') 
+            </isEqual>
+            <!-- 결재중 -->
+            <isEqual property="strHndlStaDvsnCd" compareValue="4">
+                AND ACP_STA_CD = '75'   
+            </isEqual>
+            <!-- 완결 -->
+            <isEqual property="strHndlStaDvsnCd" compareValue="5">
+                AND ACP_STA_CD = '77' 
+            </isEqual>
+        </isNotEqual>
+                            
+        <!-- 통보구분 -->
+		<isNotEqual property="strLawNtfDvsnCd" compareValue="0">
+        	AND LAW_NTF_DVSN_CD = #strLawNtfDvsnCd#
+		</isNotEqual>
+		                
+        <!-- 관계기관 -->
+        <isNotEmpty property="strOrgCd">	
+            AND ORG_CD = #strOrgCd#
+        </isNotEmpty>
+        
+        <!-- 처리결과 -->
+        <isNotNull property="strHndlOpinCdCnt">				
+			<isEqual property="strHndlOpinCdCnt" compareValue="1">
+            	AND HNDL_OPIN_CD = #strHndlOpinCd1#
+            </isEqual>
+			<isEqual property="strHndlOpinCdCnt" compareValue="2">
+        		AND HNDL_OPIN_CD IN (#strHndlOpinCd1#, #strHndlOpinCd2#)
+			</isEqual>
+			<isEqual property="strHndlOpinCdCnt" compareValue="3">
+				AND HNDL_OPIN_CD IN (#strHndlOpinCd1#, #strHndlOpinCd2#, #strHndlOpinCd3#)
+			</isEqual>
+			<isEqual property="strHndlOpinCdCnt" compareValue="4">
+				AND HNDL_OPIN_CD IN (#strHndlOpinCd1#, #strHndlOpinCd2#, #strHndlOpinCd3#, #strHndlOpinCd4#)
+			</isEqual>
+			<isEqual property="strHndlOpinCdCnt" compareValue="5">
+				AND HNDL_OPIN_CD IN (#strHndlOpinCd1#, #strHndlOpinCd2#, #strHndlOpinCd3#, #strHndlOpinCd4#, #strHndlOpinCd5#)
+			</isEqual>  						  			
+		</isNotNull>
+        
+        <!-- 검색어 -->
+        <isNotEmpty property="strSchTxt">
+	       	<!-- 전체조회 -->
+			<isEqual property="strSchDvsn" compareValue="0">
+				AND (NTF_TIT_NM LIKE '%' || #strSchTxt# || '%'  OR NTF_TXT LIKE '%' || #strSchTxt# || '%')
+	        </isEqual>
+	        
+	        <!-- 제목조회 -->
+	        <isEqual property="strSchDvsn" compareValue="1">
+	        	AND NTF_TIT_NM  LIKE '%' || #strSchTxt# || '%'
+	        </isEqual>
+	        
+	        <!-- 내용조회 -->
+	        <isEqual property="strSchDvsn" compareValue="2">
+	        	AND NTF_TXT LIKE '%' || #strSchTxt# || '%'
+	        </isEqual>        
+        </isNotEmpty>
+        
+        ORDER BY ACP_DT DESC 
+                ,ORG_CD
+                ,YR DESC
+                ,SRNO DESC
+	</select>
+	
+</sqlMap> 

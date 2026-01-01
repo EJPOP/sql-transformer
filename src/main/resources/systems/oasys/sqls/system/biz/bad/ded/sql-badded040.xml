@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/ded/040">
+	
+	<!--감사빈도 조회(1건일때)-->
+	<select id="BADDED040QMainSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[    
+        		SELECT ORG_CD
+        		     , ORG_NM
+        		     , AUD_STR_DT
+        		     , AUD_END_DT
+        		     , AUD_ST_END_DT
+        		     , AUD_ITEM_CNT
+        		     , SUM_AUD_DCN
+        		     , MAX_AUD_DCN
+        		     , AUD_ITEM_CNT||'회 '||MAX_AUD_DCN||'일 '||SUM_AUD_DCN|| '인' AS AUD_DCN_TXT
+        		     , ORD
+        		  FROM (   
+					    SELECT D3.ORG_CD										AS ORG_CD						/*기관코드*/
+					         , F_ORG_INFO(D3.ORG_CD , '1')||'('||D3.ORG_CD||')' AS ORG_NM						/*기관명*/
+					         , MAX(D3.AUD_STR_DT)     							AS AUD_STR_DT					/*최종 감사시작일*/
+					         , MAX(D3.AUD_END_DT)     							AS AUD_END_DT					/*최종 감사종료일*/
+					         , TO_CHAR(TO_DATE(MAX(D3.AUD_STR_DT)),'YYYY-MM-DD') ||'~'|| TO_CHAR(TO_DATE(MAX(D3.AUD_END_DT)),'YYYY-MM-DD')  	AS AUD_ST_END_DT				/*최종 감사일*/
+					         , SUM(CASE WHEN D1.AUD_BZT_KND_CD IN('02') THEN 1 ELSE 0 END) AS AUD_ITEM_CNT	/*감사횟수*/
+					         , SUM(D3.SUM_AUD_DCN)    							AS SUM_AUD_DCN					/*연인원*/
+					         /* ,  F_GET_REL_AUDWRK_CNT(strAudStDt , strAudEndDt, D3.ORG_CD) 	    AS MAX_AUD_DCN */					/*일수 2015.11.24 주석처리 yyh*/
+					         , SUM(D3.MAX_AUD_DCN)                                                  AS MAX_AUD_DCN   					/*일수*/					         
+             				 , DECODE(D3.ORG_CD,#strOrgCds#,1,2) AS ORD
+					      FROM TBBADDED002M D1
+					         , TBBADDED001M D2
+					         , (
+					             SELECT D2.BZT_YR
+					                  , D2.BZT_SNO
+					                  , D2.ORG_CD  
+					                  , MIN(D2.AUD_STR_DT)  AS AUD_STR_DT
+					                  , MAX(D2.AUD_END_DT)  AS AUD_END_DT
+					                  , SUM(D1.AUD_DCN)     AS SUM_AUD_DCN
+					                  , MAX(D1.AUD_DCN)     AS MAX_AUD_DCN
+					               FROM TBBADDED006L D1
+					                  , TBBADDED008L D2
+					              WHERE 1=1
+						            AND D2.AUD_STR_DT      >= #strAudStDt#
+						            AND D2.AUD_STR_DT      <= #strAudEndDt#						            
+						            
+						            /* 감사기관을 하나 선택 후 조회시 조회기관과 동일한 기관구분,기관차수에 해당하는 기관이 조회되어지던 쿼리를 조회기관만 보이게 수정 - 2016.03.04 yyh */
+							        AND D2.ORG_CD           = #strOrgCds#  /*검색조건에 기간코드가 1개일때 의 기관코드 */
+							        
+					                AND D1.TEAM_SNO         = D2.TEAM_SNO             
+					                AND D1.BGRP_TG_ORG_SNO  = D2.BGRP_TG_ORG_SNO
+					                AND D1.BZT_SNO          = D2.BZT_SNO
+					                AND D1.BZT_YR           = D2.BZT_YR
+					              GROUP BY D2.BZT_YR
+					                     , D2.BZT_SNO
+					                     , D2.ORG_CD 
+					           ) D3
+					     WHERE 1=1
+					       AND D1.REL_AUD_YR    = D2.AUD_YR
+					       AND D1.REL_AUD_NO    = D2.AUD_NO 
+					       AND D1.BZT_YR        = D3.BZT_YR
+					       AND D1.BZT_SNO       = D3.BZT_SNO
+					       AND D1.BZT_DVSN_CD = '1'
+					       AND D1.AUD_BZT_KND_CD IN ('02')
+					     GROUP BY D3.ORG_CD 
+					) ORDER BY  ORD, ORG_CD
+					
+        ]]>
+	</select>
+	
+	<!--감사빈도 조회(2건이상 일때)-->
+	<select id="BADDED040QMainSelect1" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+        		SELECT ORG_CD
+        		     , ORG_NM
+        		     , AUD_STR_DT
+        		     , AUD_END_DT
+        		     , AUD_ST_END_DT
+        		     , AUD_ITEM_CNT
+        		     , SUM_AUD_DCN
+        		     , MAX_AUD_DCN
+        		     , AUD_ITEM_CNT||'회 '||MAX_AUD_DCN||'일 '||SUM_AUD_DCN|| '인' AS AUD_DCN_TXT
+        		  FROM (                
+					    SELECT D3.ORG_CD										AS ORG_CD						/*기관코드*/
+					         , F_ORG_INFO(D3.ORG_CD , '1')||'('||D3.ORG_CD||')' AS ORG_NM						/*기관명*/
+					         , MAX(D3.AUD_STR_DT)     							AS AUD_STR_DT					/*최종 감사시작일*/
+					         , MAX(D3.AUD_END_DT)     							AS AUD_END_DT					/*최종 감사종료일*/
+					         , TO_CHAR(TO_DATE(MAX(D3.AUD_STR_DT)),'YYYY-MM-DD') ||'~'|| TO_CHAR(TO_DATE(MAX(D3.AUD_END_DT)),'YYYY-MM-DD')  	AS AUD_ST_END_DT				/*최종 감사일*/
+					         , SUM(CASE WHEN D1.AUD_BZT_KND_CD IN('02') THEN 1 ELSE 0 END) AS AUD_ITEM_CNT	/*감사횟수*/
+					         , SUM(D3.SUM_AUD_DCN)    							AS SUM_AUD_DCN					/*연인원*/
+					         /* , F_GET_REL_AUDWRK_CNT(strAudStDt , strAudEndDt, D3.ORG_CD) 	    AS MAX_AUD_DCN 일수 2015.11.24 주석처리 yyh */
+					         , SUM(D3.MAX_AUD_DCN)                                                  AS MAX_AUD_DCN /*일수*/	
+					      FROM TBBADDED002M D1
+					         , TBBADDED001M D2
+					         , (
+					             SELECT D2.BZT_YR
+					                  , D2.BZT_SNO
+					                  , D2.ORG_CD  
+					                  , MIN(D2.AUD_STR_DT)  AS AUD_STR_DT
+					                  , MAX(D2.AUD_END_DT)  AS AUD_END_DT
+					                  , SUM(D1.AUD_DCN)     AS SUM_AUD_DCN
+					                  , MAX(D1.AUD_DCN)     AS MAX_AUD_DCN
+					               FROM TBBADDED006L D1
+					                  , TBBADDED008L D2
+					              WHERE 1=1
+						            AND D2.AUD_STR_DT >= #strAudStDt#
+						            AND D2.AUD_STR_DT <= #strAudEndDt#
+					                AND D2.ORG_CD IN (
+					                                    SELECT SUBSTR(B.CODE, INSTR(B.CODE,',',1,ROWNUM)+1 ,INSTR(B.CODE,',',1,ROWNUM+1) - INSTR(B.CODE,',',1,ROWNUM)-1)
+													      FROM DUAL A
+													        , (
+													             SELECT ','||#strOrgCds#||',' AS CODE 
+													               FROM DUAL
+													            CONNECT BY LEVEL<=LENGTH(','||#strOrgCds#||',') - LENGTH(REPLACE(','||#strOrgCds#||',',','))-1
+													          ) B
+					                				  )
+					                AND D1.TEAM_SNO         = D2.TEAM_SNO             
+					                AND D1.BGRP_TG_ORG_SNO  = D2.BGRP_TG_ORG_SNO
+					                AND D1.BZT_SNO          = D2.BZT_SNO
+					                AND D1.BZT_YR           = D2.BZT_YR
+					              GROUP BY D2.BZT_YR
+					                     , D2.BZT_SNO
+					                     , D2.ORG_CD 
+					           ) D3
+					     WHERE 1=1
+					       AND D1.REL_AUD_YR    = D2.AUD_YR
+					       AND D1.REL_AUD_NO    = D2.AUD_NO 
+					       AND D1.BZT_YR        = D3.BZT_YR
+					       AND D1.BZT_SNO       = D3.BZT_SNO
+					       AND D1.BZT_DVSN_CD = '1'
+					       AND D1.AUD_BZT_KND_CD IN ('02')
+					     GROUP BY D3.ORG_CD 
+				) ORDER BY ORG_CD			     
+        ]]>
+	</select>
+	
+	<!--감사빈도 상세조회-->
+	<select id="BADDED040QSubSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+			 SELECT AUD.AUD_YR,                             /*감사년도*/
+			       AUD.AUD_NO,                             /*감사순번*/
+			       F_MNG_KND_AUDYRNO(AUD.AUD_YR, AUD.AUD_NO, MIN(AUD.AUD_KND_CD), '-')  ||'('|| SITU.AUD_STEP_SNO ||')' AS AUD_YR_NO,
+			       MIN(AUD.AUD_KND_CD) AS AUD_KND_CD,      /*감사종류코드*/
+			       F_CODE_NM_YEAR('1000007', MIN(AUD.AUD_KND_CD), AUD.AUD_YR) AS AUD_KND_NM,    /*감사종류명*/
+			       MIN(AUD.SPV_BRDV_CD) AS SPV_BRDV_CD,    /*주관국과코드*/
+			       F_DPT_INFO(MIN(AUD.SPV_BRDV_CD),'1') AS  SPV_BRDV_NM,    /*주관국과명*/ 
+			       MIN(AUD.AUD_SBJ_NM) AS AUD_SBJ_NM,      /*감사사항*/
+			       MIN(AGGR.AUD_STR_DT) AS AUD_STR_DT,     /*감사기간 from*/
+			       MAX(AGGR.AUD_END_DT) AS AUD_END_DT,     /*감사기간 to*/
+			       /* F_GET_REL_AUDWRK_CNT(MIN(AGGR.AUD_STR_DT) , MAX(AGGR.AUD_END_DT), ORG_CD) AS AUD_DCN, 2015.11.24 주석처리 yyh */        /*실일수*/
+			       SUM(AGGR.AUD_DCN) AS AUD_DCN,
+			       SUM(AGGR.MAN_DAY) AS MAN_DAY,            /*연인원*/
+			       TO_CHAR(TO_DATE(MAX(AGGR.AUD_STR_DT)),'YYYY-MM-DD') ||'~'|| TO_CHAR(TO_DATE(MAX(AGGR.AUD_END_DT)),'YYYY-MM-DD')  	AS AUD_ST_END_DT				/*최종 감사일*/
+			  FROM TBBADDED002M SITU,
+			       TBBADDED001M AUD,
+			       (SELECT TTO.BZT_YR,
+			               TTO.BZT_SNO,
+			               MIN(TTO.AUD_STR_DT) AS AUD_STR_DT,
+			               MAX(TTO.AUD_END_DT) AS AUD_END_DT,
+			               SUM(PTD.AUD_DCN) AS MAN_DAY,
+			               MAX(PTD.AUD_DCN) AS AUD_DCN
+			          FROM TBBADDED006L PTD,
+			               TBBADDED008L TTO
+			         WHERE TTO.AUD_STR_DT >= #strAudStDt#  	/*화면의 감사기간 FROM*/
+			           AND TTO.AUD_STR_DT <= #strAudEndDt#  /*화면의 감사기간 TO*/
+			           AND TTO.ORG_CD = #ORG_CD#  /*화면의 기관명을 클릭시 기관코드*/
+			           AND PTD.BZT_YR = TTO.BZT_YR
+			           AND PTD.BZT_SNO = TTO.BZT_SNO
+			           AND PTD.TEAM_SNO = TTO.TEAM_SNO
+			           AND PTD.BGRP_TG_ORG_SNO = TTO.BGRP_TG_ORG_SNO
+			         GROUP BY TTO.BZT_YR,
+			                  TTO.BZT_SNO) AGGR
+			 WHERE SITU.REL_AUD_YR = AUD.AUD_YR
+			   AND SITU.REL_AUD_NO = AUD.AUD_NO
+			   AND SITU.BZT_DVSN_CD ='1'
+			   AND SITU.AUD_BZT_KND_CD IN ('02')
+			   AND AGGR.BZT_YR = SITU.BZT_YR
+			   AND AGGR.BZT_SNO = SITU.BZT_SNO
+			 GROUP BY AUD.AUD_YR, AUD.AUD_NO, SITU.AUD_STEP_SNO 
+			 ORDER BY AUD.AUD_YR, AUD.AUD_NO,MIN(AGGR.AUD_STR_DT)
+		]]>
+	</select>
+	
+	<!-- 빈도출력 조회 -->
+	<select id="BADDED040QFrequencyselect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT AGGR.ORG_CD,                                                                              /*대상기관코드*/
+			       F_ORG_INFO(AGGR.ORG_CD,'1') ORG_NM,                                                       /*대상기관명*/
+			       SUM(CASE WHEN SITU.AUD_BZT_KND_CD IN ('02') THEN 1  ELSE 0 END) AS AUD_ITEM_CNT,     /*감사종류건수*/
+			       MAX(AGGR.AUD_STR_DT) AS AUD_STR_DT,                                                       /*최근감사기간 From*/
+			       MAX(AGGR.AUD_END_DT) AS AUD_END_DT,                                                       /*최근감사기간 to*/
+			       /* F_GET_REL_AUDWRK_CNT(strStrFromDt,strStrToDt,AGGR.ORG_CD) AUD_DCN , */                        /*일수*/
+			       SUM(AGGR.AUD_DCN) AS AUD_DCN,
+			       SUM(AGGR.MAN_DAY) AS MAN_DAY                                                              /*연인원*/
+			  FROM TBBADDED002M SITU,
+			       TBBADDED001M AUD,
+			       (SELECT TTO.BZT_YR,
+			               TTO.BZT_SNO,
+			               TTO.ORG_CD,
+			               MIN(TTO.AUD_STR_DT) AS AUD_STR_DT,
+			               MAX(TTO.AUD_END_DT) AS AUD_END_DT,
+			               SUM(PTD.AUD_DCN) AS MAN_DAY,
+			               MAX(PTD.AUD_DCN) AS AUD_DCN
+			          FROM TBBADDED006L PTD,
+			               TBBADDED008L TTO
+			         WHERE TTO.AUD_STR_DT >= #strStrFromDt#  /*화면의 감사기간 FROM*/
+			           AND TTO.AUD_STR_DT <= #strStrToDt#  /*화면의 감사기간 TO*/
+			           
+			           /* 감사기관을 하나 선택 후 조회시 조회기관과 동일한 기관구분,기관차수에 해당하는 기관이 조회되어지던 쿼리를 조회기관만 보이게 수정 - 2016.03.04 yyh */
+			           AND TTO.ORG_CD = #strOrgCd#  /*검색조건에 기간코드가 1개일때 의 기관코드*/
+			                                 
+			           AND PTD.BZT_YR = TTO.BZT_YR
+			           AND PTD.BZT_SNO = TTO.BZT_SNO
+			           AND PTD.TEAM_SNO = TTO.TEAM_SNO
+			           AND PTD.BGRP_TG_ORG_SNO = TTO.BGRP_TG_ORG_SNO
+			         GROUP BY TTO.BZT_YR,
+			               TTO.BZT_SNO,
+			               TTO.ORG_CD) AGGR
+			 WHERE SITU.REL_AUD_YR = AUD.AUD_YR
+			   AND SITU.REL_AUD_NO = AUD.AUD_NO
+			   AND SITU.BZT_DVSN_CD ='1'
+			   AND SITU.AUD_BZT_KND_CD IN ('02')
+			   AND AGGR.BZT_YR = SITU.BZT_YR
+			   AND AGGR.BZT_SNO = SITU.BZT_SNO
+			 GROUP BY AGGR.ORG_CD 
+			 ORDER BY ORG_CD 
+		]]>
+	</select>
+
+	<!-- 명세출력 조회 -->
+	<select id="BADDED040QFrequencyselect1" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT AGGR.ORG_CD,
+			       F_ORG_INFO(AGGR.ORG_CD,'1') ORG_NM,                                                       /*대상기관명*/
+			       SUM(CASE WHEN SITU.AUD_BZT_KND_CD IN ('02') THEN 1  ELSE 0 END) AS AUD_ITEM_CNT,     /*감사실시현황의 ~~회*/
+			       MAX(AGGR.AUD_STR_DT)AS AUD_STR_DT,                                                        /*최종감사기간 FROM*/
+			       MAX(AGGR.AUD_END_DT)AS AUD_END_DT,                                                        /*최종감사기간 TO*/
+			       /* F_GET_REL_AUDWRK_CNT(strStrFromDt,strStrToDt,AGGR.ORG_CD) AUD_DCN , */                         /*감사실시현황의 ~~일*/    
+			       SUM(AGGR.AUD_DCN)AS AUD_DCN,
+			       SUM(AGGR.MAN_DAY)AS MAN_DAY                                                               /*감사실시현황의 ~~인*/
+			  FROM TBBADDED002M SITU,
+			       TBBADDED001M AUD,
+			       (SELECT TTO.BZT_YR,
+			               TTO.BZT_SNO,
+			               TTO.ORG_CD,
+			               MIN(TTO.AUD_STR_DT) AS AUD_STR_DT,
+			               MAX(TTO.AUD_END_DT) AS AUD_END_DT,
+			               SUM(PTD.AUD_DCN) AS MAN_DAY,
+			               MAX(PTD.AUD_DCN) AS AUD_DCN
+			          FROM TBBADDED006L PTD,
+			               TBBADDED008L TTO
+			         WHERE TTO.AUD_STR_DT >= #strStrFromDt#  /*화면의 감사기간 FROM*/
+			           AND TTO.AUD_STR_DT <= #strStrToDt#    /*화면의 감사기간 TO*/
+			           AND TTO.ORG_CD = #strOrgCd#           /*화면의 기관명을 클릭시 기관코드*/
+			           AND PTD.BZT_YR = TTO.BZT_YR
+			           AND PTD.BZT_SNO = TTO.BZT_SNO
+			           AND PTD.TEAM_SNO = TTO.TEAM_SNO
+			           AND PTD.BGRP_TG_ORG_SNO = TTO.BGRP_TG_ORG_SNO
+			         GROUP BY TTO.BZT_YR,
+			                  TTO.BZT_SNO,
+			                  TTO.ORG_CD) AGGR
+			 WHERE SITU.REL_AUD_YR = AUD.AUD_YR
+			   AND SITU.REL_AUD_NO = AUD.AUD_NO
+			   AND SITU.BZT_DVSN_CD ='1'
+			   AND SITU.AUD_BZT_KND_CD IN('02')
+			   AND AGGR.BZT_YR = SITU.BZT_YR
+			   AND AGGR.BZT_SNO = SITU.BZT_SNO 
+			GROUP BY AGGR.ORG_CD
+		]]>
+	</select>
+	
+	<!-- 명세출력 조회 -->
+	<select id="BADDED040QFrequencyselect2" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT F_MNG_KND_AUDYRNO(AUD.AUD_YR, AUD.AUD_NO, MIN(AUD.AUD_KND_CD), '-') ||'('|| SITU.AUD_STEP_SNO ||')' AS FULL_AUD_NO, 
+			       F_DPT_INFO(MIN(AUD.SPV_BRDV_CD),'1') AS SPV_BRDV_NM, /*주관국과명 */
+			       F_CODE_NM('1000007', MIN(AUD.AUD_KND_CD)) AS AUD_KND_NM, /*감사종류명*/       
+			       MIN(AUD.AUD_SBJ_NM) AS AUD_SBJ_NM, /*감사사항*/
+			       TO_CHAR(TO_DATE(MIN(AGGR.AUD_STR_DT)),'YYYY-MM-DD') ||'~'|| TO_CHAR(TO_DATE(MIN(AGGR.AUD_STR_DT)),'YYYY-MM-DD') AUD_DT, /*감사기간 from*/
+			       /*F_GET_REL_AUDWRK_CNT(MIN(AGGR.AUD_STR_DT),MAX(AGGR.AUD_END_DT) , MAX(AGGR.ORG_CD)) AS AUD_DCN , */ /*감사실시현황의 ~~일*/ 
+			       SUM(AGGR.AUD_DCN) AS AUD_DCN, /*실일수*/
+			       SUM(AGGR.MAN_DAY) AS MAN_DAY /*연인원*/
+			  FROM TBBADDED002M SITU,
+			       TBBADDED001M AUD,
+			       (SELECT TTO.BZT_YR,
+			               TTO.BZT_SNO,
+			               MAX(TTO.ORG_CD) AS ORG_CD,
+			               MIN(TTO.AUD_STR_DT) AS AUD_STR_DT,
+			               MAX(TTO.AUD_END_DT) AS AUD_END_DT,
+			               SUM(PTD.AUD_DCN) AS MAN_DAY,
+			               MAX(PTD.AUD_DCN) AS AUD_DCN
+			          FROM TBBADDED006L PTD,
+			               TBBADDED008L TTO
+			         WHERE TTO.AUD_STR_DT >= #strStrFromDt# /*화면의 감사기간 FROM*/
+			           AND TTO.AUD_STR_DT <= #strStrToDt# /*화면의 감사기간 TO*/
+			           AND TTO.ORG_CD = #strOrgCd# /*화면의 기관명을 클릭시 기관코드*/
+			           AND PTD.BZT_YR = TTO.BZT_YR
+			           AND PTD.BZT_SNO = TTO.BZT_SNO
+			           AND PTD.TEAM_SNO = TTO.TEAM_SNO
+			           AND PTD.BGRP_TG_ORG_SNO = TTO.BGRP_TG_ORG_SNO
+			         GROUP BY TTO.BZT_YR,
+			               TTO.BZT_SNO) AGGR
+			 WHERE SITU.REL_AUD_YR = AUD.AUD_YR
+			   AND SITU.REL_AUD_NO = AUD.AUD_NO
+			   AND SITU.BZT_DVSN_CD ='1'
+			   AND SITU.AUD_BZT_KND_CD IN ('02')
+			   AND AGGR.BZT_YR = SITU.BZT_YR
+			   AND AGGR.BZT_SNO = SITU.BZT_SNO
+			 GROUP BY AUD.AUD_YR,
+			          AUD.AUD_NO, 
+			          SITU.AUD_STEP_SNO;			          
+		]]>
+	</select>
+</sqlMap> 

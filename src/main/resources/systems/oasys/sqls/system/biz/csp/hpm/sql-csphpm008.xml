@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/hpm/008">
+	
+	<select id="CSPHPM008QMainSelect" parameterClass="paramMap"  resultClass="resultMap">
+		<include refid = "include.pageSelct"/>
+        <![CDATA[
+			SELECT 	A.MTRL_SNO,			/*자료요청순번*/
+					A.MTRL_DVSN_CD,		/*자료요청구분코드*/
+					A.REGI_DT,				/*등록잉ㄹ*/
+					C.ABR_DPT_NM_1 AS REGI_DPT_NM,	/*등록부서명*/
+					B.USR_NAM AS REGI_NAM,	/*등록자명*/
+					A.PBC_YR,	/*발행연도*/
+					A.PBC_PLAC,	/*발행처*/
+					A.ATR,	/*저자*/
+					A.TIT_NM,			/*제목*/
+					A.REGI_TXT,			/*상세*/
+					A.SAVE_YN,			/*저장여부*/
+					A.REGI_CNB			/*등록자전산번호*/
+			FROM   	TBCSPHPM008M A,			/*E-서고자료기본테이블*/
+					TBDCMACM001M B, 		/*사용자테이블*/
+					TBDCMACM002M C			/*부서코드*/
+			WHERE	A.REGI_CNB = B.CNB(+)
+			AND		A.REGI_DPT_CD = C.DPT_CD(+)
+        ]]>
+        <dynamic>
+        	<isNotEmpty property="strMTRL_DVSN_CD">
+        		AND	A.MTRL_DVSN_CD = #strMTRL_DVSN_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strSEARCH_NM">
+        		AND	(A.PBC_PLAC LIKE '%'||#strSEARCH_NM#||'%'
+        			 OR A.ATR LIKE '%'||#strSEARCH_NM#||'%'
+        			 OR A.TIT_NM LIKE '%'||#strSEARCH_NM#||'%'
+        			 OR A.TIT_NM LIKE '%'||#strSEARCH_NM#||'%')
+        	</isNotEmpty>
+        	<isEqual property="strAUTH_CD" compareValue="PERS">
+        		AND	 A.REGI_CNB = #strCNB#
+        	</isEqual>  	
+        </dynamic>
+        <![CDATA[
+        	ORDER BY TO_NUMBER(A.MTRL_SNO) DESC
+        ]]>
+        <include refid = "include.pageOrder"/> 
+	</select>     
+	
+	<select id="CSPHPM009EMainSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+        	SELECT	A.MTRL_SNO,		/*자료요청순번*/ 
+        			A.MTRL_DVSN_CD, 		/*자료요청구분코드*/
+        			A.REGI_DT,	/*등록일*/ 
+        			A.REGI_CNB,		/*등록자전산번호*/
+        			(SELECT USR_NAM 
+        			FROM TBDCMACM001M Z
+        			WHERE A.REGI_CNB = Z.CNB
+        			) AS REGI_NAM,		/*등록자명*/
+        			A.TIT_NM,	/*제목명*/
+			 		A.REGI_TXT, 		/*등록내용*/
+			 		PBC_YR,  
+   					PBC_PLAC, 
+    				ATR,	
+			 		(SELECT DOC_ID FROM TBCSPHPM009M Z 
+			 		WHERE Z.MTRL_SNO = A.MTRL_SNO 
+			 		AND Z.MTRL_ATT_FL_DVSN_CD = '1') AS RQS_DOC_ID,
+			 		(SELECT DOC_ID FROM TBCSPHPM009M Z 
+			 		WHERE Z.MTRL_SNO = A.MTRL_SNO 
+			 		AND Z.MTRL_ATT_FL_DVSN_CD = '2') AS HNDL_DOC_ID,
+			 		F_DPT_INFO(A.REGI_DPT_CD,'1') AS REGI_DPT_NM,
+			 		NVL(SAVE_YN,'Y') AS SAVE_YN
+        	FROM	TBCSPHPM008M A
+        	WHERE 	A.MTRL_SNO = #strMTRL_SNO#
+		]]>
+	</select>
+	
+	<!-- 등록연번 Max값 가져오기 -->
+	<select id="CSPHPM009EKeySelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[     	
+			    SELECT (SELECT TO_CHAR(NVL(MAX(TO_NUMBER(MTRL_SNO)),0)+1) AS MTRL_SNO
+						  FROM TBCSPHPM008M
+						 WHERE 1=1
+						 ) AS MTRL_SNO/*게시판구분코드 - 전산개선요청*/
+				FROM	DUAL
+		]]>
+	</select>
+	
+	<insert id="CSPHPM009EMainInsert" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBCSPHPM008M
+        	(		
+        			MTRL_SNO,			/*자료요청순번*/
+        			MTRL_DVSN_CD,		/*자료요청구분코드*/
+        			REGI_DT,			/*요청일*/
+        			REGI_CNB,		/*요청자전산번호*/
+        			TIT_NM,		/*요청제목명*/
+        			REGI_TXT,		/*요청내용*/
+        			PBC_YR,
+    				PBC_PLAC,
+    				ATR,
+    				SAVE_YN,
+        			FRT_USR_ID,
+					FNL_USR_ID,
+					FNL_DEAL_DPT_CD,
+					FNL_MNU_ID,
+					FRT_REGI_DH,
+					FNL_MDF_DH
+        	) VALUES (
+        			#MTRL_SNO#,
+	        		#MTRL_DVSN_CD#,
+	        		#REGI_DT#,
+	        		#REGI_CNB#,
+	        		#TIT_NM#,
+	        		#REGI_TXT#,
+	        		#PBC_YR#,
+    				#PBC_PLAC#,
+    				#ATR#,
+    				#SAVE_YN#,
+	        		#FRT_USR_ID#,
+					#FNL_USR_ID#,
+					#FNL_DEAL_DPT_CD#,
+					#FNL_MNU_ID#,
+					SYSDATE,
+					SYSDATE
+        	)
+        ]]>
+	</insert>
+	
+	<update id="CSPHPM009EMainUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE 	TBCSPHPM008M
+			SET		MTRL_DVSN_CD = #MTRL_DVSN_CD# ,	/*자료요청구분코드*/
+					REGI_DT = #REGI_DT#,			/*요청일*/
+					REGI_CNB = #REGI_CNB#,		/*요청자전산번호*/
+					TIT_NM = #TIT_NM#,	/*요청제목명*/
+					REGI_TXT = #REGI_TXT#,		/*요청내용*/
+        			PBC_YR = #PBC_YR#,
+    				PBC_PLAC = #PBC_PLAC#,
+    				ATR = #ATR#,
+    				SAVE_YN = #SAVE_YN#,
+					FNL_USR_ID = #FNL_USR_ID#,
+					FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#,
+					FNL_MNU_ID = #FNL_MNU_ID#,
+					FNL_MDF_DH = SYSDATE
+			WHERE	MTRL_SNO = #MTRL_SNO#
+		]]>
+	</update>
+	
+	<delete id="CSPHPM009EMainDelete" parameterClass="paramMap">
+		<![CDATA[
+			DELETE	
+			FROM	TBCSPHPM008M
+			WHERE	MTRL_SNO = #MTRL_SNO#
+		]]>
+	</delete>
+	
+	<insert id="CSPHPM009ERqsFileInsert" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBCSPHPM009M
+        	(		
+        			MTRL_SNO,			/*자료요청순번*/
+        			MTRL_ATT_FL_DVSN_CD,		/*자료요청첨부파일구분코드*/
+        			DOC_ID,			/*요청일*/
+        			FILE_STRE_COURS,
+        			STRE_FILE_NM,
+        			FILE_EXTSN,
+        			FRT_USR_ID,
+        			FNL_USR_ID,
+        			FNL_DEAL_DPT_CD,
+        			FNL_MNU_ID,
+        			FRT_REGI_DH,
+        			FNL_MDF_DH
+        	) VALUES (
+	        		#MTRL_SNO#,
+	        		'1',
+	        		#RQS_DOC_ID#,
+	        		#FILE_STRE_COURS#,
+	        		#STRE_FILE_NM#,
+	        		#FILE_EXTSN#,
+	        		#FRT_USR_ID#,
+	        		#FNL_USR_ID#,
+	        		#FNL_DEAL_DPT_CD#,
+	        		#FNL_MNU_ID#,
+	        		SYSDATE,
+	        		SYSDATE
+        	)
+        ]]>
+	</insert>
+	
+	<update id="CSPHPM009ERqsFileUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE 	TBCSPHPM009M
+			SET		FILE_STRE_COURS  = #FILE_STRE_COURS#, 
+					STRE_FILE_NM  = #STRE_FILE_NM#, 
+					FILE_EXTSN  = #FILE_EXTSN#
+			WHERE	MTRL_SNO = #MTRL_SNO#
+					AND MTRL_ATT_FL_DVSN_CD= '1'
+		]]>
+	</update>
+	
+	
+	<insert id="CSPHPM009EHndlFileInsert" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBCSPHPM009M
+        	(	
+        			MTRL_SNO,			/*자료요청순번*/
+        			MTRL_ATT_FL_DVSN_CD,		/*자료요청첨부파일구분코드*/
+        			DOC_ID,			/*요청일*/
+        			FRT_USR_ID,
+        			FNL_USR_ID,
+        			FNL_DEAL_DPT_CD,
+        			FNL_MNU_ID,
+        			FRT_REGI_DH,
+        			FNL_MDF_DH
+        	) VALUES (
+	        		#MTRL_SNO#,
+	        		'2',
+	        		#HNDL_DOC_ID#,
+	        		#FRT_USR_ID#,
+	        		#FNL_USR_ID#,
+	        		#FNL_DEAL_DPT_CD#,
+	        		#FNL_MNU_ID#,
+	        		SYSDATE,
+	        		SYSDATE
+        	)
+        ]]>
+	</insert>
+	
+	<delete id="CSPHPM009EFileDelete" parameterClass="paramMap">
+		<![CDATA[
+			DELETE	
+			FROM	TBCSPHPM009M
+			WHERE	MTRL_SNO = #MTRL_SNO#
+		]]>
+	</delete>
+	
+	<!-- 전산개선 및 자료요청 엑셀다운로드 -->
+	<select id="CSPHPM008QExcelExportSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+			SELECT 	/*CSPHPM008QExcelExportSelect*/
+					F_CODE_NM('1000921',A.MTRL_DVSN_CD) AS MTRL_DVSN_NM,	/*자료구분코드*/
+					TO_CHAR(TO_DATE(A.REGI_DT),'YYYY-MM-DD') AS REGI_DT,		/*등록일*/
+					A.PBC_YR,/*발행연도*/
+					A.PBC_PLAC,/*발행처*/
+					A.ATR,/*저자*/
+					A.TIT_NM			/*제목*/
+			FROM   	TBCSPHPM008M A
+			WHERE	1=1
+        ]]>
+        <dynamic>
+        	
+        	<isNotEmpty property="strMTRL_DVSN_CD">
+        		AND	A.MTRL_DVSN_CD = #strMTRL_DVSN_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strSEARCH_NM">
+        		AND	(A.PBC_PLAC LIKE '%'||#strSEARCH_NM#||'%'
+        				OR A.TIT_NM LIKE '%'||#strSEARCH_NM#||'%'
+        				OR A.ATR LIKE '%'||#strSEARCH_NM#||'%')
+        	</isNotEmpty>
+        </dynamic>
+        <![CDATA[
+        	ORDER BY TO_NUMBER(A.MTRL_SNO) DESC
+        ]]>
+	</select>
+	
+</sqlMap> 

@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.asb.dao.AEPASB021EMapper">
+    <select id="selectSbmtDvsnList" parameterType="paramMap"
+        resultType="egovMap">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB021EMapper.selectSbmtDvsnList */
+        <![CDATA[
+        SELECT 
+            T2.SBMT_DVSN_NO
+            , T1.CNB
+            , F_DPT_INFO(T1.DPT_CD,'1') AS DPT_NM
+            , T1.RAL_BLT_DIV_CD
+            , F_USR_INFO(T1.CNB,'2') AS CMTR_NM
+            , (SELECT AGGR_CONCAT(CNB, ',')   
+                 FROM TBDCMACM001M ST1
+                WHERE ST1.RAL_BLT_DIV_CD = T1.RAL_BLT_DIV_CD
+                  AND ST1.USR_DVSN_CD = '1'
+                  AND ST1.GEN_ADMN_DVSN_CD = '1'
+                  AND ST1.CNB != T1.CNB) AS SCRT_CNB
+            , (SELECT AGGR_CONCAT(USR_NAM, ',')  
+                 FROM TBDCMACM001M ST1
+                WHERE ST1.RAL_BLT_DIV_CD = T1.RAL_BLT_DIV_CD
+                  AND ST1.USR_DVSN_CD = '1'
+                  AND ST1.GEN_ADMN_DVSN_CD = '1'
+                  AND ST1.CNB != T1.CNB) AS SCRT_NM 
+            , T2.RVW_SUP_CNB
+            , F_USR_INFO(T2.RVW_SUP_CNB,'2') AS RVW_SUP_NM
+            , F_USR_INFO(T2.RVW_SUP_CNB,'2') AS RVW_SUP_NM_VAL
+            , F_DPT_INFO(F_USR_INFO(T2.RVW_SUP_CNB, '5'),'1') AS RVW_SUP_DPT_NM
+            , T2.TSK_SUP_CNB
+            , F_USR_INFO(T2.TSK_SUP_CNB,'2') AS TSK_SUP_NM
+            , F_USR_INFO(T2.TSK_SUP_CNB,'2') AS TSK_SUP_NM_VAL
+            , F_DPT_INFO(F_USR_INFO(T2.TSK_SUP_CNB, '5'),'1') AS TSK_SUP_DPT_NM
+            , DECODE(T2.CMTR_CNB,NULL,'N','Y') AS UPDATE_YN
+            , T2.REGI_DVSN_EXMP_SITU
+            , T2.REGI_DVSN_EXMP_SITU AS DSP_REGI_DVSN_EXMP_SITU
+            , NVL(T2.CHF_BZT_YN,'N') AS CHF_BZT_YN
+          FROM TBDCMACM001M T1
+               LEFT OUTER JOIN TBBADDED116M T2
+               ON (T1.CNB = T2.CMTR_CNB)
+         WHERE T1.DPT_CD = '510000'
+           AND T1.PST_CD = '0010600'
+         ORDER BY T1.RAL_BLT_DIV_CD
+        ]]>
+    </select>
+    
+    <insert id="insertSbmtDvsn">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB021EMapper.insertSbmtDvsn */
+    <![CDATA[
+    DECLARE
+            BEGIN
+                /*주심위원 정보 저장*/
+                INSERT INTO TBBADDED116M(
+                        CMTR_CNB,
+                        SBMT_DVSN_NO,
+                        RVW_SUP_CNB,
+                        TSK_SUP_CNB,
+                        FRT_USR_ID,
+                        FNL_USR_ID,
+                        FNL_DEAL_DPT_CD,
+                        FNL_MNU_ID,
+                        FRT_REGI_DH,
+                        FNL_MDF_DH
+                        )
+                 VALUES 
+                    (#{cnb}
+                    , #{sbmtDvsnNo}
+                    , #{rvwSupCnb}
+                    , #{tskSupCnb}
+                    , #{usrId}
+                    , #{usrId}
+                    , #{dptCd}
+                    , 'AEPASB021E'
+                    , SYSDATE
+                    , SYSDATE);
+                /*전 주심위원의 등재구분배정현황,등재구분배제현황,주심위원번호 COPY*/
+                UPDATE TBBADDED116M
+                    SET REGI_DVSN_ALC_SITU = (SELECT REGI_DVSN_ALC_SITU
+                                                                    FROM TBBADDED116M
+                                                                   WHERE CMTR_CNB NOT IN (SELECT CNB FROM TBDCMACM001M WHERE DPT_CD = '510000' AND PST_CD = '0010600')
+                                                                     AND CMTR_NO = (SELECT MIN(CMTR_NO) FROM TBBADDED116M WHERE CMTR_CNB NOT IN (SELECT CNB FROM TBDCMACM001M WHERE DPT_CD = '510000' AND PST_CD = '0010600')))
+                           , REGI_DVSN_EXMP_SITU = (SELECT REGI_DVSN_EXMP_SITU
+                                                                        FROM TBBADDED116M
+                                                                       WHERE CMTR_CNB NOT IN (SELECT CNB FROM TBDCMACM001M WHERE DPT_CD = '510000' AND PST_CD = '0010600')
+                                                                         AND CMTR_NO = (SELECT MIN(CMTR_NO) FROM TBBADDED116M WHERE CMTR_CNB NOT IN (SELECT CNB FROM TBDCMACM001M WHERE DPT_CD = '510000' AND PST_CD = '0010600')))
+                           , CMTR_NO = (SELECT CMTR_NO
+                                                    FROM TBBADDED116M
+                                                   WHERE CMTR_CNB NOT IN (SELECT CNB FROM TBDCMACM001M WHERE DPT_CD = '510000' AND PST_CD = '0010600')
+                                                     AND CMTR_NO = (SELECT MIN(CMTR_NO) FROM TBBADDED116M WHERE CMTR_CNB NOT IN (SELECT CNB FROM TBDCMACM001M WHERE DPT_CD = '510000' AND PST_CD = '0010600')))
+                 WHERE CMTR_CNB = #{cnb};
+	             DELETE TBBADDED116M
+	              WHERE CMTR_CNB IN (SELECT CMTR_CNB
+	                                FROM TBBADDED116M
+	                                WHERE CMTR_CNB NOT IN (SELECT CNB FROM TBDCMACM001M WHERE DPT_CD = '510000' AND PST_CD = '0010600')
+	                                );
+            END;
+        ]]>
+    </insert>
+
+    <update id="updateSbmtDvsn" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB021EMapper.updateSbmtDvsn */
+        <![CDATA[
+        UPDATE TBBADDED116M
+        SET 
+            SBMT_DVSN_NO = #{sbmtDvsnNo},
+            RVW_SUP_CNB = #{rvwSupCnb},
+            TSK_SUP_CNB = #{tskSupCnb},
+            REGI_DVSN_EXMP_SITU = REPLACE(#{regiDvsnExmpSitu},','),
+            CHF_BZT_YN =  #{chfBztYn},
+            FNL_USR_ID  = #{usrId},
+            FNL_DEAL_DPT_CD = #{dptCd},
+            FNL_MDF_DH = SYSDATE,
+            FNL_MNU_ID = 'AEPASB021E'
+        WHERE 
+            CMTR_CNB = #{cnb}
+        ]]>
+    </update>
+
+</mapper> 

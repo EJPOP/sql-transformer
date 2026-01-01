@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="aep/gkm/040" >
+	<select id="AEPGKM040Qtab1select" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT  REGN_DPT_CD																						/* 등록자부서코드 */
+		       ,REGN_DPT_NM																						/* 등록자부서명 */
+			   ,KLD_CAT_CD																						/* 지식분류코드 */
+			   ,TG_CAT_NM AS KLD_CAT_NM																			/* 대상분류명 */
+			   ,BSC_SC																							/* 기본점수 */
+			   ,ROUND(CASE WHEN EVL_SC > 0 THEN EVL_SC / EVL_SC_CNT ELSE 0 END) AS EVL_SC						/* 평가점수 */
+			   ,ADD_SC																							/* 가산점수 */
+		       ,(BSC_SC + ROUND(CASE WHEN EVL_SC > 0 THEN EVL_SC / EVL_SC_CNT ELSE 0 END) + ADD_SC) AS TOT_SC	/* 점수합계 */
+		FROM    (
+				SELECT  A.REGN_DPT_CD													/* 등록자부서코드 */
+					   ,A.REGN_DPT_NM													/* 등록자부서명 */
+					   ,A.KLD_CAT_CD													/* 지식분류코드 */
+					   ,C.TG_CAT_NM														/* 대상분류명 */
+				       ,NVL(E.SC, 0) AS BSC_SC		                                            /* 기본점수 */
+					   ,NVL(SUM(CASE D.SC_CAT_CD WHEN '2' THEN D.SC END), 0) AS EVL_SC		/* 평가점수 */
+					   ,NVL(SUM(CASE D.SC_CAT_CD WHEN '3' THEN D.SC END), 0) AS ADD_SC		/* 가산점수 */
+					   ,NVL(SUM(CASE D.SC_CAT_CD WHEN '2' THEN 1 END), 0)    AS EVL_SC_CNT	/* 평가점수카운트 */
+				FROM    TBAEPGKM001M A/* 지식 */
+					   ,TBAEPGKM017M C /* 카테고리 */
+					   ,(
+						SELECT KNB 
+                     	     , SC_CAT_CD
+                             , SC
+                          FROM TBAEPGKM016L
+                         WHERE 1 = 1
+                           AND EVL_RK_CD IS NOT NULL					   
+					   ) D /* 평가 */
+		               , (
+		                  SELECT KNB 
+		                     , SC_CAT_CD
+		                     , SC
+		                  FROM TBAEPGKM016L
+		                WHERE 1 = 1
+		                  AND SC_CAT_CD = '1' 
+		                  AND KNB IS NOT NULL
+		                 GROUP BY KNB, SC_CAT_CD, SC               
+		               ) E /*기본점수*/
+				WHERE  1 = 1
+				AND A.KLD_CAT_CD = C.TG_CAT_ID
+				AND A.KNB = D.KNB(+)
+				AND D.KNB = E.KNB
+				<isNotEmpty property="KLD_CAT_CD" prepend="AND">
+						A.KLD_CAT_CD IN (
+						         SELECT TG_CAT_ID
+						          FROM TBAEPGKM017M A
+						             , (
+						                SELECT SRT_VAL_NM
+						                  FROM TBAEPGKM017M
+						                 WHERE TG_CAT_ID = #KLD_CAT_CD#
+						              ) B
+						        WHERE A.SRT_VAL_NM LIKE B.SRT_VAL_NM || '%'  
+						   		)	
+				</isNotEmpty>
+				<isNotEmpty property="FROM_DATE" prepend="AND">
+				<![CDATA[
+						TO_DATE(REGI_RQS_DT) >= TO_DATE(#FROM_DATE#)
+				]]>
+				</isNotEmpty>
+				<isNotEmpty property="TO_DATE" prepend="AND">
+				<![CDATA[
+						TO_DATE(REGI_RQS_DT) <= TO_DATE(#TO_DATE#)
+				]]> 
+				</isNotEmpty>
+				<isNotEmpty property="HIRK_DPT_CD" prepend="AND">
+						REGN_DPT_CD LIKE SUBSTR(#HIRK_DPT_CD#, 0, 3) || '%' 
+				</isNotEmpty>
+				<isNotEmpty property="DPT_CD" prepend="AND">
+						REGN_DPT_CD = #DPT_CD#
+				</isNotEmpty>
+				<isNotEmpty property="CNB" prepend="AND">
+						REGN_CNB = #CNB#
+				</isNotEmpty>
+				GROUP BY A.REGN_DPT_CD, A.REGN_DPT_NM, A.KLD_CAT_CD, C.TG_CAT_NM, E.SC   
+				UNION ALL	
+				SELECT  A.REGN_DPT_CD
+					   ,A.REGN_DPT_NM
+					   ,'9999999999' AS KLD_CAT_CD
+					   ,'소계' AS TG_CAT_NM
+					   ,NVL(E.SC, 0) AS BSC_SC /* 기본점수 */
+					   ,NVL(SUM( CASE D.SC_CAT_CD WHEN '2' THEN D.SC END), 0) AS EVL_SC /* 평가점수 */
+                       ,NVL(SUM( CASE D.SC_CAT_CD WHEN '3' THEN D.SC END), 0) AS ADD_SC /* 가산점수 */
+                       ,NVL(SUM( CASE D.SC_CAT_CD WHEN '2' THEN 1 END), 0) AS EVL_SC_CNT /* 평가점수카운트 */
+				FROM    TBAEPGKM001M A /* 지식 */
+					   ,TBAEPGKM017M C /* 카테고리 */
+					   ,(
+		                  SELECT KNB 
+		                     , SC_CAT_CD
+		                     , SC
+		                  FROM TBAEPGKM016L
+		                WHERE 1 = 1 
+		                  AND EVL_RK_CD IS NOT NULL
+		               ) D /* 평가 */
+		               , (
+		                  SELECT KNB 
+		                     , SC_CAT_CD
+		                     , SC
+		                  FROM TBAEPGKM016L
+		                WHERE 1 = 1
+		                  AND SC_CAT_CD = '1'
+		                  AND KNB IS NOT NULL
+		                 GROUP BY KNB, SC_CAT_CD, SC               
+		               ) E
+				WHERE   1 = 1
+				AND     A.KLD_CAT_CD = C.TG_CAT_ID
+				AND     A.KNB = D.KNB(+)
+				AND     D.KNB = E.KNB
+				<isNotEmpty property="KLD_CAT_CD" prepend="AND">
+						A.KLD_CAT_CD IN (
+						         SELECT TG_CAT_ID
+						          FROM TBAEPGKM017M A
+						             , (
+						                SELECT SRT_VAL_NM
+						                  FROM TBAEPGKM017M
+						                 WHERE TG_CAT_ID = #KLD_CAT_CD#
+						              ) B
+						        WHERE A.SRT_VAL_NM LIKE B.SRT_VAL_NM || '%'  
+						   		)	
+				</isNotEmpty>
+				<isNotEmpty property="FROM_DATE" prepend="AND">
+				<![CDATA[
+						TO_DATE(REGI_RQS_DT) >= TO_DATE(#FROM_DATE#)
+				]]>
+				</isNotEmpty>
+				<isNotEmpty property="TO_DATE" prepend="AND">
+				<![CDATA[
+						TO_DATE(REGI_RQS_DT) <= TO_DATE(#TO_DATE#)
+				]]> 
+				</isNotEmpty>
+				<isNotEmpty property="HIRK_DPT_CD" prepend="AND">
+						REGN_DPT_CD LIKE SUBSTR(#HIRK_DPT_CD#, 0, 3) || '%' 
+				</isNotEmpty>
+				<isNotEmpty property="DPT_CD" prepend="AND">
+						REGN_DPT_CD = #DPT_CD#
+				</isNotEmpty>
+				<isNotEmpty property="CNB" prepend="AND">
+						REGN_CNB = #CNB#
+				</isNotEmpty>  
+			    GROUP BY A.REGN_DPT_CD, A.REGN_DPT_NM, E.SC
+		        ) A	 
+		ORDER BY REGN_DPT_CD, REGN_DPT_NM, KLD_CAT_CD
+	</select>
+	
+	<select id="AEPGKM040Qtab2select" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT  REGN_CNB
+		       ,REGN_USR_NM
+			   ,KLD_CAT_CD
+			   ,TG_CAT_NM AS KLD_CAT_NM
+			   ,BSC_SC
+			   ,ROUND(CASE WHEN EVL_SC > 0 THEN EVL_SC / EVL_SC_CNT ELSE 0 END) AS EVL_SC
+			   ,ADD_SC
+		       ,BSC_SC
+		       ,(BSC_SC + ROUND(CASE WHEN EVL_SC > 0 THEN EVL_SC / EVL_SC_CNT ELSE 0 END) + ADD_SC) AS TOT_SC
+		FROM    (
+				SELECT  B.CNB AS REGN_CNB
+					   ,B.USR_NAM AS REGN_USR_NM
+					   ,A.KLD_CAT_CD
+					   ,C.TG_CAT_NM
+				       ,NVL(E.SC, 0) AS BSC_SC /* 기본점수 */
+					   ,SUM(CASE D.SC_CAT_CD WHEN '2' THEN D.SC ELSE 0 END) AS EVL_SC
+					   ,SUM(CASE D.SC_CAT_CD WHEN '3' THEN D.SC ELSE 0 END) AS ADD_SC
+					   ,SUM(CASE D.SC_CAT_CD WHEN '2' THEN 1 ELSE 0 END) AS EVL_SC_CNT
+				FROM    TBAEPGKM001M A /* 지식 */
+					   ,TBDCMACM001M B /* 사용자 */
+					   ,TBAEPGKM017M C /* 카테고리 */
+					   ,(
+		                  SELECT KNB 
+		                     , SC_CAT_CD
+		                     , SC
+		                  FROM TBAEPGKM016L
+		                WHERE 1 = 1 
+		                  AND EVL_RK_CD IS NOT NULL
+		               ) D /* 평가 */
+		               , (
+		                  SELECT KNB 
+		                     , SC_CAT_CD
+		                     , SC
+		                  FROM TBAEPGKM016L
+		                WHERE 1 = 1
+		                  AND SC_CAT_CD = '1'
+		                  AND KNB IS NOT NULL
+		                 GROUP BY KNB, SC_CAT_CD, SC               
+		               ) E
+				WHERE   A.REGN_CNB = B.CNB
+				AND A.KLD_CAT_CD = C.TG_CAT_ID
+				AND A.KNB = D.KNB(+)
+				AND D.KNB = E.KNB
+		        <isNotEmpty property="USR_NAM" prepend="AND">
+						F_USR_INFO(REGN_CNB, '2') LIKE #USR_NAM# || '%'
+				</isNotEmpty>
+				<isNotEmpty property="KLD_CAT_CD" prepend="AND">
+						A.KLD_CAT_CD IN (
+						         SELECT TG_CAT_ID
+						          FROM TBAEPGKM017M A
+						             , (
+						                SELECT SRT_VAL_NM
+						                  FROM TBAEPGKM017M
+						                 WHERE TG_CAT_ID = #KLD_CAT_CD#
+						              ) B
+						        WHERE A.SRT_VAL_NM LIKE B.SRT_VAL_NM || '%'  
+						   		)	
+				</isNotEmpty>
+				<isNotEmpty property="FROM_DATE" prepend="AND">
+				<![CDATA[
+						TO_DATE(REGI_RQS_DT) >= TO_DATE(#FROM_DATE#)
+				]]>
+				</isNotEmpty>
+				<isNotEmpty property="TO_DATE" prepend="AND">
+				<![CDATA[
+						TO_DATE(REGI_RQS_DT) <= TO_DATE(#TO_DATE#)
+				]]> 
+				</isNotEmpty>
+				GROUP BY B.CNB, B.USR_NAM, A.KLD_CAT_CD, C.TG_CAT_NM, E.SC
+				UNION 			
+				SELECT  B.CNB AS REGN_CNB
+					   ,B.USR_NAM AS REGN_USR_NM
+					   ,'9999999999' AS KLD_CAT_CD
+					   ,'소계' AS TG_CAT_NM
+					   ,NVL(E.SC, 0) AS BSC_SC /* 기본점수 */
+					   ,SUM(CASE D.SC_CAT_CD WHEN '2' THEN D.SC ELSE 0 END) AS EVL_SC
+					   ,SUM(CASE D.SC_CAT_CD WHEN '3' THEN D.SC ELSE 0 END) AS ADD_SC
+					   ,SUM(CASE D.SC_CAT_CD WHEN '2' THEN 1 ELSE 0 END) AS EVL_SC_CNT
+				FROM    TBAEPGKM001M A /* 지식 */
+					   ,TBDCMACM001M B /* 사용자 */
+					   ,TBAEPGKM017M C /* 카테고리 */
+					   ,(
+		                  SELECT KNB 
+		                     , SC_CAT_CD
+		                     , SC
+		                  FROM TBAEPGKM016L
+		                WHERE 1 = 1 
+		                  AND EVL_RK_CD IS NOT NULL
+		               ) D /* 평가 */
+		               , (
+		                  SELECT KNB 
+		                     , SC_CAT_CD
+		                     , SC
+		                  FROM TBAEPGKM016L
+		                WHERE 1 = 1
+		                  AND SC_CAT_CD = '1'
+		                  AND KNB IS NOT NULL
+		                 GROUP BY KNB, SC_CAT_CD, SC               
+		               ) E
+				WHERE   A.REGN_CNB = B.CNB
+				AND     A.KLD_CAT_CD = C.TG_CAT_ID
+				AND     A.KNB = D.KNB(+)
+				AND     D.KNB = E.KNB
+		        <isNotEmpty property="USR_NAM" prepend="AND">
+						F_USR_INFO(REGN_CNB, '2') LIKE #USR_NAM# || '%'
+				</isNotEmpty>
+				<isNotEmpty property="KLD_CAT_CD" prepend="AND">
+						A.KLD_CAT_CD IN (
+						         SELECT TG_CAT_ID
+						          FROM TBAEPGKM017M A
+						             , (
+						                SELECT SRT_VAL_NM
+						                  FROM TBAEPGKM017M
+						                 WHERE TG_CAT_ID = #KLD_CAT_CD#
+						              ) B
+						        WHERE A.SRT_VAL_NM LIKE B.SRT_VAL_NM || '%'  
+						   		)	
+				</isNotEmpty>
+				<isNotEmpty property="FROM_DATE" prepend="AND">
+				<![CDATA[
+						TO_DATE(REGI_RQS_DT) >= TO_DATE(#FROM_DATE#)
+				]]>
+				</isNotEmpty>
+				<isNotEmpty property="TO_DATE" prepend="AND">
+				<![CDATA[
+						TO_DATE(REGI_RQS_DT) <= TO_DATE(#TO_DATE#)
+				]]> 
+				</isNotEmpty>
+			    GROUP BY B.CNB, B.USR_NAM, E.SC
+		        ) A	 
+		ORDER BY REGN_CNB, REGN_USR_NM, KLD_CAT_CD
+	</select>
+</sqlMap>
+

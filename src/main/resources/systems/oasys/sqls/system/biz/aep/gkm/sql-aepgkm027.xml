@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="aep/gkm/027">
+	<select id="AEPGKM027Edateselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	'[' || EVL_YR || ' ' || F_CODE_NM('1000355', EVL_DVSN_CD) || ']'
+				|| ' ' ||
+				TO_CHAR(TO_DATE(EVL_ACTV_STR_DT), 'YYYY-MM-DD') || ' ~ ' || TO_CHAR(TO_DATE(EVL_ACTV_END_DT), 'YYYY-MM-DD')	AS CD_NM,
+				EVL_YR || EVL_DVSN_CD AS CD,
+				TO_CHAR(TO_DATE(EVL_ACTV_STR_DT), 'YYYY-MM-DD') AS EVL_STR_DT,
+				TO_CHAR(TO_DATE(EVL_ACTV_END_DT), 'YYYY-MM-DD')	AS EVL_END_DT
+		FROM	TBAEPGKM011M
+		ORDER BY EVL_YR DESC ,EVL_DVSN_CD DESC
+	</select>
+	
+	<select id="AEPGKM027Emainqselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT  B.EVL_YR, B.EVL_DVSN_CD, B.SC_GRN_TG_CD,
+		        B.SET_ID, B.POST_SEQ, B.TITLE,
+		        B.DPT_NM, B.CNB, B.USR_NM, B.LAST_UPDATE,
+		        NVL(COFM_YN, 'N') AS COFM_YN
+		FROM   (SELECT  EVL_YR, EVL_DVSN_CD, SC_GRN_TG_CD,
+		                BRD_NO, BRD_BKNO, CMNT_NO, CNB,
+		                MAX(COFM_YN) AS COFM_YN
+		        FROM    TBAEPGKM016L /* 지식평가내역 */
+		        WHERE   1=1
+		        <isNotEmpty property="EVL_YR" prepend="AND">
+						EVL_YR = #EVL_YR#
+				</isNotEmpty>
+				<isNotEmpty property="EVL_DVSN_CD" prepend="AND">
+						EVL_DVSN_CD = #EVL_DVSN_CD#
+				</isNotEmpty>
+		        AND     SC_GRN_TG_CD = #SC_GRN_TG_CD#
+		        GROUP BY EVL_YR, EVL_DVSN_CD, SC_GRN_TG_CD,
+		                 BRD_NO, BRD_BKNO, CMNT_NO, CNB
+		        ) AS A,
+		        (
+		        SELECT  A.EVL_YR, A.EVL_DVSN_CD, B.SC_GRN_TG_CD, 
+		                D.SET_ID, E.POST_SEQ, E.TITLE, E.CRE_USER_DEPT_NAME AS DPT_NM,
+				        F_USR_INFO_BY_ID(E.CRE_USER_ID, '1') AS CNB, 
+		                E.CRE_USER_NAME AS USR_NM, 
+		                TO_CHAR(E.LAST_UPDATE, 'YYYY-MM-DD') AS LAST_UPDATE
+				FROM    TBAEPGKM011M A /* 평가기간 */
+				      , TBAEPGKM012L B /* 평가기간별점수부여대상 */
+				  	  , TBAEPGKM006M C /* 점수부여대상 */
+				  	  , TBAEPGKM007L D /* 점수부여대상설정 */
+				  	  , CTT_POST E /* 게시판 */
+		        WHERE   A.EVL_YR = B.EVL_YR
+				AND     A.EVL_DVSN_CD = B.EVL_DVSN_CD
+			    AND     B.SC_GRN_TG_CD = C.SC_GRN_TG_CD
+				AND     C.SC_GRN_TG_CD = D.SC_GRN_TG_CD
+				AND		C.EVL_CHGR_DVSN_CD = '2'
+				AND		C.SET_DVSN_CD = 'B'
+				AND     D.SET_ID = E.BOARD_ID
+				AND     E.PARENT_POST_SEQ IS NULL /* 게시글 답변이 아님 */
+		        <![CDATA[
+				   AND A.EVL_ACTV_STR_DT <= TO_CHAR(E.LAST_UPDATE, 'YYYYMMDD')  /* 활동기간내에 등록된 글 */
+				   AND A.EVL_ACTV_END_DT >= TO_CHAR(E.LAST_UPDATE, 'YYYYMMDD')  /* 활동기간내에 등록된 글 */
+				   ]]>
+				<isNotEmpty property="EVL_YR" prepend="AND">
+						B.EVL_YR = #EVL_YR#
+				</isNotEmpty>
+				<isNotEmpty property="EVL_DVSN_CD" prepend="AND">
+						B.EVL_DVSN_CD = #EVL_DVSN_CD#
+				</isNotEmpty>
+		        ) AS B
+		WHERE   A.EVL_YR (+) = B.EVL_YR
+		AND     A.EVL_DVSN_CD (+) = B.EVL_DVSN_CD
+		AND     A.SC_GRN_TG_CD (+) = B.SC_GRN_TG_CD
+		AND     A.BRD_NO (+) = B.SET_ID
+		AND     A.BRD_BKNO (+) = B.POST_SEQ
+	</select>
+	<select id="AEPGKM027Emainaselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	B.EVL_YR, B.EVL_DVSN_CD, B.SC_GRN_TG_CD,
+		        B.SET_ID, B.POST_SEQ, B.TITLE,
+		        B.DPT_NM, B.CNB, B.USR_NM, B.LAST_UPDATE,
+		        NVL(COFM_YN, 'N') AS COFM_YN
+		FROM   (SELECT  EVL_YR, EVL_DVSN_CD, SC_GRN_TG_CD,
+		                BRD_NO, BRD_BKNO, CMNT_NO, CNB,
+		                MAX(COFM_YN) AS COFM_YN
+		        FROM    TBAEPGKM016L /* 지식평가내역 */
+		        WHERE   1=1
+		        <isNotEmpty property="EVL_YR" prepend="AND">
+						EVL_YR = #EVL_YR#
+				</isNotEmpty>
+				<isNotEmpty property="EVL_DVSN_CD" prepend="AND">
+						EVL_DVSN_CD = #EVL_DVSN_CD#
+				</isNotEmpty>
+		        AND     SC_GRN_TG_CD = #SC_GRN_TG_CD#
+		        GROUP BY EVL_YR, EVL_DVSN_CD, SC_GRN_TG_CD,
+		                 BRD_NO, BRD_BKNO, CMNT_NO, CNB
+		        ) AS A, /* 지식평가내역 */
+		        (
+				SELECT  A.EVL_YR, A.EVL_DVSN_CD, B.SC_GRN_TG_CD, 
+		                D.SET_ID, E.POST_SEQ, E.TITLE, E.CRE_USER_DEPT_NAME AS DPT_NM,
+				        F_USR_INFO_BY_ID(E.CRE_USER_ID, '1') AS CNB, 
+		                E.CRE_USER_NAME AS USR_NM, 
+		                TO_CHAR(E.LAST_UPDATE, 'YYYY-MM-DD') AS LAST_UPDATE
+				  FROM TBAEPGKM011M A /* 평가기간 */
+				  	 , TBAEPGKM012L B /* 평가기간별점수부여대상 */
+				  	 , TBAEPGKM006M C /* 점수부여대상 */
+				  	 , TBAEPGKM007L D /* 점수부여대상설정 */
+				  	 , CTT_POST E /* 게시판 */
+				 WHERE A.EVL_YR = B.EVL_YR
+				   AND A.EVL_DVSN_CD = B.EVL_DVSN_CD
+				   AND B.SC_GRN_TG_CD = C.SC_GRN_TG_CD
+				   AND C.SC_GRN_TG_CD = D.SC_GRN_TG_CD
+				   AND D.SET_ID = E.BOARD_ID
+				   AND C.EVL_CHGR_DVSN_CD = '3'
+				   AND C.SET_DVSN_CD = 'B'
+				   AND E.PARENT_POST_SEQ IS NOT NULL /* 게시글이 질문이 아님 */
+				   <![CDATA[
+				   AND A.EVL_ACTV_STR_DT <= TO_CHAR(E.LAST_UPDATE, 'YYYYMMDD')  /* 활동기간내에 등록된 글 */
+				   AND A.EVL_ACTV_END_DT >= TO_CHAR(E.LAST_UPDATE, 'YYYYMMDD')  /* 활동기간내에 등록된 글 */
+				   ]]>
+				   <isNotEmpty property="EVL_YR" prepend="AND">
+						B.EVL_YR = #EVL_YR#
+				</isNotEmpty>
+				<isNotEmpty property="EVL_DVSN_CD" prepend="AND">
+						B.EVL_DVSN_CD = #EVL_DVSN_CD#
+				</isNotEmpty>
+				) AS B
+		WHERE   A.EVL_YR (+) = B.EVL_YR
+		AND     A.EVL_DVSN_CD (+) = B.EVL_DVSN_CD
+		AND     A.SC_GRN_TG_CD (+) = B.SC_GRN_TG_CD
+		AND     A.BRD_NO (+) = B.SET_ID
+		AND     A.BRD_BKNO (+) = B.POST_SEQ
+	</select>
+	
+	<select id="AEPGKM027Emaincselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT  B.EVL_YR, B.EVL_DVSN_CD, B.SC_GRN_TG_CD,
+		        B.SET_ID, B.POST_SEQ, B.CMMT_SEQ, B.TITLE,
+		        B.DPT_NM, B.CNB, B.USR_NM, B.LAST_UPDATE,
+		        NVL(COFM_YN, 'N') AS COFM_YN
+		FROM   (SELECT  EVL_YR, EVL_DVSN_CD, SC_GRN_TG_CD,
+		                BRD_NO, BRD_BKNO, CMNT_NO, CNB,
+		                MAX(COFM_YN) AS COFM_YN
+		        FROM    TBAEPGKM016L /* 지식평가내역 */
+		        WHERE   1=1
+		        <isNotEmpty property="EVL_YR" prepend="AND">
+						EVL_YR = #EVL_YR#
+				</isNotEmpty>
+				<isNotEmpty property="EVL_DVSN_CD" prepend="AND">
+						EVL_DVSN_CD = #EVL_DVSN_CD#
+				</isNotEmpty>
+		        AND     SC_GRN_TG_CD = #SC_GRN_TG_CD#
+		        GROUP BY EVL_YR, EVL_DVSN_CD, SC_GRN_TG_CD,
+		                 BRD_NO, BRD_BKNO, CMNT_NO, CNB
+		        ) AS A, /* 지식평가내역 */
+		        (
+		        SELECT  B.EVL_YR, B.EVL_DVSN_CD, B.SC_GRN_TG_CD, 
+				        D.SET_ID, E.POST_SEQ, F.CMMT_SEQ, F.CONTENT AS TITLE,
+				        F.CRE_USER_DEPT_NAME AS DPT_NM,
+				        F_USR_INFO_BY_ID(E.CRE_USER_ID, '1') AS CNB,
+				        F.CRE_USER_NAME AS USR_NM,
+				        F.CRE_DT AS LAST_UPDATE
+				FROM    TBAEPGKM011M A /* 평가기간 */
+				      , TBAEPGKM012L B /* 평가기간별점수부여대상 */
+				      , TBAEPGKM006M C /* 점수부여대상 */
+				      , TBAEPGKM007L D /* 점수부여대상설정 */
+				      , CTT_POST E /* 게시판 */
+				      , CTT_POST_CMMT F /* 댓글 */
+				WHERE   A.EVL_YR = B.EVL_YR
+				AND     A.EVL_DVSN_CD = B.EVL_DVSN_CD
+				AND     B.SC_GRN_TG_CD = C.SC_GRN_TG_CD
+				AND     C.SC_GRN_TG_CD = D.SC_GRN_TG_CD
+				AND     D.SET_ID = E.BOARD_ID
+				AND     E.BOARD_ID = F.BOARD_ID
+				AND     E.POST_SEQ = F.POST_SEQ
+				AND		C.EVL_CHGR_DVSN_CD = '1'
+				AND		C.SET_DVSN_CD = 'B' /* 댓글 */
+		        <![CDATA[
+				AND		A.EVL_ACTV_STR_DT <= TO_CHAR(E.LAST_UPDATE, 'YYYYMMDD')  /* 활동기간내에 등록된 글 */
+				AND		A.EVL_ACTV_END_DT >= TO_CHAR(E.LAST_UPDATE, 'YYYYMMDD')  /* 활동기간내에 등록된 글 */
+				]]>
+				<isNotEmpty property="EVL_YR" prepend="AND">
+						B.EVL_YR = #EVL_YR#
+				</isNotEmpty>
+				<isNotEmpty property="EVL_DVSN_CD" prepend="AND">
+						B.EVL_DVSN_CD = #EVL_DVSN_CD#
+				</isNotEmpty>
+				) AS B
+		WHERE   A.EVL_YR (+) = B.EVL_YR
+		AND     A.EVL_DVSN_CD (+) = B.EVL_DVSN_CD
+		AND     A.SC_GRN_TG_CD (+) = B.SC_GRN_TG_CD
+		AND     A.BRD_NO (+) = B.SET_ID
+		AND     A.BRD_BKNO (+) = B.POST_SEQ
+		AND		A.CMNT_NO (+)= B.CMMT_SEQ
+   		AND		A.CNB (+)= B.CNB
+	</select>
+	
+	<insert id="AEPGKM027Emaininsert" parameterClass="java.util.Map">
+        INSERT INTO TBAEPGKM016L
+        (
+	         EVL_YR	/* 평가년도 */
+			,EVL_DVSN_CD	/* 평가구분코드 */
+			,SC_GRN_TG_CD	/* 점수부여대상코드 */
+			,SNO	/* 순번 */
+			,BRD_NO	/* 게시판번호 */
+			,BRD_BKNO	/* 게시판행번 */
+			,CMNT_NO	/* 댓글번호 */
+			,SC_CAT_CD	/* 점수분류코드 */
+			,SC	/* 점수 */
+			,CNB	/* 전산번호 */
+			,COFM_YN	/* 승인여부 */
+			,FRT_USR_ID	/* 최초사용자ID */
+			,FNL_USR_ID	/* 최종사용자ID */
+			,FNL_DEAL_DPT_CD	/* 최종거래부서코드 */
+			,FNL_MNU_ID	/* 최종메뉴ID */
+			,FRT_REGI_DH	/* 최초등록일시 */
+			,FNL_MDF_DH	/* 최종수정일시 */
+	        )
+	        VALUES
+	        (
+	          #EVL_YR#
+	        , #EVL_DVSN_CD#
+	        , #SC_GRN_TG_CD#
+	        , (SELECT NVL(MAX(TO_NUMBER(SNO)), '0') + 1 FROM TBAEPGKM016L WHERE EVL_YR = #EVL_YR# AND EVL_DVSN_CD = #EVL_DVSN_CD# AND SC_GRN_TG_CD = #SC_GRN_TG_CD#)
+	        , #SET_ID#
+	        , #POST_SEQ#
+	        <isNotEmpty property="CMMT_SEQ">
+	        , #CMMT_SEQ#
+	        </isNotEmpty>
+	        <isEmpty property="CMMT_SEQ">
+	        , ''
+	        </isEmpty>
+	        , '1'
+	        , (SELECT BSC_SC FROM TBAEPGKM006M WHERE SC_GRN_TG_CD = #SC_GRN_TG_CD#)
+	        , #CNB#
+	        , 'Y'
+	        , #FRT_USR_ID#
+	        , #FNL_USR_ID#
+	        , #FNL_DEAL_DPT_CD#
+	        , #FNL_MNU_ID#
+	        , SYSDATE
+	        , SYSDATE 
+        )
+	</insert>
+	
+	<update id="AEPGKM027Emainupdate" parameterClass="java.util.Map">
+		UPDATE	TBAEPGKM016L
+		SET		COFM_YN = #COFM_YN#
+		WHERE	EVL_YR = #EVL_YR#
+		AND		EVL_DVSN_CD = #EVL_DVSN_CD#
+		AND		SC_GRN_TG_CD = #SC_GRN_TG_CD#
+		AND		BRD_NO = #SET_ID#
+		AND		BRD_BKNO = #POST_SEQ#
+		AND NVL(TO_CHAR(CMNT_NO), '##') = NVL(#CMMT_SEQ#, '##')
+	</update>
+	
+	<delete id="AEPGKM027Emaindelete" parameterClass="java.util.Map">
+		DELETE
+		FROM	TBAEPGKM016L
+		WHERE	EVL_YR = #EVL_YR#
+		AND		EVL_DVSN_CD = #EVL_DVSN_CD#
+		AND		SC_GRN_TG_CD = #SC_GRN_TG_CD#
+		AND		BRD_NO = #SET_ID#
+		AND		BRD_BKNO = #POST_SEQ#
+		AND		NVL(TO_CHAR(CMNT_NO), '##') = NVL(#CMMT_SEQ#, '##')
+	</delete>
+	
+	<select id="AEPGKM027Edtmcheck" parameterClass="java.util.Map" resultClass="java.lang.String">
+		SELECT	DTM_YN
+		FROM	TBAEPGKM011M
+		WHERE	EVL_YR = #EVL_YR#
+		AND		EVL_DVSN_CD = #EVL_DVSN_CD#
+	</select>
+	
+	<select id="AEPGKM027Edatecheck" parameterClass="java.util.Map" resultClass="java.lang.String">
+		SELECT  CASE
+					WHEN SYSDATE BETWEEN TO_DATE(EVL_STR_DT) AND TO_DATE(EVL_END_DT) + .99999
+					THEN 'Y'
+					ELSE 'N'
+				END AS USE_YN
+		FROM	TBAEPGKM011M
+		WHERE	EVL_YR = #EVL_YR#
+		AND		EVL_DVSN_CD = #EVL_DVSN_CD#
+	</select>
+	
+	<!-- 해당 평가기간에 평가한 기록이 있는지 없는지 체크       -->
+	<select id="AEPGKM027ECheckEvlYnselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+   		SELECT DECODE(COUNT(*), 0, 'Y', 'N') AS EVL_YN
+          FROM TBAEPGKM016L
+         WHERE EVL_YR      = #EVL_YR#
+           AND EVL_DVSN_CD = #EVL_DVSN_CD#
+           AND SC_CAT_CD   = '2' 
+           AND BRD_NO IS NOT NULL /*평가점수가 있냐 없냐로 체크한다*/
+	</select>
+	
+	<!-- 점수부여 대상코드를 가져온다.  -->
+	<select id="AEPGKM027EScGrnTgCdselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT D2.SC_GRN_TG_CD
+		  FROM TBAEPGKM006M D1
+		     , TBAEPGKM012L D2
+		 WHERE D1.SC_GRN_TG_CD = D2.SC_GRN_TG_CD
+		   AND D2.EVL_YR      = #EVL_YR#
+           AND D2.EVL_DVSN_CD = #EVL_DVSN_CD#
+		   AND D1.EVL_CHGR_DVSN_CD = DECODE(#TYPE#, 'Q', '2', 'A', '3', 'C', '1', '')
+		   AND D1.SET_DVSN_CD = 'B'
+	</select>
+</sqlMap>
+

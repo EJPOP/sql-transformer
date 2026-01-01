@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/ded/057">
+
+	<select id="badded057EAppCostselect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+        SELECT A.SRNO                                             /* 춟장순번 */
+             , A.BZT_DVSN_CD                                      /* 출장구분코드 */
+             , F_CODE_NM('1000031',A.BZT_DVSN_CD)  AS BZT_DVSN_NM /* 츌장구분명 */
+             , A.STAD_STR_DT                                      /* 기준시작일자 */
+             , A.STAD_END_DT                                      /* 기준종료일자 */
+             , A.STAD_APC_DT                                      /* 기준적용일자 */
+             , A.RMK                                              /* 비고 */
+          FROM TBBADDED201B A
+          WHERE 1=1
+        ]]>
+        
+        <isNotEmpty property="strBztDvsnCd">	 
+			  AND BZT_DVSN_CD = #strBztDvsnCd#	
+		</isNotEmpty>
+		
+		<isNotEmpty property="strStadStrDt">	
+		   <isNotEmpty property="strStadEndDt"> 
+			<![CDATA[  AND A.STAD_STR_DT <= #strStadEndDt# ]]>
+			<![CDATA[  AND A.STAD_END_DT >= #strStadStrDt# ]]>
+		   </isNotEmpty>	
+		</isNotEmpty>
+		   
+        <![CDATA[
+		   ORDER BY 
+		         A.SRNO DESC
+		]]>
+		
+        </select>
+        
+    <select id="badded057EAppCostselectSub" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+         SELECT A.SRNO            /* 순번 */
+               ,A.FUEL_DVSN_CD    /* 연료구분코드(휘발유:1, 경유:2, LPG:3, 전기차:4) */
+               ,A.FUEL_EFFENY     /* 연비 */
+               ,A.FUEL_AM         /* 연료비 */
+           FROM TBBADDED202H A
+          WHERE ((NVL(#newYn#,'N') = 'Y' AND A.SRNO = (SELECT MAX(B.SRNO)
+                                                         FROM TBBADDED201B B
+                                                        WHERE B.BZT_DVSN_CD = #strBztDvsnCd# ) ) OR 
+                 (NVL(#newYn#,'N') = 'N' AND A.SRNO = #SRNO#) )
+         ORDER BY A.SRNO
+                 ,A.FUEL_DVSN_CD
+		]]>
+		
+        </select>
+		
+	<insert id="badded057EMstInsert" parameterClass="paramMap">
+		INSERT 
+		  INTO TBBADDED201B
+		     ( SRNO
+		     , BZT_DVSN_CD
+		     , STAD_STR_DT
+		     , STAD_END_DT
+		     , STAD_APC_DT
+		     , RMK
+		     , FNL_DEAL_DPT_CD
+		     , FNL_MNU_ID
+		     , FRT_USR_ID
+		     , FRT_REGI_DH
+		     , FNL_USR_ID
+		     , FNL_MDF_DH
+ 		     )
+ 		VALUES
+ 		     ( #SRNO#
+ 		     , #BZT_DVSN_CD#
+ 		     , #STAD_STR_DT#
+ 		     , '29991231'
+ 		     , TO_CHAR(SYSDATE,'yyyyMMdd')
+ 		     , #RMK#
+ 		     , #FNL_DEAL_DPT_CD#
+ 		     , #FNL_MNU_ID#
+ 		     , #FRT_USR_ID#
+ 		     , SYSDATE
+ 		     , #FNL_USR_ID#
+ 		     , SYSDATE
+ 		     )
+	</insert>
+	
+	<update id="badded057EMstRmkUpdate" parameterClass="paramMap">
+		UPDATE TBBADDED201B
+		   SET RMK = #RMK#
+		     , FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+		     , FNL_MNU_ID = #FNL_MNU_ID#
+		     , FNL_USR_ID = #FNL_USR_ID#
+		     , FNL_MDF_DH = SYSDATE
+		 WHERE SRNO = #SRNO#
+	</update>
+	
+	<update id="badded057EMstStadEndDtUpdate" parameterClass="paramMap">
+		UPDATE TBBADDED201B A
+		   SET STAD_END_DT = (SELECT TO_CHAR(TO_DATE(MAX(B.STAD_STR_DT),'yyyyMMdd')-1,'yyyyMMdd')
+		                        FROM TBBADDED201B B
+		                       WHERE B.BZT_DVSN_CD = #BZT_DVSN_CD#)
+		     , FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+		     , FNL_MNU_ID = #FNL_MNU_ID#
+		     , FNL_USR_ID = #FNL_USR_ID#
+		     , FNL_MDF_DH = SYSDATE
+		 WHERE A.SRNO = (SELECT MAX(B.SRNO)
+		                       FROM TBBADDED201B B
+		                      WHERE B.BZT_DVSN_CD = #BZT_DVSN_CD#
+		                        AND B.SRNO != (SELECT MAX(B.SRNO)
+		                                             FROM TBBADDED201B B
+		                                            WHERE B.BZT_DVSN_CD = #BZT_DVSN_CD#))
+	</update>
+	
+	<insert id="badded057EDtlInsert" parameterClass="paramMap">
+		INSERT 
+		  INTO TBBADDED202H
+		     ( SRNO
+		     , FUEL_DVSN_CD
+		     , FUEL_EFFENY
+		     , FNL_DEAL_DPT_CD
+		     , FNL_MNU_ID
+		     , FRT_USR_ID
+		     , FRT_REGI_DH
+		     , FNL_USR_ID
+		     , FNL_MDF_DH
+ 		     )
+ 		VALUES
+ 		     ( #SRNO#
+ 		     , #FUEL_DVSN_CD#
+ 		     , #FUEL_EFFENY#
+ 		     , #FNL_DEAL_DPT_CD#
+ 		     , #FNL_MNU_ID#
+ 		     , #FRT_USR_ID#
+ 		     , SYSDATE
+ 		     , #FNL_USR_ID#
+ 		     , SYSDATE
+ 		     )
+	</insert>
+	
+	<update id="badded057EDtlUpdate" parameterClass="paramMap">
+		UPDATE TBBADDED202H
+		   SET FUEL_EFFENY = #FUEL_EFFENY#
+		     , FUEL_AM = #FUEL_AM#
+		     , FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+		     , FNL_MNU_ID = #FNL_MNU_ID#
+		     , FNL_USR_ID = #FNL_USR_ID#
+		     , FNL_MDF_DH = SYSDATE
+		 WHERE SRNO = #SRNO#
+		   AND FUEL_DVSN_CD = #FUEL_DVSN_CD#
+	</update>
+	
+	<select id="badded057EMaxBztSrno" parameterClass="paramMap"
+		resultClass="java.lang.String">
+        <![CDATA[  
+			SELECT NVL(MAX(SRNO), 0) + 1  AS SRNO
+		      FROM TBBADDED201B
+        ]]>
+
+	</select>
+	
+	<update id="badded057EMstDelete" parameterClass="paramMap">
+		DELETE 
+		  FROM TBBADDED201B
+		 WHERE SRNO = #SRNO#
+	</update>
+	
+	<update id="badded057EDtlDelete" parameterClass="paramMap">
+		DELETE
+		  FROM TBBADDED202H
+		       
+		 WHERE SRNO = #SRNO#
+	</update>
+	
+	<update id="badded057EMstDelStadEndDtUpdate" parameterClass="paramMap">
+	   <![CDATA[
+		UPDATE TBBADDED201B
+		   SET STAD_END_DT = #STAD_END_DT#
+		     , FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+		     , FNL_MNU_ID = #FNL_MNU_ID#
+		     , FNL_USR_ID = #FNL_USR_ID#
+		     , FNL_MDF_DH = SYSDATE
+		 WHERE SRNO = (SELECT MAX(SRNO)
+		                     FROM TBBADDED201B
+		                    WHERE SRNO < #SRNO#
+		                      AND BZT_DVSN_CD = #BZT_DVSN_CD#)
+	    ]]>	                       
+	</update>
+	<select id="selectFuelList" parameterClass="paramMap"	resultClass="java.lang.String">
+       
+		SELECT CD FROM TBDCMACM013C 
+		WHERE CMM_CD_DVSN_CD ='1000966' 
+		AND  CD <![CDATA[ <> ]]> '000000000'	
+		AND USE_YN='Y'
+		ORDER BY CD
+	</select>
+	<select id="selectFuelCostList" parameterClass="paramMap"	resultClass="java.lang.String">
+       
+		SELECT CD_NM FROM TBDCMACM013C 
+		WHERE CMM_CD_DVSN_CD ='1000972' 
+		AND  CD <![CDATA[ <> ]]> '000000000'	
+		AND USE_YN='Y'
+		ORDER BY CD
+	</select>  
+</sqlMap> 
+

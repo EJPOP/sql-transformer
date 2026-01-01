@@ -1,0 +1,974 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/ded/019">
+
+	<!-- 조회조건 데이터 조회 - 출장실국 -->
+	<select id="BADDED019QBruCdListselect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       		         
+			SELECT DPT_CD AS CD
+			     , DPT_NM AS CD_NM
+			  FROM TBDCMACM002M
+			 WHERE USE_YN = 'Y'
+			   AND DPT_CD LIKE '__0000'
+			 ORDER BY DPT_CD
+        ]]>
+	</select>
+	
+	<!-- 조회조건 데이터 조회 - 출장부서 -->
+	<select id="BADDED019QDeptCdListselect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       		         
+			SELECT DPT_CD      AS CD
+			     , DPT_NM      AS CD_NM
+			     , HIRK_DPT_CD AS KEY
+			  FROM TBDCMACM002M
+			 WHERE USE_YN = 'Y'
+			   AND NOT DPT_CD LIKE '__0000'
+			 ORDER BY DPT_CD
+        ]]>
+	</select>	
+	<!-- #################################### 월별/국과별/감사종류별/직급별/지역구분별 통계 조회 시작 ################################# -->
+	<select id="BADDED019Qselect1" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT T1.MONTH AS MONTH ,
+			       T1.BRU_CD ,
+			       T1.BRU_NM ,
+				   T1.BRU_NM AS BRU_NM1,			       
+			       T1.DPT_CD ,			
+			       T1.DPT_NM ,
+			       T1.AUD_KND_CD ,
+			       T1.AUD_KND_NM AS AUD_EXEC_DVSN_CD_NM,
+			       T1.POS_CLASS_NM AS POS_CLASS_NM,
+	               T1.AREA_KIND_NM AS AREA_KIND_NM,		     
+			       T1.MONTH AS MONTH1,
+			       SUM(T1.MAN_DAY) AS MAN_DAY ,
+			       SUM(T1.RL_FR_EXS) AS RL_FR_EXS ,
+			       SUM(T1.IN_EXP) AS IN_EXP ,
+			       SUM(
+			           CASE WHEN T1.PCT_CNB = T1.BZT_TL_CNB AND MONTH = T2.MIN_MONTH 
+			                     THEN T2.LEAD_EXS
+			                ELSE 0
+			            END) AS LEAD_EXS ,
+			       SUM(T1.SPM_XPN) AS SPM_XPN
+			  FROM TBBADDED027L T1,
+			       (SELECT BZT_YR,
+			               BZT_SNO,
+			               AREA_KIND_CD,
+			               SUM(NVL(LEAD_EXS, 0)) AS LEAD_EXS,
+			               MIN(SUBSTR(BZT_STR_DT, 5, 2)) AS MIN_MONTH
+			          FROM TBBADDED027L
+			         WHERE 1=1
+			           AND BZT_STR_DT >= #strBztStrDt#
+			           AND BZT_END_DT <= #strBztEndDt#
+			         GROUP BY BZT_YR,
+			               BZT_SNO,
+			               AREA_KIND_CD) T2			  
+			
+			 WHERE 1=1
+			   AND T1.BZT_YR       = T2.BZT_YR
+			   AND T1.BZT_SNO      = T2.BZT_SNO
+			   AND T1.AREA_KIND_CD = T2.AREA_KIND_CD
+			   AND T1.BZT_STR_DT  >= #strBztStrDt#
+	           AND T1.BZT_END_DT  <= #strBztEndDt#
+		]]>
+		
+		<isNotEmpty property="strAudKndCd">	 
+			   AND SUBSTR(T1.AUD_KND_CD, -1)   = SUBSTR(#strAudKndCd#, -1) /* 끝자리로만 조회 - 2016.07.12 yyh */
+		</isNotEmpty>
+			           
+		<isNotEmpty property="strBruCd">	 
+			   AND T1.BRU_CD       = #strBruCd# 
+		</isNotEmpty>
+		
+		<isNotEmpty property="strDeptCd">	 
+			   AND T1.DPT_CD       = #strDeptCd# 
+		</isNotEmpty>	           
+			          
+        <![CDATA[   			   
+			 GROUP BY MONTH,
+			          BRU_CD,
+			          BRU_NM,
+			          DPT_CD,
+			          DPT_NM,
+			          AUD_KND_CD,
+			          AUD_KND_NM,
+			          POS_CLASS_NM,
+			          AREA_KIND_NM 
+			 ORDER BY MONTH,
+		              BRU_CD,
+		              DPT_CD,
+		              AUD_KND_CD,
+		              POS_CLASS_NM,
+		              AREA_KIND_NM
+        ]]>
+	</select>	
+		
+	<select id="BADDED019Qselect1_backup" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT F_DPT_INFO(AGGR.BRU_CD,'1') BRU_NM,
+			       F_DPT_INFO(AGGR.BRU_CD,'1') BRU_NM1,
+			       F_DPT_INFO(AGGR.DPT_CD,'1') DPT_NM ,        
+			       F_CODE_NM('1000007',AGGR.AUD_KND_CD) AUD_EXEC_DVSN_CD_NM,
+			       AGGR.MONTH AS MONTH1,
+			       AGGR.MONTH AS MONTH ,
+			       AGGR.BRU_CD ,
+			       AGGR.DPT_CD ,
+			       AGGR.AUD_KND_CD ,
+			       AGGR.POS_CLASS_NM ,
+			       AGGR.AREA_KIND_NM ,
+			       SUM(AGGR.MAN_DAY) AS MAN_DAY ,
+			       SUM(AGGR.RL_FR_EXS) AS RL_FR_EXS ,
+			       SUM(AGGR.IN_EXP) AS IN_EXP ,
+			       SUM(
+			           CASE
+			             WHEN AGGR.PCT_CNB = AGGR.BZT_TL_CNB AND AGGR.MONTH = TE2.MIN_MONTH THEN TE2.LEAD_EXS
+			             ELSE 0
+			           END) AS LEAD_EXS ,
+			       SUM(AGGR.SPM_XPN) AS SPM_XPN
+			  FROM (SELECT 
+			               SITU.BZT_YR,
+			               SITU.BZT_SNO,
+			               SUBSTR(TE.BZT_STR_DT, 5, 2) AS MONTH,
+			               BL.BRU_CD,
+			               BL.DPT_CD,
+			               AUD.AUD_KND_CD,
+			               TER.PCT_CNB,
+			               SITU.BZT_TL_CNB,
+			               TE.RGN_DVSN_CD,
+			               NVL(F_CODE_NM('1000173',TER.PCT_RANK_CD),TER.PCT_RANK_CD) POS_CLASS_NM,
+			               NVL(F_CODE_NM('1000023',TE.RGN_DVSN_CD),'UNKNOWN') AREA_KIND_NM,
+			               SUM(TE.BZT_DCN) AS MAN_DAY,
+			               NVL(SUM(TFD.RL_FR_EXS), 0) + NVL(SUM(TE.CPRG_FR_EXS),0) AS RL_FR_EXS, /*수도권운임추가 - 2015.05.13 yyh*/
+			               SUM(TE.FDEX) + SUM(TE.LDC) + SUM(TE.DT_EXS) AS IN_EXP,
+			               SUM(TE.SPM_XPN) AS SPM_XPN
+			          FROM TBBADDED011L TE,
+			               TBBADDED010L TER ,
+			               (SELECT /*+INDEX(A KBBADBADDED017001)*/
+			                       BZT_YR,
+			                       BZT_SNO,
+			                       PCT_CNB,
+			                       BZT_EXS_SNO,
+			                       CALC_YN,
+			                       SUM(RL_FR_EXS) AS RL_FR_EXS
+			                  FROM TBBADDED017L
+			                 WHERE FNL_YN = 'Y'
+			                 GROUP BY BZT_YR,
+			                       BZT_SNO,
+			                       PCT_CNB,
+			                       BZT_EXS_SNO,
+			                       CALC_YN ) TFD ,
+			               TBBADDED002M SITU,
+			               TBBADDED001M AUD,
+			               (SELECT /*+ INDEX(A KBBADBADDED005001) */
+			                       PCT_CNB,
+			                       SUBSTR(MAX(BLT_BRDV_CD), 1, 3) || '000' AS BRU_CD ,
+			                       MAX(BLT_BRDV_CD) AS DPT_CD  /*소속국과코드*/
+			                  FROM TBBADDED005L
+			                 WHERE BZT_YR = #strBztYe#
+			                 GROUP BY PCT_CNB) BL
+			         WHERE TER.BZT_YR = SITU.BZT_YR
+			           AND TER.BZT_SNO = SITU.BZT_SNO
+			           AND BL.PCT_CNB(+) = TER.PCT_CNB
+			           AND TE.BZT_YR = TER.BZT_YR
+			           AND TE.BZT_SNO = TER.BZT_SNO
+			           AND TE.PCT_CNB = TER.PCT_CNB
+			           AND TFD.BZT_YR(+) = TE.BZT_YR
+			           AND TFD.BZT_SNO(+) = TE.BZT_SNO
+			           AND TFD.PCT_CNB(+) = TE.PCT_CNB
+			           AND TFD.BZT_EXS_SNO(+) = TE.BZT_EXS_SNO
+			           AND TFD.CALC_YN(+) = TE.CALC_YN
+			           AND TE.FNL_YN = 'Y'
+			           AND TE.BZT_STR_DT  >= #strBztStrDt#
+			           AND TE.BZT_END_DT  <= #strBztEndDt#
+			           AND SITU.BZT_DVSN_CD = '1'
+			           AND AUD.AUD_YR = SITU.REL_AUD_YR
+			           AND AUD.AUD_NO = SITU.REL_AUD_NO 
+			           AND AUD.AUD_KND_CD LIKE  #strAudKndCd# || '%'
+			         GROUP BY SITU.BZT_YR,
+			               SITU.BZT_SNO,
+			               SUBSTR(TE.BZT_STR_DT, 5, 2),
+			               BL.BRU_CD,
+			               BL.DPT_CD,
+			               AUD.AUD_KND_CD,
+			               TER.PCT_CNB,
+			               SITU.BZT_TL_CNB ,
+			               TER.PCT_RANK_CD,
+			               TE.RGN_DVSN_CD ) AGGR ,
+			       (SELECT /*+INDEX(TBBADDED011L KBBADBADDED011001)*/               
+			               BZT_YR,
+			               BZT_SNO,
+			               RGN_DVSN_CD,
+			               SUM(NVL(LEAD_EXS, 0)) AS LEAD_EXS,
+			               MIN(SUBSTR(BZT_STR_DT, 5, 2)) AS MIN_MONTH
+			          FROM TBBADDED011L
+			         WHERE 1=1
+			           AND BZT_STR_DT  >= #strBztStrDt#
+			           AND BZT_END_DT <=  #strBztEndDt#
+			           AND FNL_YN = 'Y'
+			         GROUP BY BZT_YR,
+			               BZT_SNO,
+			               RGN_DVSN_CD) TE2
+			
+			 WHERE 1=1
+			   AND TE2.BZT_YR = AGGR.BZT_YR
+			   AND TE2.BZT_SNO = AGGR.BZT_SNO
+			   AND TE2.RGN_DVSN_CD = AGGR.RGN_DVSN_CD
+			   AND AGGR.BRU_CD LIKE #strBruCd# || '%' 
+			   AND AGGR.DPT_CD LIKE #strDeptCd# || '%'
+			 GROUP BY 
+			       AGGR.MONTH,
+			       AGGR.BRU_CD,
+			       AGGR.DPT_CD,
+			       AGGR.AUD_KND_CD,
+			       AGGR.POS_CLASS_NM,
+			       AGGR.AREA_KIND_NM 
+			 ORDER BY 
+			   	AGGR.MONTH,
+		        AGGR.BRU_CD,
+		        AGGR.DPT_CD,
+		        AGGR.AUD_KND_CD,
+		        AGGR.POS_CLASS_NM,
+		        AGGR.AREA_KIND_NM,
+			 	1,2,3,4,5,6,7
+        ]]>
+	</select>	
+	<!-- #################################### 월별/국과별/감사종류별/직급별/지역구분별 통계 조회 끝 ################################# -->
+	
+	<!-- #################################### 월별/국별/직급별/지역구분별 통계 조회 시작 ################################# -->
+	<select id="BADDED019Qselect2" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+        
+			SELECT T1.MONTH             AS MONTH
+			      ,T1.BRU_CD            AS BRU_CD
+			      ,T1.BRU_NM            AS DPT_NM
+				  ,T1.BRU_NM            AS DPT_NM1
+			      ,T1.POS_CLASS_NM      AS POS_CLASS_NM
+	              ,T1.AREA_KIND_NM      AS AREA_KIND_NM
+			      ,T1.MONTH             AS MONTH1
+			      ,SUM(T1.MAN_DAY)      AS MAN_DAY
+			      ,SUM(T1.RL_FR_EXS)    AS RL_FR_EXS
+			      ,SUM(T1.IN_EXP)       AS IN_EXP
+			      ,SUM(
+			           CASE WHEN T1.PCT_CNB = T1.BZT_TL_CNB AND MONTH = T2.MIN_MONTH 
+			                     THEN T2.LEAD_EXS
+			                ELSE 0
+			            END)            AS LEAD_EXS
+			      ,SUM(T1.SPM_XPN)      AS SPM_XPN
+			  FROM TBBADDED027L T1,
+			       (SELECT BZT_YR,
+			               BZT_SNO,
+			               AREA_KIND_CD,
+			               SUM(NVL(LEAD_EXS, 0)) AS LEAD_EXS,
+			               MIN(SUBSTR(BZT_STR_DT, 5, 2)) AS MIN_MONTH
+			          FROM TBBADDED027L
+			         WHERE 1=1
+			           AND BZT_STR_DT >= #strBztStrDt#
+			           AND BZT_END_DT <= #strBztEndDt#
+		]]>
+		
+		<isNotEmpty property="strBruCd">	 
+			           AND BRU_CD      = #strBruCd# 
+		</isNotEmpty>
+				
+        <![CDATA[	
+			         GROUP BY BZT_YR,
+			               BZT_SNO,
+			               AREA_KIND_CD) T2			  
+			
+			 WHERE 1=1
+			   AND T1.BZT_YR       = T2.BZT_YR
+			   AND T1.BZT_SNO      = T2.BZT_SNO
+			   AND T1.AREA_KIND_CD = T2.AREA_KIND_CD
+			   AND T1.BZT_STR_DT  >= #strBztStrDt#
+	           AND T1.BZT_END_DT  <= #strBztEndDt#
+        ]]>
+  	           
+		<isNotEmpty property="strBruCd">	 
+			   AND T1.BRU_CD       = #strBruCd# 
+		</isNotEmpty>
+		
+        <![CDATA[			           
+			 GROUP BY MONTH,
+			          BRU_CD,
+			          BRU_NM,
+			          POS_CLASS_NM,
+			          AREA_KIND_NM 
+			 ORDER BY MONTH,
+		              BRU_CD,
+		              POS_CLASS_NM,
+		              AREA_KIND_NM
+        ]]>
+	</select>	
+		
+	<select id="BADDED019Qselect2_backup" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT F_DPT_INFO(AGGR.BRU_CD,'1') DPT_NM1,
+			       F_DPT_INFO(AGGR.BRU_CD,'1') DPT_NM,
+			       AGGR.MONTH MONTH1,
+			       AGGR.BRU_CD,
+			       AGGR.MONTH,
+			       AGGR.POS_CLASS_NM,
+			       AGGR.AREA_KIND_NM,
+			       SUM(AGGR.MAN_DAY) AS MAN_DAY,
+			       SUM(AGGR.RL_FR_EXS) AS RL_FR_EXS,
+			       SUM(AGGR.IN_EXP) AS IN_EXP,
+			       SUM(
+			           CASE
+			             WHEN AGGR.PCT_CNB = AGGR.BZT_TL_CNB AND AGGR.MONTH = TE2.MIN_MONTH THEN TE2.LEAD_EXS
+			             ELSE 0
+			           END) AS LEAD_EXS,
+			       SUM(AGGR.SPM_XPN) AS SPM_XPN
+			  FROM (SELECT SITU.BZT_YR,
+			               SITU.BZT_SNO,
+			               TER.PCT_CNB,
+			               SITU.BZT_TL_CNB,
+			               TE.RGN_DVSN_CD,
+			               BL.BRU_CD,
+			               SUBSTRING(TE.BZT_STR_DT, 5, 2) AS MONTH,
+			               NVL(F_CODE_NM('1000173',TER.PCT_RANK_CD),TER.PCT_RANK_CD) POS_CLASS_NM,
+			               NVL(F_CODE_NM('1000023',TE.RGN_DVSN_CD),'UNKNOWN') AREA_KIND_NM,
+			               SUM(TE.BZT_DCN) AS MAN_DAY,
+			               NVL(SUM(TFD.RL_FR_EXS), 0) + NVL(SUM(TE.CPRG_FR_EXS),0) AS RL_FR_EXS,    /*수도권운임추가 - 2015.05.13 yyh*/
+			               SUM(TE.FDEX) + SUM(TE.LDC) + SUM(TE.DT_EXS) AS IN_EXP,
+			               SUM(TE.SPM_XPN) AS SPM_XPN
+			          FROM TBBADDED011L TE,
+			               TBBADDED010L TER,
+			               TBBADDED002M SITU,
+			               (SELECT /*+INDEX(A KBBADBADDED017001)*/
+			                       BZT_YR,
+			                       BZT_SNO,
+			                       PCT_CNB,
+			                       BZT_EXS_SNO,
+			                       CALC_YN,
+			                       SUM(RL_FR_EXS) AS RL_FR_EXS
+			                  FROM TBBADDED017L
+			                 WHERE FNL_YN = 'Y'
+			                 GROUP BY BZT_YR,
+			                       BZT_SNO,
+			                       PCT_CNB,
+			                       BZT_EXS_SNO,
+			                       CALC_YN ) TFD,
+			               (SELECT /*+ INDEX(A KBBADBADDED005001) */
+			                       PCT_CNB,
+			                       SUBSTR(MAX(BLT_BRDV_CD), 1, 3) || '000' AS BRU_CD
+			                  FROM TBBADDED005L
+			                 WHERE BZT_YR = #strBztYe#
+			                 GROUP BY PCT_CNB) BL
+			         WHERE TER.BZT_YR = SITU.BZT_YR
+			           AND TER.BZT_SNO = SITU.BZT_SNO
+			           AND BL.PCT_CNB(+) = TER.PCT_CNB
+			           AND TE.BZT_YR = TER.BZT_YR
+			           AND TE.BZT_SNO = TER.BZT_SNO
+			           AND TE.PCT_CNB = TER.PCT_CNB
+			           AND TFD.BZT_YR(+) = TE.BZT_YR
+			           AND TFD.BZT_SNO(+) = TE.BZT_SNO
+			           AND TFD.PCT_CNB(+) = TE.PCT_CNB
+			           AND TFD.BZT_EXS_SNO(+) = TE.BZT_EXS_SNO
+			           AND TFD.CALC_YN(+) = TE.CALC_YN
+			           AND TE.FNL_YN = 'Y'
+			           AND TE.BZT_STR_DT >= #strBztStrDt#
+			           AND TE.BZT_END_DT <= #strBztEndDt#
+			           AND SITU.BZT_DVSN_CD = '1' /*감사출장*/
+			         GROUP BY SITU.BZT_YR,
+			               SITU.BZT_SNO,
+			               TER.PCT_CNB,
+			               SITU.BZT_TL_CNB,
+			               TER.PCT_RANK_CD,
+			               TE.RGN_DVSN_CD,
+			               BL.BRU_CD,
+			               SUBSTRING(TE.BZT_STR_DT, 5, 2) ) AGGR,
+			       (SELECT /*+INDEX(TBBADDED011L KBBADBADDED011001)*/      
+			               BZT_YR,
+			               BZT_SNO,
+			               RGN_DVSN_CD,
+			               SUM(NVL(LEAD_EXS, 0)) AS LEAD_EXS,
+			               MIN(SUBSTRING(BZT_STR_DT, 5, 2)) AS MIN_MONTH
+			          FROM TBBADDED011L
+			         WHERE 1=1
+			           AND BZT_STR_DT >= #strBztStrDt#
+			           AND BZT_END_DT <= #strBztEndDt#
+			           AND FNL_YN = 'Y'
+			         GROUP BY BZT_YR,
+			               BZT_SNO,
+			               RGN_DVSN_CD) TE2 
+			 WHERE 1=1
+			   AND AGGR.BZT_YR = TE2.BZT_YR
+			   AND AGGR.BZT_SNO = TE2.BZT_SNO
+			   AND AGGR.RGN_DVSN_CD = TE2.RGN_DVSN_CD
+			   AND AGGR.BRU_CD LIKE #strBruCd# || '%'
+			 GROUP BY 
+			       AGGR.MONTH,
+			       AGGR.BRU_CD,
+			       AGGR.POS_CLASS_NM,
+			       AGGR.AREA_KIND_NM
+			  ORDER BY 
+			        AGGR.MONTH,
+			        AGGR.BRU_CD,
+			        AGGR.POS_CLASS_NM,
+			        AGGR.AREA_KIND_NM
+        ]]>
+	</select>	
+	<!-- #################################### 월별/국별/직급별/지역구분별 통계 조회 끝 ################################# -->
+	
+	<!-- #################################### 국별/직급별/ 지역구분별 통계 조회 시작 ################################# -->
+	<select id="BADDED019Qselect3" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+        
+			SELECT T1.BRU_NM            AS GUBUN 
+			      ,T1.BRU_NM            AS DPT_NM
+			      ,T1.BRU_CD            AS BRU_CD
+			      ,T1.POS_CLASS_NM      AS POS_CLASS_NM	
+			      ,T1.AREA_KIND_NM      AS AREA_KIND_NM
+			      ,SUM(T1.MAN_DAY)      AS MAN_DAY
+			      ,SUM(T1.RL_FR_EXS)    AS RL_FR_EXS
+			      ,SUM(T1.IN_EXP)       AS IN_EXP
+			      ,SUM(
+			           CASE WHEN T1.PCT_CNB = T1.BZT_TL_CNB AND MONTH = T2.MIN_MONTH 
+			                     THEN T2.LEAD_EXS
+			                ELSE 0
+			            END)            AS LEAD_EXS
+			      ,SUM(T1.SPM_XPN)      AS SPM_XPN
+			  FROM TBBADDED027L T1,
+			       (SELECT BZT_YR,
+			               BZT_SNO,
+			               AREA_KIND_CD,
+			               SUM(NVL(LEAD_EXS, 0)) AS LEAD_EXS,
+			               MIN(SUBSTR(BZT_STR_DT, 5, 2)) AS MIN_MONTH
+			          FROM TBBADDED027L
+			         WHERE 1=1
+			           AND BZT_STR_DT >= #strBztStrDt#
+			           AND BZT_END_DT <= #strBztEndDt#
+		]]>
+		
+		<isNotEmpty property="strBruCd">	 
+			           AND BRU_CD      = #strBruCd# 
+		</isNotEmpty>
+				
+        <![CDATA[	
+			         GROUP BY BZT_YR,
+			               BZT_SNO,
+			               AREA_KIND_CD) T2			  
+			
+			 WHERE 1=1
+			   AND T1.BZT_YR       = T2.BZT_YR
+			   AND T1.BZT_SNO      = T2.BZT_SNO
+			   AND T1.AREA_KIND_CD = T2.AREA_KIND_CD
+			   AND T1.BZT_STR_DT  >= #strBztStrDt#
+	           AND T1.BZT_END_DT  <= #strBztEndDt#
+        ]]>
+  	           
+		<isNotEmpty property="strBruCd">	 
+			   AND T1.BRU_CD       = #strBruCd# 
+		</isNotEmpty>
+		
+        <![CDATA[			           
+			 GROUP BY T1.BRU_NM,
+			          T1.BRU_CD,
+			          T1.POS_CLASS_NM,
+			          T1.AREA_KIND_NM 
+			 ORDER BY T1.BRU_NM
+			         ,T1.POS_CLASS_NM
+			         ,T1.AREA_KIND_NM
+        ]]>
+	</select>	
+	
+	<select id="BADDED019Qselect3_backup" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT F_DPT_INFO(AGGR.BRU_CD,'1') GUBUN,
+			       F_DPT_INFO(AGGR.BRU_CD,'1') DPT_NM,
+			       AGGR.BRU_CD,
+			       AGGR.POS_CLASS_NM,
+			       AGGR.AREA_KIND_NM,
+			       SUM(AGGR.MAN_DAY) AS MAN_DAY,
+			       SUM(AGGR.RL_FR_EXS) AS RL_FR_EXS,
+			       SUM(AGGR.IN_EXP) AS IN_EXP,
+			       SUM(
+			           CASE
+			             WHEN AGGR.PCT_CNB = AGGR.BZT_TL_CNB THEN TE2.LEAD_EXS
+			             ELSE 0
+			           END) AS LEAD_EXS,
+			       SUM(AGGR.SPM_XPN) AS SPM_XPN
+			  FROM (SELECT SITU.BZT_YR,
+			               SITU.BZT_SNO,
+			               TER.PCT_CNB,
+			               SITU.BZT_TL_CNB,
+			               TE.RGN_DVSN_CD,
+			               BL.BRU_CD,
+			               NVL(F_CODE_NM('1000173',TER.PCT_RANK_CD),TER.PCT_RANK_CD) POS_CLASS_NM,
+			               NVL(F_CODE_NM('1000023',TE.RGN_DVSN_CD),'UNKNOWN') AREA_KIND_NM,
+			               SUM(TE.BZT_DCN) AS MAN_DAY,
+			               NVL(SUM(TFD.RL_FR_EXS), 0) + NVL(SUM(TE.CPRG_FR_EXS),0) AS RL_FR_EXS,    /*수도권운임추가 - 2015.05.13 yyh*/
+			               SUM(TE.FDEX) + SUM(TE.LDC) + SUM(TE.DT_EXS) AS IN_EXP,
+			               SUM(TE.SPM_XPN) AS SPM_XPN
+			          FROM TBBADDED011L TE,
+			               TBBADDED010L TER,
+			               TBBADDED002M SITU,
+			               (SELECT /*+INDEX(A KBBADBADDED017001)*/
+			                       BZT_YR,
+			                       BZT_SNO,
+			                       PCT_CNB,
+			                       BZT_EXS_SNO,
+			                       CALC_YN,
+			                       SUM(RL_FR_EXS) AS RL_FR_EXS
+			                  FROM TBBADDED017L
+			                 WHERE FNL_YN = 'Y'
+			                 GROUP BY BZT_YR,
+			                       BZT_SNO,
+			                       PCT_CNB,
+			                       BZT_EXS_SNO,
+			                       CALC_YN ) TFD,
+			               (SELECT /*+ INDEX(A KBBADBADDED005001) */
+			                       PCT_CNB,
+			                       SUBSTR(MAX(BLT_BRDV_CD), 1, 3) || '000' AS BRU_CD
+			                  FROM TBBADDED005L
+			                 WHERE BZT_YR = #strBztYe#
+			                 GROUP BY PCT_CNB) BL
+			         WHERE TER.BZT_YR = SITU.BZT_YR
+			           AND TER.BZT_SNO = SITU.BZT_SNO
+			           AND BL.PCT_CNB(+) = TER.PCT_CNB
+			           AND TE.BZT_YR = TER.BZT_YR
+			           AND TE.BZT_SNO = TER.BZT_SNO
+			           AND TE.PCT_CNB = TER.PCT_CNB
+			           AND TFD.BZT_YR(+) = TE.BZT_YR
+			           AND TFD.BZT_SNO(+) = TE.BZT_SNO
+			           AND TFD.PCT_CNB(+) = TE.PCT_CNB
+			           AND TFD.BZT_EXS_SNO(+) = TE.BZT_EXS_SNO
+			           AND TFD.CALC_YN(+) = TE.CALC_YN
+			           AND TE.FNL_YN = 'Y'
+			           AND TE.BZT_STR_DT >= #strBztStrDt#
+			           AND TE.BZT_END_DT <= #strBztEndDt#
+			           AND SITU.BZT_DVSN_CD = '1'
+			         GROUP BY SITU.BZT_YR,
+			               SITU.BZT_SNO,
+			               TER.PCT_CNB,
+			               SITU.BZT_TL_CNB,
+			               TER.PCT_RANK_CD,
+			               TE.RGN_DVSN_CD,
+			               BL.BRU_CD ) AGGR,
+			       (SELECT /*+INDEX(TBBADDED011L KBBADBADDED011001)*/      
+			               BZT_YR,
+			               BZT_SNO,
+			               RGN_DVSN_CD,
+			               SUM(NVL(LEAD_EXS, 0)) AS LEAD_EXS
+			          FROM TBBADDED011L
+			         WHERE 1=1
+			           AND BZT_STR_DT >= #strBztStrDt#
+			           AND BZT_END_DT <= #strBztEndDt#
+			           AND FNL_YN = 'Y'
+			         GROUP BY BZT_YR,
+			               BZT_SNO,
+			               RGN_DVSN_CD) TE2
+			 WHERE 1=1
+			   AND AGGR.BZT_YR = TE2.BZT_YR
+			   AND AGGR.BZT_SNO = TE2.BZT_SNO
+			   AND AGGR.RGN_DVSN_CD = TE2.RGN_DVSN_CD
+			   AND AGGR.BRU_CD LIKE '%' || #strBruCd#
+			 GROUP BY AGGR.BRU_CD,
+			       AGGR.POS_CLASS_NM,
+			       AGGR.AREA_KIND_NM 
+			 ORDER BY 1,2,4,5
+        ]]>
+	</select>	
+	<!-- #################################### 국별/직급별/ 지역구분별 통계 조회 끝 ################################# -->
+	
+	<!-- #################################### 직급별/ 지역구분별 합계 조회 시작 ################################# -->
+	<select id="BADDED019Qselect4" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+        
+			SELECT T1.POS_CLASS_NM      AS POS_CLASS_NM
+			      ,T1.AREA_KIND_NM      AS AREA_KIND_NM			
+			      ,SUM(T1.MAN_DAY)      AS MAN_DAY
+			      ,SUM(T1.RL_FR_EXS)    AS RL_FR_EXS
+			      ,SUM(T1.IN_EXP)       AS IN_EXP
+			      ,SUM(
+			           CASE WHEN T1.PCT_CNB = T1.BZT_TL_CNB AND MONTH = T2.MIN_MONTH 
+			                     THEN T2.LEAD_EXS
+			                ELSE 0
+			            END)            AS LEAD_EXS
+			      ,SUM(T1.SPM_XPN)      AS SPM_XPN
+			  FROM TBBADDED027L T1,
+			       (SELECT BZT_YR,
+			               BZT_SNO,
+			               AREA_KIND_CD,
+			               SUM(NVL(LEAD_EXS, 0)) AS LEAD_EXS,
+			               MIN(SUBSTR(BZT_STR_DT, 5, 2)) AS MIN_MONTH
+			          FROM TBBADDED027L
+			         WHERE 1=1
+			           AND BZT_STR_DT >= #strBztStrDt#
+			           AND BZT_END_DT <= #strBztEndDt#
+			         GROUP BY BZT_YR,
+			               BZT_SNO,
+			               AREA_KIND_CD) T2			  
+			
+			 WHERE 1=1
+			   AND T1.BZT_YR       = T2.BZT_YR
+			   AND T1.BZT_SNO      = T2.BZT_SNO
+			   AND T1.AREA_KIND_CD = T2.AREA_KIND_CD
+			   AND T1.BZT_STR_DT  >= #strBztStrDt#
+	           AND T1.BZT_END_DT  <= #strBztEndDt#
+			 GROUP BY T1.POS_CLASS_NM,
+			          T1.AREA_KIND_NM 
+			 ORDER BY T1.POS_CLASS_NM
+			         ,T1.AREA_KIND_NM
+        ]]>
+	</select>	
+	
+	<select id="BADDED019Qselect4_backup" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT AGGR.POS_CLASS_NM,
+			       AGGR.AREA_KIND_NM,
+			       SUM(AGGR.MAN_DAY) AS MAN_DAY,
+			       SUM(AGGR.RL_FR_EXS) AS RL_FR_EXS,
+			       SUM(AGGR.IN_EXP) AS IN_EXP,
+			       SUM(
+			           CASE
+			             WHEN AGGR.PCT_CNB = AGGR.BZT_TL_CNB THEN TE2.LEAD_EXS
+			             ELSE 0
+			           END) AS LEAD_EXS,
+			       SUM(AGGR.SPM_XPN) AS SPM_XPN
+			  FROM (SELECT SITU.BZT_YR,
+			               SITU.BZT_SNO,
+			               SITU.BZT_TL_CNB,
+			               TER.PCT_CNB,
+			               TE.RGN_DVSN_CD,
+			               NVL(F_CODE_NM('1000173',TER.PCT_RANK_CD),TER.PCT_RANK_CD) POS_CLASS_NM,
+			               NVL(F_CODE_NM('1000023',TE.RGN_DVSN_CD),'UNKNOWN') AREA_KIND_NM,
+			               SUM(TE.BZT_DCN) AS MAN_DAY,
+			               NVL(SUM(TFD.RL_FR_EXS), 0) + NVL(SUM(TE.CPRG_FR_EXS),0) AS RL_FR_EXS,    /*수도권운임추가 - 2015.05.13 yyh*/
+			               SUM(TE.FDEX) + SUM(TE.LDC) + SUM(TE.DT_EXS) AS IN_EXP,
+			               SUM(TE.SPM_XPN) AS SPM_XPN
+			          FROM TBBADDED011L TE,
+			               TBBADDED010L TER,
+			               TBBADDED002M SITU ,
+			               (SELECT /*+INDEX(A KBBADBADDED017001)*/
+			                       BZT_YR,
+			                       BZT_SNO,
+			                       PCT_CNB,
+			                       BZT_EXS_SNO,
+			                       CALC_YN,
+			                       SUM(RL_FR_EXS) AS RL_FR_EXS
+			                  FROM TBBADDED017L
+			                 WHERE FNL_YN = 'Y'
+			                 GROUP BY BZT_YR,
+			                       BZT_SNO,
+			                       PCT_CNB,
+			                       BZT_EXS_SNO,
+			                       CALC_YN ) TFD
+			         WHERE TER.BZT_YR = SITU.BZT_YR
+			           AND TER.BZT_SNO = SITU.BZT_SNO
+			           AND TE.BZT_YR = TER.BZT_YR
+			           AND TE.BZT_SNO = TER.BZT_SNO
+			           AND TE.PCT_CNB = TER.PCT_CNB
+			           AND TFD.BZT_YR(+) = TE.BZT_YR
+			           AND TFD.BZT_SNO(+) = TE.BZT_SNO
+			           AND TFD.PCT_CNB(+) = TE.PCT_CNB
+			           AND TFD.BZT_EXS_SNO(+) = TE.BZT_EXS_SNO
+			           AND TFD.CALC_YN(+) = TE.CALC_YN
+			           AND TE.FNL_YN = 'Y'
+			           AND TE.BZT_STR_DT >= #strBztStrDt#
+			           AND TE.BZT_END_DT <= #strBztEndDt#
+			           AND SITU.BZT_DVSN_CD = '1'
+			         GROUP BY SITU.BZT_YR,
+			               SITU.BZT_SNO,
+			               SITU.BZT_TL_CNB,
+			               TER.PCT_CNB,
+			               TER.PCT_RANK_CD,
+			               TE.RGN_DVSN_CD ) AGGR ,
+			       (SELECT /*+INDEX(TBBADDED011L KBBADBADDED011001)*/      
+			               BZT_YR,
+			               BZT_SNO,
+			               RGN_DVSN_CD,
+			               SUM(NVL(LEAD_EXS, 0)) AS LEAD_EXS
+			          FROM TBBADDED011L
+			         WHERE 1=1
+			           AND BZT_STR_DT >= #strBztStrDt#
+			           AND BZT_END_DT <= #strBztEndDt#
+			           AND FNL_YN = 'Y'
+			         GROUP BY BZT_YR,
+			               BZT_SNO,
+			               RGN_DVSN_CD) TE2
+			 WHERE 1=1
+			   AND AGGR.BZT_YR = TE2.BZT_YR
+			   AND AGGR.BZT_SNO = TE2.BZT_SNO
+			   AND AGGR.RGN_DVSN_CD = TE2.RGN_DVSN_CD
+			 GROUP BY AGGR.POS_CLASS_NM,
+			       AGGR.AREA_KIND_NM 
+			ORDER BY 1,2
+        ]]>
+	</select>	
+	<!-- #################################### 직급별/ 지역구분별 합계 조회 끝 ################################# -->
+	
+	
+	
+	<!-- #################################### 그리드 월별/국과별/감사종류별/직급별/지역구분별 통계 시작 ################################# -->
+	<select id="BADDED019EMainSelectPage1" parameterClass="paramMap" resultClass="resultMap">
+		<include refid="include.pageSelct" />
+        
+        <![CDATA[       
+			SELECT T1.MONTH AS MONTH ,
+			       T1.BRU_CD ,
+			       T1.BRU_NM ,
+			       T1.DPT_CD ,			
+			       T1.DPT_NM ,
+			       T1.AUD_KND_CD ,
+			       T1.AUD_KND_NM AS AUD_EXEC_DVSN_CD_NM,
+			       T1.POS_CLASS_NM AS POS_CLASS_NM,
+	               T1.AREA_KIND_NM AS AREA_KIND_NM,		     
+			       SUM(T1.MAN_DAY) AS MAN_DAY ,
+			       SUM(T1.RL_FR_EXS) AS RL_FR_EXS ,
+			       SUM(T1.IN_EXP) AS IN_EXP ,
+			       SUM(
+			           CASE WHEN T1.PCT_CNB = T1.BZT_TL_CNB AND MONTH = T2.MIN_MONTH 
+			                     THEN T2.LEAD_EXS
+			                ELSE 0
+			            END) AS LEAD_EXS ,
+			       SUM(T1.SPM_XPN) AS SPM_XPN
+			  FROM TBBADDED027L T1,
+			       (SELECT BZT_YR,
+			               BZT_SNO,
+			               AREA_KIND_CD,
+			               SUM(NVL(LEAD_EXS, 0)) AS LEAD_EXS,
+			               MIN(SUBSTR(BZT_STR_DT, 5, 2)) AS MIN_MONTH
+			          FROM TBBADDED027L
+			         WHERE 1=1
+			           AND BZT_STR_DT >= #strBztStrDt#
+			           AND BZT_END_DT <= #strBztEndDt#
+			         GROUP BY BZT_YR,
+			               BZT_SNO,
+			               AREA_KIND_CD) T2			  
+			
+			 WHERE 1=1
+			   AND T1.BZT_YR       = T2.BZT_YR
+			   AND T1.BZT_SNO      = T2.BZT_SNO
+			   AND T1.AREA_KIND_CD = T2.AREA_KIND_CD
+			   AND T1.BZT_STR_DT  >= #strBztStrDt#
+	           AND T1.BZT_END_DT  <= #strBztEndDt#
+	           AND T1.BRU_NM IS NOT NULL
+		]]>
+		
+		<isNotEmpty property="strAudKndCd">
+		       AND SUBSTR(T1.AUD_KND_CD, -1)   = SUBSTR(#strAudKndCd#, -1) /* 끝자리로만 조회 - 2016.07.12 yyh */	 
+		</isNotEmpty>
+			           
+		<isNotEmpty property="strBruCd">	 
+			   AND T1.BRU_CD       = #strBruCd# 
+		</isNotEmpty>
+		
+		<isNotEmpty property="strDeptCd">	 
+			   AND T1.DPT_CD       = #strDeptCd# 
+		</isNotEmpty>	           
+			          
+        <![CDATA[   			   
+			 GROUP BY MONTH,
+			          BRU_CD,
+			          BRU_NM,
+			          DPT_CD,
+			          DPT_NM,
+			          AUD_KND_CD,
+			          AUD_KND_NM,
+			          POS_CLASS_NM,
+			          AREA_KIND_NM
+	         /* 
+			 ORDER BY MONTH,
+		              BRU_CD,
+		              DPT_CD,
+		              AUD_KND_CD,
+		              POS_CLASS_NM,
+		              AREA_KIND_NM
+		      */
+        ]]>
+        
+        <include refid="include.pageOrder" />
+	</select>	
+	<!-- #################################### 그리드 월별/국과별/감사종류별/직급별/지역구분별 통계 끝  ################################# -->	
+	
+	<!-- #################################### 그리드 월별/국별/직급별/지역구분별 통계  시작            ################################# -->
+	<select id="BADDED019EMainSelectPage2" parameterClass="paramMap" resultClass="resultMap">
+		<include refid="include.pageSelct" />
+        <![CDATA[       
+        
+			SELECT T1.MONTH             AS MONTH
+			      ,T1.BRU_CD            AS BRU_CD
+			      ,T1.BRU_NM            AS BRU_NM
+			      ,T1.POS_CLASS_NM      AS POS_CLASS_NM
+	              ,T1.AREA_KIND_NM      AS AREA_KIND_NM
+			      ,SUM(T1.MAN_DAY)      AS MAN_DAY
+			      ,SUM(T1.RL_FR_EXS)    AS RL_FR_EXS
+			      ,SUM(T1.IN_EXP)       AS IN_EXP
+			      ,SUM(
+			           CASE WHEN T1.PCT_CNB = T1.BZT_TL_CNB AND MONTH = T2.MIN_MONTH 
+			                     THEN T2.LEAD_EXS
+			                ELSE 0
+			            END)            AS LEAD_EXS
+			      ,SUM(T1.SPM_XPN)      AS SPM_XPN
+			  FROM TBBADDED027L T1,
+			       (SELECT BZT_YR,
+			               BZT_SNO,
+			               AREA_KIND_CD,
+			               SUM(NVL(LEAD_EXS, 0)) AS LEAD_EXS,
+			               MIN(SUBSTR(BZT_STR_DT, 5, 2)) AS MIN_MONTH
+			          FROM TBBADDED027L
+			         WHERE 1=1
+			           AND BZT_STR_DT >= #strBztStrDt#
+			           AND BZT_END_DT <= #strBztEndDt#
+		]]>
+		
+		<isNotEmpty property="strBruCd">	 
+			           AND BRU_CD      = #strBruCd# 
+		</isNotEmpty>
+				
+        <![CDATA[	
+			         GROUP BY BZT_YR,
+			               BZT_SNO,
+			               AREA_KIND_CD) T2			  
+			
+			 WHERE 1=1
+			   AND T1.BZT_YR       = T2.BZT_YR
+			   AND T1.BZT_SNO      = T2.BZT_SNO
+			   AND T1.AREA_KIND_CD = T2.AREA_KIND_CD
+			   AND T1.BZT_STR_DT  >= #strBztStrDt#
+	           AND T1.BZT_END_DT  <= #strBztEndDt#
+	           AND T1.BRU_NM IS NOT NULL	           
+        ]]>
+  	           
+		<isNotEmpty property="strBruCd">	 
+			   AND T1.BRU_CD       = #strBruCd# 
+		</isNotEmpty>
+		
+        <![CDATA[			           
+			 GROUP BY MONTH,
+			          BRU_CD,
+			          BRU_NM,
+			          POS_CLASS_NM,
+			          AREA_KIND_NM 
+			 /*
+			 ORDER BY MONTH,
+		              BRU_CD,
+		              POS_CLASS_NM,
+		              AREA_KIND_NM
+		     */
+        ]]>        
+        <include refid="include.pageOrder" />
+	</select>	
+	<!-- #################################### 그리드 월별/국별/직급별/지역구분별 통계  끝            ################################# -->
+	
+	
+	<!-- #################################### 국별/직급별/지역구분별 통계 시작                       ################################# -->
+	<select id="BADDED019EMainSelectPage3" parameterClass="paramMap" resultClass="resultMap">
+		<include refid="include.pageSelct" />
+			
+        <![CDATA[       
+			SELECT T1.BRU_NM            AS BRU_NM
+			      ,T1.BRU_CD            AS BRU_CD
+			      ,T1.POS_CLASS_NM      AS POS_CLASS_NM	
+			      ,T1.AREA_KIND_NM      AS AREA_KIND_NM
+			      ,SUM(T1.MAN_DAY)      AS MAN_DAY
+			      ,SUM(T1.RL_FR_EXS)    AS RL_FR_EXS
+			      ,SUM(T1.IN_EXP)       AS IN_EXP
+			      ,SUM(
+			           CASE WHEN T1.PCT_CNB = T1.BZT_TL_CNB AND MONTH = T2.MIN_MONTH 
+			                     THEN T2.LEAD_EXS
+			                ELSE 0
+			            END)            AS LEAD_EXS
+			      ,SUM(T1.SPM_XPN)      AS SPM_XPN
+			  FROM TBBADDED027L T1,
+			       (SELECT BZT_YR,
+			               BZT_SNO,
+			               AREA_KIND_CD,
+			               SUM(NVL(LEAD_EXS, 0)) AS LEAD_EXS,
+			               MIN(SUBSTR(BZT_STR_DT, 5, 2)) AS MIN_MONTH
+			          FROM TBBADDED027L
+			         WHERE 1=1
+			           AND BZT_STR_DT >= #strBztStrDt#
+			           AND BZT_END_DT <= #strBztEndDt#
+		]]>
+		
+		<isNotEmpty property="strBruCd">	 
+			           AND BRU_CD      = #strBruCd# 
+		</isNotEmpty>
+				
+        <![CDATA[	
+			         GROUP BY BZT_YR,
+			               BZT_SNO,
+			               AREA_KIND_CD) T2			  
+			
+			 WHERE 1=1
+			   AND T1.BZT_YR       = T2.BZT_YR
+			   AND T1.BZT_SNO      = T2.BZT_SNO
+			   AND T1.AREA_KIND_CD = T2.AREA_KIND_CD
+			   AND T1.BZT_STR_DT  >= #strBztStrDt#
+	           AND T1.BZT_END_DT  <= #strBztEndDt#
+	           AND T1.BRU_NM IS NOT NULL	           
+        ]]>
+  	           
+		<isNotEmpty property="strBruCd">	 
+			   AND T1.BRU_CD       = #strBruCd# 
+		</isNotEmpty>
+		
+        <![CDATA[			           
+			 GROUP BY T1.BRU_NM,
+			          T1.BRU_CD,
+			          T1.POS_CLASS_NM,
+			          T1.AREA_KIND_NM 
+			 /*
+			 ORDER BY T1.BRU_NM
+			         ,T1.POS_CLASS_NM
+			         ,T1.AREA_KIND_NM
+			 */
+        ]]>
+        
+        <include refid="include.pageOrder" />        
+	</select>		
+	<!-- #################################### 국별/직급별/지역구분별 통계 끝                       ################################# -->
+		
+	
+	<!-- ####################################  직급별/지역구분별 합계  시작                        ################################# -->
+	<select id="BADDED019EMainSelectPage4" parameterClass="paramMap" resultClass="resultMap">
+		<include refid="include.pageSelct" />
+			
+        <![CDATA[       
+			SELECT T1.POS_CLASS_NM      AS POS_CLASS_NM
+			      ,T1.AREA_KIND_NM      AS AREA_KIND_NM			
+			      ,SUM(T1.MAN_DAY)      AS MAN_DAY
+			      ,SUM(T1.RL_FR_EXS)    AS RL_FR_EXS
+			      ,SUM(T1.IN_EXP)       AS IN_EXP
+			      ,SUM(
+			           CASE WHEN T1.PCT_CNB = T1.BZT_TL_CNB AND MONTH = T2.MIN_MONTH 
+			                     THEN T2.LEAD_EXS
+			                ELSE 0
+			            END)            AS LEAD_EXS
+			      ,SUM(T1.SPM_XPN)      AS SPM_XPN
+			  FROM TBBADDED027L T1,
+			       (SELECT BZT_YR,
+			               BZT_SNO,
+			               AREA_KIND_CD,
+			               SUM(NVL(LEAD_EXS, 0)) AS LEAD_EXS,
+			               MIN(SUBSTR(BZT_STR_DT, 5, 2)) AS MIN_MONTH
+			          FROM TBBADDED027L
+			         WHERE 1=1
+			           AND BZT_STR_DT >= #strBztStrDt#
+			           AND BZT_END_DT <= #strBztEndDt#
+			         GROUP BY BZT_YR,
+			               BZT_SNO,
+			               AREA_KIND_CD) T2			  
+			
+			 WHERE 1=1
+			   AND T1.BZT_YR       = T2.BZT_YR
+			   AND T1.BZT_SNO      = T2.BZT_SNO
+			   AND T1.AREA_KIND_CD = T2.AREA_KIND_CD
+			   AND T1.BZT_STR_DT  >= #strBztStrDt#
+	           AND T1.BZT_END_DT  <= #strBztEndDt#
+	           AND T1.BRU_NM IS NOT NULL	           
+			 GROUP BY T1.POS_CLASS_NM,
+			          T1.AREA_KIND_NM 
+			 /* 
+			 ORDER BY T1.POS_CLASS_NM
+			         ,T1.AREA_KIND_NM
+			 */
+        ]]>
+        <include refid="include.pageOrder" />          
+	</select>			
+	<!-- ####################################  직급별/지역구분별 합계  끝                         ################################# -->	
+	
+</sqlMap> 
+

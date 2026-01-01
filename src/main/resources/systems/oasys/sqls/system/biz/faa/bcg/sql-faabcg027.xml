@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="faa/bcg/027"> 
+	
+	<!-- 상위8개 즐겨찾기 -->
+	<select id="FAABCGOlapMainselect" parameterClass="paramMap"	resultClass="resultMap">
+       SELECT TT.*
+              ,ROWNUM
+		 FROM (
+			SELECT D2.REPORT_NAME
+				   ,D2.REPORT_CODE
+				   ,D2.REPORT_PATH
+				   ,D2.MODULE_CODE
+				   ,COUNT(D1.LOG_ATTRIBUTE1) AS CNT
+				   ,D3.FOLDER_NAME
+			  FROM MTX_LOG D1
+	 	INNER JOIN MTX_REPORT D2
+				ON D1.LOG_ATTRIBUTE1 = D2.REPORT_CODE
+        INNER JOIN MTX_FOLDER D3
+        	    ON D2.FOLDER_CODE = D3.FOLDER_CODE
+  			 WHERE D1.LOG_TIME >= TO_CHAR(SYSDATE,'YYYY')||'-01-01'
+			   AND D1.LOGTYPE_CODE = 40
+		  GROUP BY D2.REPORT_NAME
+		  		   ,D2.REPORT_CODE
+		  		   ,D2.REPORT_PATH
+				   ,D2.MODULE_CODE
+				   ,D3.FOLDER_NAME
+		  ORDER BY CNT DESC
+		) TT
+		<![CDATA[ WHERE ROWNUM < 9 ]]>
+	</select>
+	
+	<select id="FAABCGOlapMainselect2" parameterClass="paramMap" resultClass="resultMap">
+		SELECT '소관별 3개년 예산액추이' AS NAME
+			   ,'../../../modules/faa/bcg/FAABCG291E.xrf?libScope=page' AS URL
+		  FROM DUAL
+	 UNION ALL
+		SELECT '세입결산내역' AS NAME
+			   ,'../../../modules/faa/bcg/FAABCG292E.xrf?libScope=page' AS URL
+		  FROM DUAL
+	 UNION ALL
+		SELECT '세출결산내역' AS NAME
+			   ,'../../../modules/faa/bcg/FAABCG293E.xrf?libScope=page' AS URL
+		  FROM DUAL
+	</select>
+	
+	
+	<!-- 내즐겨찾기 -->
+	<select id="FAABCGOlapSubselect" parameterClass="paramMap"	resultClass="resultMap">
+       SELECT TT.*
+       		  ,ROWNUM
+		 FROM (
+			SELECT D2.REPORT_NAME
+				   ,D2.REPORT_CODE
+				   ,D2.REPORT_PATH
+				   ,D2.MODULE_CODE
+				   ,COUNT(D1.LOG_ATTRIBUTE1) AS CNT
+				   ,D3.FOLDER_NAME
+			  FROM MTX_LOG D1
+		INNER JOIN MTX_REPORT D2
+				ON D1.LOG_ATTRIBUTE1 = D2.REPORT_CODE
+	    INNER JOIN MTX_FOLDER D3
+        	    ON D2.FOLDER_CODE = D3.FOLDER_CODE
+			 WHERE D1.LOG_TIME >= TO_CHAR(SYSDATE,'YYYY')||'-01-01'
+			   AND D1.LOGTYPE_CODE = 40
+			   AND EXISTS (
+			                SELECT CNB 
+			                  FROM TBDCMACM001M M 
+			                 WHERE M.CNB||'::'||M.DPT_CD = D1.USER_CODE 
+				               AND M.USR_ID = #strUserId#
+			              ) 
+		  GROUP BY D2.REPORT_NAME
+		  		   ,D2.REPORT_CODE
+		  		   ,D2.REPORT_PATH
+				   ,D2.MODULE_CODE
+				   ,D3.FOLDER_NAME
+		  ORDER BY CNT DESC
+		) TT
+		<![CDATA[ WHERE ROWNUM < 9 ]]>
+	</select>
+	
+	<select id="FAABCGOlapSubselect2" parameterClass="paramMap"	resultClass="resultMap">
+      	SELECT REPORT_CODE
+      	       ,REPORT_PATH
+      	       ,REPORT_NAME
+      	       ,MODULE_CODE 
+      	  FROM MTX_REPORT 
+      	 WHERE MODULE_CODE = 'MV'
+	</select>
+	
+	<select id="FAABCGQueryselect" parameterClass="paramMap" resultClass="resultMap">
+	      	SELECT D3.FOLDER_NAME
+				   ,D1.REPORT_CODE
+				   ,D2.REPORT_NAME
+				   ,D2.REPORT_PATH
+				   ,TO_CHAR(SUBSTR(REPLACE(REPLACE(D1.SQL_TEXT,'  ',' '),'\t',''),1,2000)) AS SQL_TEXT1
+				   ,TO_CHAR(SUBSTR(REPLACE(REPLACE(D1.SQL_TEXT,'  ',' '),'\t',''),2001,2000)) AS SQL_TEXT2 
+				   ,TO_CHAR(SUBSTR(REPLACE(REPLACE(D1.SQL_TEXT,'  ',' '),'\t',''),4001,2000)) AS SQL_TEXT3
+			  FROM MTX_PROPERTY D1
+   LEFT OUTER JOIN MTX_REPORT D2
+				ON D1.REPORT_CODE = D2.REPORT_CODE
+   LEFT OUTER JOIN MTX_FOLDER D3
+				ON D2.FOLDER_CODE = D3.FOLDER_CODE
+			 WHERE FOLDER_NAME IS NOT NULL
+			   AND D1.SHEET_NAME LIKE '%DataSource%'
+		<isNotEmpty property="strFolderCode">
+			   AND D3.FOLDER_CODE = #strFolderCode#
+		</isNotEmpty>
+		<isNotEmpty property="strReportCode">
+			   AND D1.REPORT_CODE LIKE '%'||#strReportCode#||'%'
+		</isNotEmpty>
+		<isNotEmpty property="strReportName">
+			   AND D2.REPORT_NAME LIKE '%'||#strReportName#||'%'
+		</isNotEmpty>
+		  ORDER BY D3.FOLDER_NAME, D2.REPORT_SEQ
+	</select>
+	
+	<select id="FAABCGFolderselect" parameterClass="paramMap" resultClass="resultMap">
+	      	SELECT FOLDER_NAME
+				   ,FOLDER_CODE
+			  FROM MTX_FOLDER
+			 WHERE FOLDER_SEQ NOT IN (0,1)
+			   AND FOLDER_NAME NOT LIKE '%비정형%'
+		  ORDER BY FOLDER_NAME
+	</select>
+	
+	<select id="FAABCG292EBottomselect" parameterClass="paramMap" resultClass="resultMap">
+		SELECT  0 AS TOT_CLSG_AMT_1,
+                SUM(A.TOT_CLSG_AMT_1) AS TOT_CLSG_AMT_2,  
+                SUM(A.TOT_CLSG_AMT_2) AS TOT_CLSG_AMT_3,
+                SUM(A.TOT_CLSG_AMT_4) AS TOT_CLSG_AMT_4,
+                SUM(A.TOT_CLSG_AMT_5) AS TOT_CLSG_AMT_5
+		FROM    TWFAACAV061L A,
+		        TWFAACAV024C B
+		        <isNotEmpty property="strBaiFsclCd">
+		        ,TWFAACAV024C C
+		        </isNotEmpty>
+		WHERE   A.ACNT_YR = #strYy#
+		AND     A.CLSG_DVSN_CD = 'B'
+		AND     A.SUM_DVSN_ID = '49'
+		AND     A.COPT_CD = B.ACNT_CD
+		AND     B.ACNT_DVSN_CD = '02'
+		<isNotEmpty property="strBaiFsclCd">
+		AND     A.ACNT_CD = C.ACNT_CD
+		AND     C.ACNT_DVSN_CD = '01'
+		</isNotEmpty>
+		<isNotEmpty property="strOffcCd">
+		AND     A.COPT_CD = #strBaiOffcCd#
+		</isNotEmpty>
+		<isNotEmpty property="strBaiFsclCd">
+		AND     A.ACNT_CD = #strBaiFsclCd#
+		</isNotEmpty>
+	</select>
+	
+	<select id="FAABCG293EBottomselect" parameterClass="paramMap" resultClass="resultMap">
+		SELECT  SUM(A.TOT_CLSG_AMT_1) AS TOT_CLSG_AMT_2,
+		        SUM(A.TOT_CLSG_AMT_2) AS TOT_CLSG_AMT_3,
+		        TRUNC(SUM(A.TOT_CLSG_AMT_2)/SUM(A.TOT_CLSG_AMT_1)*100,2) AS TOT_RATE,
+		        SUM(A.TOT_CLSG_AMT_3) AS TOT_CLSG_AMT_4
+		FROM    TWFAACAV061L A,
+		        TWFAACAV024C B
+		        <isNotEmpty property="strBaiFsclCd">
+		        ,TWFAACAV024C C
+		        </isNotEmpty>
+		WHERE   A.ACNT_YR = #strYy#
+		AND     A.CLSG_DVSN_CD = 'A'
+		AND     A.SUM_DVSN_ID = '49'
+		AND     A.COPT_CD = B.ACNT_CD
+		AND     B.ACNT_DVSN_CD = '02'
+		<isNotEmpty property="strBaiFsclCd">
+		AND     A.ACNT_CD = C.ACNT_CD
+		AND     C.ACNT_DVSN_CD = '01'
+		</isNotEmpty>
+		<isNotEmpty property="strOffcCd">
+		AND     A.COPT_CD = #strBaiOffcCd#
+		</isNotEmpty>
+		<isNotEmpty property="strBaiFsclCd">
+		AND     A.ACNT_CD = #strBaiFsclCd#
+		</isNotEmpty>
+	</select>
+	
+</sqlMap> 

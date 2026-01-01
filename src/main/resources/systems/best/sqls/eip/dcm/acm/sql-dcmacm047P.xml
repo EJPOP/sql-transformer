@@ -1,0 +1,1221 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.dcm.acm.dao.DCMACM047PMapper">
+
+	<select id="selectRprtInfoByFA" parameterType="paramMap" resultType="egovMap" >
+	    <![CDATA[
+	        /* kr.go.bai.eip.dcm.acm.dao.DCMACM047PMapper.selectRprtInfoByFA*/
+        SELECT  A.RPRT_NM
+	              , F_MNG_KND_AUDYRNO(A.AUD_YR, A.AUD_NO, A.AUD_KND_CD, '-') AS AUD_YR_NO
+                  , (SELECT AUD_SBJ_NM FROM TBBADDED001M WHERE AUD_YR = #{audYr}
+			                            AND AUD_NO = #{audNo} ) AUD_SBJ_NM
+			      , (SELECT 
+					   DECODE(AUD_DOC_CD, 'A10600100', '개별처분요구안',AGGR_CONCAT(DTIL_AUD_DOC_NM,',')) AS CD_NM
+					  FROM (
+					        SELECT 
+					            AUD_DOC_CD
+					            , DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1)) AS DTIL_AUD_DOC_NM
+					          FROM TBFDMADM002M
+					         WHERE SUBSTR(AUD_DOC_CD,0,1) = 'A'
+					         GROUP BY AUD_DOC_CD, DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1))
+			                 UNION ALL SELECT 'A10800500' , '공개문' FROM DUAL
+			                 UNION ALL SELECT 'A10700700' , '부의안요약문-보고자용' FROM DUAL
+			                 UNION ALL SELECT 'A10700800' , '부의안요약문-원장님용' FROM DUAL
+					        )
+					  WHERE AUD_DOC_CD = RPRT_CD 
+					 GROUP BY AUD_DOC_CD) AS RPRT_KND_NM
+			      , B.EDT_AUTH  AS EDT_AUTH     
+				  , F_CODE_NM('1000773', A.APV_STA_CD)      AS APV_STA_NM
+				  , TO_CHAR(TO_DATE(B.EDT_STR_DT),'YYYY-MM-DD') AS EDT_STR_DT
+				  , TO_CHAR(TO_DATE(B.EDT_END_DT),'YYYY-MM-DD') AS EDT_END_DT   	
+				    , C.RQS_DT
+				    , C.RQS_DPT_NM
+				    , C.RQR_NAM
+				    , C.RQS_TIT_NM
+				    , C.RQS_TXT
+				    , C.MTRL_RQS_SNO
+				    , B.EDT_AUTH_CNBS 
+				    , TO_CHAR(TO_DATE(NVL(B.EDT_STR_DH,'0000'),'HH24MI'),'HH24:MI') AS  EDT_STR_DH
+				    , TO_CHAR(TO_DATE(NVL(B.EDT_END_DH,'0000'),'HH24MI'),'HH24:MI') AS EDT_END_DH
+				    , DECODE(B.COFM_YN,'R','Y','N') AS REQ_YN
+				    , B.REQ_SEQ  
+				    , B.REASON 
+			  FROM TBBADDED103M A
+			  LEFT OUTER JOIN 
+			        TBDCMACM066M B
+			  ON(A.AUD_YR = B.AUD_YR 
+			  AND A.AUD_NO = B.AUD_NO 
+			  AND A.AUD_STEP_CD = B.AUD_STEP_CD 
+			  AND A.DOC_ID = B.DOC_ID)
+			  LEFT OUTER JOIN
+			        ( SELECT 	A.MTRL_RQS_SNO,			/*자료요청순번*/
+								A.MTRL_RQS_DVSN_CD,		/*자료요청구분코드*/
+								TO_CHAR(TO_DATE(A.RQS_DT,'yyyyMMdd'),'yyyy-MM-dd') AS RQS_DT,				/*요청일*/
+								D.ABR_DPT_NM_1 AS RQS_DPT_NM,	/*요청자부서명*/
+								B.USR_NAM AS RQR_NAM,	/*요청자명*/
+								A.RQS_TIT_NM,			/*요청제목*/
+								A.RQS_TXT, /* 요청내용 */
+								C.USR_NAM AS HNDL_PEN_NAM,	/*처리담당자명*/
+								TO_CHAR(TO_DATE(A.HNDL_DT,'yyyyMMdd'),'yyyy-MM-dd') AS HNDL_DT,				/*처리일자*/
+								A.RQR_CNB,				/*요청자전산번호*/
+								A.HNDL_PEN_CNB,			/*처리자전산번호*/
+								A.RQS_DPT_CD,	/*요청부서코드*/
+								F_CODE_NM('1000794',A.DGE1_MNU_DVSN_CD) AS DGE1_MNU_DVSN_NM,	/*1차메뉴구분코드*/
+			                    A.OPEN_YN,
+								A.DRTR_CNB,				/*책임자전산번호*/
+								F.USR_NAM AS DRTR_NAM	/*책임자명*/
+						FROM   	TBCSPIIT002M A,			/*PC장비관리테이블*/
+								TBDCMACM001M B, 		/*사용자테이블(요청자)*/
+								TBDCMACM001M C,			/*사용자테이블(처리자)*/
+								TBDCMACM002M D,			/*부서코드(요청자)*/
+								TBDCMACM002M E,			/*부서코드(처리자)*/
+								TBDCMACM001M F			/*사용자테이블(책임자)*/
+						WHERE	A.RQR_CNB = B.CNB(+)
+						AND		A.HNDL_PEN_CNB = C.CNB(+)
+						AND		A.DRTR_CNB = F.CNB(+)
+						AND		A.RQS_DPT_CD = D.DPT_CD(+)
+						AND		C.DPT_CD = E.DPT_CD(+)
+						AND		A.COPUT_BRD_DVSN_CD = '01' /*게시판구분코드 - 전산개선요청*/ ) C
+			    ON C.MTRL_RQS_SNO = B.MTRL_RQS_SNO
+			  LEFT OUTER JOIN
+                   TBDCMACM018M D
+               ON(D.AUD_YR = A.AUD_YR 
+			  AND D.AUD_NO = A.AUD_NO 
+			  AND D.AUD_STEP_CD = A.AUD_STEP_CD 
+			  AND D.DOC_ID = A.DOC_ID)
+			 WHERE 1=1
+			   AND B.REQ_SEQ = #{reqSeq}
+          ]]>
+    </select>
+    
+    <select id="selectRprtInfoByRequestAuditBD" parameterType="paramMap" resultType="egovMap" >
+	    <![CDATA[
+	        /* kr.go.bai.eip.dcm.acm.dao.DCMACM043PMapper.selectRprtInfoByRequestAuditBD*/
+	        SELECT  A.RPRT_NM
+ 				 , (SELECT AGGR_CONCAT(DTIL_AUD_DOC_NM,',') AS CD_NM
+					  FROM (SELECT AUD_DOC_CD
+					            , DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1)) AS DTIL_AUD_DOC_NM
+					          FROM TBFDMADM002M
+			]]>
+						<if test="bizDvsnCd.equals('requestAudit5')"> 
+					        	WHERE SUBSTR(AUD_DOC_CD,0,1) = 'D'
+					        	GROUP BY AUD_DOC_CD, DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1))
+					        	UNION ALL SELECT 'D10400600' , '공개문' FROM DUAL
+					        	UNION ALL SELECT 'D10100002' , '선람전 (과)' FROM DUAL
+                          		UNION ALL SELECT 'D10100001' , '선람전 (국)' FROM DUAL
+					   	</if> 
+					    <if test="bizDvsnCd.equals('requestAudit6')"> 
+					        	WHERE SUBSTR(AUD_DOC_CD,0,1) = 'E'
+					        	GROUP BY AUD_DOC_CD, DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1))
+					        	UNION ALL SELECT 'E10600300' , '공개문' FROM DUAL
+					        	UNION ALL SELECT 'E10100002' , '선람전 (과)' FROM DUAL
+                          		UNION ALL SELECT 'E10100001' , '선람전 (국)' FROM DUAL
+					   	</if> 
+			<![CDATA[
+					        )
+					  WHERE AUD_DOC_CD = RPRT_CD 
+					 GROUP BY AUD_DOC_CD) AS RPRT_KND_NM
+			      ,(CASE WHEN TO_DATE(SYSDATE) >= TO_DATE(B.EDT_END_DT)+1  THEN 'N'   /*현재날짜가 종료일+1보다 클떄 */
+			             ELSE NVL(A.EDT_AUTH,'N')
+				         END) EDT_AUTH
+				   , (CASE WHEN TO_DATE(SYSDATE) >= TO_DATE(B.EDT_END_DT)+1 THEN '편집불가'  /*현재날짜가 종료일+1보다 클떄 */
+				         WHEN A.APV_STA_CD = '10' THEN '편집가능'  /*결재상태가 작성중이면 편집가능*/
+				         WHEN A.APV_STA_CD != '10' AND A.EDT_AUTH IS NULL THEN '편집불가'    /*결재상태가 작성중이 아니고  EDT_AUTH가 NULL이면 '편집불가'*/
+				         ELSE DECODE(A.EDT_AUTH,'N','편집불가','편집가능')
+				         END) AS EDT_AUTH_TXT     
+				  , (CASE WHEN B.EDT_STR_DT IS NULL THEN TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')
+				          WHEN TO_DATE(SYSDATE) >= TO_DATE(B.EDT_END_DT)+1 THEN TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')  /*현재날짜가 종료일+1보다 크면 현재날짜로 넣기 */ 
+				          WHEN A.EDT_AUTH = 'N' THEN  TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')
+				          ELSE TO_CHAR(TO_DATE(B.EDT_STR_DT),'YYYY-MM-DD')
+				          END)AS EDT_STR_DT
+				  , (CASE WHEN B.EDT_END_DT IS NULL THEN TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')
+				          WHEN TO_DATE(SYSDATE) >= TO_DATE(B.EDT_END_DT)+1 THEN TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')  /*현재날짜가 종료일+1보다 크면 현재날짜로 넣기 */
+				          WHEN A.EDT_AUTH = 'N' THEN  TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')
+				          ELSE TO_CHAR(TO_DATE(B.EDT_END_DT),'YYYY-MM-DD')
+				          END)AS EDT_END_DT   
+			  FROM TBBADFRE103M A
+			  LEFT OUTER JOIN TBDCMACM018M B		
+			  ON (A.ACP_YR = B.AUD_YR AND TO_CHAR(A.ACP_SRNO) = B.AUD_NO AND A.ACP_STEP_CD = B.AUD_STEP_CD AND A.DOC_ID = B.DOC_ID ) 			
+			 WHERE 1=1
+			   AND A.ACP_YR = #{audYr}
+			   AND A.ACP_SRNO = #{audNo}
+			   AND A.ACP_STEP_CD = #{audStepCd}
+			   AND A.ACP_DVSN_CD = #{reqDvsnCd}
+			   AND A.DOC_ID = #{docId}
+          ]]>
+    </select>
+    <select id="selectCnt" parameterType="paramMap" resultType="egovMap" >
+           SELECT  COUNT(*)
+           FROM TBDCMACM018M
+           WHERE 1=1
+           AND AUD_YR = #{audYr}
+           AND AUD_NO  = #{audNo}
+           AND AUD_STEP_CD = #{audStepCd}
+           AND DOC_ID = #{docId}
+       <if test="bizDvsnCd.equals('requestAudit1') or bizDvsnCd.equals('requestAudit2') or bizDvsnCd.equals('requestAudit3') or bizDvsnCd.equals('requestAudit4') or bizDvsnCd.equals('requestAudit5') or bizDvsnCd.equals('requestAudit6')">
+		   AND REQ_DVSN_CD = #{reqDvsnCd}
+		</if>
+    </select>
+    
+    
+    <select id="selectRprtInfoByRequestAuditCP" parameterType="paramMap" resultType="egovMap" >
+	    <![CDATA[
+	        /* kr.go.bai.eip.dcm.acm.dao.DCMACM043PMapper.selectRprtInfoByRequestAuditCP*/
+	        SELECT  RPRT_NM
+ 				 , (SELECT AGGR_CONCAT(DTIL_AUD_DOC_NM,',') AS CD_NM
+					  FROM (SELECT AUD_DOC_CD
+					            , DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1)) AS DTIL_AUD_DOC_NM
+					          FROM TBFDMADM002M
+					        	GROUP BY AUD_DOC_CD, DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1))
+					        )
+					  WHERE AUD_DOC_CD = RPRT_CD 
+					 GROUP BY AUD_DOC_CD) AS RPRT_KND_NM
+			      ,(CASE WHEN TO_DATE(SYSDATE,'YYYY-MM-DD') >= TO_DATE(C.EDT_END_DT,'YYYY-MM-DD')+1  THEN 'N'   /*현재날짜가 종료일+1보다 클떄 */
+			             ELSE NVL(A.EDT_AUTH,'N')
+				         END) EDT_AUTH
+				   , (CASE WHEN TO_DATE(SYSDATE) >= TO_DATE(C.EDT_END_DT)+1 THEN '편집불가'  /*현재날짜가 종료일+1보다 클떄 */
+				         WHEN A.APV_STA_CD = '10' THEN '편집가능'  /*결재상태가 작성중이면 편집가능*/
+				         WHEN A.APV_STA_CD != '10' AND A.EDT_AUTH IS NULL THEN '편집불가'    /*결재상태가 작성중이 아니고  EDT_AUTH가 NULL이면 '편집불가'*/
+				         ELSE DECODE(A.EDT_AUTH,'N','편집불가','편집가능')
+				         END) AS EDT_AUTH_TXT  
+				  , (CASE WHEN C.EDT_STR_DT IS NULL THEN TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')
+				          WHEN TO_DATE(SYSDATE) >= TO_DATE(C.EDT_END_DT)+1 THEN TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')  /*현재날짜가 종료일+1보다 크면 현재날짜로 넣기 */
+				          WHEN A.EDT_AUTH = 'N' THEN  TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')
+				          ELSE TO_CHAR(TO_DATE(C.EDT_STR_DT),'YYYY-MM-DD')
+				          END)AS EDT_STR_DT
+				  , (CASE WHEN C.EDT_END_DT IS NULL THEN TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')
+				          WHEN TO_DATE(SYSDATE,'YYYY-MM-DD') >= TO_DATE(C.EDT_END_DT,'YYYY-MM-DD')+1 THEN TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')  /*현재날짜가 종료일+1보다 크면 현재날짜로 넣기 */
+				          WHEN A.EDT_AUTH = 'N' THEN  TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')
+				          ELSE TO_CHAR(TO_DATE(C.EDT_END_DT),'YYYY-MM-DD')
+				          END)AS EDT_END_DT   
+			  FROM TBCSPDCP603M A
+			  LEFT OUTER JOIN TBCSPEAR010M B
+			  ON (A.ACP_YR = B.CMT_OEN_YE AND A.REQ_DVSN_CD = DECODE(B.CMT_DVSN_CD,'1',7,'2',8) AND A.CVPT_ACP_NO = B.CMT_DGE)
+			 LEFT OUTER JOIN TBDCMACM018M C
+			  ON (A.ACP_YR = C.AUD_YR AND TO_CHAR(A.CVPT_ACP_NO) = C.AUD_NO AND A.ACP_STEP_CD = C.AUD_STEP_CD AND A.DOC_ID = C.DOC_ID ) 
+			 WHERE 1=1
+			   AND A.ACP_YR = #{audYr}
+        ]]>
+	<if test="reqDvsnCd == 1 or reqDvsnCd == 2 or reqDvsnCd ==3">			   
+			   AND A.CVPT_ACP_NO = #{audNo}
+	</if>			   
+	<if test="reqDvsnCd == 7 or reqDvsnCd == 8">			   
+			   AND B.CMT_DGE  = #{audNo}
+	</if>		
+	<![CDATA[	   
+			   AND A.ACP_STEP_CD = #{audStepCd}
+			   AND A.REQ_DVSN_CD = #{reqDvsnCd}
+			   AND A.DOC_ID = #{docId}
+	   ]]>		   
+    </select>
+    
+    <update id="updateEdtAuthByFieldAudit">
+        /* kr.go.bai.eip.dcm.acm.dao.DCMACM043PMapper.updateEdtAuthByFieldAudit */
+       UPDATE TBBADDED103M
+          SET EDT_AUTH = #{edtAuth}
+        WHERE 1=1
+		  AND AUD_YR = #{audYr}
+		  AND AUD_NO = #{audNo}
+		  AND AUD_STEP_CD = #{audStepCd}
+		  AND DOC_ID = #{docId}
+    </update>
+    
+        <delete id="deleteEdtAuthByFieldAudit">
+        /* kr.go.bai.eip.dcm.acm.dao.DCMACM043PMapper.deleteEdtAuthByFieldAudit */
+        <![CDATA[
+          DELETE FROM TBDCMACM018M
+          WHERE 1=1
+		  AND AUD_YR = #{audYr}
+		  AND AUD_NO = #{audNo}
+		  AND AUD_STEP_CD = #{audStepCd}
+		  AND DOC_ID = #{docId}
+		  ]]>
+		  <if test="bizDvsnCd.equals('requestAudit1') or bizDvsnCd.equals('requestAudit2') or bizDvsnCd.equals('requestAudit3') or bizDvsnCd.equals('requestAudit4') or bizDvsnCd.equals('requestAudit5') or bizDvsnCd.equals('requestAudit6')">
+		  AND REQ_DVSN_CD = #{reqDvsnCd}
+		  </if>
+       </delete>
+    
+    <update id="updateEdtAuthByRequestAuditBD">
+        /* kr.go.bai.eip.dcm.acm.dao.DCMACM043PMapper.updateEdtAuthByRequestAuditBD */
+       UPDATE TBBADFRE103M
+          SET EDT_AUTH = #{edtAuth}
+         WHERE 1=1
+		   AND ACP_YR = #{audYr}
+		   AND ACP_SRNO = #{audNo}
+		   AND ACP_STEP_CD = #{audStepCd}
+		   AND ACP_DVSN_CD = #{reqDvsnCd}
+		   AND DOC_ID = #{docId}
+    </update>
+    
+    <update id="updateEdtAuthByRequestAuditCP">
+        /* kr.go.bai.eip.dcm.acm.dao.DCMACM043PMapper.updateEdtAuthByRequestAuditCP */
+       UPDATE TBCSPDCP603M
+          SET EDT_AUTH = #{edtAuth}
+        WHERE 1=1
+		  AND ACP_YR = #{audYr}
+		  AND CVPT_ACP_NO = #{audNo}
+		  AND ACP_STEP_CD = #{audStepCd}
+		  AND REQ_DVSN_CD = #{reqDvsnCd}
+		  AND DOC_ID = #{docId}
+    </update>
+    
+    <!-- BEST20 이력 MAX SEQ 조회 --> 	
+	<select id="selectMaxEdtAuthHisSeq" parameterType="paramMap" resultType="java.lang.String"> 
+		/* kr.go.bai.eip.dcm.acm.dao.DCMACM043PMapper.selectMaxEdtAuthHisSeq */
+		SELECT NVL(MAX(SEQ),0)+1 AS SEQ
+			 FROM TBDCMACM018H
+		
+	</select>
+	
+	<!-- BEST20 문서편집권한 요청 -->
+	<insert id="insertEdtAuthReqInfo" parameterType="paramMap">
+		INSERT INTO TBDCMACM066M
+		(
+			REQ_SEQ
+			,AUD_YR
+			,AUD_NO
+			,AUD_STEP_CD
+			,REQ_DVSN_CD
+			,DOC_ID
+			,EDT_CNB
+			,EDT_RANK_CD
+			,EDT_PST_CD
+			,EDT_AUTH
+			,REASON
+			,FRT_USR_ID
+			,FNL_USR_ID
+			,FNL_DEAL_DPT_CD
+			,FNL_MNU_ID
+			,FRT_REGI_DH
+			,FNL_MDF_DH
+			,EDT_STR_DT
+			,EDT_END_DT
+			, EDT_STR_DH
+			, EDT_END_DH
+			, MTRL_RQS_SNO
+			, EDT_AUTH_CNBS
+			, COFM_YN 
+		)
+		VALUES
+		(
+			  (SELECT NVL(MAX(REQ_SEQ),0)+1 AS REQ_SEQ
+			    FROM TBDCMACM066M)
+			, #{audYr}
+			, #{audNo}
+			, #{audStepCd}
+			, #{reqDvsnCd}
+			, #{docId}
+			, #{cnb}
+			, #{rankCd}
+			, #{pstCd}
+			, #{edtAuth}
+			, #{reason}
+			, #{usrId}
+			, #{usrId}
+			, #{dptCd}
+			, #{menuNo}
+			, SYSDATE
+			, SYSDATE
+			,REPLACE(#{edtStrDt},'-','')
+            ,REPLACE(#{edtEndDt},'-','')
+             ,REPLACE(#{edtStrDh},':','')
+            ,REPLACE(#{edtEndDh},':','')
+            , #{mtrlRqsSno}
+            , #{edtAuthCnbs}
+            , 'R' 
+		)
+	</insert>
+	
+	<!-- BEST20 편집요청내용 업데이트 -->
+	<update id="updateEdtAuthReqInfo">
+        /* kr.go.bai.eip.dcm.acm.dao.DCMACM043PMapper.updateEdtAuthReqInfo */
+       UPDATE TBDCMACM066M
+          SET COFM_YN = #{cofmYn}
+             , COFM_CNB = #{cnb}
+			 , COFM_RANK_CD = #{rankCd}
+		 	 , COFM_PST_CD =  #{pstCd}
+		 	 , COFM_RMK = #{cofmRmk}
+			 , COFM_DH = SYSDATE
+             , FNL_USR_ID = #{usrId}
+             , FNL_DEAL_DPT_CD = #{dptCd}
+             , FNL_MNU_ID = #{menuNo}
+             , FNL_MDF_DH = SYSDATE
+        WHERE 1=1
+		  AND REQ_SEQ = #{reqSeq}
+    </update>
+    
+    <insert id="insertEdtAuthHistInfo" parameterType="paramMap">
+		INSERT INTO TBDCMACM018H
+		(
+			SEQ
+			,AUD_YR
+			,AUD_NO
+			,AUD_STEP_CD
+			,REQ_DVSN_CD
+			,DOC_ID
+			,EDT_CNB
+			,EDT_RANK_CD
+			,EDT_PST_CD
+			,EDT_AUTH
+			,REASON
+			,FRT_USR_ID
+			,FNL_USR_ID
+			,FNL_DEAL_DPT_CD
+			,FNL_MNU_ID
+			,FRT_REGI_DH
+			,FNL_MDF_DH
+			,EDT_STR_DT
+			,EDT_END_DT
+			, EDT_STR_DH
+			, EDT_END_DH
+			, MTRL_RQS_SNO
+			, EDT_AUTH_CNBS
+			, COFM_CNB
+			, COFM_RANK_CD
+			, COFM_PST_CD
+			, COFM_RMK
+			, COFM_DH 
+		)
+		SELECT (SELECT NVL(MAX(SEQ),0)+1 FROM TBDCMACM018H)
+			,AUD_YR
+			,AUD_NO
+			,AUD_STEP_CD
+			,REQ_DVSN_CD
+			,DOC_ID
+			,EDT_CNB
+			,EDT_RANK_CD
+			,EDT_PST_CD
+			,EDT_AUTH
+			,REASON
+			, #{usrId}
+			, #{usrId}
+			, #{dptCd}
+			, #{menuNo}
+			, SYSDATE
+			, SYSDATE
+			,EDT_STR_DT
+			,EDT_END_DT
+			, EDT_STR_DH
+			, EDT_END_DH
+			, MTRL_RQS_SNO
+			, EDT_AUTH_CNBS
+			,COFM_CNB
+			, COFM_RANK_CD
+			, COFM_PST_CD
+			, COFM_RMK
+			, COFM_DH 
+		  FROM TBDCMACM066M 
+		 WHERE REQ_SEQ = #{reqSeq}
+	</insert>
+	
+	<insert id="insertEdtAuthHistInfo2" parameterType="paramMap">
+		INSERT INTO TBDCMACM018M
+		(
+			AUD_YR
+			,AUD_NO
+			,AUD_STEP_CD
+			,DOC_ID
+			,REQ_DVSN_CD
+			,EDT_AUTH
+			,EDT_STR_DT
+			,EDT_END_DT
+			, EDT_STR_DH
+			, EDT_END_DH
+			, MTRL_RQS_SNO
+			, EDT_AUTH_CNBS 
+			,FRT_USR_ID
+			,FNL_USR_ID
+			,FNL_DEAL_DPT_CD
+			,FNL_MNU_ID
+			,FRT_REGI_DH
+			,FNL_MDF_DH
+
+		)
+		SELECT AUD_YR
+			,AUD_NO
+			,AUD_STEP_CD
+			,DOC_ID
+			,REQ_DVSN_CD
+			,EDT_AUTH
+			,EDT_STR_DT
+			,EDT_END_DT
+			, EDT_STR_DH
+			, EDT_END_DH
+			, MTRL_RQS_SNO
+			, EDT_AUTH_CNBS 
+			, #{usrId}
+			, #{usrId}
+			, #{dptCd}
+			, #{menuNo}
+			, SYSDATE
+			, SYSDATE
+		  FROM TBDCMACM066M 
+		 WHERE REQ_SEQ = #{reqSeq}
+	</insert>
+
+	<select id="selectEdtAuthHisList" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.dcm.acm.dao.DCMACM043PMapper.selectEdtAuthHisList*/
+        <include refid="include.pageSelct" />
+        <![CDATA[
+	        SELECT DECODE(H.EDT_AUTH,'Y','권한부여','권한회수') AS EDT_AUTH_DVSN_TXT
+			     , NVL(F_CODE_NM('1000176', H.EDT_PST_CD), F_CODE_NM('1000173', H.EDT_RANK_CD)) AS PST_NM /*직위명*/
+				 , F_DPT_INFO(H.FNL_DEAL_DPT_CD, '1') AS DPT_NAM	/*부서명*/	
+			 	 , F_USR_INFO(H.EDT_CNB,'2') AS USR_NM 
+				 , TO_CHAR(H.FRT_REGI_DH,'YYYY-MM-DD HH24:MM:SS') AS EDT_AUTH_DH
+				 , H.REASON
+				 , H.SEQ
+				 , H.AUD_YR
+				 , H.AUD_NO
+				 , H.AUD_STEP_CD
+				 , H.REQ_DVSN_CD
+				 , H.DOC_ID
+				 , TO_CHAR(TO_DATE(H.EDT_STR_DT),'YYYY-MM-DD')||' ~ '|| TO_CHAR(TO_DATE(H.EDT_END_DT),'YYYY-MM-DD')     AS EDT_ST_END_DT
+			  FROM TBDCMACM018H H
+			 WHERE H.AUD_YR       = #{audYr}
+			   AND H.AUD_NO       = #{audNo}
+			   AND H.AUD_STEP_CD  = #{audStepCd}
+		]]>
+			<if test="reqDvsnCd != null and reqDvsnCd != ''"> 
+			   	AND H.REQ_DVSN_CD  = #{reqDvsnCd}
+		   	</if>
+	   	<![CDATA[
+			   AND H.DOC_ID       = #{docId}
+			 ORDER BY SEQ desc
+        ]]>
+        <include refid="include.pageOrder" />
+    </select>
+    
+    <select id="selectApvrList" parameterType="paramMap" resultType="egovMap" >
+     /* kr.go.bai.eip.dcm.acm.dao.DCMACM043PMapper.selectApvrList*/
+	    <![CDATA[
+	        SELECT AA.USR_CNB
+	              , F_USR_INFO(USR_CNB, '1') AS USR_ID
+	              , F_CODE_NM('1000173', F_USR_INFO(USR_CNB, '3')) AS PST_NM /*직위명*/
+                  , F_USR_INFO(USR_CNB, '2') AS USR_NM
+			       , AGGR_CONCAT(AA.AUDTOR_DVSN_NM,', ') AS AUDTOR_DVSN_NM
+			       , (SELECT DECODE(INSTR(A.EDT_AUTH_CNBS,AA.USR_CNB),0,'N','Y') AS AUTH_YN
+			           FROM TBDCMACM018M A
+				      WHERE A.AUD_YR = #{audYr}
+					    AND A.AUD_NO = #{audNo}
+					    AND A.AUD_STEP_CD = #{audStepCd}
+					    AND A.DOC_ID = #{docId}  ) AS AUTH_YN
+		    FROM (SELECT APVR_CNB        AS USR_CNB
+                       , F_CODE_NM('1000350', APVR_KND_CD) AS AUDTOR_DVSN_NM
+			          FROM TBDCMACM023L
+			         WHERE 1=1
+			           AND APV_DOC_NO = ( SELECT APV_RQS_ID
+			                                        FROM TBBADDED103M
+			                                       WHERE AUD_YR = #{audYr}
+			                                          AND AUD_NO = #{audNo}
+			                                          AND AUD_STEP_CD = #{audStepCd}
+			                                           AND DOC_ID =   DECODE(#{audDocCd},  'A10700600',  NVL(#{refId},(SELECT T1.REF_ID FROM TBBADDED103M T1 WHERE T1.AUD_YR = #{audYr} AND T1.AUD_NO = #{audNo} AND T1.DOC_ID = #{docId}))
+			                                                                                             ,'A10700210',  (SELECT T1.REF_DOC_ID FROM TBBADDED103M T1 WHERE T1.AUD_YR =#{audYr} AND T1.AUD_NO =#{audNo} AND T1.DOC_ID = #{docId})
+			                                                                           , #{docId} ))
+			           AND APVR_KND_CD NOT IN ( '8' ) --열람자 제외
+			           UNION ALL
+			            SELECT  DISTINCT CNB
+			                   , AUDTOR_DVSN_NM
+	                     FROM 
+						( SELECT AA.CNB 
+						       , (CASE WHEN AA.AUTH_CD = 'R01' THEN '작성자'
+						               WHEN AA.AUTH_CD = 'R02' THEN '주관자'
+						               WHEN AA.AUTH_CD = 'R03' THEN '보조자'
+						               WHEN AA.AUTH_CD = 'R04' THEN '주관권한'
+						               WHEN AA.AUTH_CD = 'R05' THEN '서무권한'
+						               WHEN AA.AUTH_CD = 'R06' THEN '감사총책임자'
+						               WHEN AA.AUTH_CD = 'R07' THEN '부서장'
+						               WHEN AA.AUTH_CD = 'R07' THEN '임의권한'
+						           END ) AS AUDTOR_DVSN_NM
+						      FROM  ( SELECT B.AUTH_CD
+										   , (CASE WHEN B.AUTH_CD = 'R01' THEN F_USR_INFO_BY_ID(A.DOC_WRT_ID,'1')
+											                              ELSE C.CNB
+											   END) AS CNB
+									    FROM TBBADDED103M A 			
+									   INNER JOIN 
+											 (SELECT AA.AUD_DOC_CD /* 문서그룹ID */
+												   , AA.AUTH_CD /* 권한코드 */
+												   , CC.CD_NM AS AUTH_CD_NM /* 코드명 */ 
+												FROM TBDCMACM201M AA /* 감사문서기본편집권한관리 */
+											   INNER JOIN
+												     TBFDMADM001M BB
+												  ON BB.AUD_DOC_CD = AA.AUD_DOC_CD
+											   INNER JOIN    
+													 ( SELECT CD
+													        , CD_NM 
+													     FROM TBDCMACM013C 
+													    WHERE CMM_CD_DVSN_CD = '1000889' 
+													      AND USE_YN = 'Y' 
+													      AND CD != '000000000') CC /* 공통코드 */
+												  ON AA.AUTH_CD = CC.CD ) B
+										   ON A.RPRT_CD = B.AUD_DOC_CD
+									    LEFT OUTER JOIN
+											  (/* 주관자, 보조자, 주관자권한, 서무권한*/
+											    SELECT A.AUD_YR
+													 , A.AUD_NO
+													 , CASE WHEN A.AUDTOR_DVSN_CD = '1'  THEN 'R02' -- 주관자
+														    WHEN A.AUDTOR_DVSN_CD = '2'  THEN 'R03' -- 보조자
+															WHEN A.AUDTOR_DVSN_CD = '3'  THEN 'R04' -- 주관자권한
+															WHEN A.AUDTOR_DVSN_CD = '4'  THEN 'R05' -- 서무권한
+														END AS AUTH_CD 
+													 , CNB  
+												  FROM TBBADDED031L A
+											     UNION ALL
+												 /* 감사단장 */
+												SELECT A.AUD_YR
+													 , A.AUD_NO
+													 , 'R06' AS AUD_TH
+													 , A.AUD_TOT_DRTR_CNB AS CNB
+												  FROM TBBADDED001M A
+												  
+												 UNION ALL
+										        /* 부서장 */
+										        SELECT B.AUD_YR
+													 , B.AUD_NO
+													 , 'R07' AS AUD_CD
+													 , A.CNB
+												  FROM TBDCMACM001M A
+												 INNER JOIN 
+													   TBBADDED001M B
+													ON B.MNG_DPT_CD = A.DPT_CD
+												 WHERE A.PST_CD = '0013600'    ) C	  
+									      ON C.AUD_YR = A.AUD_YR
+										 AND C.AUD_NO = A.AUD_NO
+										 AND C.AUTH_CD = B.AUTH_CD  
+									   WHERE A.AUD_YR = #{audYr}
+										 AND A.AUD_NO = #{audNo}
+										 AND A.AUD_STEP_CD = #{audStepCd}
+										 AND A.DOC_ID = #{docId} 
+								       UNION ALL
+								       /* 사용자 추가 권한 */
+								       SELECT 'R99'
+										    , A.EDT_CNB
+									     FROM TBDCMACM202M A
+									    WHERE A.AUD_YR = #{audYr}
+									      AND A.AUD_NO = #{audNo}
+									      AND A.AUD_STEP_CD = #{audStepCd}
+									      AND A.DOC_ID = #{docId} ) AA
+				           INNER JOIN
+				                 TBDCMACM001M BB
+				              ON BB.CNB = AA.CNB 
+						 WHERE 1=1
+						   ) C 
+			           ) AA
+		   GROUP BY
+			        AA.USR_CNB
+		   ORDER BY
+			        AA.USR_CNB
+          
+          ]]>
+    </select>
+    
+    <select id="selectApvrListBD" parameterType="paramMap" resultType="egovMap" >
+     /* kr.go.bai.eip.dcm.acm.dao.DCMACM043PMapper.selectApvrListBD*/
+	    <![CDATA[
+	       WITH C_DATA AS
+			(  SELECT F_USR_INFO_BY_ID( A.USR_ID , '1') AS CNB
+			             , '담당자' AS APVR_NM
+					  FROM TBDCMACM001M A, TBBADFRE012M B
+				    WHERE A.CNB = B.HNDL_CHGR_CD
+			           AND  B.ACP_YR =  #{audYr}
+			           AND B.ACP_SRNO = #{audNo}
+			           AND B.ACP_DVSN_CD =  #{reqDvsnCd}
+			   UNION ALL
+			   SELECT APVR_CNB
+			               , F_CODE_NM('1000350', APVR_KND_CD) AS APVR_NM
+			          FROM TBDCMACM023L
+			         WHERE 1=1
+			           AND APV_DOC_NO = ( SELECT APV_RQS_ID
+			         			            FROM TBBADFRE103M
+			        				       WHERE ACP_YR =  #{audYr}
+			        					     AND ACP_DVSN_CD = #{reqDvsnCd}
+			                                 AND ACP_SRNO =  #{audNo}
+			        					     AND ACP_STEP_CD = #{audStepCd}
+			        					     AND DOC_ID = #{docId} )
+			   UNION ALL
+			   SELECT F_USR_INFO_BY_ID( A.DOC_WRT_ID , '1') AS CNB
+			             , '작성자' AS APVR_NM
+			         FROM TBBADFRE103M A
+			         INNER JOIN TBBADFRE012M B ON(A.ACP_YR =B.ACP_YR
+			                                      AND A.ACP_DVSN_CD =B.ACP_DVSN_CD
+			                                      AND A.ACP_SRNO = B.ACP_SRNO)
+			         LEFT OUTER JOIN TBBADEAR001M C ON(B.AUD_YR = C.AUD_YR
+			                                           AND B.AUD_NO = C.AUD_NO
+			                                           AND B.DSP_RQ_SNO = C.DSP_RQ_SNO)
+			         WHERE 1=1
+			         AND A.ACP_YR = #{audYr}
+			         AND A.ACP_DVSN_CD =#{reqDvsnCd}
+			         AND A.ACP_SRNO = #{audNo}
+			         AND A.ACP_STEP_CD =  #{audStepCd}
+			         AND A.DOC_ID = #{docId}
+			)
+			SELECT A.CNB                  AS USR_CNB
+				 , F_USR_INFO(A.CNB, '1') AS USR_ID
+				 , F_CODE_NM('1000173', F_USR_INFO(A.CNB, '3')) AS PST_NM /*직위명*/
+			     , F_USR_INFO(A.CNB, '2') AS USR_NM
+				 , AGGR_CONCAT(A.APVR_NM,', ') AS AUDTOR_DVSN_NM
+			 FROM C_DATA A
+			 GROUP BY 
+			       A.CNB
+			 ORDER BY
+			       A.CNB
+          
+          ]]>
+    </select>
+    
+    <select id="selectDetailEdtAuthHist" parameterType="paramMap" resultType="egovMap" >
+	    <![CDATA[
+	        /* kr.go.bai.eip.dcm.acm.dao.DCMACM047PMapper.selectDetailEdtAuthHist*/
+	       SELECT DECODE(H.EDT_AUTH, 'Y', '권한부여', '권한회수') AS EDT_AUTH_DVSN_TXT ,
+	       NVL(F_CODE_NM('1000176', H.EDT_PST_CD), F_CODE_NM('1000173', H.EDT_RANK_CD)) AS PST_NM /*직위명*/
+	  ,
+	       F_DPT_INFO(H.FNL_DEAL_DPT_CD, '1') AS DPT_NAM /*부서명*/
+	  ,
+	       F_USR_INFO(H.EDT_CNB, '2') AS USR_NM ,
+	       TO_CHAR(H.FRT_REGI_DH, 'YYYY-MM-DD') AS EDT_AUTH_DH ,
+	       H.REASON ,
+	       H.DOC_ID ,
+	       H.AUD_YR ,
+	       H.AUD_NO ,
+	       H.AUD_STEP_CD ,
+	       H.REQ_DVSN_CD ,
+	       H.DOC_ID,
+	       A.RPRT_NM,
+	        (SELECT 
+	           DECODE(AUD_DOC_CD, 'A10600100', '개별처분요구안',AGGR_CONCAT(DTIL_AUD_DOC_NM,',')) AS CD_NM
+	          FROM (
+	                SELECT 
+	                    AUD_DOC_CD
+	                    , DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1)) AS DTIL_AUD_DOC_NM
+	                  FROM TBFDMADM002M
+	                 WHERE SUBSTR(AUD_DOC_CD,0,1) = 'A'
+	                 GROUP BY AUD_DOC_CD, DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1))
+	                 UNION ALL SELECT 'A10800500' , '공개문' FROM DUAL
+	                 UNION ALL SELECT 'A10700700' , '부의안요약문-보고자용' FROM DUAL
+	                 UNION ALL SELECT 'A10700800' , '부의안요약문-원장님용' FROM DUAL
+	                )
+	          WHERE AUD_DOC_CD = RPRT_CD 
+	         GROUP BY AUD_DOC_CD) AS RPRT_KND_NM,
+	         TO_CHAR(TO_DATE(H.EDT_STR_DT||H.EDT_STR_DH,'YYYYMMDDHH24MI'),'YYYY-MM-DD HH24:MI') AS EDT_STR_DT,
+             TO_CHAR(TO_DATE(H.EDT_END_DT||H.EDT_END_DH,'YYYYMMDDHH24MI'),'YYYY-MM-DD HH24:MI') AS EDT_END_DT
+                , C.RQS_DT
+				, C.RQS_DPT_NM
+				, C.RQR_NAM
+			    , C.RQS_TIT_NM
+				, C.RQS_TXT
+				, C.MTRL_RQS_SNO
+				, H.EDT_AUTH
+				, H.REQ_SEQ
+			    , H.COFM_YN
+			    , (CASE WHEN H.COFM_YN  = 'Y' THEN '승인' 
+				           WHEN H.COFM_YN  = 'N' THEN '반려' 
+				           WHEN H.COFM_YN  = 'R' THEN '요청'
+				           WHEN H.COFM_YN  = 'C' THEN '요청취소'
+				     END) AS COFM_YN_NM
+			    , H.COFM_RMK 
+				, TO_CHAR(H.COFM_DH,'yyyy-MM-dd' ) AS COFM_DH
+			    , F_DPT_INFO(F_USR_INFO(H.COFM_CNB , '5'), '1') AS COFM_DPT_NAM /*부서명*/
+	            , F_USR_INFO(H.COFM_CNB , '2') AS COFM_USR_NM
+	  FROM TBDCMACM066M H
+	      INNER JOIN
+	       TBBADDED103M A
+         ON (A.AUD_YR = H.AUD_YR 
+	   AND A.AUD_NO = H.AUD_NO 
+	   AND A.AUD_STEP_CD = H.AUD_STEP_CD 
+	   AND A.DOC_ID = H.DOC_ID)
+			  LEFT OUTER JOIN
+			        ( SELECT 	A.MTRL_RQS_SNO,			/*자료요청순번*/
+								A.MTRL_RQS_DVSN_CD,		/*자료요청구분코드*/
+								TO_CHAR(TO_DATE(A.RQS_DT,'yyyyMMdd'),'yyyy-MM-dd') AS RQS_DT,				/*요청일*/
+								D.ABR_DPT_NM_1 AS RQS_DPT_NM,	/*요청자부서명*/
+								B.USR_NAM AS RQR_NAM,	/*요청자명*/
+								A.RQS_TIT_NM,			/*요청제목*/
+								A.RQS_TXT, /* 요청내용 */
+								C.USR_NAM AS HNDL_PEN_NAM,	/*처리담당자명*/
+								TO_CHAR(TO_DATE(A.HNDL_DT,'yyyyMMdd'),'yyyy-MM-dd') AS HNDL_DT,				/*처리일자*/
+								A.RQR_CNB,				/*요청자전산번호*/
+								A.HNDL_PEN_CNB,			/*처리자전산번호*/
+								A.RQS_DPT_CD,	/*요청부서코드*/
+								F_CODE_NM('1000794',A.DGE1_MNU_DVSN_CD) AS DGE1_MNU_DVSN_NM,	/*1차메뉴구분코드*/
+			                    A.OPEN_YN,
+								A.DRTR_CNB,				/*책임자전산번호*/
+								F.USR_NAM AS DRTR_NAM	/*책임자명*/
+						FROM   	TBCSPIIT002M A,			/*PC장비관리테이블*/
+								TBDCMACM001M B, 		/*사용자테이블(요청자)*/
+								TBDCMACM001M C,			/*사용자테이블(처리자)*/
+								TBDCMACM002M D,			/*부서코드(요청자)*/
+								TBDCMACM002M E,			/*부서코드(처리자)*/
+								TBDCMACM001M F			/*사용자테이블(책임자)*/
+						WHERE	A.RQR_CNB = B.CNB(+)
+						AND		A.HNDL_PEN_CNB = C.CNB(+)
+						AND		A.DRTR_CNB = F.CNB(+)
+						AND		A.RQS_DPT_CD = D.DPT_CD(+)
+						AND		C.DPT_CD = E.DPT_CD(+)
+						AND		A.COPUT_BRD_DVSN_CD = '01' /*게시판구분코드 - 전산개선요청*/ ) C
+			    ON C.MTRL_RQS_SNO = H.MTRL_RQS_SNO
+	   WHERE H.REQ_SEQ    = #{reqSeq};	 
+          ]]>
+    </select>
+    
+    <select id="selectDetailEdtAuthHistBD" parameterType="paramMap" resultType="egovMap" >
+	    <![CDATA[
+	        /* kr.go.bai.eip.dcm.acm.dao.DCMACM047PMapper.selectDetailEdtAuthHistBD*/
+	       SELECT DECODE(H.EDT_AUTH, 'Y', '권한부여', '권한회수') AS EDT_AUTH_DVSN_TXT ,
+	       NVL(F_CODE_NM('1000176', H.EDT_PST_CD), F_CODE_NM('1000173', H.EDT_RANK_CD)) AS PST_NM /*직위명*/
+	  ,
+	       F_DPT_INFO(H.FNL_DEAL_DPT_CD, '1') AS DPT_NAM /*부서명*/
+	  ,
+	       F_USR_INFO(H.EDT_CNB, '2') AS USR_NM ,
+	       TO_CHAR(H.FRT_REGI_DH, 'YYYY-MM-DD') AS EDT_AUTH_DH ,
+	       H.REASON ,
+	       H.DOC_ID ,
+	       H.AUD_YR ,
+	       H.AUD_NO ,
+	       H.AUD_STEP_CD ,
+	       H.REQ_DVSN_CD ,
+	       H.DOC_ID,
+	       A.RPRT_NM,
+	        (SELECT 
+	           DECODE(AUD_DOC_CD, 'A10600100', '개별처분요구안',AGGR_CONCAT(DTIL_AUD_DOC_NM,',')) AS CD_NM
+	          FROM (
+	                SELECT 
+	                    AUD_DOC_CD
+	                    , DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1)) AS DTIL_AUD_DOC_NM
+	                  FROM TBFDMADM002M
+	                 WHERE SUBSTR(AUD_DOC_CD,0,1) = 'A'
+	                 GROUP BY AUD_DOC_CD, DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1))
+	                 UNION ALL SELECT 'A10800500' , '공개문' FROM DUAL
+	                 UNION ALL SELECT 'A10700700' , '부의안요약문-보고자용' FROM DUAL
+	                 UNION ALL SELECT 'A10700800' , '부의안요약문-원장님용' FROM DUAL
+	                )
+	          WHERE AUD_DOC_CD = RPRT_CD 
+	         GROUP BY AUD_DOC_CD) AS RPRT_KND_NM,
+	         TO_CHAR(TO_DATE(H.EDT_STR_DT||H.EDT_STR_DH,'YYYYMMDDHH24MI'),'YYYY-MM-DD HH24:MI') AS EDT_STR_DT,
+             TO_CHAR(TO_DATE(H.EDT_END_DT||H.EDT_END_DH,'YYYYMMDDHH24MI'),'YYYY-MM-DD HH24:MI') AS EDT_END_DT
+                , C.RQS_DT
+				, C.RQS_DPT_NM
+				, C.RQR_NAM
+			    , C.RQS_TIT_NM
+				, C.RQS_TXT
+				, C.MTRL_RQS_SNO
+				, H.EDT_AUTH
+				, H.REQ_SEQ
+			    , H.COFM_YN
+			    , (CASE WHEN H.COFM_YN  = 'Y' THEN '승인' 
+				           WHEN H.COFM_YN  = 'N' THEN '반려' 
+				           WHEN H.COFM_YN  = 'R' THEN '요청'
+				           WHEN H.COFM_YN  = 'C' THEN '요청취소'
+				     END) AS COFM_YN_NM
+			    , H.COFM_RMK 
+				, TO_CHAR(H.COFM_DH,'yyyy-MM-dd' ) AS COFM_DH
+			    , F_DPT_INFO(F_USR_INFO(H.COFM_CNB , '5'), '1') AS COFM_DPT_NAM /*부서명*/
+	            , F_USR_INFO(H.COFM_CNB , '2') AS COFM_USR_NM
+	  FROM TBDCMACM066M H
+	      INNER JOIN
+	       TBBADFRE103M A
+         ON (H.AUD_YR = A.ACP_YR 
+	   AND H.AUD_NO = A.ACP_SRNO  
+	   AND H.REQ_DVSN_CD   = A.ACP_DVSN_CD 
+	   AND H.AUD_STEP_CD = A.ACP_STEP_CD
+	   AND H.DOC_ID = A.DOC_ID)
+			  LEFT OUTER JOIN
+			        ( SELECT 	A.MTRL_RQS_SNO,			/*자료요청순번*/
+								A.MTRL_RQS_DVSN_CD,		/*자료요청구분코드*/
+								TO_CHAR(TO_DATE(A.RQS_DT,'yyyyMMdd'),'yyyy-MM-dd') AS RQS_DT,				/*요청일*/
+								D.ABR_DPT_NM_1 AS RQS_DPT_NM,	/*요청자부서명*/
+								B.USR_NAM AS RQR_NAM,	/*요청자명*/
+								A.RQS_TIT_NM,			/*요청제목*/
+								A.RQS_TXT, /* 요청내용 */
+								C.USR_NAM AS HNDL_PEN_NAM,	/*처리담당자명*/
+								TO_CHAR(TO_DATE(A.HNDL_DT,'yyyyMMdd'),'yyyy-MM-dd') AS HNDL_DT,				/*처리일자*/
+								A.RQR_CNB,				/*요청자전산번호*/
+								A.HNDL_PEN_CNB,			/*처리자전산번호*/
+								A.RQS_DPT_CD,	/*요청부서코드*/
+								F_CODE_NM('1000794',A.DGE1_MNU_DVSN_CD) AS DGE1_MNU_DVSN_NM,	/*1차메뉴구분코드*/
+			                    A.OPEN_YN,
+								A.DRTR_CNB,				/*책임자전산번호*/
+								F.USR_NAM AS DRTR_NAM	/*책임자명*/
+						FROM   	TBCSPIIT002M A,			/*PC장비관리테이블*/
+								TBDCMACM001M B, 		/*사용자테이블(요청자)*/
+								TBDCMACM001M C,			/*사용자테이블(처리자)*/
+								TBDCMACM002M D,			/*부서코드(요청자)*/
+								TBDCMACM002M E,			/*부서코드(처리자)*/
+								TBDCMACM001M F			/*사용자테이블(책임자)*/
+						WHERE	A.RQR_CNB = B.CNB(+)
+						AND		A.HNDL_PEN_CNB = C.CNB(+)
+						AND		A.DRTR_CNB = F.CNB(+)
+						AND		A.RQS_DPT_CD = D.DPT_CD(+)
+						AND		C.DPT_CD = E.DPT_CD(+)
+						AND		A.COPUT_BRD_DVSN_CD = '01' /*게시판구분코드 - 전산개선요청*/ ) C
+			    ON C.MTRL_RQS_SNO = H.MTRL_RQS_SNO
+	   WHERE H.REQ_SEQ    = #{reqSeq};	 
+          ]]>
+    </select>
+    
+    <select id="selectDetailEdtAuthHistCP" parameterType="paramMap" resultType="egovMap" >
+	    <![CDATA[
+	        /* kr.go.bai.eip.dcm.acm.dao.DCMACM047PMapper.selectDetailEdtAuthHistBD*/
+	       SELECT DECODE(H.EDT_AUTH, 'Y', '권한부여', '권한회수') AS EDT_AUTH_DVSN_TXT ,
+	       NVL(F_CODE_NM('1000176', H.EDT_PST_CD), F_CODE_NM('1000173', H.EDT_RANK_CD)) AS PST_NM /*직위명*/
+	  ,
+	       F_DPT_INFO(H.FNL_DEAL_DPT_CD, '1') AS DPT_NAM /*부서명*/
+	  ,
+	       F_USR_INFO(H.EDT_CNB, '2') AS USR_NM ,
+	       TO_CHAR(H.FRT_REGI_DH, 'YYYY-MM-DD') AS EDT_AUTH_DH ,
+	       H.REASON ,
+	       H.DOC_ID ,
+	       H.AUD_YR ,
+	       H.AUD_NO ,
+	       H.AUD_STEP_CD ,
+	       H.REQ_DVSN_CD ,
+	       H.DOC_ID,
+	       A.RPRT_NM,
+	        (SELECT 
+	           DECODE(AUD_DOC_CD, 'A10600100', '개별처분요구안',AGGR_CONCAT(DTIL_AUD_DOC_NM,',')) AS CD_NM
+	          FROM (
+	                SELECT 
+	                    AUD_DOC_CD
+	                    , DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1)) AS DTIL_AUD_DOC_NM
+	                  FROM TBFDMADM002M
+	                 WHERE SUBSTR(AUD_DOC_CD,0,1) = 'A'
+	                 GROUP BY AUD_DOC_CD, DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1))
+	                 UNION ALL SELECT 'A10800500' , '공개문' FROM DUAL
+	                 UNION ALL SELECT 'A10700700' , '부의안요약문-보고자용' FROM DUAL
+	                 UNION ALL SELECT 'A10700800' , '부의안요약문-원장님용' FROM DUAL
+	                )
+	          WHERE AUD_DOC_CD = RPRT_CD 
+	         GROUP BY AUD_DOC_CD) AS RPRT_KND_NM,
+	         TO_CHAR(TO_DATE(H.EDT_STR_DT||H.EDT_STR_DH,'YYYYMMDDHH24MI'),'YYYY-MM-DD HH24:MI') AS EDT_STR_DT,
+             TO_CHAR(TO_DATE(H.EDT_END_DT||H.EDT_END_DH,'YYYYMMDDHH24MI'),'YYYY-MM-DD HH24:MI') AS EDT_END_DT
+                , C.RQS_DT
+				, C.RQS_DPT_NM
+				, C.RQR_NAM
+			    , C.RQS_TIT_NM
+				, C.RQS_TXT
+				, C.MTRL_RQS_SNO
+				, H.EDT_AUTH
+				, H.REQ_SEQ
+			    , H.COFM_YN
+			    , (CASE WHEN H.COFM_YN  = 'Y' THEN '승인' 
+				           WHEN H.COFM_YN  = 'N' THEN '반려' 
+				           WHEN H.COFM_YN  = 'R' THEN '요청'
+				           WHEN H.COFM_YN  = 'C' THEN '요청취소'
+				     END) AS COFM_YN_NM
+			    , H.COFM_RMK 
+				, TO_CHAR(H.COFM_DH,'yyyy-MM-dd' ) AS COFM_DH
+			    , F_DPT_INFO(F_USR_INFO(H.COFM_CNB , '5'), '1') AS COFM_DPT_NAM /*부서명*/
+	            , F_USR_INFO(H.COFM_CNB , '2') AS COFM_USR_NM
+	  FROM TBDCMACM066M H
+	      INNER JOIN
+	       TBCSPDCP603M A
+         ON (H.AUD_YR = A.ACP_YR 
+	   AND H.AUD_NO = A.CVPT_ACP_NO   
+	   AND H.REQ_DVSN_CD   = A.REQ_DVSN_CD  
+	   AND H.AUD_STEP_CD = A.ACP_STEP_CD 
+	   AND H.DOC_ID = A.DOC_ID)
+			  LEFT OUTER JOIN
+			        ( SELECT 	A.MTRL_RQS_SNO,			/*자료요청순번*/
+								A.MTRL_RQS_DVSN_CD,		/*자료요청구분코드*/
+								TO_CHAR(TO_DATE(A.RQS_DT,'yyyyMMdd'),'yyyy-MM-dd') AS RQS_DT,				/*요청일*/
+								D.ABR_DPT_NM_1 AS RQS_DPT_NM,	/*요청자부서명*/
+								B.USR_NAM AS RQR_NAM,	/*요청자명*/
+								A.RQS_TIT_NM,			/*요청제목*/
+								A.RQS_TXT, /* 요청내용 */
+								C.USR_NAM AS HNDL_PEN_NAM,	/*처리담당자명*/
+								TO_CHAR(TO_DATE(A.HNDL_DT,'yyyyMMdd'),'yyyy-MM-dd') AS HNDL_DT,				/*처리일자*/
+								A.RQR_CNB,				/*요청자전산번호*/
+								A.HNDL_PEN_CNB,			/*처리자전산번호*/
+								A.RQS_DPT_CD,	/*요청부서코드*/
+								F_CODE_NM('1000794',A.DGE1_MNU_DVSN_CD) AS DGE1_MNU_DVSN_NM,	/*1차메뉴구분코드*/
+			                    A.OPEN_YN,
+								A.DRTR_CNB,				/*책임자전산번호*/
+								F.USR_NAM AS DRTR_NAM	/*책임자명*/
+						FROM   	TBCSPIIT002M A,			/*PC장비관리테이블*/
+								TBDCMACM001M B, 		/*사용자테이블(요청자)*/
+								TBDCMACM001M C,			/*사용자테이블(처리자)*/
+								TBDCMACM002M D,			/*부서코드(요청자)*/
+								TBDCMACM002M E,			/*부서코드(처리자)*/
+								TBDCMACM001M F			/*사용자테이블(책임자)*/
+						WHERE	A.RQR_CNB = B.CNB(+)
+						AND		A.HNDL_PEN_CNB = C.CNB(+)
+						AND		A.DRTR_CNB = F.CNB(+)
+						AND		A.RQS_DPT_CD = D.DPT_CD(+)
+						AND		C.DPT_CD = E.DPT_CD(+)
+						AND		A.COPUT_BRD_DVSN_CD = '01' /*게시판구분코드 - 전산개선요청*/ ) C
+			    ON C.MTRL_RQS_SNO = H.MTRL_RQS_SNO
+	   WHERE H.REQ_SEQ    = #{reqSeq};	 
+          ]]>
+    </select>
+    
+    <select id="selectApvrHisList" parameterType="paramMap" resultType="egovMap" >
+     /* kr.go.bai.eip.dcm.acm.dao.DCMACM047PMapper.selectApvrHisList*/
+	    <![CDATA[
+	        SELECT AA.USR_CNB
+	              , F_USR_INFO(USR_CNB, '1') AS USR_ID
+	              , F_CODE_NM('1000173', F_USR_INFO(USR_CNB, '3')) AS PST_NM /*직위명*/
+                  , F_USR_INFO(USR_CNB, '2') AS USR_NM
+			       , AGGR_CONCAT(AA.AUDTOR_DVSN_NM,', ') AS AUDTOR_DVSN_NM
+		    FROM (SELECT APVR_CNB        AS USR_CNB
+                       , F_CODE_NM('1000350', APVR_KND_CD) AS AUDTOR_DVSN_NM
+			          FROM TBDCMACM023L
+			         WHERE 1=1
+			           AND APV_DOC_NO = ( SELECT A.APV_RQS_ID
+			                                        FROM TBBADDED103M A
+			                                       INNER JOIN
+                                                          TBDCMACM066M B
+                                                       ON B.AUD_YR = A.AUD_YR
+                                                      AND B.AUD_NO = A.AUD_NO
+                                                      AND B.AUD_STEP_CD = A.AUD_STEP_CD
+                                                      AND B.DOC_ID = A.DOC_ID
+                                                    WHERE B.REQ_SEQ    = #{reqSeq}
+			                                         AND A.DOC_ID =   DECODE(A.RPRT_CD,  'A10700600',  (SELECT T1.REF_ID FROM TBBADDED103M T1 WHERE T1.AUD_YR = A.AUD_YR AND T1.AUD_NO = A.AUD_NO AND T1.DOC_ID = A.DOC_ID)
+			                                                                                             ,'A10700210',  (SELECT T1.REF_DOC_ID FROM TBBADDED103M T1 WHERE T1.AUD_YR =A.AUD_YR AND T1.AUD_NO =A.AUD_NO AND T1.DOC_ID = A.DOC_ID)
+			                                                                           , A.DOC_ID ))
+			           AND APVR_KND_CD NOT IN ( '8' ) --열람자 제외
+			           UNION ALL
+			            SELECT  DISTINCT CNB
+			                   , AUDTOR_DVSN_NM
+	                     FROM 
+						( SELECT AA.CNB 
+						       , (CASE WHEN AA.AUTH_CD = 'R01' THEN '작성자'
+						               WHEN AA.AUTH_CD = 'R02' THEN '주관자'
+						               WHEN AA.AUTH_CD = 'R03' THEN '보조자'
+						               WHEN AA.AUTH_CD = 'R04' THEN '주관권한'
+						               WHEN AA.AUTH_CD = 'R05' THEN '서무권한'
+						               WHEN AA.AUTH_CD = 'R06' THEN '감사총책임자'
+						               WHEN AA.AUTH_CD = 'R07' THEN '부서장'
+						               WHEN AA.AUTH_CD = 'R07' THEN '임의권한'
+						           END ) AS AUDTOR_DVSN_NM
+						      FROM  ( SELECT B.AUTH_CD
+										   , (CASE WHEN B.AUTH_CD = 'R01' THEN F_USR_INFO_BY_ID(A.DOC_WRT_ID,'1')
+											                              ELSE C.CNB
+											   END) AS CNB
+									    FROM TBBADDED103M A 			
+									   INNER JOIN 
+											 (SELECT AA.AUD_DOC_CD /* 문서그룹ID */
+												   , AA.AUTH_CD /* 권한코드 */
+												   , CC.CD_NM AS AUTH_CD_NM /* 코드명 */ 
+												FROM TBDCMACM201M AA /* 감사문서기본편집권한관리 */
+											   INNER JOIN
+												     TBFDMADM001M BB
+												  ON BB.AUD_DOC_CD = AA.AUD_DOC_CD
+											   INNER JOIN    
+													 ( SELECT CD
+													        , CD_NM 
+													     FROM TBDCMACM013C 
+													    WHERE CMM_CD_DVSN_CD = '1000889' 
+													      AND USE_YN = 'Y' 
+													      AND CD != '000000000') CC /* 공통코드 */
+												  ON AA.AUTH_CD = CC.CD ) B
+										   ON A.RPRT_CD = B.AUD_DOC_CD
+									    LEFT OUTER JOIN
+											  (/* 주관자, 보조자, 주관자권한, 서무권한*/
+											    SELECT A.AUD_YR
+													 , A.AUD_NO
+													 , CASE WHEN A.AUDTOR_DVSN_CD = '1'  THEN 'R02' -- 주관자
+														    WHEN A.AUDTOR_DVSN_CD = '2'  THEN 'R03' -- 보조자
+															WHEN A.AUDTOR_DVSN_CD = '3'  THEN 'R04' -- 주관자권한
+															WHEN A.AUDTOR_DVSN_CD = '4'  THEN 'R05' -- 서무권한
+														END AS AUTH_CD 
+													 , CNB  
+												  FROM TBBADDED031L A
+											     UNION ALL
+												 /* 감사단장 */
+												SELECT A.AUD_YR
+													 , A.AUD_NO
+													 , 'R06' AS AUD_TH
+													 , A.AUD_TOT_DRTR_CNB AS CNB
+												  FROM TBBADDED001M A
+												  
+												 UNION ALL
+										        /* 부서장 */
+										        SELECT B.AUD_YR
+													 , B.AUD_NO
+													 , 'R07' AS AUD_CD
+													 , A.CNB
+												  FROM TBDCMACM001M A
+												 INNER JOIN 
+													   TBBADDED001M B
+													ON B.MNG_DPT_CD = A.DPT_CD
+												 WHERE A.PST_CD = '0013600'    ) C	  
+									      ON C.AUD_YR = A.AUD_YR
+										 AND C.AUD_NO = A.AUD_NO
+										 AND C.AUTH_CD = B.AUTH_CD  
+									   INNER JOIN
+                                              TBDCMACM066M BB
+                                           ON BB.AUD_YR = A.AUD_YR
+									      AND BB.AUD_NO = A.AUD_NO
+									      AND BB.AUD_STEP_CD = A.AUD_STEP_CD
+									      AND BB.DOC_ID = A.DOC_ID
+									    WHERE BB.REQ_SEQ    =#{reqSeq}
+								       UNION ALL
+								       /* 사용자 추가 권한 */
+								       SELECT 'R99'
+										    , A.EDT_CNB
+									     FROM TBDCMACM202M A
+									   INNER JOIN
+                                              TBDCMACM066M B
+                                           ON B.AUD_YR = A.AUD_YR
+									      AND B.AUD_NO = A.AUD_NO
+									      AND B.AUD_STEP_CD = A.AUD_STEP_CD
+									      AND B.DOC_ID = A.DOC_ID
+									    WHERE B.REQ_SEQ    =#{reqSeq}   ) AA
+				           INNER JOIN
+				                 TBDCMACM001M BB
+				              ON BB.CNB = AA.CNB 
+						 WHERE 1=1
+						   ) C 
+			           ) AA
+			    LEFT OUTER JOIN
+			          TBDCMACM066M BB
+			      ON BB.REQ_SEQ    = #{reqSeq}  
+			   WHERE ((BB.EDT_AUTH_CNBS  IS NULL) OR 
+			              (BB.EDT_AUTH_CNBS IS NOT NULL AND DECODE(INSTR(BB.EDT_AUTH_CNBS,AA.USR_CNB),0,'N','Y') = 'Y' ))     
+		   GROUP BY
+			        AA.USR_CNB
+		   ORDER BY
+			        AA.USR_CNB
+          
+          ]]>
+    </select>
+    
+    <select id="selectApvrHisListBD" parameterType="paramMap" resultType="egovMap" >
+     /* kr.go.bai.eip.dcm.acm.dao.DCMACM047PMapper.selectApvrHisListBD*/
+	    <![CDATA[
+	       WITH C_DATA AS
+			(  SELECT F_USR_INFO_BY_ID( A.USR_ID , '1') AS CNB
+			             , '담당자' AS APVR_NM
+					  FROM TBDCMACM001M A
+                     INNER JOIN
+                           TBBADFRE012M B
+                       ON  A.CNB = B.HNDL_CHGR_CD
+                     INNER JOIN
+			              TBDCMACM066M BB
+                      ON BB.AUD_YR = B.ACP_YR
+                     AND BB.REQ_DVSN_CD  = B.ACP_DVSN_CD
+                     AND BB.AUD_NO = B.ACP_SRNO
+                     AND BB.REQ_SEQ    = #{reqSeq}  
+			        
+			   UNION ALL
+			   SELECT A.APVR_CNB
+			               , F_CODE_NM('1000350', A.APVR_KND_CD) AS APVR_NM
+			          FROM TBDCMACM023L A
+			          WHERE 1=1
+			           AND A.APV_DOC_NO = ( SELECT AA.APV_RQS_ID
+			         			            FROM TBBADFRE103M AA
+                                            INNER JOIN
+                                                  TBDCMACM066M BB
+                                              ON BB.AUD_YR = AA.ACP_YR
+                                             AND BB.REQ_DVSN_CD  = AA.ACP_DVSN_CD
+                                             AND BB.AUD_NO = AA.ACP_SRNO
+                                             AND BB.AUD_STEP_CD = AA.ACP_STEP_CD
+                                             AND BB.DOC_ID = AA.DOC_ID
+                                             AND BB.REQ_SEQ    = #{reqSeq}    )
+			   UNION ALL
+			   SELECT F_USR_INFO_BY_ID( A.DOC_WRT_ID , '1') AS CNB
+			             , '작성자' AS APVR_NM
+			         FROM TBBADFRE103M A
+			         INNER JOIN TBBADFRE012M B ON(A.ACP_YR =B.ACP_YR
+			                                      AND A.ACP_DVSN_CD =B.ACP_DVSN_CD
+			                                      AND A.ACP_SRNO = B.ACP_SRNO)
+			         LEFT OUTER JOIN TBBADEAR001M C ON(B.AUD_YR = C.AUD_YR
+			                                           AND B.AUD_NO = C.AUD_NO
+			                                           AND B.DSP_RQ_SNO = C.DSP_RQ_SNO)
+                     INNER JOIN
+			              TBDCMACM066M BB
+                      ON BB.AUD_YR = A.ACP_YR
+                     AND BB.REQ_DVSN_CD  = A.ACP_DVSN_CD
+                     AND BB.AUD_NO = A.ACP_SRNO
+                     AND BB.AUD_STEP_CD = A.ACP_STEP_CD
+                     AND BB.DOC_ID = A.DOC_ID
+                     AND BB.REQ_SEQ    = #{reqSeq}  
+			)
+			SELECT A.CNB                  AS USR_CNB
+				 , F_USR_INFO(A.CNB, '1') AS USR_ID
+				 , F_CODE_NM('1000173', F_USR_INFO(A.CNB, '3')) AS PST_NM /*직위명*/
+			     , F_USR_INFO(A.CNB, '2') AS USR_NM
+				 , AGGR_CONCAT(A.APVR_NM,', ') AS AUDTOR_DVSN_NM
+			 FROM C_DATA A
+             INNER JOIN
+			              TBDCMACM066M BB
+                     ON BB.REQ_SEQ    = #{reqSeq}  
+            WHERE ((BB.EDT_AUTH_CNBS  IS NULL) OR 
+			       (BB.EDT_AUTH_CNBS IS NOT NULL AND DECODE(INSTR(BB.EDT_AUTH_CNBS,A.CNB),0,'N','Y') = 'Y' ))
+			 GROUP BY 
+			       A.CNB
+			 ORDER BY
+			       A.CNB
+          
+          ]]>
+    </select>
+    
+    <select id="selectApvrHisListCP" parameterType="paramMap" resultType="egovMap" >
+     /* kr.go.bai.eip.dcm.acm.dao.DCMACM047PMapper.selectApvrHisListCP*/
+	    <![CDATA[
+	       WITH C_DATA AS
+			(  SELECT A.APVR_CNB AS CNB
+			               , F_CODE_NM('1000350', A.APVR_KND_CD) AS APVR_NM
+			          FROM TBDCMACM023L A
+			          WHERE 1=1
+			           AND A.APV_DOC_NO = ( SELECT AA.APV_RQS_ID
+			         			            FROM TBCSPDCP603M AA
+                                            INNER JOIN
+                                                  TBDCMACM066M BB
+                                              ON BB.AUD_YR = AA.ACP_YR
+                                             AND BB.REQ_DVSN_CD  = AA.REQ_DVSN_CD 
+                                             AND BB.AUD_NO = AA.CVPT_ACP_NO 
+                                             AND BB.AUD_STEP_CD = AA.ACP_STEP_CD
+                                             AND BB.DOC_ID = AA.DOC_ID
+                                             AND BB.REQ_SEQ    = #{reqSeq}    )
+			   UNION ALL
+			   SELECT F_USR_INFO_BY_ID( A.DOC_WRT_ID , '1') AS CNB
+			             , '작성자' AS APVR_NM
+			         FROM TBCSPDCP603M A
+                     INNER JOIN
+			              TBDCMACM066M BB
+                      ON BB.AUD_YR = A.ACP_YR
+                     AND BB.REQ_DVSN_CD  = A.REQ_DVSN_CD
+                     AND BB.AUD_NO = A.CVPT_ACP_NO 
+                     AND BB.AUD_STEP_CD = A.ACP_STEP_CD
+                     AND BB.DOC_ID = A.DOC_ID
+                     AND BB.REQ_SEQ    = #{reqSeq}  
+			)
+			SELECT A.CNB                  AS USR_CNB
+				 , F_USR_INFO(A.CNB, '1') AS USR_ID
+				 , F_CODE_NM('1000173', F_USR_INFO(A.CNB, '3')) AS PST_NM /*직위명*/
+			     , F_USR_INFO(A.CNB, '2') AS USR_NM
+				 , AGGR_CONCAT(A.APVR_NM,', ') AS AUDTOR_DVSN_NM
+			 FROM C_DATA A
+             INNER JOIN
+			              TBDCMACM066M BB
+                     ON BB.REQ_SEQ    = #{reqSeq}  
+            WHERE ((BB.EDT_AUTH_CNBS  IS NULL) OR 
+			       (BB.EDT_AUTH_CNBS IS NOT NULL AND DECODE(INSTR(BB.EDT_AUTH_CNBS,A.CNB),0,'N','Y') = 'Y' ))
+			 GROUP BY 
+			       A.CNB
+			 ORDER BY
+			       A.CNB
+          
+          ]]>
+    </select>
+    
+    <!-- BEST20 개선요청(헬프데스크) 처리완료 -->
+    <update id="updateTBCSPIIT002MHndl">
+        /* kr.go.bai.eip.dcm.acm.dao.DCMACM043PMapper.updateTBCSPIIT002MHndl */
+       UPDATE TBCSPIIT002M
+          SET HNDL_DT  = TO_CHAR(SYSDATE,'yyyyMMdd')
+             , HNDL_PEN_CNB = #{cnb}
+             , HNDL_TXT = '처리완료'
+             , WORK_DVSN_CD = '53'
+             , MNU_CD_1 = '13'
+             , MNU_CD_2 = #{mnuCd2}
+             , FNL_USR_ID = #{usrId}
+             , FNL_DEAL_DPT_CD = #{dptCd}
+             , FNL_MNU_ID = #{menuNo}
+             , FNL_MDF_DH = SYSDATE
+        WHERE 1=1
+		  AND COPUT_BRD_DVSN_CD = '01' /*게시판구분코드 - 전산개선요청*/
+		  AND MTRL_RQS_SNO = #{mtrlRqsSno}
+    </update>
+		
+</mapper> 

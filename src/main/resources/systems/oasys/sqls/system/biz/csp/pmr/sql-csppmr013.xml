@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/pmr/013">
+	<!-- 좌석 리스트 가져오기 -->
+	<select id="CSPPMR013EMSeatNameSelect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT CFR_RM_INSPC_RM_DVSN_CD AS CD, CD_NM
+				FROM TBCSPPMR001M, TBDCMACM013C
+			WHERE CFR_RM_INSPC_RM_DVSN_CD NOT IN (1,2) 
+            AND CMM_CD_DVSN_CD='1000832'
+            AND CFR_RM_INSPC_RM_DVSN_CD = TO_CHAR(CD)
+            GROUP BY CFR_RM_INSPC_RM_DVSN_CD,CD_NM
+		]]>
+	</select>
+	<select id="CSPPMR013EMainSelect" parameterClass="paramMap"	resultClass="resultMap">
+		<![CDATA[       
+				SELECT A.CFR_RM_INSPC_RM_ID,
+			       A.CFR_RM_INSPC_RM_SRCH_SEQ,
+			       A.CFR_RM_INSPC_RNM,
+			       B.BOKG_APL_DH,
+			       B.BOKG_DT,
+			       TO_CHAR(TO_DATE( B.STR_HM,'HH24MI'),'HH24:MI') || ' ~ ' || TO_CHAR(TO_DATE(B.END_HM,'HH24MI'),'HH24:MI') AS RESRVE_TM,
+				   B.TIT_NM,
+				   (SELECT TNB FROM TBDCMACM001M WHERE USR_ID = B.BOKG_PEN_ID) AS TNB,
+				   CASE WHEN B.DTM_DVSN_CD IS NULL OR B.DTM_DVSN_CD ='0' OR B.DTM_DVSN_CD ='' THEN '미확정' ELSE '확정' END AS DTM_YN,
+				   CASE WHEN B.DTM_DVSN_CD IS NULL OR B.DTM_DVSN_CD ='0' OR B.DTM_DVSN_CD ='' THEN '' ELSE '1' END AS CONFIRM_YN,
+                   F_USR_INFO_BY_ID(B.BOKG_PEN_ID, '2') AS RESERVE_NM,
+                   C.CNB,
+                   C.DPT_CD,
+                   F_DPT_INFO(C.DPT_CD, '1') AS DPT_NM,
+                   B.USE_NM
+			  FROM TBCSPPMR001M A, 
+			       TBCSPPMR002M B,
+                   TBDCMACM001M C,
+       			   TBDCMACM002M D
+			WHERE 1=1
+				AND (C.DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #strDptAuth#, '', #strDptCds#))) )
+				AND A.CFR_RM_INSPC_RM_ID = B.CFR_RM_INSPC_RM_ID
+				AND B.BOKG_PEN_ID = C.USR_ID
+				AND A.CFR_RM_INSPC_RM_DVSN_CD NOT IN ('1','2')
+				AND C.DPT_CD = D.DPT_CD
+		]]>
+		<dynamic>
+			<isNotEmpty property="strSttBokgDt">
+			<![CDATA[
+				AND #strSttBokgDt# <= B.BOKG_DT
+			]]>
+			</isNotEmpty>
+			<isNotEmpty property="strEndBokgDt">
+			<![CDATA[
+				AND #strEndBokgDt# >= B.BOKG_DT
+			]]>
+			</isNotEmpty>
+			<isNotEmpty property="strDptCd2">
+				AND C.DPT_CD = #strDptCd2#
+			</isNotEmpty>
+			<isEmpty property="strDptCd2">
+				<isNotEmpty property="strDptCd">
+					AND (C.DPT_CD = #strDptCd# OR D.HIRK_DPT_CD = #strDptCd#) 
+				</isNotEmpty>
+			</isEmpty>						
+			<isNotEmpty property="cnb">
+				AND C.CNB  = #cnb#
+			</isNotEmpty>	
+			<isNotEmpty property="strDtm">
+				AND B.DTM_DVSN_CD  = #strDtm#
+			</isNotEmpty>
+			<isNotEmpty property="strSeatCd">
+				AND A.CFR_RM_INSPC_RM_DVSN_CD  = #strSeatCd#
+			</isNotEmpty>
+			<isNotEmpty property="strSeatUser">
+				AND B.USE_NM LIKE '%' ||  #strSeatUser# || '%'
+			</isNotEmpty>
+			<isNotEmpty property="strUsrId">
+				AND B.BOKG_PEN_ID =   #strUsrId# 
+			</isNotEmpty>
+			
+			
+		</dynamic>
+		
+		ORDER BY B.BOKG_DT DESC
+	</select>
+	<!-- 담당자 상세정보 삭제 -->
+	<delete id="CSPPMR013Edelete" parameterClass="paramMap">
+		DELETE TBCSPPMR002M
+		 WHERE 1=1
+		   AND BOKG_APL_DH   = #BOKG_APL_DH#
+		   AND CFR_RM_INSPC_RM_ID   = #CFR_RM_INSPC_RM_ID#
+	</delete>	
+	
+	
+	<!-- 예약관리자를 등록한다.-->
+	<update id="CSPPMR013Eupdate" parameterClass="paramMap">
+		UPDATE TBCSPPMR002M
+	       SET 
+				DTM_DVSN_CD  = '1',
+				FNL_MDF_DH = SYSDATE
+			<isNotEmpty prepend="," property="FNL_USR_ID">
+				FNL_USR_ID = #FNL_USR_ID#
+			</isNotEmpty>
+			<isNotEmpty prepend="," property="FNL_DEAL_DPT_CD">
+				FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+			</isNotEmpty>
+			<isNotEmpty prepend="," property="FNL_MNU_ID">
+				FNL_MNU_ID = #FNL_MNU_ID#
+			</isNotEmpty>
+		 WHERE 1=1
+		   AND BOKG_APL_DH   = #BOKG_APL_DH#
+		   AND CFR_RM_INSPC_RM_ID   = #CFR_RM_INSPC_RM_ID#
+	</update>
+	<select id="CSPPMR013SelectDay" parameterClass="paramMap"	resultClass="resultMap">
+		<![CDATA[       
+			SELECT TOTALDAY FROM
+	        	(SELECT 
+				CC.YYYYMMDD
+				,CC.TOTALDAY
+				,(CASE WHEN CC.TOTALDAY = (SELECT YE || MD FROM TBBADDED013B WHERE YE || MD = CC.TOTALDAY) THEN '1' ELSE '0' END) HOLIDAY
+				 FROM
+				(     
+					SELECT TO_CHAR(DAYS, 'DD(DY)') AS YYYYMMDD
+					,TO_CHAR(DAYS, 'YYYYMMDD') AS TOTALDAY
+					  FROM(
+						SELECT START_DAY + LEVEL -1 DAYS 
+							FROM(
+								SELECT TO_DATE(TO_CHAR(TO_DATE(SYSDATE) +1,'YYYYMMDD')) START_DAY
+								FROM DUAL
+								)
+						CONNECT BY START_DAY + LEVEL - 1 <= TO_CHAR(TO_DATE(SYSDATE) +15,'YYYYMMDD')
+						)
+				)CC)
+            WHERE HOLIDAY = 0 AND ROWNUM <= 3
+		]]>
+        
+	</select>
+</sqlMap> 

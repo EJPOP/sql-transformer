@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.afu.dao.AEPAFU009PMapper">
+    <select id="selectDocList" parameterType="paramMap" resultType="egovMap">
+        /*kr.go.bai.eip.aep.afu.dao.AEPAFU009PMapper.selectDocList*/
+            <include refid="include.pageSelct" />
+                SELECT                  
+                    AUD_YR,
+                    AUD_NO,
+                    AUD_STEP_CD,
+                    T1.DOC_ID,
+                    AUD_KND_CD,
+                    AUD_GRN_NO,
+                    T1.RPRT_NM AS RPRT_NM,
+                    T1.RPRT_NM AS RPRT_NM1,
+                    NVL(F_CODE_NM('1000773',APV_STA_CD),'미작성') AS APV_STA_NM,
+                    RPRT_CD,
+                    CASE WHEN APV_STA_CD = '30' THEN F_CODE_NM('1000773',APV_STA_CD)||'('||
+                                                      (SELECT APV_DH 
+                                                         FROM (
+                                                             SELECT TO_CHAR(ST1.APV_DH,'YYYY-MM-DD') AS APV_DH, APV_DOC_NO
+                                                             FROM TBDCMACM023L ST1
+                                                             WHERE ST1.APVR_KND_CD = '3'
+                                                             ORDER BY ST1.APV_SNO DESC)
+                                                         WHERE ROWNUM = 1
+                                                         AND APV_DOC_NO = T1.APV_RQS_ID) ||')'
+                        WHEN APV_STA_CD IS NULL THEN '미작성'
+                        ELSE F_CODE_NM('1000773',APV_STA_CD)||'('||TO_CHAR(T1.FNL_MDF_DH,'YYYY-MM-DD')||')'
+                    END AS F,
+                    F_MNG_KND_AUDYRNO(AUD_YR, AUD_NO, AUD_KND_CD, '-') AS AUD_YR_NO,
+                    F_OPEN_EDIT(T1.LINK_URL) AS DOC_TYPE
+                  FROM TBBADDED103M T1
+                 WHERE 1=1 
+                   AND T1.AUD_YR = #{audYr}
+                   AND T1.AUD_NO = #{audNo}
+                   <choose>
+                        <when test="hongboYn != null and hongboYn != ''">
+                            /* 홍보에서 조회 시 부의안요약문(원장용)을 보여줌 */
+                            AND (T1.APV_STA_CD = '30' OR T1.RPRT_CD = 'A10700800')
+                            AND T1.RPRT_CD IN ('A10200100', 'A10300100', 'A10500100', 'A10500200', 'A10800200','A10600200', 'A10700800')
+                       </when>
+                       <otherwise>
+                            AND T1.APV_STA_CD = '30'
+                            AND T1.RPRT_CD IN ('A10200100', 'A10300100', 'A10500100', 'A10500200', 'A10800200','A10600200')
+                       </otherwise>
+                    </choose>
+	               <if test="enfYn != null and enfYn != ''">
+	               AND ((EXISTS (SELECT 'X' 
+	                                          FROM  TBBADEAR002D AS ST1
+	                                         WHERE ST1.AUD_YR = T1.AUD_YR
+	                                           AND ST1.AUD_NO = T1.AUD_NO)
+	                         AND T1.RPRT_CD IN ('A10300100','A10600200','A10800200','A10800500'))
+	                       OR (T1.RPRT_CD = 'A10500200'))
+                UNION ALL
+                 SELECT
+                    AUD_YR,
+                    AUD_NO,
+                    AUD_STEP_CD,
+                    T1.DOC_ID,
+                    AUD_KND_CD,
+                    AUD_GRN_NO,
+                    NVL(T1.RPRT_NM,'공개문') AS RPRT_NM ,
+                    NVL(T1.RPRT_NM,'공개문') AS RPRT_NM1 ,
+                    NVL(F_CODE_NM('1000773',APV_STA_CD),'미작성') AS APV_STA_NM,
+                    RPRT_CD,
+                    CASE WHEN APV_STA_CD = '30' THEN F_CODE_NM('1000773',APV_STA_CD)||'('||
+                                                      (SELECT APV_DH 
+                                                         FROM (
+                                                             SELECT TO_CHAR(ST1.APV_DH,'YYYY-MM-DD') AS APV_DH, APV_DOC_NO
+                                                             FROM TBDCMACM023L ST1
+                                                             WHERE ST1.APVR_KND_CD = '3'
+                                                             ORDER BY ST1.APV_SNO DESC)
+                                                         WHERE ROWNUM = 1
+                                                         AND APV_DOC_NO = T1.APV_RQS_ID) ||')'
+                        WHEN APV_STA_CD IS NULL THEN '미작성'
+                        ELSE F_CODE_NM('1000773',APV_STA_CD)||'('||TO_CHAR(T1.FNL_MDF_DH,'YYYY-MM-DD')||')'
+                    END AS F,
+                    F_MNG_KND_AUDYRNO(AUD_YR, AUD_NO, AUD_KND_CD, '-') AS AUD_YR_NO,
+                    F_OPEN_EDIT(T1.LINK_URL) AS DOC_TYPE
+                  FROM TBBADDED103M T1
+                  WHERE RPRT_CD = 'A10800500'
+                    AND AUD_YR = #{audYr}
+                    AND AUD_NO = #{audNo}
+	               </if>
+            <include refid="include.pageOrder" />
+    </select>
+</mapper>

@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd" >
+<sqlMap namespace="csp/nbk/224">
+	
+	<select id="CSPNBK224PLendInfoSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT	/* CSPNBK224PLendInfoSelect */
+				F_CODE_NM( '1000153', D1.MOUI_DVSN_CD ) AS MOUI_DVSN_CD_NM
+				, D1.MOUI_DVSN_CD
+				, D1.MOUI_NO
+				, D1.OGNZ_NM
+				, CASE WHEN D1.SCS_YN = 'Y' THEN D2.USR_NAM||'(탈퇴자)'
+					ELSE D2.USR_NAM END AS USR_NAM
+				, SUBSTR(D2.EIN, 1, 6) || '-*******' AS EIN
+				, D2.CNB
+				, D2.TNB
+				, D2.RANK_CD
+				, F_CODE_NM( '1000173', D2.RANK_CD ) AS RANK_CD_NM
+				, F_CODE_NM( '1000176', D2.PST_CD ) AS PST_CD_NM
+				, D3.DPT_CD
+				, D3.DPT_NM 
+				, NVL(D4.LEND_KND_CD, #lendKndCd#) AS LEND_KND_CD
+				, F_CODE_NM( '1000330', NVL(D4.LEND_KND_CD, #lendKndCd#) ) AS LEND_KND_CD_NM
+				, D4.LEND_OAA_DT
+				, NVL( ( NVL(D4.ARR_RPM_PRN_SUM_AM, 0) + NVL(D4.BK_RPM_PRN_SUM_AM, 0) + D5.EMN_RPM_PRN ), 0) AS TOT_RPM_AM
+				, NVL(D4.ARR_RPM_PRN_SUM_AM, 0) AS ARR_RPM_PRN_SUM_AM
+				, NVL(D4.BK_RPM_PRN_SUM_AM, 0) AS BK_RPM_PRN_SUM_AM
+				, NVL(D5.EMN_RPM_PRN, 0) AS EMN_RPM_PRN
+				, NVL(D4.LEND_BL, 0) AS LEND_BL
+				, D4.FNL_RPM_DT
+				, NVL( D4.EMN_RPM_WAY_DVSN_CD, '2') AS EMN_RPM_WAY_DVSN_CD
+				, NVL(D5.GRT_BL, 0) AS GRT_BL
+				, (
+					SELECT	NVL(SUM(D7.GRT_BL), 0)
+					FROM	TBCSPNBK203D D7
+					WHERE	D7.LEND_KND_CD = D4.LEND_KND_CD
+					AND		D7.GRT_MOUI_NO = D4.MOUI_NO
+					AND		D7.CNL_YN = 'N'
+					AND		D7.LEND_BL > 0
+				) AS PI_GRT_BL
+				, NVL(D4.FNL_OTPT_ROW_NO, 0) AS FNL_OTPT_ROW_NO
+				,D1.RGR_YN
+		FROM	TBCSPNBK001M D1
+				, TBDCMACM001M D2
+				, TBDCMACM002M D3
+				, TBCSPNBK202M D4
+				, (
+					SELECT	D5.LEND_KND_CD
+							, D5.MOUI_NO
+							, NVL(SUM(D5.LEND_BL),0) AS LEND_BL
+							, NVL(SUM(D5.GRT_BL), 0) AS GRT_BL
+							, NVL(SUM(
+								CASE
+									WHEN D5.LEND_BL > 0 AND D5.LEND_DT >= '20080201'
+									THEN D5.EMN_RPM_PRN
+									ELSE 0
+								END
+							), 0) AS EMN_RPM_PRN
+					FROM	TBCSPNBK203D D5
+					WHERE	D5.LEND_KND_CD = #lendKndCd#
+					AND		D5.MOUI_NO = #mouiNo#
+					AND		D5.CNL_YN = 'N'
+					GROUP BY D5.LEND_KND_CD, D5.MOUI_NO
+				) D5
+		WHERE	D1.CNB = D2.CNB
+		AND		D2.DPT_CD = D3.DPT_CD
+		AND		D1.MOUI_NO = D4.MOUI_NO(+)
+		AND		#lendKndCd# = D4.LEND_KND_CD(+)
+		AND		D4.LEND_KND_CD = D5.LEND_KND_CD(+)
+		AND		D4.MOUI_NO = D5.MOUI_NO(+)
+		AND		D1.MOUI_NO = #mouiNo#
+	]]>
+	</select>
+	
+	<select id="CSPNBK224PLendListSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT	/* CSPNBK224PLendListSelect */
+				D1.LEND_KND_CD
+				, D1.MOUI_NO
+				, D1.LEND_SLN
+				, D1.LEND_DT
+				, D1.EXPR_DT
+				, D1.LEND_AM
+				, D1.LEND_BL
+				, D2.FNL_RPM_DT AS FNL_RPM_DT
+				, (
+					CASE
+						WHEN D1.EXPR_DT <= TO_CHAR(SYSDATE, 'YYYYMM') || '25'
+						THEN 'Y'
+						ELSE 'N'
+					END
+				) AS ARR_YN
+				, (
+					CASE
+						WHEN D1.LEND_KND_CD = '1' AND EXPR_DT > TO_CHAR(SYSDATE, 'YYYYMM') || '25'
+						THEN
+							CASE
+								WHEN D1.LEND_DT < '20090819'
+								THEN
+									CASE
+										WHEN FLOOR( D1.LEND_AM / ((SELECT D1.SET_TXT FROM TBCSPNBK003M D1 WHERE D1.OP_MTRL_MNG_CD = '6')*12) ) > 999
+										THEN
+											CASE
+												WHEN FLOOR( D1.LEND_AM / ((SELECT D1.SET_TXT FROM TBCSPNBK003M D1 WHERE D1.OP_MTRL_MNG_CD = '6')*12) ) - TRUNC( FLOOR( D1.LEND_AM / ((SELECT D1.SET_TXT FROM TBCSPNBK003M D1 WHERE D1.OP_MTRL_MNG_CD = '6')*12) ), -3 ) > 0
+												THEN TRUNC( FLOOR( D1.LEND_AM / ((SELECT D1.SET_TXT FROM TBCSPNBK003M D1 WHERE D1.OP_MTRL_MNG_CD = '6')*12) ), -3 ) + 1000
+												ELSE TRUNC( FLOOR( D1.LEND_AM / ((SELECT D1.SET_TXT FROM TBCSPNBK003M D1 WHERE D1.OP_MTRL_MNG_CD = '6')*12) ), -3 )
+											END
+										ELSE 1000
+									END
+								ELSE
+									CASE
+										WHEN FLOOR( D1.LEND_AM / ((SELECT D1.SET_TXT FROM TBCSPNBK003M D1 WHERE D1.OP_MTRL_MNG_CD = '7')*12) ) > 999
+										THEN
+											CASE
+												WHEN FLOOR( D1.LEND_AM / ((SELECT D1.SET_TXT FROM TBCSPNBK003M D1 WHERE D1.OP_MTRL_MNG_CD = '7')*12) ) - TRUNC( FLOOR( D1.LEND_AM / ((SELECT D1.SET_TXT FROM TBCSPNBK003M D1 WHERE D1.OP_MTRL_MNG_CD = '7')*12) ), -3 ) > 0
+												THEN TRUNC( FLOOR( D1.LEND_AM / ((SELECT D1.SET_TXT FROM TBCSPNBK003M D1 WHERE D1.OP_MTRL_MNG_CD = '7')*12) ), -3 ) + 1000
+												ELSE TRUNC( FLOOR( D1.LEND_AM / ((SELECT D1.SET_TXT FROM TBCSPNBK003M D1 WHERE D1.OP_MTRL_MNG_CD = '7')*12) ), -3 )
+											END
+										ELSE 1000
+									END
+							END
+					END
+				) AS MIN_EMN_RPM_PRN
+				, (
+					CASE
+						WHEN EXPR_DT <= TO_CHAR(SYSDATE, 'YYYYMM') || '25'
+						THEN D2.ARR_RPM_PRN_SUM_AM
+						ELSE D1.EMN_RPM_PRN
+					END
+				) AS EMN_RPM_PRN
+				, EMN_RPM_PRN AS EMN_RPM_PRN_2
+				, EMN_RPM_PRN AS EMN_RPM_PRN_ORG
+				, (
+					CASE
+						WHEN D1.EXPR_DT <= TO_CHAR(SYSDATE, 'YYYYMM') || '25'
+						THEN
+							CASE
+								WHEN D2.ARR_RPM_PRN_SUM_AM >= D4.DELAY_LEND_BL
+								THEN D4.DELAY_LEND_BL
+								ELSE
+									CASE
+										WHEN D4.DELAY_LEND_BL < 20000000
+										THEN
+											CASE
+												WHEN D4.DELAY_LEND_BL >= 400000
+												THEN
+													CASE
+														WHEN D2.ARR_RPM_PRN_SUM_AM >= 400000
+														THEN D2.ARR_RPM_PRN_SUM_AM
+														ELSE 400000
+													END
+												ELSE D4.DELAY_LEND_BL
+											END
+										ELSE
+											CASE
+												WHEN D4.DELAY_LEND_BL < 30000000
+												THEN
+													CASE
+														WHEN D2.ARR_RPM_PRN_SUM_AM >= 500000
+														THEN D2.ARR_RPM_PRN_SUM_AM
+														ELSE 500000
+													END
+												ELSE
+													CASE
+														WHEN D2.ARR_RPM_PRN_SUM_AM >= 670000
+														THEN D2.ARR_RPM_PRN_SUM_AM
+														ELSE 670000
+													END
+											END
+									END
+							END
+						ELSE
+							NULL
+					END
+				) AS CH_ARR_RPM_PRN_SUM_AM
+				, D1.GRT_YN
+				, D1.GRT_MOUI_NO
+				, D6.USR_NAM AS GRT_MOUI_NM
+				, D1.GRT_AM
+				, D1.GRT_BL
+				, D1.EST_EXPR_DT
+		FROM	TBCSPNBK203D D1
+				, TBCSPNBK202M D2
+				, (
+					SELECT	D3.LEND_KND_CD
+							, D3.MOUI_NO
+							, SUM(D3.LEND_AM) AS LEND_AM
+							, SUM(D3.LEND_BL) AS LEND_BL
+							, SUM(
+								CASE 
+									WHEN D3.LEND_BL > 0 
+										AND D3.EXPR_DT < TO_CHAR(SYSDATE, 'YYYYMM') || '25'
+										AND	D3.LEND_DT < '20080201'
+									THEN D3.LEND_BL
+									ELSE 0
+								END
+							) AS DELAY_LEND_BL
+					FROM	TBCSPNBK203D D3
+					WHERE	D3.LEND_KND_CD = #lendKndCd#
+					AND		D3.CNL_YN = 'N'
+					AND		D3.LEND_BL > 0
+					GROUP BY D3.LEND_KND_CD, D3.MOUI_NO
+				) D4
+				, TBCSPNBK001M D5
+				, TBDCMACM001M D6
+		WHERE	D1.LEND_KND_CD = D2.LEND_KND_CD
+		AND		D1.MOUI_NO = D2.MOUI_NO
+		AND		D1.LEND_KND_CD = D4.LEND_KND_CD
+		AND		D1.MOUI_NO = D4.MOUI_NO
+		AND		D1.GRT_MOUI_NO = D5.MOUI_NO(+)
+		AND		D5.CNB = D6.CNB(+)
+		AND		D1.LEND_KND_CD = #lendKndCd#
+		AND		D1.MOUI_NO = #mouiNo#
+		AND		D1.CNL_YN = 'N'
+	]]>
+	<isEqual property="lendBlYn" prepend="AND" compareValue="Y">
+	<![CDATA[
+				D1.LEND_BL > 0
+	]]>
+	</isEqual>
+	<isEqual property="preLendYn" prepend="AND" compareValue="Y">
+	<![CDATA[
+				D1.LEND_DT < '20080201'
+	]]>
+	</isEqual>
+	<isEqual property="afterLendYn" prepend="AND" compareValue="Y">
+	<![CDATA[
+				D1.LEND_DT >= '20080201'
+	]]>
+	</isEqual>
+	<![CDATA[
+		ORDER BY ARR_YN DESC, D1.LEND_DT
+	]]>
+	</select>
+	
+	<update id="CSPNBK224PEmnRpmPrnUpdate" parameterClass="paramMap">
+	<![CDATA[
+		UPDATE	/* CSPNBK224PEmnRpmPrnUpdate */ TBCSPNBK203D D1
+		SET		D1.EMN_RPM_PRN = #EMN_RPM_PRN#
+				, D1.FNL_USR_ID = #FNL_USR_ID#
+				, D1.FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+				, D1.FNL_MNU_ID = #FNL_MNU_ID#
+				, D1.FNL_MDF_DH = SYSDATE
+		WHERE	D1.LEND_KND_CD = #LEND_KND_CD#
+		AND		D1.MOUI_NO = #MOUI_NO#
+		AND		D1.LEND_SLN = #LEND_SLN#
+	]]>
+	</update>
+	
+	<update id="CSPNBK224PArrRpmPrnSumAmUpdate" parameterClass="paramMap">
+	<![CDATA[
+		UPDATE	/* CSPNBK224PArrRpmPrnSumAmUpdate */ TBCSPNBK202M D1
+		SET		D1.EMN_RPM_WAY_DVSN_CD = #EMN_RPM_WAY_DVSN_CD#
+				, D1.EMN_RPM_DY = 25
+	]]>
+		<isNotEmpty property="EMN_RPM_PRN">
+				, D1.ARR_RPM_PRN_SUM_AM = #EMN_RPM_PRN#
+		</isNotEmpty>
+	<![CDATA[
+				, D1.FNL_USR_ID = #FNL_USR_ID#
+				, D1.FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+				, D1.FNL_MNU_ID = #FNL_MNU_ID#
+				, D1.FNL_MDF_DH = SYSDATE
+		WHERE	D1.LEND_KND_CD = #LEND_KND_CD#
+		AND		D1.MOUI_NO = #MOUI_NO#
+	]]>
+	</update>
+	
+</sqlMap>

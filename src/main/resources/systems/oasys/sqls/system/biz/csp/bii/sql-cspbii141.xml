@@ -1,0 +1,80 @@
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd" >
+<sqlMap namespace="csp/bii/141">
+	
+	<!-- 감사정보 처리 목록 조회 -->
+	<select id="CSPBII141QMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT /* csp.bii.service.impl.CSPBII111QServiceImpl.CSPBII111QMainSelect */
+			       A.YE || '-' || A.SRNO                                           AS INF_NO              /* 정보번호[연도-일련번호] */
+			     , CASE WHEN SUBSTR(F_CODE_NM('1000097', A.INF_DVSN_CD), 1, 2) is not null THEN '(' || SUBSTR(F_CODE_NM('1000097', A.INF_DVSN_CD), 1, 2) || ')' || A.TIT_TXT
+			            ELSE A.TIT_TXT
+			             END AS TIT_TXT            /* 제목내용 */
+			     , (SELECT B.ORG_NM
+			          FROM TBDCMACM015M B
+			         WHERE B.ORG_CD = A.REL_ORG_CD)                                AS REL_ORG_NM          /* 관련기관명 */
+			     , NVL(F_CODE_NM('1000039', A.HNDL_ORD_CD), '-')                   AS HNDL_ORD_NM         /* 처리지시명 */
+			     , NVL(F_CODE_NM('1000042', A.HNDL_RSLT_CD), '-')                  AS HNDL_RSLT_NM        /* 처리결과명 */
+			     , F_CODE_NM('1000085', A.AUD_INF_PRSS_STA_CD)                     AS AUD_INF_PRSS_STA_NM /* 감사정보진행상태명 */			           
+			     , (SELECT B.USR_NAM
+			          FROM TBDCMACM001M B
+			         WHERE B.CNB = A.PRSR_CNB)                                     AS PRSR_NAM            /* 제출자성명 */			    
+			     , TO_CHAR(TO_DATE(A.TRNF_DT, 'YYYYMMDD'), 'YYYY.MM.DD')           AS TRNF_DT             /* 이송일 */
+			     , TO_CHAR(TO_DATE(A.TRNF_ACP_DT, 'YYYYMMDD'), 'YYYY.MM.DD')       AS TRNF_ACP_DT         /* 이송접수일 */
+			     , TO_CHAR(TO_DATE(A.HNDL_DT, 'YYYYMMDD'), 'YYYY.MM.DD')           AS HNDL_DT	          /* 처리일 */	
+			     , TO_CHAR(TO_DATE(A.CMPT_DT, 'YYYYMMDD'), 'YYYY.MM.DD')           AS CMPT_DT	          /* 완료일 */
+			     , A.OPEN_YN                                                                              /* 공개여부 */			     			     
+			     , A.AUD_INF_PRSS_STA_CD			                                                      /* 감사정보진행상태코드 */
+			     , A.YE                                                                                   /* 연도 */
+			     , A.SRNO                                                                                 /* 일련번호 */
+			  FROM TBCSPBII100M A
+			 WHERE A.AUD_INF_PRSS_STA_CD >= '15'
+			   AND A.AUD_INF_PRSS_STA_CD <> '30'
+		]]>
+		<!-- 연도 -->
+		<isNotEmpty property="strYe">
+			AND A.YE = #strYe#
+		</isNotEmpty>
+		
+		<!-- 일련번호 -->
+		<isNotEmpty property="strSrno">
+			AND A.SRNO = #strSrno#
+		</isNotEmpty>
+		<!-- 일련번호 조회조건의 값이 없을 경우 검색어 조회조건 체크-->
+		<isEmpty property="strSrno">
+			<!-- 검색어 -->
+			<isNotEmpty property="strSrhTxt">
+				AND (A.TIT_TXT LIKE '%' || #strSrhTxt# || '%'		
+			      OR EXISTS (SELECT 1
+			                   FROM TBCSPBII101L B
+			                  WHERE INSTR(B.SCH_AUD_INF_TXT, #strSrhTxt#, 1, 1) > 0
+			                    AND B.YE   = A.YE
+			                    AND B.SRNO = A.SRNO))
+			</isNotEmpty>
+			<!-- 검색어 조회조건이 값이 없을 경우 진행구분 조회조건 체크-->
+			<isEmpty property="strSrhTxt">
+				AND A.HNDL_DPT_CD = #strDptCd#
+				<!-- 조회구분 - [1:소관 미결정보] -->
+				<isEqual property="strPrssDvsnCd" compareValue="1">
+					AND A.AUD_INF_PRSS_STA_CD IN (
+					<isNotEmpty property="strPrssStaCd1">
+						'15', '20', '32', '24',	/* [15:이송완료], [20:이송접수], [32:찜해제], [24:처리반려] */
+					</isNotEmpty>
+					<isNotEmpty property="strPrssStaCd2">
+						'31', /* [31:감사중(찜)] */
+					</isNotEmpty>
+					<isNotEmpty property="strPrssStaCd3">
+						'21', '22', '23', /* [21:처리작성], [22:처리결재중], [23:처리승인] */ 
+					</isNotEmpty>
+					'00') <!-- 위 조회조건 마지막 , 이후 SQL오류를 방지하기 위해 '00'을 입력 -->
+				</isEqual>
+				<!-- 조회구분 - [2:완결정보]-->
+				<isEqual property="strPrssDvsnCd" compareValue="2">
+					AND A.AUD_INF_PRSS_STA_CD = '99'
+				</isEqual>
+			</isEmpty>
+		</isEmpty>
+		
+		ORDER BY A.YE
+		       , A.SRNO
+	</select>	
+</sqlMap>

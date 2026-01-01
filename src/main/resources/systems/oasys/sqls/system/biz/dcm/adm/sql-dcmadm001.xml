@@ -1,0 +1,1724 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="dcm/adm/001">
+
+<!-- 2014.07.23 jykim 요구일자 없는 데이터가 있어 임시 처리 -->
+<!-- 2014.07.24 asu 수정함 -->
+<!--  2014.07.30 jykim 정렬 변경 [최초등록일시 역순]  -->
+<!--  20161020 EUNOK 인증구분 ( AUTH_DVSN_CD) 조건 추가  -->
+<!--  20170302 EUNOK 감사종류코드  추가  -->
+	<select id="dcmadm001Eaudsmtselect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<include refid = "include.pageSelct"/>
+        <![CDATA[       
+			 SELECT   A.AUD_SMT_MTRL_ID       
+                        ,A.REGI_RQS_DT             
+                        ,A.AUD_SMT_MTRL_TIT_NM     
+                        ,A.RQS_TXT                 
+                        ,A.RQR_CNB                 
+                        ,A.RQS_DOC_ID              
+                        ,A.SMT_DT                  
+                        ,A.SMT_TXT                 
+                        ,A.PRSR_NAM                
+                        ,A.PRSR_TNB                
+                        ,A.PRSR_EML_AD             
+                        ,A.SMT_DOC_ID              
+                        ,A.PRSR_ORG_CD   
+                        ,C.ORG_NM AS PRSR_ORG_NM
+                        ,A.SMT_ORG_CD              
+                        ,A.SMT_ORG_NM              
+                        ,A.SMT_ORG_BRDV_CD         
+                        ,A.VLD_PRD_STR_YM || '01' AS  VLD_PRD_STR_YM     
+                        ,A.VLD_PRD_END_YM || '01' AS  VLD_PRD_END_YM        
+                        ,A.SMT_DVSN_CD             
+                        ,A.AUD_SMT_MTRL_ACP_STA_CD 
+                        ,A.OPEN_STA_CD             
+                        ,A.SMT_ORG_CNCT_DT         
+                        ,A.RQS_ORG_CNCT_DT         
+                        ,A.RQR_DPT_CD              
+                        ,A.FRT_USR_ID              
+                        ,A.FNL_USR_ID              
+                        ,A.FNL_DEAL_DPT_CD         
+                        ,A.FNL_MNU_ID              
+                        ,A.FRT_REGI_DH             
+                        ,A.FNL_MDF_DH 
+                        ,B.USR_NAM AS RQR_CNB_NM
+                        ,B.EML_AD AS RQR_CNB_EML
+                        ,CASE WHEN B.TNB IS NULL THEN B.HOM_TNB ELSE B.TNB END AS RQR_CNT_TEL
+       					,A.SMT_ORG_BRDV_NM AS SMT_ORG_BRDV_NM
+       					,A.AUD_YR
+       					,A.AUD_NO
+       					,D.AUD_SBJ_NM
+       					,A.AUTH_DVSN_CD 
+       					, CASE WHEN D.AUD_YR >= '2016'
+			                THEN D.AUD_KND_CD
+			            ELSE '' 
+			        	END                              AS AUD_YR_NO_KND_CD /*감사연번호종류코드 추가 - 2015.12.18 yyh*/	
+			     		, D.AUD_GRN_NO                     AS AUD_GRN_NO
+			     		,A.ACP_YR
+			     		,A.ACP_DVSN_CD
+			     		,A.ACP_SRNO
+			     		,(SELECT TIT_NM
+			     		    FROM TBBADFRE012M S1
+			     		   WHERE S1.ACP_YR = A.ACP_YR
+			     		     AND S1.ACP_DVSN_CD = A.ACP_DVSN_CD
+			     		     AND S1.ACP_SRNO = A.ACP_SRNO
+			     		 ) AS ACP_TIT_NM
+             FROM       TBDCMIDM001L A,
+                        TBDCMACM001M B,
+                        TBDCMACM015M C,
+                        TBBADDED001M D
+             WHERE      A.RQR_CNB = B.CNB(+)
+             AND        A.PRSR_ORG_CD = C.ORG_CD(+)
+             AND 		A.AUD_YR = D.AUD_YR(+)
+   			 AND 		A.AUD_NO = D.AUD_NO(+)
+        ]]>
+        
+		
+		<!-- 20161020 EUNOK 인증구분 조건 추가 START -->
+		<isNotEmpty prepend="AND" property="strCertify">
+			A.AUTH_DVSN_CD = #strCertify#
+		</isNotEmpty>
+		<!-- END -->
+			
+		<isNotEmpty prepend="AND" property="strApprDiv">
+			<isEqual property="strApprDiv" compareValue="1"> <!-- 미제출 -->
+				A.AUD_SMT_MTRL_ACP_STA_CD IN ('1', '2', '9','11','12','13')
+			</isEqual>
+			<isEqual property="strApprDiv" compareValue="2"> <!-- 미접수 -->
+				A.AUD_SMT_MTRL_ACP_STA_CD IN ('3','11','12','13')
+			</isEqual>
+			<isEqual property="strApprDiv" compareValue="3"> <!-- 접수 -->
+				A.AUD_SMT_MTRL_ACP_STA_CD IN ('4', '10')
+			</isEqual>
+			<isEqual property="strApprDiv" compareValue="4"> <!-- 분류 -->
+				A.AUD_SMT_MTRL_ACP_STA_CD IN ('5','6','7')
+			</isEqual>
+		</isNotEmpty>
+		
+		<isNotEmpty prepend="AND" property="strSchAudSmtMtrlId">
+			A.AUD_SMT_MTRL_ID = #strSchAudSmtMtrlId#			                     
+		</isNotEmpty>
+		
+		
+		<!-- 20170709 EUNOK 제출일자 조건 추가 START -->
+		<isNotEmpty prepend="AND" property="strSmtStDt">
+			(A.SMT_DT <![CDATA[ >= ]]> #strSmtStDt# OR A.SMT_DT IS NULL)
+		</isNotEmpty>
+		
+		<isNotEmpty prepend="AND" property="strSmtEdDt">
+			 (A.SMT_DT <![CDATA[ <= ]]> #strSmtEdDt# OR A.SMT_DT IS NULL)
+		</isNotEmpty>
+		
+		<isEmpty property="strSmtStDt">
+			<isEmpty prepend="AND" property="strSmtEdDt">
+			 	A.SMT_DT IS NULL
+			 </isEmpty>
+		</isEmpty>
+		<!-- END -->
+		
+		<isNotEmpty prepend="AND" property="strReqDiv">
+			A.SMT_DVSN_CD = #strReqDiv#
+		</isNotEmpty>	
+		
+		<isNotEmpty prepend="AND" property="strSchString">
+			(A.RQS_TXT LIKE '%' || #strSchString# || '%'
+             OR   A.AUD_SMT_MTRL_TIT_NM LIKE '%' || #strSchString# || '%'
+             OR   C.ORG_NM LIKE '%' || #strSchString# || '%'                         
+             OR   B.USR_NAM LIKE '%' || #strSchString# || '%' )
+		</isNotEmpty>
+		
+		<isNotEmpty prepend="AND" property="S_USR_ID">
+			<!-- 과장이면 자기부서꺼 전부 -->
+			<isEqual property="S_RANK_CD" compareValue="965">
+				A.RQR_DPT_CD = #S_DPT_CD#
+			</isEqual>
+			<!-- 과장이 아니면 자기꺼만 전부 -->
+			<isNotEqual property="S_RANK_CD" compareValue="965">
+				A.RQR_CNB = #S_CNB#
+			</isNotEqual>
+			
+		</isNotEmpty>
+		
+		 <![CDATA[    
+		 ORDER BY A.FRT_REGI_DH DESC, A.SMT_DT DESC,A.REGI_RQS_DT DESC, A.SMT_ORG_CD ASC
+		 ]]>
+		 <include refid = "include.pageOrder"/> 
+	</select>
+	
+	<!-- 엑셀다운 시작 -->
+	<select id="dcmadm001EexcelMyselect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+			 SELECT   A.AUD_SMT_MTRL_ID       
+                        ,A.REGI_RQS_DT             
+                        ,A.AUD_SMT_MTRL_TIT_NM     
+                        ,A.RQS_TXT                 
+                        ,A.RQR_CNB                 
+                        ,A.RQS_DOC_ID              
+                        ,A.SMT_DT                  
+                        ,A.SMT_TXT                 
+                        ,A.PRSR_NAM                
+                        ,A.PRSR_TNB                
+                        ,A.PRSR_EML_AD             
+                        ,A.SMT_DOC_ID              
+                        ,A.PRSR_ORG_CD   
+                        ,C.ORG_NM AS PRSR_ORG_NM
+                        ,A.SMT_ORG_CD              
+                        ,A.SMT_ORG_NM              
+                        ,A.SMT_ORG_BRDV_CD         
+                        ,A.VLD_PRD_STR_YM || '01' AS  VLD_PRD_STR_YM     
+                        ,A.VLD_PRD_END_YM || '01' AS  VLD_PRD_END_YM                                
+                        ,CASE WHEN A.SMT_DVSN_CD = '1' THEN '홈페이지'
+				            WHEN A.SMT_DVSN_CD = '2' THEN '공공감사정보시스템'
+				            WHEN A.SMT_DVSN_CD = '3' THEN '메일'
+				            WHEN A.SMT_DVSN_CD = '4' THEN 'Fax서버'
+				            WHEN A.SMT_DVSN_CD = '5' THEN '감사관수집'
+				            WHEN A.SMT_DVSN_CD = '6' THEN '대상기관직접등록'
+				            WHEN A.SMT_DVSN_CD = '7' THEN '온나라시스템(전자결재)'
+							ELSE A.SMT_DVSN_CD 
+						END AS SMT_DVSN_CD                                                                                                           
+                        ,CASE WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '1' THEN '미제출'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '2' THEN '미제출(대상기관 접수)'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '3' THEN '미접수(대상기관 자료 제출건)'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '4' THEN '접수'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '5' THEN '캐비닛'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '6' THEN '지식'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '7' THEN '지식 / 캐비닛'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '8' THEN '8'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '9' THEN '요구취소'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '10' THEN '이관완료'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '11' THEN '결재요청'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '12' THEN '결재승인'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '13' THEN '결재반려'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '14' THEN '자료요청'	
+							ELSE A.AUD_SMT_MTRL_ACP_STA_CD 
+						END	 AS AUD_SMT_MTRL_ACP_STA_CD                           
+                        ,CASE WHEN A.OPEN_STA_CD = 'N' THEN '비공개'
+						       WHEN A.OPEN_STA_CD != 'N' THEN '공개'
+						       ELSE A.OPEN_STA_CD 
+						END AS OPEN_STA_CD
+                        ,A.SMT_ORG_CNCT_DT         
+                        ,A.RQS_ORG_CNCT_DT         
+                        ,A.RQR_DPT_CD              
+                        ,A.FRT_USR_ID              
+                        ,A.FNL_USR_ID              
+                        ,A.FNL_DEAL_DPT_CD         
+                        ,A.FNL_MNU_ID              
+                        ,A.FRT_REGI_DH             
+                        ,A.FNL_MDF_DH 
+                        ,B.USR_NAM AS RQR_CNB_NM
+                        ,B.EML_AD AS RQR_CNB_EML
+                        ,CASE WHEN B.TNB IS NULL THEN B.HOM_TNB ELSE B.TNB END AS RQR_CNT_TEL
+       					,A.SMT_ORG_BRDV_NM AS SMT_ORG_BRDV_NM
+       					,A.AUD_YR
+       					,A.AUD_NO
+       					,D.AUD_SBJ_NM
+             FROM       TBDCMIDM001L A,
+                        TBDCMACM001M B,
+                        TBDCMACM015M C,
+                        TBBADDED001M D
+             WHERE      A.RQR_CNB = B.CNB(+)
+             AND        A.PRSR_ORG_CD = C.ORG_CD(+)
+             AND 		A.AUD_YR = D.AUD_YR(+)
+   			 AND 		A.AUD_NO = D.AUD_NO(+)
+        ]]>
+        
+		<isNotEmpty prepend="AND" property="strApprDiv">
+			<isEqual property="strApprDiv" compareValue="1"> <!-- 미제출 -->
+				A.AUD_SMT_MTRL_ACP_STA_CD IN ('1', '2', '9','11','12','13')
+			</isEqual>
+			<isEqual property="strApprDiv" compareValue="2"> <!-- 미접수 -->
+				A.AUD_SMT_MTRL_ACP_STA_CD IN ('3','11','12','13')
+			</isEqual>
+			<isEqual property="strApprDiv" compareValue="3"> <!-- 접수 -->
+				A.AUD_SMT_MTRL_ACP_STA_CD IN ('4', '10')
+			</isEqual>
+			<isEqual property="strApprDiv" compareValue="4"> <!-- 분류 -->
+				A.AUD_SMT_MTRL_ACP_STA_CD IN ('5','6','7')
+			</isEqual>
+		</isNotEmpty>
+		
+		<isNotEmpty prepend="AND" property="strSchAudSmtMtrlId">
+			A.AUD_SMT_MTRL_ID = #strSchAudSmtMtrlId#			                     
+		</isNotEmpty>
+		
+		<isNotEmpty prepend="AND" property="strSmtStDt">
+			(A.SMT_DT <![CDATA[ >= ]]> #strSmtStDt# OR A.SMT_DT IS NULL)
+		</isNotEmpty>
+		
+		<isNotEmpty prepend="AND" property="strSmtEdDt">
+			 (A.SMT_DT <![CDATA[ <= ]]> #strSmtEdDt# OR A.SMT_DT IS NULL)
+		</isNotEmpty>
+		
+		<isEmpty property="strSmtStDt">
+			<isEmpty prepend="AND" property="strSmtEdDt">
+			 	A.SMT_DT IS NULL
+			 </isEmpty>
+		</isEmpty>
+		
+		<isNotEmpty prepend="AND" property="strReqDiv">
+			A.SMT_DVSN_CD = #strReqDiv#
+		</isNotEmpty>	
+		
+		<isNotEmpty prepend="AND" property="strSchString">
+			(A.RQS_TXT LIKE '%' || #strSchString# || '%'
+             OR   A.AUD_SMT_MTRL_TIT_NM LIKE '%' || #strSchString# || '%'
+             OR   C.ORG_NM LIKE '%' || #strSchString# || '%'                         
+             OR   B.USR_NAM LIKE '%' || #strSchString# || '%' )
+		</isNotEmpty>
+		
+		<isNotEmpty prepend="AND" property="S_USR_ID">
+			<!-- 과장이면 자기부서꺼 전부 -->
+			<isEqual property="S_RANK_CD" compareValue="965">
+				A.RQR_DPT_CD = #S_DPT_CD#
+			</isEqual>
+			<!-- 과장이 아니면 자기꺼만 전부 -->
+			<isNotEqual property="S_RANK_CD" compareValue="965">
+				A.RQR_CNB = #S_CNB#
+			</isNotEqual>
+			
+		</isNotEmpty>
+		
+		 <![CDATA[    
+		 ORDER BY A.FRT_REGI_DH DESC, A.SMT_DT DESC,A.REGI_RQS_DT DESC, A.SMT_ORG_CD ASC
+		 ]]>
+	</select>
+	<!-- 엑셀다운 종료 -->
+	
+	<!-- 전체자료요구 조회(전부서) --> 
+	<!--  2014.10.29 JYKIM 요청자료만 조회처리 -->
+	<!-- 2014.07.23 jykim 요구일자 없는 데이터가 있어 임시 처리 -->
+	<!-- 2014.07.24 asu 수정함 -->
+	<!--  2014.07.30 jykim 정렬 변경 [최초등록일시 역순]  -->
+	<select id="dcmadm009Eselect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<include refid = "include.pageSelct"/>
+        <![CDATA[       
+			SELECT   A.AUD_SMT_MTRL_ID       
+                        ,A.REGI_RQS_DT             
+                        ,A.AUD_SMT_MTRL_TIT_NM     
+                        ,A.RQS_TXT                 
+                        ,A.RQR_CNB                 
+                        ,A.RQS_DOC_ID              
+                        ,A.SMT_DT                  
+                        ,A.SMT_TXT                 
+                        ,A.PRSR_NAM                
+                        ,A.PRSR_TNB                
+                        ,A.PRSR_EML_AD             
+                        ,A.SMT_DOC_ID              
+                        ,A.PRSR_ORG_CD   
+                        ,C.ORG_NM AS PRSR_ORG_NM
+                        ,A.SMT_ORG_CD              
+                        ,A.SMT_ORG_NM              
+                        ,A.SMT_ORG_BRDV_CD         
+                        ,A.VLD_PRD_STR_YM || '01' AS  VLD_PRD_STR_YM     
+                        ,A.VLD_PRD_END_YM || '01' AS  VLD_PRD_END_YM               
+                        ,A.SMT_DVSN_CD             
+                        ,A.AUD_SMT_MTRL_ACP_STA_CD 
+                        ,A.OPEN_STA_CD             
+                        ,A.SMT_ORG_CNCT_DT         
+                        ,A.RQS_ORG_CNCT_DT         
+                        ,A.RQR_DPT_CD              
+                        ,A.FRT_USR_ID              
+                        ,A.FNL_USR_ID              
+                        ,A.FNL_DEAL_DPT_CD         
+                        ,A.FNL_MNU_ID              
+                        ,A.FRT_REGI_DH             
+                        ,A.FNL_MDF_DH 
+                        ,B.USR_NAM AS RQR_CNB_NM
+                        ,B.EML_AD AS RQR_CNB_EML
+                        ,CASE WHEN B.TNB IS NULL THEN B.HOM_TNB ELSE B.TNB END AS RQR_CNT_TEL
+       					,A.SMT_ORG_BRDV_NM AS SMT_ORG_BRDV_NM
+                        ,B.DPT_NM
+                        ,(SELECT SUBSTR(REPLACE(REPLACE(XMLAGG(XMLELEMENT(X,CHR(10), PAGE_NAME) ORDER BY PAGE_NAME), '<X>', ''), '</X>' ,''), 2)
+                         FROM UBJDRAPP.ECM_FILE_LIST_VIEW 
+                         WHERE DOC_ID = A.RQS_DOC_ID) AS RQS_ATTACK_FILE_INFO
+                        ,(SELECT SUBSTR(REPLACE(REPLACE(XMLAGG(XMLELEMENT(X,CHR(10), PAGE_NAME) ORDER BY PAGE_NAME), '<X>', ''), '</X>' ,''), 2)
+                         FROM UBJDRAPP.ECM_FILE_LIST_VIEW 
+                         WHERE DOC_ID = A.SMT_DOC_ID) AS SMT_ATTACK_FILE_INFO
+                        ,A.AUD_YR
+       					,A.AUD_NO
+       					,D.AUD_SBJ_NM
+       					, CASE WHEN D.AUD_YR >= '2016' 
+			                  THEN F_CODE_NM('1000739',D.AUD_KND_CD)
+			            ELSE '' 
+			            END  AS AUD_YR_NO_KND_NM /*감사연번호종류코드 추가 - 2015.12.18 yyh*/	
+			            ,D.AUD_GRN_NO AS AUD_GRN_NO	
+             FROM       TBDCMIDM001L A,
+                        (SELECT USR.USR_NAM
+                                ,USR.EML_AD
+                                ,USR.TNB
+                                ,USR.HOM_TNB
+                                ,USR.CNB
+                                ,DPT.DPT_NM
+                         FROM TBDCMACM001M USR, TBDCMACM002M DPT
+                         WHERE USR.DPT_CD = DPT.DPT_CD(+)
+                         ) B,
+                        TBDCMACM015M C,
+                        TBBADDED001M D
+             WHERE      A.RQR_CNB = B.CNB(+)
+             AND        A.PRSR_ORG_CD = C.ORG_CD(+)
+             AND 		A.AUD_YR = D.AUD_YR(+)
+   			 AND 		A.AUD_NO = D.AUD_NO(+)
+   			
+		 ]]>
+		 <!-- AND        A.AUD_SMT_MTRL_ACP_STA_CD IN ('9','11','12','13','14')-->
+		 
+        <!--strApprDiv 접수구분 -->
+		<isNotEmpty prepend="AND" property="strApprDiv">
+			<isEqual property="strApprDiv" compareValue="1">
+				A.AUD_SMT_MTRL_ACP_STA_CD IN ('1', '2','9')
+			</isEqual>
+			<isEqual property="strApprDiv" compareValue="2">
+				A.AUD_SMT_MTRL_ACP_STA_CD IN ('3')
+			</isEqual>
+			<isEqual property="strApprDiv" compareValue="3">
+				A.AUD_SMT_MTRL_ACP_STA_CD IN ('4')
+			</isEqual>
+			<isEqual property="strApprDiv" compareValue="4">
+				A.AUD_SMT_MTRL_ACP_STA_CD IN ('5','6','7')
+			</isEqual>
+		</isNotEmpty>
+		
+		<isNotEmpty prepend="AND" property="strInDeptYn">
+			A.RQR_DPT_CD = #S_DPT_CD#
+		</isNotEmpty>
+		
+		<isNotEmpty prepend="AND" property="strReqDiv">
+			A.SMT_DVSN_CD = #strReqDiv#
+		</isNotEmpty>
+		
+		<!-- 
+		<isNotEmpty prepend="AND" property="strReqDiv">
+			<isEqual property="strApprDiv" compareValue="1">
+				A.SMT_DVSN_CD IN ('1', '2')
+			</isEqual>
+			<isEqual property="strApprDiv" compareValue="2">
+				A.SMT_DVSN_CD IN ('3')
+			</isEqual>
+			<isEqual property="strApprDiv" compareValue="3">
+				A.SMT_DVSN_CD IN ('4')
+			</isEqual>
+			<isEqual property="strApprDiv" compareValue="4">
+				A.SMT_DVSN_CD IN ('5','6','7', '9')
+			</isEqual>
+		</isNotEmpty> -->
+		
+		<isNotEmpty prepend="AND" property="strSmtStDt">
+			(A.SMT_DT <![CDATA[ >= ]]> #strSmtStDt# OR A.SMT_DT IS NULL)
+		</isNotEmpty>
+		
+		<isNotEmpty prepend="AND" property="strSmtEdDt">
+			 (A.SMT_DT <![CDATA[ <= ]]> #strSmtEdDt# OR A.SMT_DT IS NULL)
+		</isNotEmpty>
+		
+		<!-- 
+		<isEmpty property="strReqStDt">
+			<isEmpty prepend="AND" property="strReqEdDt">
+			 	A.REGI_RQS_DT IS NULL
+			 </isEmpty>
+		</isEmpty> -->
+		
+		<isNotEmpty prepend="AND" property="strReqDiv">
+			A.SMT_DVSN_CD = #strReqDiv#
+		</isNotEmpty>	
+		
+		<isNotEmpty prepend="AND" property="strSchAudSmtMtrlId">
+			A.AUD_SMT_MTRL_ID = #strSchAudSmtMtrlId#
+		</isNotEmpty>
+		
+		<isNotEmpty prepend="AND" property="strSchString">
+			(A.RQS_TXT LIKE '%' || #strSchString# || '%'
+			 OR   A.AUD_SMT_MTRL_TIT_NM LIKE '%' || #strSchString# || '%'
+             OR   C.ORG_NM LIKE '%' || #strSchString# || '%'
+             OR   B.USR_NAM LIKE '%' || #strSchString# || '%' )
+		</isNotEmpty>
+		
+		  <![CDATA[    
+		 ORDER BY A.FRT_REGI_DH DESC, A.SMT_DT DESC,A.REGI_RQS_DT DESC, A.SMT_ORG_CD ASC
+		 ]]>
+	<include refid = "include.pageOrder"/> 
+	</select>
+	
+	<!-- 전체자료요구 조회(전부서) 엑셀--> 
+	<!--  2014.10.29 JYKIM 요청자료만 조회처리 -->
+	<!-- 2014.07.23 jykim 요구일자 없는 데이터가 있어 임시 처리 -->
+	<!-- 2014.07.24 asu 수정함 -->
+	<!--  2014.07.30 jykim 정렬 변경 [최초등록일시 역순]  -->
+	<select id="dcmadm001EexcelAllselect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+			SELECT   A.AUD_SMT_MTRL_ID       
+                        ,A.REGI_RQS_DT             
+                        ,A.AUD_SMT_MTRL_TIT_NM     
+                        ,A.RQS_TXT                 
+                        ,A.RQR_CNB                 
+                        ,A.RQS_DOC_ID              
+                        ,A.SMT_DT                  
+                        ,A.SMT_TXT                 
+                        ,A.PRSR_NAM                
+                        ,A.PRSR_TNB                
+                        ,A.PRSR_EML_AD             
+                        ,A.SMT_DOC_ID              
+                        ,A.PRSR_ORG_CD   
+                        ,C.ORG_NM AS PRSR_ORG_NM
+                        ,A.SMT_ORG_CD              
+                        ,A.SMT_ORG_NM              
+                        ,A.SMT_ORG_BRDV_CD         
+                        ,A.VLD_PRD_STR_YM || '01' AS  VLD_PRD_STR_YM     
+                        ,A.VLD_PRD_END_YM || '01' AS  VLD_PRD_END_YM               
+,CASE WHEN A.SMT_DVSN_CD = '1' THEN '홈페이지'
+				            WHEN A.SMT_DVSN_CD = '2' THEN '공공감사정보시스템'
+				            WHEN A.SMT_DVSN_CD = '3' THEN '메일'
+				            WHEN A.SMT_DVSN_CD = '4' THEN 'Fax서버'
+				            WHEN A.SMT_DVSN_CD = '5' THEN '감사관수집'
+				            WHEN A.SMT_DVSN_CD = '6' THEN '대상기관직접등록'
+				            WHEN A.SMT_DVSN_CD = '7' THEN '온나라시스템(전자결재)'
+							ELSE A.SMT_DVSN_CD 
+						END AS SMT_DVSN_CD                                                                                                           
+                        ,CASE WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '1' THEN '미제출'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '2' THEN '미제출(대상기관 접수)'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '3' THEN '미접수(대상기관 자료 제출건)'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '4' THEN '접수'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '5' THEN '캐비닛'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '6' THEN '지식'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '7' THEN '지식 / 캐비닛'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '8' THEN '8'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '9' THEN '요구취소'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '10' THEN '이관완료'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '11' THEN '결재요청'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '12' THEN '결재승인'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '13' THEN '결재반려'		
+							WHEN A.AUD_SMT_MTRL_ACP_STA_CD = '14' THEN '자료요청'	
+							ELSE A.AUD_SMT_MTRL_ACP_STA_CD 
+						END	 AS AUD_SMT_MTRL_ACP_STA_CD                           
+                        ,CASE WHEN A.OPEN_STA_CD = 'N' THEN '비공개'
+						       WHEN A.OPEN_STA_CD != 'N' THEN '공개'
+						       ELSE A.OPEN_STA_CD 
+						END AS OPEN_STA_CD           
+                        ,A.SMT_ORG_CNCT_DT         
+                        ,A.RQS_ORG_CNCT_DT         
+                        ,A.RQR_DPT_CD              
+                        ,A.FRT_USR_ID              
+                        ,A.FNL_USR_ID              
+                        ,A.FNL_DEAL_DPT_CD         
+                        ,A.FNL_MNU_ID              
+                        ,A.FRT_REGI_DH             
+                        ,A.FNL_MDF_DH 
+                        ,B.USR_NAM AS RQR_CNB_NM
+                        ,B.EML_AD AS RQR_CNB_EML
+                        ,CASE WHEN B.TNB IS NULL THEN B.HOM_TNB ELSE B.TNB END AS RQR_CNT_TEL
+       					,A.SMT_ORG_BRDV_NM AS SMT_ORG_BRDV_NM
+                        ,B.DPT_NM
+                        ,(SELECT SUBSTR(REPLACE(REPLACE(XMLAGG(XMLELEMENT(X,CHR(10), PAGE_NAME) ORDER BY PAGE_NAME), '<X>', ''), '</X>' ,''), 2)
+                         FROM UBJDRAPP.ECM_FILE_LIST_VIEW  
+                         WHERE DOC_ID = A.RQS_DOC_ID) AS RQS_ATTACK_FILE_INFO
+                        ,(SELECT SUBSTR(REPLACE(REPLACE(XMLAGG(XMLELEMENT(X,CHR(10), PAGE_NAME) ORDER BY PAGE_NAME), '<X>', ''), '</X>' ,''), 2)
+                         FROM UBJDRAPP.ECM_FILE_LIST_VIEW 
+                         WHERE DOC_ID = A.SMT_DOC_ID) AS SMT_ATTACK_FILE_INFO
+                        ,A.AUD_YR
+       					,A.AUD_NO
+       					,D.AUD_SBJ_NM
+             FROM       TBDCMIDM001L A,
+                        (SELECT USR.USR_NAM
+                                ,USR.EML_AD
+                                ,USR.TNB
+                                ,USR.HOM_TNB
+                                ,USR.CNB
+                                ,DPT.DPT_NM
+                         FROM TBDCMACM001M USR, TBDCMACM002M DPT
+                         WHERE USR.DPT_CD = DPT.DPT_CD(+)
+                         ) B,
+                        TBDCMACM015M C,
+                        TBBADDED001M D
+             WHERE      A.RQR_CNB = B.CNB(+)
+             AND        A.PRSR_ORG_CD = C.ORG_CD(+)
+             AND 		A.AUD_YR = D.AUD_YR(+)
+   			 AND 		A.AUD_NO = D.AUD_NO(+)
+   			
+		 ]]>
+		 
+        <!--strApprDiv 접수구분 -->
+		<isNotEmpty prepend="AND" property="strApprDiv">
+			<isEqual property="strApprDiv" compareValue="1">
+				A.AUD_SMT_MTRL_ACP_STA_CD IN ('1', '2','9')
+			</isEqual>
+			<isEqual property="strApprDiv" compareValue="2">
+				A.AUD_SMT_MTRL_ACP_STA_CD IN ('3')
+			</isEqual>
+			<isEqual property="strApprDiv" compareValue="3">
+				A.AUD_SMT_MTRL_ACP_STA_CD IN ('4')
+			</isEqual>
+			<isEqual property="strApprDiv" compareValue="4">
+				A.AUD_SMT_MTRL_ACP_STA_CD IN ('5','6','7')
+			</isEqual>
+		</isNotEmpty>
+		
+		<isNotEmpty prepend="AND" property="strInDeptYn">
+			A.RQR_DPT_CD = #S_DPT_CD#
+		</isNotEmpty>
+		
+		<isNotEmpty prepend="AND" property="strReqDiv">
+			A.SMT_DVSN_CD = #strReqDiv#
+		</isNotEmpty>
+		
+		
+		
+		<isNotEmpty prepend="AND" property="strSmtStDt">
+			(A.SMT_DT <![CDATA[ >= ]]> #strSmtStDt# OR A.SMT_DT IS NULL)
+		</isNotEmpty>
+		
+		<isNotEmpty prepend="AND" property="strSmtEdDt">
+			 (A.SMT_DT <![CDATA[ <= ]]> #strSmtEdDt# OR A.SMT_DT IS NULL)
+		</isNotEmpty>
+		
+		
+		
+		<isNotEmpty prepend="AND" property="strReqDiv">
+			A.SMT_DVSN_CD = #strReqDiv#
+		</isNotEmpty>	
+		
+		<isNotEmpty prepend="AND" property="strSchAudSmtMtrlId">
+			A.AUD_SMT_MTRL_ID = #strSchAudSmtMtrlId#
+		</isNotEmpty>
+		
+		<isNotEmpty prepend="AND" property="strSchString">
+			(A.RQS_TXT LIKE '%' || #strSchString# || '%'
+			 OR   A.AUD_SMT_MTRL_TIT_NM LIKE '%' || #strSchString# || '%'
+             OR   C.ORG_NM LIKE '%' || #strSchString# || '%'
+             OR   B.USR_NAM LIKE '%' || #strSchString# || '%' )
+		</isNotEmpty>
+		
+		  <![CDATA[    
+		 ORDER BY A.FRT_REGI_DH DESC, A.SMT_DT DESC,A.REGI_RQS_DT DESC, A.SMT_ORG_CD ASC
+		 ]]>
+	</select>
+	
+	
+	
+	<!-- 감사자료관리 제출 -->
+	<insert id="dcmadm001Eaudsmtinsert" parameterClass="paramMap">
+		INSERT INTO TBDCMIDM001L
+					(AUD_SMT_MTRL_ID       
+					,REGI_RQS_DT             
+					,AUD_SMT_MTRL_TIT_NM     
+					,RQS_TXT                 
+					,RQR_CNB                 
+					,RQS_DOC_ID     
+					,RQS_DOC_TYP_CD         
+					,SMT_DT                  
+					,SMT_TXT                 
+					,PRSR_NAM                
+					,PRSR_TNB                
+					,PRSR_EML_AD             
+					,SMT_DOC_ID    
+					,SMT_DOC_TYP_CD          
+					,PRSR_ORG_CD                
+					,SMT_ORG_BRDV_CD   
+					,SMT_ORG_BRDV_NM      
+					,VLD_PRD_STR_YM          
+					,VLD_PRD_END_YM          
+					,SMT_DVSN_CD             
+					,AUD_SMT_MTRL_ACP_STA_CD 
+					,OPEN_STA_CD             
+					,SMT_ORG_CNCT_DT         
+					,RQS_ORG_CNCT_DT         
+					,RQR_DPT_CD           
+					,FRT_USR_ID              
+					,FNL_USR_ID              
+					,FNL_DEAL_DPT_CD         
+					,FNL_MNU_ID              
+					,FRT_REGI_DH             
+					,FNL_MDF_DH
+					,SMT_ORG_CD              
+					,SMT_ORG_NM 
+					,AUD_YR
+       				,AUD_NO 
+       				,APV_DOC_NO   ) 
+			VALUES ( #AUD_SMT_MTRL_ID#       
+					,#REGI_RQS_DT#             
+					,#AUD_SMT_MTRL_TIT_NM#     
+					,#RQS_TXT#                 
+					,#RQR_CNB#                 
+					,#RQS_DOC_ID#   
+					,#RQS_DOC_TYP_CD#           
+					,#SMT_DT#                  
+					,#SMT_TXT#                 
+					,#PRSR_NAM#                
+					,#PRSR_TNB#                
+					,#PRSR_EML_AD#             
+					,#SMT_DOC_ID#  
+					,#SMT_DOC_TYP_CD#            
+					,#PRSR_ORG_CD#     
+					,#SMT_ORG_BRDV_CD#     
+					,#SMT_ORG_BRDV_NM#    
+					,SUBSTR(#VLD_PRD_STR_YM#,0,6)          
+					,SUBSTR(#VLD_PRD_END_YM#,0,6)          
+					,#SMT_DVSN_CD#             
+					,#AUD_SMT_MTRL_ACP_STA_CD# 
+					,NVL(#OPEN_STA_CD#, 'N')             
+					,#SMT_ORG_CNCT_DT#         
+					,#RQS_ORG_CNCT_DT#         
+					,#FNL_DEAL_DPT_CD#              
+					,#FRT_USR_ID#              
+					,#FNL_USR_ID#              
+					,#FNL_DEAL_DPT_CD#         
+					,#FNL_MNU_ID#              
+					,SYSDATE             
+					,SYSDATE 
+					,#SMT_ORG_CD#              
+					,#SMT_ORG_NM#  
+					,#AUD_YR#              
+					,#AUD_NO# 
+					,#APV_DOC_NO#
+					)
+	</insert>
+	  
+	<!-- 감사자료관리 제출(공공감사 연계테이블 Insert -->  
+	<!--  갱신되어라!!! -->
+	<insert id="dcmadm001EaudsmtUasInsert" parameterClass="paramMap">
+		INSERT INTO IS_TBDCMIDM001L
+		(CM_PROCESS_CD, CM_SEQ,IF_SEQ,AUD_SMT_MTRL_ID,APV_DOC_NO,REGI_RQS_DT
+		,RQR_CNB,USR_NAM,DPT_CD,TNB,EML_AD
+		,AUD_SMT_MTRL_NM,RQS_TXT,RQS_DOC_ID,OPEN_STA_CD,RQS_ORG_CD,FNL_USR_ID
+		,CM_FROM_SYSTEM_ID, CM_TO_SYSTEM_ID,CM_PROCESS_STATUS )
+		VALUES(
+		#CM_PROCESS_CD#
+		,(SELECT NVL(MAX(CM_SEQ),0)+1 FROM IS_TBDCMIDM001L)
+		,#IF_SEQ#,#AUD_SMT_MTRL_ID#,#APV_DOC_NO#,#REGI_RQS_DT#
+		,#RQR_CNB#
+		,(SELECT USR_NAM FROM TBDCMACM001M WHERE CNB = #RQR_CNB#)
+		,(SELECT DPT_CD FROM TBDCMACM001M WHERE CNB = #RQR_CNB#)
+		,(SELECT TNB FROM TBDCMACM001M WHERE CNB = #RQR_CNB#)
+		,(SELECT EML_AD FROM TBDCMACM001M WHERE CNB = #RQR_CNB#)
+		,#AUD_SMT_MTRL_TIT_NM#,#RQS_TXT#,#RQS_DOC_ID#,NVL(#OPEN_STA_CD#, 'N'),#SMT_ORG_CD#,#FNL_USR_ID#, 'EAS','UAS','0000')    
+	</insert>
+
+	<!--메시지관리 update -->
+	<update id="dcmadm001Eaudsmtupdate" parameterClass="paramMap">
+		<![CDATA[ 	
+			UPDATE TBDCMIDM001L
+			   SET  REGI_RQS_DT  				= #REGI_RQS_DT#             
+					,AUD_SMT_MTRL_TIT_NM  		= #AUD_SMT_MTRL_TIT_NM#     
+					,RQS_TXT 					= #RQS_TXT#                  
+					,RQR_CNB  					= #RQR_CNB#                 
+					,RQS_DOC_ID  				= #RQS_DOC_ID#              
+					,SMT_DT   					= #SMT_DT#                 
+					,SMT_TXT  					= #SMT_TXT#                 
+					,PRSR_NAM  					= #PRSR_NAM#                
+					,PRSR_TNB    		 		= #PRSR_TNB#             
+					,PRSR_EML_AD 		  		= #PRSR_EML_AD#            
+					,SMT_DOC_ID  		 		= #SMT_DOC_ID#             
+					,PRSR_ORG_CD 		  		= #PRSR_ORG_CD#            
+					,SMT_ORG_CD  		  		= #SMT_ORG_CD#            
+					,SMT_ORG_NM  		   		= #SMT_ORG_NM#           
+					,SMT_ORG_BRDV_CD 			= #SMT_ORG_BRDV_CD#   
+					,SMT_ORG_BRDV_NM     		= #SMT_ORG_BRDV_NM# 
+					,VLD_PRD_STR_YM  			= SUBSTR(#VLD_PRD_STR_YM#,0,6)          
+					,VLD_PRD_END_YM  			= SUBSTR(#VLD_PRD_END_YM#,0,6)          
+					,SMT_DVSN_CD     			= #SMT_DVSN_CD#         
+					,AUD_SMT_MTRL_ACP_STA_CD	= #AUD_SMT_MTRL_ACP_STA_CD# 
+					,OPEN_STA_CD      			= NVL(#OPEN_STA_CD#, 'N')          
+					,SMT_ORG_CNCT_DT   			= #SMT_ORG_CNCT_DT#        
+					,RQS_ORG_CNCT_DT  			= #RQS_ORG_CNCT_DT#         
+					,RQR_DPT_CD    				= #RQR_DPT_CD#            
+					,FNL_USR_ID       			= #FNL_USR_ID#         
+					,FNL_DEAL_DPT_CD  			= #FNL_DEAL_DPT_CD#         
+					,FNL_MNU_ID      			= #FNL_MNU_ID#             
+					,FNL_MDF_DH  				= #FNL_MDF_DH# 
+					,AUD_YR						= #AUD_YR#              
+					,AUD_NO						= #AUD_NO# 
+			WHERE	AUD_SMT_MTRL_ID = #AUD_SMT_MTRL_ID#
+		]]>
+	</update>
+
+	<!--메시지 delete -->
+	<update id="dcmadm001Eaudsmtdelete" parameterClass="paramMap">
+		DELETE
+		FROM TBDCMIDM001L
+		WHERE 1=1
+		AND AUD_SMT_MTRL_ID = #AUD_SMT_MTRL_ID#
+
+	</update>
+	
+	<!-- 쟈료요청그룹 목록조회 팝업 --> 
+	<select id="dcmadm012Pselect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+		 SELECT A.RQS_GRP_ID,
+		        A.RQS_ORG_CD,
+		        B.ORG_NM AS RQS_ORG_NM,
+                C.RQS_GRP_NM,
+                A.RQS_ORG_CD AS RQS_ORG_CD_ORIGIN,
+                C.GRP_TYP_CD
+		 FROM   TBDCMIDM002D A,
+		        TBDCMACM015M B,
+                TBDCMIDM002M C
+		 WHERE  A.RQS_ORG_CD = B.ORG_CD
+         AND    A.RQS_GRP_ID = C.RQS_GRP_ID
+        ]]>
+        <isNotEmpty prepend="AND" property="strGroupCd">
+			A.RQS_GRP_ID = #strGroupCd#
+		</isNotEmpty>
+	</select>
+	
+	<select id="dcmadm012PGrpNmselect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+		 SELECT DISTINCT RQS_GRP_NM 
+		 		,A.RQS_GRP_ID
+		 FROM TBDCMIDM002M A, TBDCMIDM002D B
+		 WHERE A.RQS_GRP_ID = B.RQS_GRP_ID
+        ]]>
+        <isNotEmpty prepend="AND" property="strGroupNm">
+			A.RQS_GRP_NM LIKE '%' || #strGroupNm# || '%';
+		</isNotEmpty>
+	</select>
+	
+	<!-- 쟈료요청그룹 기관 신규 -->
+	<insert id="dcmadm011Pinsert" parameterClass="paramMap">
+		INSERT INTO TBDCMIDM002D
+					(RQS_GRP_ID,       
+					 RQS_ORG_CD
+					) 
+			VALUES ( #RQS_GRP_ID#,      
+					 #RQS_ORG_CD#
+					)
+	</insert>
+
+	<!-- 쟈료요청그룹 기관 저장 -->
+	<update id="dcmadm011Pupdate" parameterClass="paramMap">
+		<![CDATA[ 	
+			UPDATE TBDCMIDM002D
+			   SET  RQS_GRP_ID  = #RQS_GRP_ID#             
+					,RQS_ORG_CD = #RQS_ORG_CD#   
+			WHERE	RQS_GRP_ID  = #RQS_GRP_ID#
+			AND		RQS_ORG_CD  = #RQS_ORG_CD_ORIGIN# 
+		]]>
+	</update>
+
+	<!-- 쟈료요청그룹 기관 삭제 -->
+	<update id="dcmadm011Pdelete" parameterClass="paramMap">
+		DELETE
+		FROM 	TBDCMIDM002D
+		WHERE	RQS_GRP_ID = #RQS_GRP_ID#
+		AND		RQS_ORG_CD = #RQS_ORG_CD# 
+
+	</update>
+	
+	<!-- 그룹명 저장 -->
+	<update id="dcmadm011PgrpNmupdate" parameterClass="paramMap">
+		<![CDATA[ 	
+			UPDATE TBDCMIDM002M
+			   SET  RQS_GRP_NM  	 = #RQS_GRP_NM# 
+				    ,FNL_USR_ID      = #FNL_USR_ID# 
+				    ,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD# 
+				    ,FNL_MNU_ID      = #FNL_MNU_ID#   
+				    ,FNL_MDF_DH      = SYSDATE 
+			WHERE	RQS_GRP_ID  = #RQS_GRP_ID#
+		]]>
+	</update>
+	
+	<!-- 요구대상기관 실국 조회 팝업(기관목록 검색) 메인 --> 
+	<select id="dcmadm013PorgMainselect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+			SELECT 	ORG_CD, ORG_NM, COPT_SG_CD
+			FROM 	TBDCMACM015M
+			WHERE 	SUBSTR(ORG_CD , 4) = '000000000'
+			AND   	USE_DVSN_NO = 'Y'
+			AND   	ORG_DGE_CD = '1'
+			AND     SUBSTR(ORG_CD, 0,3) = COPT_SG_CD
+        ]]>
+        <isNotEmpty prepend="AND" property="strOrgNm">
+			ORG_NM LIKE '%' || #strOrgNm# || '%'
+		</isNotEmpty>
+		<![CDATA[ 
+			ORDER BY ORG_CD
+		]]>
+	</select>
+	
+	<!-- 요구대상기관 실국 조회 팝업(실국목록 검색) 상세 --> 
+	<select id="dcmadm013PorgSubselect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+			SELECT 	ORG_CD, ORG_NM, COPT_SG_CD, ORG_DGE_CD
+			FROM 	TBDCMACM015M
+			WHERE 	COPT_SG_CD = #strCoptSgCd#
+			AND   	SUBSTR(ORG_CD, 0,3) = #strCoptSgCd# 
+			AND   	ORG_DGE_CD != '1'
+       		ORDER BY ORG_CD
+		]]>
+	</select>
+	
+	<!-- 요구대상기관 실국 조회 팝업(실국목록 검색) 상세 --> 
+	<select id="dcmadm016PorgSubselectFromGCC" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+			SELECT GCC_ORG_CD as ORG_CD,BAI_ORG_CD, ALL_ORG_NM, LOWT_ORG_NM as ORG_NM, ORG_DGE_DVSN_CD 
+			FROM TBCSPIIT006M 
+			WHERE nvl(ORG_DGE_DVSN_CD,0) < 4 AND nvl(ABLT_YN_CD,0) = 0	
+			AND   	SUBSTR(BAI_ORG_CD, 0,3) = #strCoptSgCd#								
+		]]>
+		AND ALL_ORG_NM LIKE '%' || #strOrgNm# || '%'
+		
+	</select>
+	
+	
+	<!-- 요구대상기관 실국 조회 팝업(실국기준 검색) 상세 --> 
+	<select id="dcmadm013PSilGukSubselect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+			SELECT A.ORG_CD,
+			       A.ORG_NM,
+			       A.COPT_SG_CD,
+			       B.ORG_NM AS CIOT_ORG_NM
+			  FROM TBDCMACM015M A, 
+			       (SELECT ORG_CD, ORG_NM, COPT_SG_CD
+			        FROM TBDCMACM015M
+			        WHERE SUBSTR(ORG_CD , 4) = '000000000'
+			        AND   USE_DVSN_NO = 'Y'
+			        AND   ORG_DGE_CD = '1'
+			        AND   SUBSTR(ORG_CD, 0,3) = COPT_SG_CD) B
+			 WHERE A.COPT_SG_CD = B.COPT_SG_CD(+)
+			 AND   A.ORG_DGE_CD != '1'
+			 AND   SUBSTR(A.ORG_CD, 0,3) = A.COPT_SG_CD
+			 AND   A.USE_DVSN_NO = 'Y'
+		]]>
+		 <isNotEmpty prepend="AND" property="strSilGukNm">
+			A.ORG_NM LIKE '%' || #strSilGukNm# || '%'
+		</isNotEmpty>
+		<![CDATA[ 
+			ORDER BY ORG_CD
+		]]>
+	</select>
+	
+	
+	<!-- 요구대상기관 실국 조회 팝업(두번째 탭 - 실국명 검색) 상세 --> 
+	<select id="dcmadm016PSilGukSubselectFromGCC" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+			SELECT B.ALL_ORG_NM  as CIOT_ORG_NM, A.GCC_ORG_CD as ORG_CD,A.BAI_ORG_CD, A.ALL_ORG_NM, A.LOWT_ORG_NM as ORG_NM
+			FROM TBCSPIIT006M A, TBCSPIIT006M B
+			WHERE NVL(A.ORG_DGE_DVSN_CD,0) > 1 AND NVL(A.ORG_DGE_DVSN_CD,0) < 4 AND nvl(A.ABLT_YN_CD,0) = 0	AND A.GCC_RPST_ORG_CD = B.GCC_ORG_CD	 			
+		]]>
+		<isNotEmpty prepend="AND" property="strSilGukNm">
+			A.ALL_ORG_NM LIKE '%' || #strSilGukNm# || '%'
+		</isNotEmpty>	
+		<![CDATA[ 
+			ORDER BY B.ALL_ORG_NM ASC, A.LOWT_ORG_NM ASC
+		]]>	
+	</select>
+	
+	
+	<!-- 요구대상기관 실국 조회 팝업(실국기준 검색) 상세 (2014.09.02 jykim gcc기관코드에서 조회 --> 
+	<select id="selectReqSilStanSubListFromGCC" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+	SELECT GCC_ORG_CD  as ORG_CD ,BAI_ORG_CD, ALL_ORG_NM, LOWT_ORG_NM, ORG_DGE_DVSN_CD from TBCSPIIT006M 
+	WHERE nvl(ORG_DGE_DVSN_CD,0) < 4 AND nvl(ABLT_YN_CD,0) = 0 
+		]]>
+		 <isNotEmpty prepend="AND" property="strSilGukNm">
+			ALL_ORG_NM LIKE '%' || #strSilGukNm# || '%'
+		</isNotEmpty>
+		<![CDATA[ 
+			ORDER BY ALL_ORG_NM
+		]]>
+	</select>
+	
+	
+	
+	<!-- 자료요구그룹목록 조회 --> 	
+	<!-- 정렬 컬럼 변경 2014.07.30 jykim-->
+	<select id="dcmadm010Emainselect" parameterClass="paramMap"
+		resultClass="resultMap">		
+        <![CDATA[       
+			SELECT A.RQS_GRP_ID ,
+			       A.RQS_GRP_NM ,
+			       A.OWR_CNB ,
+			       A.GRP_TYP_CD ,
+			       A.FRT_USR_ID ,
+			       A.FNL_USR_ID ,
+			       A.FNL_DEAL_DPT_CD ,
+			       A.FNL_MNU_ID ,
+			       A.FRT_REGI_DH ,
+			       A.FNL_MDF_DH ,
+			       B.USR_NAM ,
+			       C.ORG_NM
+			  FROM TBDCMIDM002M A ,
+			       TBDCMACM001M B ,
+			       (SELECT RQS_GRP_ID,
+			               MAX(ORG_NM) ||
+			                       CASE
+			                         WHEN COUNT(*) > 0 THEN ' 포함(' || COUNT(*) || ')'
+			                         ELSE ''
+			                       END AS ORG_NM
+			          FROM TBDCMIDM002D A,
+			               TBDCMACM015M B
+			         WHERE A.RQS_ORG_CD = B.ORG_CD
+			         GROUP BY RQS_GRP_ID) C
+			 WHERE A.OWR_CNB = B.CNB(+)
+			   AND A.RQS_GRP_ID = C.RQS_GRP_ID(+)
+		 ]]>
+		<isNotEmpty prepend="AND" property="strGroupDiv">
+			A.GRP_TYP_CD = #strGroupDiv#
+		</isNotEmpty>
+		
+		<isNotEmpty prepend="AND" property="strGroupNm">
+			 A.RQS_GRP_NM LIKE '%' || #strGroupNm# || '%'
+		</isNotEmpty>
+		
+		  <![CDATA[    
+		 ORDER BY A.FRT_REGI_DH DESC
+		 ]]>		
+	</select>
+	
+	
+	<!-- 전체자료요구 조회 --> 
+	<select id="dcmadm010subselect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+			SELECT A.RQS_GRP_ID,
+			       A.RQS_ORG_CD,
+			       B.ORG_NM,
+			       A.RQS_ORG_CD AS RQS_ORG_CD_ORIGIN
+			  FROM TBDCMIDM002D A,
+			       TBDCMACM015M B
+			 WHERE A.RQS_ORG_CD = B.ORG_CD
+			   AND A.RQS_GRP_ID = #strGroupDiv#
+		 	 ORDER BY B.ORG_NM
+		 ]]>
+	
+	</select>
+	
+	<!-- 그룹대상기관정보 카운팅 --> 
+	<select id="dcmadm010subCountselect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+			SELECT TO_CHAR(COUNT(*)) AS COUNT
+             FROM TBDCMIDM002D
+             WHERE RQS_GRP_ID = #RQS_GRP_ID#
+		 ]]>
+	
+	</select>
+	
+	<!-- 그룹대상 마스터 카운팅 --> 
+	<select id="dcmadm010Countselect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+			SELECT TO_CHAR(COUNT(*)) AS COUNT
+             FROM TBDCMIDM002E
+             WHERE RQS_GRP_ID = #RQS_GRP_ID#
+		 ]]>
+	
+	</select>
+	
+	
+	<!-- 쟈료요청그룹 기관 신규 -->
+	<insert id="dcmadm010Emaininsert" parameterClass="paramMap">
+		INSERT INTO TBDCMIDM002M
+					(	RQS_GRP_ID     
+					    ,RQS_GRP_NM      
+					    ,OWR_CNB         
+					    ,GRP_TYP_CD      
+					    ,FRT_USR_ID      
+					    ,FNL_USR_ID      
+					    ,FNL_DEAL_DPT_CD 
+					    ,FNL_MNU_ID      
+					    ,FRT_REGI_DH     
+					    ,FNL_MDF_DH  
+					) 
+			VALUES ( 	#RQS_GRP_ID#     
+					    ,#RQS_GRP_NM#      
+					    ,NVL(#OWR_CNB#, #S_CNB#)         
+					    ,NVL(#GRP_TYP_CD#, 1)      
+					    ,#FRT_USR_ID#      
+					    ,#FNL_USR_ID#      
+					    ,#FNL_DEAL_DPT_CD# 
+					    ,#FNL_MNU_ID#      
+					    ,SYSDATE   
+					    ,SYSDATE
+					)
+	</insert>
+
+	<!-- 쟈료요청그룹 기관 저장 -->
+	<update id="dcmadm010Emainupdate" parameterClass="paramMap">
+		<![CDATA[ 	
+			UPDATE TBDCMIDM002M
+			   SET  RQS_GRP_NM  = #RQS_GRP_NM#             
+					,OWR_CNB = #OWR_CNB#  
+					,GRP_TYP_CD = #GRP_TYP_CD#   
+					,FNL_USR_ID = #FNL_USR_ID#   
+					,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#   
+					,FNL_MNU_ID = #FNL_MNU_ID#   
+					,FNL_MDF_DH = SYSDATE    
+			WHERE	RQS_GRP_ID  = #RQS_GRP_ID#
+		]]>
+	</update>
+
+	<!-- 쟈료요청그룹 기관 삭제 -->
+	<update id="dcmadm010Emaindelete" parameterClass="paramMap">
+		DELETE
+		FROM 	TBDCMIDM002M
+		WHERE	RQS_GRP_ID = #RQS_GRP_ID#
+
+	</update>
+	
+	<!-- 쟈료요청그룹 기관 삭제 -->
+	<update id="dcmadm010EmainAlldelete" parameterClass="paramMap">
+		DELETE
+		FROM 	TBDCMIDM002D
+		WHERE	RQS_GRP_ID = #RQS_GRP_ID#
+
+	</update>
+	
+	
+	<!-- 자료목록 선택시 해당 건 상태 변경 -->
+	<update id="dcmadm010Eapprupdate" parameterClass="paramMap">
+		<![CDATA[ 	
+			UPDATE TBDCMIDM001L
+			   SET  AUD_SMT_MTRL_ACP_STA_CD  = '4'             
+					,OPEN_STA_CD = 'N'  
+					,RQS_ORG_CNCT_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+					,FNL_USR_ID = #FNL_USR_ID#   
+					,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#   
+					,FNL_MNU_ID = #FNL_MNU_ID#   
+					,FNL_MDF_DH = SYSDATE    
+			WHERE	AUD_SMT_MTRL_ID  = #AUD_SMT_MTRL_ID#
+		]]>
+	</update>
+	
+	
+	<!-- 결재번호로 자료요청 키 조회. -->
+	<select id="dcmadm010selectByApvDocNo" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+			SELECT AUD_SMT_MTRL_ID
+			  FROM TBDCMIDM001L 
+			 WHERE	APV_DOC_NO  = #APV_DOC_NO#
+		 ]]>	
+	</select>
+	
+	
+	<!-- 결재 -->
+	<update id="dcmadm010EapprStatusupdate" parameterClass="paramMap">
+		<![CDATA[ 	
+			UPDATE TBDCMIDM001L
+			   SET  AUD_SMT_MTRL_ACP_STA_CD  = '12'    
+			WHERE	APV_DOC_NO  = #APV_DOC_NO#
+		]]>
+	</update>
+	
+	<!-- 반려 -->
+	<update id="dcmadm010EapprStatusreject" parameterClass="paramMap">
+		<![CDATA[ 	
+			UPDATE TBDCMIDM001L
+			   SET  AUD_SMT_MTRL_ACP_STA_CD  = '13'   
+			WHERE	APV_DOC_NO  = #APV_DOC_NO#
+		]]>
+	</update>
+	
+	<!--업무자료실 이관 상태 변경 -->
+	<update id="dcmadm010BizCarryupdate" parameterClass="paramMap">
+		<![CDATA[ 	
+			UPDATE TBDCMIDM001L
+			   SET  AUD_SMT_MTRL_ACP_STA_CD  = '10'             
+					,FNL_USR_ID = #FNL_USR_ID#   
+					,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#   
+					,FNL_MNU_ID = #FNL_MNU_ID#   
+					,FNL_MDF_DH = SYSDATE    
+			WHERE	AUD_SMT_MTRL_ID  = #AUD_SMT_MTRL_ID#
+		]]>
+	</update>
+	
+	
+	<!-- 메신저 메세지 발송 -->
+	<insert id="dcmadm001EaudMessengerInsert" parameterClass="paramMap">
+<![CDATA[ 	
+			INSERT INTO TBDCMACM026L 
+					(	MSG_SNO
+						, TSK_CAT_CD
+						, FUNC_CAT_CD
+						, SEND_ID
+						,MSG_TP_YN
+						, MSG_TXT_2
+						, RCNT_CNT
+						, RCNT_HIS
+						, MSG_REGI_DH
+						, FRT_USR_ID
+						, FNL_USR_ID
+						, FNL_DEAL_DPT_CD
+						, FNL_MNU_ID
+						, FRT_REGI_DH
+						, FNL_MDF_DH
+					)
+			VALUES (	(SELECT NVL(MAX(MSG_SNO),0)+1 FROM TBDCMACM026L)
+						, 'CM'
+						,'DM'
+						, 'SYSTEM'
+						,'0'
+						, #MSG_TXT_2#
+						,#RCNT_CNT#
+						,#RCNT_HIS#
+						, SYSDATE
+						, 'AUDITDATA'
+						, 'AUDITDATA'
+						, 'SYSTEM'
+						, 'SYSTEM'
+						,SYSDATE
+						, SYSDATE)
+		]]>
+	</insert>
+	
+	
+	<!-- 사용자 조회 --> 	
+	<!-- 정렬 컬럼 변경 2014.07.30 jykim-->
+	<select id="dcmadm010UserSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+			SELECT CNB EMP_NO, USR_ID ID, USR_NAM EMP_NAME, RANK_CD, DPT_CD, 
+    		 (SELECT DPT_NM FROM TBDCMACM002M D WHERE D.DPT_CD = U.DPT_CD AND   ROWNUM < 2) AS DPT_NM, 
+    		 EML_AD EMAIL,BAI_USR_YN WORK_STATUS, ORG_CD  FROM UBCREOWN.TBDCMACM001M U 
+    		 WHERE	
+    		 	BAI_USR_YN = 'Y' 
+		 ]]>
+		
+		<isNotEmpty prepend="AND" property="emp_name">
+			 USR_NAM LIKE '%' || #emp_name# || '%'
+		</isNotEmpty>
+		
+		  <![CDATA[    
+		 ORDER BY EMP_NAME 
+		 ]]>
+	
+	</select>
+	
+	<!-- 실국 목록 조회 2014.11.28 jykim-->
+	<select id="dcmadm010DivSelect" parameterClass="paramMap"	resultClass="resultMap">
+        <![CDATA[       
+			SELECT TOTAL_COUNT, RNUM, GCC_ORG_CD,BAI_ORG_CD, ALL_ORG_NM, LOWT_ORG_NM, ORG_DGE_DVSN_CD 
+    		FROM  
+    		( 
+    			SELECT INLINE.*,ROWNUM AS RNUM,COUNT(*) OVER() AS TOTAL_COUNT  
+    			FROM  
+    			(  
+    				SELECT GCC_ORG_CD,BAI_ORG_CD, ALL_ORG_NM, LOWT_ORG_NM, ORG_DGE_DVSN_CD from UBCREOWN.TBCSPIIT006M  
+    				 WHERE  NVL(ORG_DGE_DVSN_CD,0) > 1 AND NVL(ORG_DGE_DVSN_CD,0) < 4 AND NVL(ABLT_YN_CD,0) = 0
+    	]]>
+    	<isNotEmpty prepend="AND" property="submit_org_name">
+			 ALL_ORG_NM LIKE '%' || #submit_org_name# || '%'
+		</isNotEmpty>
+		
+		<isNotEmpty prepend="AND" property="submit_parent_org_code">			 
+			 (BAI_ORG_CD IS NULL OR BAI_ORG_CD LIKE '%' || #submit_parent_org_code# || '%')			 
+		</isNotEmpty>		   	
+ 		
+ 		<![CDATA[
+ 				 ORDER BY ALL_ORG_NM  
+    			) INLINE 
+    		) LIST 
+    	    
+			WHERE RNUM BETWEEN #start_no# AND #end_no# 
+    		ORDER BY RNUM ASC 
+		 ]]>
+    		 		
+	</select>
+	
+	<!-- 상급기관 목록 조회 2014.11.28 jykim-->
+	<select id="dcmadm010UpperOrgSelect" parameterClass="paramMap"	resultClass="resultMap">
+        <![CDATA[       
+			SELECT SUBSTR(ORG_CD,1,3) AS ORG_CD, ORG_NM
+	 		FROM TBDCMACM015M 
+	 		WHERE ORG_CD = COPT_SG_CD ||'000000000' 
+	 		ORDER BY ORG_NM ASC
+		 ]]>    		 	
+	</select>
+	
+	<!-- 기관 목록 조회 2014.11.28 jykim-->
+	<select id="dcmadm010OrgSelect" parameterClass="paramMap"	resultClass="resultMap">
+        <![CDATA[       	
+	SELECT TOTAL_COUNT,RNUM, COPT_SG_CD, ORG_CD,ORG_NM, ORG_DGE_CD, ORG_DVSN_CD, USE_DVSN_NO, PUB_DVSN_CD  
+ FROM 
+ ( 
+ 	SELECT INLINE.*,ROWNUM AS RNUM,COUNT(*) OVER() AS TOTAL_COUNT 
+ 	FROM 
+ 	( 
+ 		SELECT COPT_SG_CD, ORG_CD,ORG_NM, ORG_DGE_CD, ORG_DVSN_CD, USE_DVSN_NO, PUB_DVSN_CD  
+ 		FROM TBDCMACM015M  
+ 		WHERE 
+	    	ORG_NM LIKE '%' || #org_name# || '%' 
+ 	      AND USE_DVSN_NO = #search_USE_DVSN_NO#
+ 	    ]]>    	
+		<isNotEmpty prepend="AND" property="search_ORG_DGE_CD">
+			 ORG_DGE_CD = #search_ORG_DGE_CD# 
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="search_ORG_DVSN_CD">
+			 ORG_DVSN_CD = #search_ORG_DVSN_CD# 
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="search_UPPER_ORG_CD">
+			 COPT_SG_CD = #search_UPPER_ORG_CD# 
+		</isNotEmpty>
+    	<!-- <isNotEmpty prepend="AND" property="search_ORG_DVSN_CD_LIST">
+			 ORG_DVSN_CD IN  (#search_ORG_DVSN_CD_LIST#)
+		</isNotEmpty> -->
+		<isNotEmpty property="search_ORG_DVSN_CD_LIST">
+			<iterate prepend="AND ORG_DVSN_CD IN " property="search_ORG_DVSN_CD_LIST" open="(" close=")" conjunction=",">
+				#search_ORG_DVSN_CD_LIST[]#
+			</iterate> 
+		</isNotEmpty>-->
+		
+ 	    ORDER BY ORG_NM 
+ 	) INLINE 						
+ ) LIST 
+ WHERE RNUM BETWEEN #start_no# AND #end_no# 
+ ORDER BY RNUM ASC  
+ 	 	
+	</select>
+	
+	
+	
+
+	<select id="CSPDCP412EMmsSeqSelect" parameterClass="paramMap" resultClass="int">
+        <![CDATA[
+            SELECT MMS_CONTENTS_INFO_SEQ.NEXTVAL AS CONT_SEQ FROM  DUAL
+        ]]>
+        
+    </select>
+    
+    
+    <insert id="CSPDCP412EMmsMsgInsert" parameterClass ="paramMap">
+        <![CDATA[
+            INSERT INTO MMS_CONTENTS_INFO 
+                     (    CONT_SEQ
+                         , FILE_CNT
+                         , MMS_BODY
+                         , MMS_SUBJECT
+                     ) 
+            VALUES (    #CONT_SEQ#
+                        , 1
+                        , #SMS_TXT#
+                        , '감사자료접수 문자통보'
+                    )
+        ]]>
+    </insert>
+        
+   
+ <insert id="CSPDCP412EMsgInsert" parameterClass ="paramMap">
+  <![CDATA[
+ INSERT INTO MSG_DATA
+                     (    MSG_SEQ
+                         , CUR_STATE
+                         , REQ_DATE
+                         , CALL_TO
+                         , CALL_FROM
+                         , SMS_TXT
+                         , MSG_TYPE
+                         , CONT_SEQ
+                     ) 
+            VALUES (    MSG_DATA_SEQ.NEXTVAL
+                        , 0
+                        , SYSDATE
+                        , (SELECT REPLACE(NVL(HOM_TNB,'-'),'-','') FROM TBDCMACM001M WHERE CNB = #RQR_CNB#)
+                        , '20112114'
+                        , ''
+                        , 6
+                        , #CONT_SEQ#
+                    )
+  ]]>
+    </insert>                    
+
+
+
+<!-- 감사자료관리 제출 -->
+	<insert id="DCMADM001EReceiveInsert" parameterClass="paramMap">
+		INSERT INTO TBDCMIDM001L
+					(AUD_SMT_MTRL_ID       
+					,AUD_SMT_MTRL_TIT_NM     
+					,RQR_CNB                 
+					,SMT_DT                  
+					,SMT_TXT                 
+					,PRSR_NAM                
+					,PRSR_TNB                
+					,PRSR_EML_AD             
+					,PRSR_ORG_CD                
+					,SMT_ORG_BRDV_CD   
+					,SMT_ORG_BRDV_NM      
+					,SMT_DVSN_CD             
+					,AUD_SMT_MTRL_ACP_STA_CD 
+					,OPEN_STA_CD             
+					,RQR_DPT_CD           
+					,FRT_USR_ID              
+					,FNL_USR_ID              
+					,FNL_DEAL_DPT_CD         
+					,FNL_MNU_ID              
+					,FRT_REGI_DH             
+					,FNL_MDF_DH
+					,SMT_ORG_CD              
+					,SMT_ORG_NM 
+       				) 
+			VALUES ( #AUD_SMT_MTRL_ID#       
+					,#AUD_SMT_MTRL_TIT_NM#     
+					,#RQR_CNB#                 
+					,#SMT_DT#                  
+					,#SMT_TXT#                 
+					,#PRSR_NAM#                
+					,#PRSR_TNB#                
+					,#PRSR_EML_AD#             
+					,#PRSR_ORG_CD#     
+					,#SMT_ORG_BRDV_CD#     
+					,#SMT_ORG_BRDV_NM#    
+					,'1'      
+					,'3' 
+					,'N'        
+					,#RQR_DPT_CD#              
+					,'system'              
+					,'system'              
+					,'system'         
+					,'system'              
+					,SYSDATE             
+					,SYSDATE 
+					,#SMT_ORG_CD#              
+					,#SMT_ORG_NM#  
+					)
+	</insert>
+	
+	<!--  20161021 EUNOK  추가  -->
+	<!-- 요구일자,요구자,제출기관,자료명,제출일,제출자,접수일자,인증구분,파일 해시-->
+	<select id="dcmadm001FileHashselect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			 SELECT   
+				 A.REGI_RQS_DT    
+				,B.USR_NAM AS RQR_CNB_NM     
+				,A.SMT_ORG_NM   
+				,A.AUD_SMT_MTRL_TIT_NM
+				,A.SMT_DT
+				,A.PRSR_NAM             
+				,A.RQS_ORG_CNCT_DT
+				,A.AUTH_DVSN_CD
+				,C.FILE_HASH        
+				,C.FILE_SIGNDATA        
+             FROM       
+             	TBDCMIDM001L A
+             	,TBDCMACM001M B 
+                ,TBDCMIDM001D C               	
+             WHERE 
+				A.RQR_CNB = B.CNB(+) 
+				AND A.AUD_SMT_MTRL_ID = C.AUD_SMT_MTRL_ID
+                AND C.FILE_HASH = #FILE_HASH#
+                
+        ]]>
+        
+	</select>
+	
+	
+	<select id="dcmacm047AppStaCdSelect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			 SELECT   
+				 A.AUD_SMT_MTRL_ID    
+				,B.FILE_SN             
+				,B.FILE_NAME          
+				,B.FILE_HASH     
+				,B.FILE_DN
+				,B.FILE_SIGNDATA               
+				,B.FILE_DN2
+				,F_MNG_KND_AUDYRNO(B.AUD_YR, B.AUD_NO, NULL, '-') AS AUD_YR_NO
+				,DECODE(B.ACP_YR,NULL,NULL,B.ACP_YR||'-심사-'||B.ACP_SRNO) AS ACP_YR_SRNO
+				,B.REGI_DT
+				,B.REGI_DT2
+				,(SELECT AUD_SBJ_NM 
+				  FROM TBBADDED001M S1 
+				  WHERE S1.AUD_YR = B.AUD_YR
+				    AND S1.AUD_NO = B.AUD_NO
+				) AS TIT_NM2
+				,(SELECT TIT_NM
+				   FROM TBBADFRE012M S1
+				  WHERE S1.ACP_YR = B.ACP_YR
+				    AND S1.ACP_DVSN_CD = B.ACP_DVSN_CD
+				    AND S1.ACP_SRNO = B.ACP_SRNO
+				 ) AS TIT_NM3
+             FROM       
+             	TBDCMIDM001L A
+                ,TBDCMIDM001D B             	
+             WHERE 
+             	A.AUD_SMT_MTRL_ID = B.AUD_SMT_MTRL_ID
+				AND A.AUD_SMT_MTRL_ID = #AUD_SMT_MTRL_ID#
+			ORDER BY B.FILE_SN			
+        ]]>        
+	</select>
+	
+	
+	
+	<!--  20161021 EUNOK  추가  -->
+	<!-- 파일시리얼, 파일명, 파일해시, 파일DN, 파일사인값-->
+	<select id="dcmadm001FileAuthselect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			 SELECT   
+				 A.AUD_SMT_MTRL_ID    
+				,B.FILE_SN             
+				,B.FILE_NAME          
+				,B.FILE_HASH     
+				,B.FILE_DN
+				,B.FILE_SIGNDATA
+				,B.ATACH_FILE_ID
+				,B.DOC_ID
+				,B.FILE_DN2
+				,F_MNG_KND_AUDYRNO(B.AUD_YR, B.AUD_NO, NULL, '-') AS AUD_YR_NO
+				,DECODE(B.ACP_YR,NULL,NULL,B.ACP_YR||'-심사-'||B.ACP_SRNO) AS ACP_YR_SRNO
+				,B.REGI_DT
+				,B.REGI_DT2
+				,(SELECT AUD_SBJ_NM 
+				  FROM TBBADDED001M S1 
+				  WHERE S1.AUD_YR = B.AUD_YR
+				    AND S1.AUD_NO = B.AUD_NO
+				) AS TIT_NM2
+				,(SELECT TIT_NM
+				   FROM TBBADFRE012M S1
+				  WHERE S1.ACP_YR = B.ACP_YR
+				    AND S1.ACP_DVSN_CD = B.ACP_DVSN_CD
+				    AND S1.ACP_SRNO = B.ACP_SRNO
+				 ) AS TIT_NM3
+             FROM       
+             	TBDCMIDM001L A
+                ,TBDCMIDM001D B             	
+             WHERE 
+             	A.AUD_SMT_MTRL_ID = B.AUD_SMT_MTRL_ID
+				AND A.AUD_SMT_MTRL_ID = #AUD_SMT_MTRL_ID#
+				AND LENGTH(B.FILE_HASH) > 0
+			ORDER BY B.FILE_SN			
+        ]]>        
+	</select>	
+	<!--  20161222 EUNOK  추가  -->
+	<!-- 감사연번호에 해당하는 증거서류함 목록 가져오기 -->
+	<select id="dcmadm001Evidenceselect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			 SELECT   
+				 AUD_YR  
+				,AUD_NO             
+				,EVI_DCMB_SNO        
+				,FOLDER_NM               
+             FROM       
+             	TBBADDED108M              	
+             WHERE 
+             	AUD_YR = #AUD_YR#
+				AND AUD_NO = #AUD_NO#
+			ORDER BY EVI_DCMB_SNO		
+        ]]>        
+	</select>
+	
+	<!--  20161225 EUNOK  추가  -->
+	<!-- 감사자료관리 제출 증거서류  INSERT -->
+	<insert id="dcmadm010Eevidenceinsert" parameterClass="paramMap">
+        INSERT INTO TBBADDED108D
+        (
+            AUD_YR /*감사년도 */
+            ,AUD_NO /*감사번호*/ 
+            ,AUD_GRN_NO /*감사부여코드*/ 
+            ,EVI_DCMB_SNO	/*감사서류함순번 */
+            ,AUD_DCM_DOC_ID	/*감사서류문서ID */
+            ,FILE_NM	/*파일명 */
+            ,FILE_SIZE
+            ,FRT_USR_ID	/*최초사용자ID */
+            ,FNL_USR_ID
+            ,FNL_DEAL_DPT_CD
+            ,EVI_DCMB_DVSN_CD
+            ,AUD_KND_CD
+            ,EVI_DCM_DVSN_CD/*증거서류구분코드*/
+            ,AUD_DCM_CRE_ID /*감사서류생성자ID*/
+            ,FNL_MNU_ID
+            ,EVI_DCM_NO
+            ,DOC_STA_CD
+            ,FRT_REGI_DH	/*최초등록일시 */
+            ,FNL_MDF_DH	/*최종수정일시  */
+        )
+        values
+        (	
+            #audYr#       
+            ,#audNo#       
+            ,#audGrnNo#       
+            ,#eviDcmbSno#  
+            ,#audDcmDocId#
+            ,#fileNm#
+            ,#fileSize#
+            ,#frtUsrId#  
+            ,#fnlUsrId# 
+            ,#fnlDealDptCd# 
+            ,#eviDembDvsnCd#
+            ,#audKndCd#
+            ,#eviDcmDsnCd#
+            ,#audDcmCreId#
+            ,#fnlMnuId#
+            ,(SELECT LPAD(NVL(MAX(TO_NUMBER(EVI_DCM_NO)),0)+1,4,0)
+                    FROM TBBADDED108D
+                   WHERE AUD_YR = #audYr# 
+                     AND AUD_NO = #audNo# 
+                     AND EVI_DCM_DVSN_CD = #eviDcmDsnCd# )
+            ,'Y'
+            ,SYSDATE    
+            ,SYSDATE 
+        )
+    </insert>
+	
+	
+	<!--  20161226 EUNOK  추가  -->
+	<!-- 감사자료관리 제출 증거서류별 새로이 채번한 DOC_ID를 첨부파일 해시값 관리테이블에  UPDATE -->
+	<update id="dcmadm010Eevidenceupdate" parameterClass="paramMap">
+		<![CDATA[ 	
+			UPDATE TBDCMIDM001D
+			   SET  DOC_ID  				= #DOC_ID# 
+					,FNL_USR_ID       			= #FNL_USR_ID#  
+					,FNL_MDF_DH					= SYSDATE
+					,FILE_DN					= #FILE_DN# 
+					,AUD_YR = #audYr#
+					,AUD_NO = #audNo#
+					,REGI_DT = CASE WHEN REGI_DT IS NULL THEN TO_CHAR(SYSDATE,'YYYYMMDD') ELSE REGI_DT END
+			WHERE	AUD_SMT_MTRL_ID = #AUD_SMT_MTRL_ID#
+			        AND ATACH_FILE_ID = #ATACH_FILE_ID#
+		]]>
+	</update>
+	
+	<!--  20161225 EUNOK  추가  -->
+	<!-- 첨부파일 해시값 관리테이블에 doc_id  조회 -->
+	<select id="dcmadm010EevidenceDocselect" parameterClass="paramMap"	resultClass="resultMap">
+        <![CDATA[       
+			 SELECT   
+			 	ATACH_FILE_ID
+				,DOC_ID
+				,FILE_NAME
+				,FILE_DN
+				,FILE_DN2
+				,F_MNG_KND_AUDYRNO(B.AUD_YR, B.AUD_NO, NULL, '-') AS AUD_YR_NO
+				,DECODE(B.ACP_YR,NULL,NULL,B.ACP_YR||'-심사-'||B.ACP_SRNO) AS ACP_YR_SRNO
+				,B.REGI_DT
+				,B.REGI_DT2
+				,(SELECT AUD_SBJ_NM 
+				  FROM TBBADDED001M S1 
+				  WHERE S1.AUD_YR = B.AUD_YR
+				    AND S1.AUD_NO = B.AUD_NO
+				) AS TIT_NM2
+				,(SELECT TIT_NM
+				   FROM TBBADFRE012M S1
+				  WHERE S1.ACP_YR = B.ACP_YR
+				    AND S1.ACP_DVSN_CD = B.ACP_DVSN_CD
+				    AND S1.ACP_SRNO = B.ACP_SRNO
+				 ) AS TIT_NM3
+             FROM       
+             	TBDCMIDM001D B              	
+             WHERE 
+             	AUD_SMT_MTRL_ID = #AUD_SMT_MTRL_ID#
+				AND ATACH_FILE_ID = #ATACH_FILE_ID#
+		]]>	
+		<isNotEmpty prepend="AND" property="search_fileID">
+				LENGTH(DOC_ID) > 0
+		</isNotEmpty>
+		<![CDATA[       
+				ORDER BY FILE_SN
+        ]]>
+	</select>
+	
+	<!--  20161226 EUNOK  추가  -->
+	<!--  증거서류 구분목록 가져오기 -->
+	<select id="dcmadm010EvidenceKbn" parameterClass="paramMap"	resultClass="resultMap">
+        <![CDATA[     
+			 SELECT CMM_CD_DVSN_CD
+			     , CD
+			     , CD_NM
+			  FROM TBDCMACM013C
+			 WHERE 1=1
+			   AND CMM_CD_DVSN_CD = #CMM_CD_DVSN_CD#
+			   AND CD !='000000000'
+			 ORDER BY  CD 
+        ]]>        
+	</select>
+	
+	<!--  20161021 EUNOK  추가  -->
+	<insert id="dcmadm010EevidenceDocIdinsert" parameterClass="paramMap" >
+        <![CDATA[ 
+        
+         INSERT INTO TBDCMIDM001D
+        (
+            AUD_SMT_MTRL_ID    
+			,FILE_SN
+			,FILE_NAME  
+			,ATACH_FILE_ID
+			,DOC_ID
+			,FRT_USR_ID
+			,FNL_USR_ID
+			,FRT_REGI_DH
+			,FNL_MDF_DH
+			,FILE_DN
+			,AUD_YR
+			,AUD_NO
+			,REGI_DT
+        )
+        values
+        (	
+       		#AUD_SMT_MTRL_ID# 
+			,#FILE_SN#           
+			,#FILE_NAME# 
+			,#ATACH_FILE_ID# 
+			,#DOC_ID#   
+			,#FRT_USR_ID#
+			,#FNL_USR_ID#
+            ,SYSDATE    
+            ,SYSDATE  
+			,#FILE_DN#
+			,#audYr#
+			,#audNo#
+			,TO_CHAR(SYSDATE,'YYYYMMDD')
+        )      
+			 	
+        ]]>        
+	</insert>
+	
+	<select id="dcmadm010PreEevidenceselect" parameterClass="paramMap"	resultClass="resultMap">
+        <![CDATA[     
+			 SELECT  
+            	COUNT(*) AS CNT
+			  FROM TBBADDED108D
+			 WHERE 1=1
+			 	AND AUD_YR = #AUD_YR#
+            	AND AUD_NO = #AUD_NO#
+            	AND EVI_DCMB_SNO = #EVI_DCMB_SNO#
+            	AND AUD_DCM_DOC_ID = #AUD_DCM_DOC_ID#
+        ]]> 
+	</select>
+	
+	<select id="dcmadm010Audkndcdselect" parameterClass="paramMap"	resultClass="resultMap">
+        <![CDATA[     
+			 SELECT  
+			 	AUD_KND_CD /*감사종류코드*/
+			  FROM TBBADDED001M
+			 WHERE 1=1
+			 	AND AUD_YR = #AUD_YR#
+            	AND AUD_NO = #AUD_NO#
+        ]]>        
+	</select>
+	
+	
+	<select id="dcmadm010EvidenceKbnNm" parameterClass="paramMap"	resultClass="resultMap">
+        <![CDATA[     
+			 SELECT  CD_NM
+			  FROM TBDCMACM013C
+			 WHERE 1=1
+			   AND CMM_CD_DVSN_CD = #CMM_CD_DVSN_CD#
+			   AND CD = #CD#
+			 ORDER BY  CD 
+        ]]>        
+	</select>
+	
+	
+	
+	<!--감사 연번호 update -->
+	<update id="dcmidm001AudInformupdate" parameterClass="paramMap">
+		<![CDATA[ 	
+			UPDATE TBDCMIDM001L
+			   SET  
+					AUD_YR						= #AUD_YR#              
+					,AUD_NO						= #AUD_NO# 
+			WHERE	AUD_SMT_MTRL_ID = #AUD_SMT_MTRL_ID#
+		]]>
+	</update>
+	
+</sqlMap>

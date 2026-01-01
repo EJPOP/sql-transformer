@@ -1,0 +1,2718 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/ear/003">
+
+	<!--처분요구관리 조회-->
+	<select id="BADEAR003EMainSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+			SELECT D1.AUD_YR                         AS AUD_YR                          /*감사년도*/
+			     , D1.AUD_NO                         AS AUD_NO                          /*감사번호*/
+			     , D3.AUD_GRN_NO                     AS AUD_GRN_NO                      /*감사부여번호 - 2016.05.31 yyh*/
+			     , D1.AUD_YR||D1.AUD_NO              AS AUD_YR_NO   
+			     , D3.SPV_BRDV_NM                    AS SPV_BRDV_NM                     /*주관국과명*/
+			     ,(SELECT DPT_NM
+			         FROM TBDCMACM002M
+			        WHERE DPT_CD = D3.SPV_BRDV_CD)   AS SPV_BRDV_CD
+			     ,(SELECT DPT_NM
+			         FROM TBDCMACM002M
+			        WHERE DPT_CD = D3.MNG_DPT_CD)    AS MNG_DPT_CD                      /*관리부서 - 2016.03.08 yyh*/			     
+			     , D3.AUD_SBJ_NM                     AS AUD_SBJ_NM                      /*감사사항*/
+			     ,(SELECT CASE WHEN COUNT(DISTINCT ORG_CD)>1 
+                                     THEN F_ORG_INFO(MIN(ORG_CD),'1')||'외 '||TO_CHAR(COUNT(DISTINCT ORG_CD)-1)||'' 
+                                ELSE F_ORG_INFO(MIN(ORG_CD),'1') 
+                            END
+                      FROM TBBADDED008L
+                     WHERE 1 = 1
+                       AND (BZT_YR, BZT_SNO) IN (SELECT BZT_YR
+                                                       ,BZT_SNO
+                                                   FROM TBBADDED002M
+                                                  WHERE 1=1
+                                                    AND REL_AUD_YR = D3.AUD_YR
+                                                    AND REL_AUD_NO = D3.AUD_NO 
+                                                    AND AUD_BZT_KND_CD IN ('02','03') ))    AS AUD_ORG_CNT                     /*기관명*/
+			     , D1.DSP_RQ_SNO                     AS DSP_RQ_SNO                      /*처분요구순번*/
+			     , F_MNG_KND_AUDYRNO(D1.AUD_YR, D1.AUD_NO, D3.AUD_KND_CD, '-') ||'-'|| D1.DSP_RQ_SNO 
+			                                         AS DSP_RQ_SNO_NM                   /*처분요구순번DISP*/
+			     , CASE WHEN D1.AUD_YR >= '2016' 
+			                 THEN D3.AUD_KND_CD
+			            ELSE '' 
+			        END                              AS AUD_YR_NO_KND_CD /*감사연번호종류코드 추가 - 2015.12.18 yyh*/				                                         
+			     , D1.FRM_NO                         AS FRM_NO                          /*서식번호*/
+			     , D1.RPRT_NO                        AS RPRT_NO                         /*보고서식번호*/
+			     , D1.TIT_TXT                        AS TIT_TXT                         /*제목내용*/    
+			     , D1.DSP_RQ_KND_CD                  AS DSP_RQ_KND_CD                   /*처분요구종류코드*/
+			     , D1.ORG_DVSN_CD                    AS ORG_DVSN_CD                     /*기관구분코드*/
+			     , D1.AUD_EPS_CD                     AS AUD_EPS_CD                      /*감사중점코드*/
+			     , D2.DSP_RQ_SRNO                    AS DSP_RQ_SRNO                     /*처분요구일련번호*/
+			     , D2.ENF_DT                         AS ENF_DT                          /*시행일*/
+			     , D2.HNDL_DDLN_DT                   AS HNDL_DDLN_DT                    /*처리기한일*/
+			     , D2.ENF_BRDV_CD                    AS ENF_BRDV_CD                     /*시행국과코드*/
+			     ,(SELECT DPT_NM
+			         FROM TBDCMACM002M
+			        WHERE DPT_CD = D2.ENF_BRDV_CD)   AS ENF_BRDV_NM                     /*시행국과명*/			     
+			     , D2.DOC_SEN_NO                     AS DOC_SEN_NO                      /*문서발송코드*/
+			     , D2.WRDO_CAU_CD                    AS WRDO_CAU_CD                     /*비위원인코드*/
+			     , D2.ENFM_MNG_BRDV_CD               AS ENFM_MNG_BRDV_CD                /*집행관리국과코드*/    
+			     , D2.DTM_YN                         AS DTM_YN                          /*확정여부*/
+			     , D2.DTM_STA_CD                     AS DTM_STA_CD                      /*확정상태코드*/
+			     , D2.HMP_OPEN_YN                    AS HMP_OPEN_YN                     /*홈페이지공개여부*/
+			     , D2.DTY_OBV_UTL_YN                 AS DTY_OBV_UTL_YN                  /*직무관철활용여부*/
+			     , CASE WHEN SUBSTR(D2.WRDO_TYP_CD,1,1) = '1' THEN '100000000'
+			            WHEN SUBSTR(D2.WRDO_TYP_CD,1,1) = '2' THEN '200000000'    
+			            ELSE ''
+			         END                             AS WRDO_TYP_CD                     /*비위유형코드 - 수정 2016.05.11 yyh*/
+			     , D2.DSP_RQ_APV_STA_CD              AS DSP_RQ_APV_STA_CD               /*처분요구결재상태코드*/
+			     , D2.TSK_CAT_CD                     AS TSK_CAT_CD                      /*업무분류코드*/
+			     ,(SELECT CD_NM 
+			         FROM TBDCMACM013C
+			        WHERE CMM_CD_DVSN_CD = '1000121' 
+			          AND CD = D2.WRDO_TYP_CD )      AS WRDO_TYP_NM                     /*비위유형코드명*/
+			     ,(SELECT CD_NM 
+			         FROM TBDCMACM013C
+			        WHERE CMM_CD_DVSN_CD = '1000120' 
+			          AND CD = D2.TSK_CAT_CD )      AS TSK_CAT_NM                       /*업무분류명*/			     
+			     ,(SELECT CD_NM 
+			         FROM TBDCMACM013C
+			        WHERE CMM_CD_DVSN_CD = '1000002' 
+			          AND CD = D1.DSP_RQ_KND_CD ) 	AS DSP_RQ_KND_NM                    /*처분요구종류명*/    
+			     ,(SELECT CD_NM 
+			         FROM TBDCMACM013C
+			        WHERE CMM_CD_DVSN_CD = '1000017' 
+			          AND CD = D2.DTM_STA_CD ) 		AS DTM_STA_NM                       /*결재상태명*/
+			     , CASE WHEN NVL(D4.CNT,0)>0 THEN 'Y' ELSE 'N' END  AS FRE_CNT			/*집행전말입력여부*/
+				 , D2.PSC_RQT_NOP_CNT													/*고발인원*/
+			     , D2.NOP_CNT 															/*인원*/
+                 , CASE WHEN RLTN_ORG_CD IS NOT NULL THEN (SELECT ORG_NM 
+                                                             FROM TBDCMACM015M
+                                                            WHERE ORG_CD = D2.RLTN_ORG_CD)||'외 '||D5.CNT  ELSE '' END RLTN_ORG_NM /*관계기관*/
+			     , CASE WHEN COPT_OFI_CD IS NOT NULL THEN (SELECT ORG_NM
+                                                             FROM TBDCMACM015M
+                                                            WHERE ORG_CD = D2.COPT_OFI_CD)|| DECODE(D7.CNT,0,'','외 '||D7.CNT) ELSE '' END COPT_OFI_NM /*소관청*/ 			     
+			     , COPT_OFI_CD AS COPT_OFI_CD /* 추가 - 2016.04.28 yyh*/
+			     
+			     /* 처분요구사항실시내역 추가 - 2016.02.24 yyh */
+			     , Z1.DVSN_CD                AS DVSN_CD    /* 구분코드 */
+			     , Z1.TSK_KEY1               AS TSK_KEY1   /* 업무키1 */
+			     , Z1.TSK_KEY2               AS TSK_KEY2   /* 업무키2 */
+			     , Z1.TSK_KEY3               AS TSK_KEY3   /* 업무키3 */
+			     , Z1.TSK_KEY4               AS TSK_KEY4   /* 업무키4 */
+			     , CASE WHEN Z1.DVSN_CD IN ('1','2','3') THEN (SELECT S1.ACP_YR||'-'|| (SELECT CD_NM 
+			                                                                              FROM TBDCMACM013C
+			                                                                             WHERE CMM_CD_DVSN_CD = '1000740' 
+			                                                                               AND CD = S1.REQ_DVSN_CD ) ||'-'|| S1.RM_CVPT_ACP_NO
+			     									  		     FROM TBCSPDCP101M S1
+			      											    WHERE Z1.TSK_KEY1 = S1.ACP_YR
+			      									  		      AND Z1.TSK_KEY2 = S1.REQ_DVSN_CD
+			      											      AND Z1.TSK_KEY3 = S1.CVPT_ACP_NO)
+			      												
+			            WHEN Z1.DVSN_CD = '4'            THEN ''
+			            WHEN Z1.DVSN_CD IN ('5','6','7') THEN (SELECT CASE WHEN S1.ACP_YR >= '2016' 
+		 	                                                                 THEN S1.ACP_YR || '-' || DECODE(S1.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || S1.ACP_SRNO
+		 	                                                            ELSE 
+		 	                                                                      S1.ACP_YR || '-' || S1.ACP_DVSN_CD || '-' || S1.ACP_SRNO
+		 	                                                             END
+			                                                  FROM TBBADFRE012M S1 
+			                                                 WHERE Z1.TSK_KEY1 = S1.ACP_YR   
+			                                                   AND Z1.TSK_KEY2 = S1.ACP_DVSN_CD
+			                                                   AND Z1.TSK_KEY3 = S1.ACP_SRNO
+			                                                   AND Z1.TSK_KEY4 = S1.DPT_CD)
+                        WHEN Z1.DVSN_CD IN ('8','9')     THEN (SELECT CASE WHEN S1.OGN_DVSN_CD = '6' 
+					                                                                 THEN S1.YR||'-판청-'||S1.ACP_NO
+					                                                            ELSE S1.YR||'-손망-'||S1.ACP_NO
+					                                                        END 
+					                                                  FROM TBBADGDA001M S1
+					                                                 WHERE Z1.TSK_KEY1 = S1.ORG_CD   
+					                                                   AND Z1.TSK_KEY2 = S1.NTF_DVSN_CD
+					                                                   AND Z1.TSK_KEY3 = S1.NNB)	
+					    WHEN Z1.DVSN_CD = '0'            THEN Z1.TSK_KEY1 ||'-정보-'|| Z1.TSK_KEY2
+					    WHEN Z1.DVSN_CD = 'A'            THEN F_MNG_KND_AUDYRNO(Z1.TSK_KEY1, Z1.TSK_KEY2, (SELECT AUD_KND_CD 
+					                                                                                         FROM TBBADDED001M 
+					                                                                                        WHERE AUD_YR = Z1.TSK_KEY1 
+					                                                                                          AND AUD_NO = Z1.TSK_KEY2), '-')  ||'-'|| 
+					                                          Z1.TSK_KEY3                                                                      ||'-'|| 
+					                                          F_ORG_INFO(Z1.TSK_KEY4,'1')
+					    
+					    /* 청금 추가 - 2016.10.31 yyh */
+					    WHEN Z1.DVSN_CD = 'C'            THEN Z1.TSK_KEY2 || '-청금-' || (SELECT S1.RM_STTM_ACP_NO
+					                                                                        FROM TBCSPDCP811M S1
+					                                                                       WHERE S1.STTM_DVSN_CD = Z1.TSK_KEY1
+					                                                                         AND S1.ACP_YR       = Z1.TSK_KEY2
+					                                                                         AND S1.STTM_ACP_NO  = Z1.TSK_KEY3)
+			            ELSE ''
+			        END                      AS TSK_KEY_NO /* 실시번호 */
+			      ,D2.AUD_YR || '-' || D2.AUD_NO || '-' || D2.DSP_RQ_SNO AS AUD_YR_NO_FOCUS /* 저장 후 ROW위치 지정 */
+			      ,D2.OD_ENFM_MNG_BRDV_CD                                       AS OD_ENFM_MNG_BRDV_CD /* 구집행관리국과코드 - 2017.01.25 yyh */
+			      ,'구 이행관리부서:' || (SELECT DPT_NM
+                                          FROM TBDCMACM002M
+                                         WHERE DPT_CD = D2.OD_ENFM_MNG_BRDV_CD) AS OD_ENFM_MNG_BRDV_NM
+			      ,NVL(D2.MAIN_ENFM_MNG_TG_YN, 'N')                             AS MAIN_ENFM_MNG_TG_YN /* 주요이행관리대상여부 - 2017.01.25 yyh */
+			      
+				 ,(SELECT T2.DOC_ID
+						FROM TBBADEAR001M T1
+					    INNER JOIN TBBADDED103M T2
+					    ON T1.AUD_YR     = T2.AUD_YR
+					    AND T1.AUD_NO     = T2.AUD_NO
+					    AND TO_CHAR(T1.AUD_DSP_RQ_SNO) = T2.REF_ID
+					WHERE T1.AUD_YR        = D1.AUD_YR
+						AND T1.AUD_NO      = D1.AUD_NO
+					   	AND T1.DSP_RQ_SNO  = D1.DSP_RQ_SNO
+					   	AND T2.AUD_STEP_CD = 'A1080'
+					   	AND T2.RPRT_CD     = 'A10800500')   AS ELCT_AUD_OPEN_DOC_ID /* 전자감사 공개문 DOC_ID 추가 - 2017.07.04 EUNOK */
+					   	
+				 ,CASE WHEN (SELECT T2.DOC_ID
+						       FROM TBBADEAR001M T1
+					          INNER JOIN TBBADDED103M T2
+					                  ON T1.AUD_YR     = T2.AUD_YR
+					                 AND T1.AUD_NO     = T2.AUD_NO
+					                 AND TO_CHAR(T1.AUD_DSP_RQ_SNO) = T2.REF_ID
+					          WHERE T1.AUD_YR      = D1.AUD_YR
+						        AND T1.AUD_NO      = D1.AUD_NO
+					   	        AND T1.DSP_RQ_SNO  = D1.DSP_RQ_SNO
+					   	        AND T2.AUD_STEP_CD = 'A1080'
+					   	        AND T2.RPRT_CD     = 'A10800500') IS NOT NULL THEN 'Y' 
+					   ELSE ''  END    			   	   AS ELCT_AUD_OPEN_DOC_YN /* 전자감사 공개문 존재 여부 추가 - 2017.07.06 yyh */
+					   
+                 ,D3.AUD_KND_CD                        AS AUD_KND_CD           /* 감사종류코드 추가 - 2017.06.08 yyh */
+                    
+			     ,D2.JUD_RST_SBJ_CD                    AS JUD_RST_SBJ_CD              /* 판정유보사항코드 - 2018.08.06 yyh */
+			     ,D2.JUD_RST_RSN_TXT                   AS JUD_RST_RSN_TXT             /* 판정유보사유내용 - 2018.08.06 yyh */
+			     ,D2.JUD_RST_SBJ_HNDL_RSLT_TXT         AS JUD_RST_SBJ_HNDL_RSLT_TXT   /* 판정유보사항처리결과내용 - 2018.08.06 yyh */
+			     ,D8.KYWD1                             AS KYWD1                       /* 키워드 추가 - 2018.08.06 yyh */ 
+			     ,D8.KYWD2                             AS KYWD2
+			     ,D8.KYWD3                             AS KYWD3
+			     ,D8.KYWD4                             AS KYWD4
+			     ,D8.KYWD5                             AS KYWD5         
+			     
+			     ,(SELECT F_CODE_NM('1000774',T1.REFER_DVSN_CD) 
+			         FROM TBBADDED145M T1 
+			        INNER JOIN TBBADDED146M T2
+		               ON T1.AUD_YR      = T2.AUD_YR
+		              AND T1.AUD_NO      = T2.AUD_NO
+		              AND T1.AUD_STEP_CD = T2.AUD_STEP_CD
+		              AND T1.APVR_CD     = T2.APVR_CD
+		              AND T1.DOC_ID      = T2.DOC_ID 
+		              AND T1.AFF_SNO     = T2.AFF_SNO
+		              AND T1.AUD_STEP_CD = 'A1070'
+		              AND T1.AUD_YR      > '2017'
+		              AND T1.APVR_CD     = 'A1070'
+		            WHERE T1.AUD_YR      = D1.AUD_YR
+		              AND T1.AUD_NO      = D1.AUD_NO
+		              AND T2.DSP_RQ_SNO  = D1.AUD_DSP_RQ_SNO) AS REFER_DVSN_NM	/* 부의 위임여부 - 2018.10.16 yyh */	                  			      
+		         , D2.IMMUN_EXAM_CD                           AS IMMUN_EXAM_CD               /*통계자료 입력 적극행정면책 검토 코드*/
+                 , D2.IMMUN_EXAM_CD2                          AS IMMUN_EXAM_CD2              /*통계자료 입력 면책여부 코드*/
+                 , D2.PASV_ADMN_EXAM_YN                       AS PASV_ADMN_EXAM_YN           /*소극행정검토내용*/
+                 , D2.SELF_YN                                 AS SELF_YN                     /*자율여부*/  
+			  FROM TBBADEAR001M D1
+			     , TBBADEAR002D D2
+			     , TBBADEAR035L Z1
+			     , (
+			           SELECT D1.AUD_YR
+			                , D1.AUD_NO
+			                , D1.AUD_GRN_NO
+			                , D1.AUD_KND_CD 
+			                , F_DPT_INFO(D1.SPV_BRDV_CD,'1')||'(단장 : '||F_USR_INFO(D1.AUD_TOT_DRTR_CNB,'2')||', 주관 : '||F_USR_INFO(D1.SPVR_CNB,'2')||')' AS SPV_BRDV_NM               
+			                , '<'||F_CODE_NM('1000007',D1.AUD_KND_CD) ||'>'||D1.AUD_SBJ_NM AS AUD_SBJ_NM
+			            	, D1.SPV_BRDV_CD
+			            	, D1.MNG_DPT_CD
+			            FROM TBBADDED001M D1
+			           WHERE 1=1
+			             AND D1.MNG_DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #dptAuth#, '', #strUpSpvBrdvCd#)))   /*직급이 원장일 경우 'ALL' 그외는 'DEPTLW'로 셋팅*/
+		]]>			             
+           			             
+		 		<isNotNull property="strAudYrNoKndCd">
+					<isNotEmpty property="strAudYrNoKndCd">	 	
+			             /* 감사연번종류코드 - 2015.12.18 yyh */
+						 AND SUBSTR(D1.AUD_KND_CD,3,1) = SUBSTR(#strAudYrNoKndCd#,3,1)
+					</isNotEmpty>		
+				</isNotNull>				             
+
+		<isNotEmpty property="strSpvBrdvCd">
+			   			 AND D1.MNG_DPT_CD = #strSpvBrdvCd#
+		</isNotEmpty>
+
+		<isNotNull property="strAudYr">
+			<isNotEmpty property="strAudYr">	 
+				   		AND D1.AUD_YR      = #strAudYr#
+			</isNotEmpty>
+		</isNotNull>
+		
+		<!-- 감사부여번호 조건 추가 - 2016.05.31 yyh -->
+		<isNotNull property="strAudGrnNo">
+			<isNotEmpty property="strAudGrnNo">
+				        AND D1.AUD_GRN_NO = #strAudGrnNo#
+			</isNotEmpty>
+		</isNotNull>
+		
+        <![CDATA[       
+			       ) D3
+			     , (
+			         SELECT AUD_YR
+				          , AUD_NO
+				          , DSP_RQ_SNO 
+				          , COUNT(1) CNT 
+				       FROM TBBADFRE001M
+				      GROUP BY AUD_YR
+				             , AUD_NO
+				             , DSP_RQ_SNO    
+			     ) D4
+			     , (/*관계기관*/
+			        SELECT AUD_YR, AUD_NO, DSP_RQ_SNO , COUNT(1)-1 CNT 
+			          FROM TBBADEAR006M
+			         GROUP BY AUD_YR, AUD_NO, DSP_RQ_SNO 
+			       ) D5
+			     , (/*소관청*/
+			        SELECT AUD_YR, AUD_NO, DSP_RQ_SNO , COUNT(1)-1 CNT 
+			          FROM TBBADEAR008M
+			         GROUP BY AUD_YR, AUD_NO, DSP_RQ_SNO 
+			       ) D7     		
+                 , (SELECT AUD_YR
+                          ,AUD_NO
+                          ,DSP_RQ_SNO
+                          ,MAX(CASE WHEN SNO=1 THEN KYWD END) AS KYWD1
+                          ,MAX(CASE WHEN SNO=2 THEN KYWD END) AS KYWD2
+                          ,MAX(CASE WHEN SNO=3 THEN KYWD END) AS KYWD3
+                          ,MAX(CASE WHEN SNO=4 THEN KYWD END) AS KYWD4
+                          ,MAX(CASE WHEN SNO=5 THEN KYWD END) AS KYWD5
+                      FROM TBBADEAR037M
+                     GROUP BY AUD_YR, AUD_NO, DSP_RQ_SNO) D8 /* 키워드 추가 */ 			       	     
+			 WHERE 1=1
+			   AND D1.AUD_YR     = D2.AUD_YR
+			   AND D1.AUD_NO     = D2.AUD_NO
+			   AND D1.DSP_RQ_SNO = D2.DSP_RQ_SNO
+			   AND D1.AUD_YR     = D3.AUD_YR
+			   AND D1.AUD_NO     = D3.AUD_NO   
+			   AND D1.AUD_YR     = D4.AUD_YR(+)
+			   AND D1.AUD_NO     = D4.AUD_NO(+)
+			   AND D1.DSP_RQ_SNO = D4.DSP_RQ_SNO(+)
+			   AND D1.AUD_YR     = D5.AUD_YR(+)
+			   AND D1.AUD_NO     = D5.AUD_NO(+)
+			   AND D1.DSP_RQ_SNO = D5.DSP_RQ_SNO(+)
+			   AND D1.AUD_YR     = D7.AUD_YR(+)
+			   AND D1.AUD_NO     = D7.AUD_NO(+)
+			   AND D1.DSP_RQ_SNO = D7.DSP_RQ_SNO(+)
+			   
+			   /* 처분요구사항실시내역 추가 - 2016.02.24 yyh */
+			   AND D1.AUD_YR     = Z1.AUD_YR(+)
+			   AND D1.AUD_NO     = Z1.AUD_NO(+)
+			   AND D1.DSP_RQ_SNO = Z1.DSP_RQ_SNO(+)
+			   
+			   AND D1.AUD_YR     = D8.AUD_YR(+)
+			   AND D1.AUD_NO     = D8.AUD_NO(+)
+			   AND D1.DSP_RQ_SNO = D8.DSP_RQ_SNO(+)		
+			   
+			   AND D2.SND_STA_CD = '3'  /* 송부상태코드가 결재완료 - 2017.06.01 yyh */
+		]]>
+
+		<isNotEmpty property="strEnfYr">	 
+			   AND D2.ENF_DT     LIKE #strEnfYr#||'%'
+		</isNotEmpty>
+		<isNotEmpty property="strDtmStaCd">	 
+			   AND D2.DTM_STA_CD  = #strDtmStaCd#
+		</isNotEmpty>
+		<isNotEmpty property="strDspRqKndCd">	 
+			   AND D1.DSP_RQ_KND_CD = #strDspRqKndCd#
+		</isNotEmpty>
+		<isNotEmpty property="strAudYr">	 
+			   AND D1.AUD_YR      = #strAudYr#
+		</isNotEmpty>
+		<isNotEmpty  property="strAudNo">	 	
+			   AND D1.AUD_NO      = #strAudNo#
+		</isNotEmpty>
+		<isNotEmpty property="AUD_YR">	 
+			   AND D1.AUD_YR      = #AUD_YR#
+		</isNotEmpty>
+		<isNotEmpty  property="AUD_NO">	 	
+			   AND D1.AUD_NO      = #AUD_NO#
+		</isNotEmpty>	
+		<isNotEmpty  property="DSP_RQ_SNO">	 	
+			   AND D1.DSP_RQ_SNO      = #DSP_RQ_SNO#
+		</isNotEmpty>			
+		<isNotEmpty property="strTitTxt">	 	   
+			   AND D1.TIT_TXT LIKE '%'||#strTitTxt#||'%'
+		</isNotEmpty>
+		
+		<!-- 입력일자 추가 - 2017.07.06 yyh -->
+		<isNotNull property="strInputDt">	
+			<isNotEmpty property="strInputDt">	 	   
+				   AND TO_CHAR(D2.FNL_MDF_DH, 'YYYYMMDD') = #strInputDt#
+			</isNotEmpty>		
+		</isNotNull>		
+		
+		<isEqual property="strReqPgmId" compareValue="BADEAR003E">
+			 ORDER BY D1.AUD_YR DESC , D1.AUD_NO DESC, D1.DSP_RQ_SNO DESC 			
+		</isEqual>
+		<isEqual property="strReqPgmId" compareValue="BADEAR010E">
+			 ORDER BY D1.AUD_YR DESC , D1.AUD_NO DESC, D1.DSP_RQ_SNO 
+		</isEqual>		
+	</select>
+	
+	<!--처분요구관리 조회 페이징 - 2015.10.16 yyh -->
+	<select id="BADEAR003EMainSelectPage" parameterClass="paramMap" resultClass="resultMap">
+		<include refid="include.pageSelct" />
+				
+        <![CDATA[       
+			SELECT D1.AUD_YR                                                      AS AUD_YR                /*감사년도*/
+			     , D1.AUD_NO                                                      AS AUD_NO                /*감사번호*/
+			     , D3.AUD_GRN_NO                                                  AS AUD_GRN_NO            /*감사부여번호 - 2016.05.31 yyh*/			     
+			     , D1.AUD_YR||D1.AUD_NO                                           AS AUD_YR_NO   
+                 ,    (SELECT DPT_NM
+			             FROM TBDCMACM002M
+			            WHERE DPT_CD = D3.SPV_BRDV_CD)    
+                   ||  '(단장 : '                           
+                   || (SELECT USR_NAM
+                         FROM TBDCMACM001M
+                        WHERE CNB = D3.AUD_TOT_DRTR_CNB)  
+                   ||  ', 주관 : '                          
+                   || (SELECT USR_NAM
+                         FROM TBDCMACM001M
+                         WHERE CNB = D3.SPVR_CNB)          
+                   || ')'                                                         AS SPV_BRDV_NM           /*주관국과명*/			     
+			     , (SELECT DPT_NM
+			          FROM TBDCMACM002M
+			         WHERE DPT_CD = D3.SPV_BRDV_CD)                               AS SPV_BRDV_CD
+			     , (SELECT DPT_NM
+			          FROM TBDCMACM002M
+			         WHERE DPT_CD = D3.MNG_DPT_CD)                                AS MNG_DPT_CD			   /*관리부서 - 2016.03.08 yyh*/
+			     , D3.AUD_SBJ_NM                                                  AS AUD_SBJ_NM            /*감사사항*/
+			     , (SELECT CASE WHEN COUNT(DISTINCT ORG_CD)>1 
+                                     THEN F_ORG_INFO(MIN(ORG_CD),'1')||'외 '||TO_CHAR(COUNT(DISTINCT ORG_CD)-1)||'' 
+                                ELSE F_ORG_INFO(MIN(ORG_CD),'1') 
+                            END
+                      FROM TBBADDED008L
+                     WHERE 1 = 1
+                       AND (BZT_YR, BZT_SNO) IN (SELECT BZT_YR
+                                                       ,BZT_SNO
+                                                   FROM TBBADDED002M
+                                                  WHERE 1=1
+                                                    AND REL_AUD_YR = D3.AUD_YR
+                                                    AND REL_AUD_NO = D3.AUD_NO
+                                                    AND AUD_BZT_KND_CD IN ('02','03') )) AS AUD_ORG_CNT           /*기관명*/
+			     , D1.DSP_RQ_SNO                                                  AS DSP_RQ_SNO            /*처분요구순번*/
+			     , F_MNG_KND_AUDYRNO(D1.AUD_YR, D1.AUD_NO, D3.AUD_KND_CD, '-') ||'-'|| D1.DSP_RQ_SNO                  
+			                                                                      AS DSP_RQ_SNO_NM         /*처분요구순번DISP*/
+			     , CASE WHEN D1.AUD_YR >= '2016' 
+			                 THEN D3.AUD_KND_CD
+			            ELSE '' 
+			        END                                                           AS AUD_YR_NO_KND_CD      /*감사연번호종류코드 추가 - 2015.12.18 yyh*/				                                                                      
+			     , D1.FRM_NO                                                      AS FRM_NO                /*서식번호*/
+			     , D1.RPRT_NO                                                     AS RPRT_NO               /*보고서식번호*/
+			     , D1.TIT_TXT                                                     AS TIT_TXT               /*제목내용*/    
+			     , D1.DSP_RQ_KND_CD                                               AS DSP_RQ_KND_CD         /*처분요구종류코드*/
+			     , D1.ORG_DVSN_CD                                                 AS ORG_DVSN_CD           /*기관구분코드*/
+			     , D1.AUD_EPS_CD                                                  AS AUD_EPS_CD            /*감사중점코드*/
+			     , D2.DSP_RQ_SRNO                                                 AS DSP_RQ_SRNO           /*처분요구일련번호*/
+			     , D2.ENF_DT                                                      AS ENF_DT                /*시행일*/
+			     , D2.HNDL_DDLN_DT                                                AS HNDL_DDLN_DT          /*처리기한일*/
+			     , D2.ENF_BRDV_CD                                                 AS ENF_BRDV_CD           /*시행국과코드*/
+			     , (SELECT DPT_NM
+			          FROM TBDCMACM002M
+			         WHERE DPT_CD = D2.ENF_BRDV_CD)                               AS ENF_BRDV_NM           /*시행국과명*/
+			     , D2.DOC_SEN_NO                                                  AS DOC_SEN_NO            /*문서발송코드*/
+			     , D2.WRDO_CAU_CD                                                 AS WRDO_CAU_CD           /*비위원인코드*/
+			     , D2.ENFM_MNG_BRDV_CD                                            AS ENFM_MNG_BRDV_CD      /*집행관리국과코드*/    
+			     , D2.DTM_YN                                                      AS DTM_YN                /*확정여부*/
+			     , D2.DTM_STA_CD                                                  AS DTM_STA_CD            /*확정상태코드*/
+			     , D2.HMP_OPEN_YN                                                 AS HMP_OPEN_YN           /*홈페이지공개여부*/
+			     , D2.DTY_OBV_UTL_YN                                              AS DTY_OBV_UTL_YN        /*직무관철활용여부*/
+			     , CASE WHEN SUBSTR(D2.WRDO_TYP_CD,1,1) = '1' THEN '100000000'
+			            WHEN SUBSTR(D2.WRDO_TYP_CD,1,1) = '2' THEN '200000000'    
+			            ELSE ''
+			         END                                                          AS WRDO_TYP_CD           /*비위유형코드 - 수정 2016.05.11 yyh*/
+			     , D2.DSP_RQ_APV_STA_CD                                           AS DSP_RQ_APV_STA_CD     /*처분요구결재상태코드*/
+			     , D2.TSK_CAT_CD                                                  AS TSK_CAT_CD            /*업무분류코드*/
+                 , (SELECT CD_NM
+			          FROM TBDCMACM013C
+			         WHERE CMM_CD_DVSN_CD = '1000121' 
+			           AND CD = D2.WRDO_TYP_CD)		                              AS WRDO_TYP_NM           /*비위유형코드명*/        
+                 , (SELECT CD_NM
+			          FROM TBDCMACM013C
+			         WHERE CMM_CD_DVSN_CD = '1000120' 
+			           AND CD = D2.TSK_CAT_CD)	                                  AS TSK_CAT_NM            /*업무분류명*/
+                 , (SELECT CD_NM
+			          FROM TBDCMACM013C
+			         WHERE CMM_CD_DVSN_CD = '1000002' 
+			           AND CD = D1.DSP_RQ_KND_CD)                                 AS DSP_RQ_KND_NM         /*처분요구종류명*/
+                 , (SELECT CD_NM
+			          FROM TBDCMACM013C
+			         WHERE CMM_CD_DVSN_CD = '1000017' 
+			           AND CD = D2.DTM_STA_CD) 		                              AS DTM_STA_NM            /*결재상태명*/			     
+			     , CASE WHEN NVL(D4.CNT,0)>0 THEN 'Y' ELSE 'N' END                AS FRE_CNT		       /*집행전말입력여부*/
+				 , D2.PSC_RQT_NOP_CNT	                                          AS PSC_RQT_NOP_CNT       /*고발인원*/
+			     , D2.NOP_CNT 													  AS NOP_CNT		       /*인원*/
+			     , CASE WHEN RLTN_ORG_CD IS NOT NULL THEN (SELECT ORG_NM
+                                                             FROM TBDCMACM015M
+                                                            WHERE ORG_CD = D2.RLTN_ORG_CD) ||'외 '|| D5.CNT  ELSE '' END RLTN_ORG_NM /*관계기관*/
+			     , CASE WHEN COPT_OFI_CD IS NOT NULL THEN (SELECT ORG_NM
+                                                             FROM TBDCMACM015M
+                                                            WHERE ORG_CD = D2.COPT_OFI_CD) || DECODE(D7.CNT,0,'','외 '||D7.CNT)  ELSE '' END COPT_OFI_NM /*소관청*/
+                                                            
+			     /* 처분요구사항실시내역 추가 - 2016.02.24 yyh */
+			     , Z1.DVSN_CD                AS DVSN_CD    /* 구분코드 */
+			     , Z1.TSK_KEY1               AS TSK_KEY1   /* 업무키1 */
+			     , Z1.TSK_KEY2               AS TSK_KEY2   /* 업무키2 */
+			     , Z1.TSK_KEY3               AS TSK_KEY3   /* 업무키3 */
+			     , Z1.TSK_KEY4               AS TSK_KEY4   /* 업무키4 */
+			     , CASE WHEN Z1.DVSN_CD IN ('1','2','3') THEN (SELECT S1.ACP_YR||'-'||F_CODE_NM('1000740',S1.REQ_DVSN_CD)||'-'||S1.RM_CVPT_ACP_NO
+			     									  		     FROM TBCSPDCP101M S1
+			      											    WHERE Z1.TSK_KEY1 = S1.ACP_YR
+			      									  		      AND Z1.TSK_KEY2 = S1.REQ_DVSN_CD
+			      											      AND Z1.TSK_KEY3 = S1.CVPT_ACP_NO)
+			      												
+			            WHEN Z1.DVSN_CD = '4'            THEN ''
+			            WHEN Z1.DVSN_CD IN ('5','6','7') THEN (SELECT CASE WHEN S1.ACP_YR >= '2016' 
+		 	                                                                 THEN S1.ACP_YR || '-' || DECODE(S1.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || S1.ACP_SRNO
+		 	                                                            ELSE 
+		 	                                                                      S1.ACP_YR || '-' || S1.ACP_DVSN_CD || '-' || S1.ACP_SRNO
+		 	                                                             END
+			                                                  FROM TBBADFRE012M S1 
+			                                                 WHERE Z1.TSK_KEY1 = S1.ACP_YR   
+			                                                   AND Z1.TSK_KEY2 = S1.ACP_DVSN_CD
+			                                                   AND Z1.TSK_KEY3 = S1.ACP_SRNO
+			                                                   AND Z1.TSK_KEY4 = S1.DPT_CD)
+                        WHEN Z1.DVSN_CD IN ('8','9')     THEN (SELECT CASE WHEN S1.OGN_DVSN_CD = '6' 
+					                                                                 THEN S1.YR||'-판청-'||S1.ACP_NO
+					                                                            ELSE S1.YR||'-손망-'||S1.ACP_NO
+					                                                        END 
+					                                                  FROM TBBADGDA001M S1
+					                                                 WHERE Z1.TSK_KEY1 = S1.ORG_CD   
+					                                                   AND Z1.TSK_KEY2 = S1.NTF_DVSN_CD
+					                                                   AND Z1.TSK_KEY3 = S1.NNB)	
+					    WHEN Z1.DVSN_CD = '0'            THEN Z1.TSK_KEY1 ||'-정보-'|| Z1.TSK_KEY2
+					    WHEN Z1.DVSN_CD = 'A'            THEN F_MNG_KND_AUDYRNO(Z1.TSK_KEY1, Z1.TSK_KEY2, (SELECT AUD_KND_CD 
+					                                                                                         FROM TBBADDED001M 
+					                                                                                        WHERE AUD_YR = Z1.TSK_KEY1 
+					                                                                                          AND AUD_NO = Z1.TSK_KEY2), '-')  ||'-'|| 
+					                                          Z1.TSK_KEY3                                                                      ||'-'|| 
+					                                          F_ORG_INFO(Z1.TSK_KEY4,'1')					                                                   		                                                   
+					    /* 청금 추가 - 2016.10.31 yyh */
+					    WHEN Z1.DVSN_CD = 'C'            THEN Z1.TSK_KEY2 || '-청금-' || (SELECT S1.RM_STTM_ACP_NO
+					                                                                        FROM TBCSPDCP811M S1
+					                                                                       WHERE S1.STTM_DVSN_CD = Z1.TSK_KEY1
+					                                                                         AND S1.ACP_YR       = Z1.TSK_KEY2
+					                                                                         AND S1.STTM_ACP_NO  = Z1.TSK_KEY3)
+			            ELSE ''
+			        END                      AS TSK_KEY_NO /* 실시번호 */            
+			      ,D2.AUD_YR || '-' || D2.AUD_NO || '-' || D2.DSP_RQ_SNO AS AUD_YR_NO_FOCUS /* 저장 후 ROW위치 지정 */
+			      ,D2.OD_ENFM_MNG_BRDV_CD                                       AS OD_ENFM_MNG_BRDV_CD /* 구집행관리국과코드 - 2017.01.25 yyh */
+			      ,'구 이행관리부서:' || F_DPT_INFO(D2.OD_ENFM_MNG_BRDV_CD,'1')   AS OD_ENFM_MNG_BRDV_NM
+			      ,NVL(D2.MAIN_ENFM_MNG_TG_YN, 'N')                             AS MAIN_ENFM_MNG_TG_YN /* 주요이행관리대상여부 - 2017.01.25 yyh */		 
+			      ,(SELECT T2.DOC_ID
+						FROM TBBADEAR001M T1
+					    INNER JOIN TBBADDED103M T2
+					    ON T1.AUD_YR     = T2.AUD_YR
+					    AND T1.AUD_NO     = T2.AUD_NO
+					    AND TO_CHAR(T1.AUD_DSP_RQ_SNO) = T2.REF_ID
+					WHERE T1.AUD_YR        = D1.AUD_YR
+						AND T1.AUD_NO      = D1.AUD_NO
+					   	AND T1.DSP_RQ_SNO  = D1.DSP_RQ_SNO
+					   	AND T2.AUD_STEP_CD = 'A1080'
+					   	AND T2.RPRT_CD     = 'A10800500')   AS ELCT_AUD_OPEN_DOC_ID /* 전자감사 공개문 DOC_ID 추가 - 2017.07.04 EUNOK */	 
+                      			           
+			  FROM TBBADEAR001M D1
+			     , TBBADEAR002D D2
+                 , TBBADDED001M D3 
+			     , TBBADEAR035L Z1                 
+			     , (
+			         SELECT AUD_YR
+				          , AUD_NO
+				          , DSP_RQ_SNO 
+				          , COUNT(1) CNT 
+				       FROM TBBADFRE001M
+				      GROUP BY AUD_YR
+				             , AUD_NO
+				             , DSP_RQ_SNO    
+			     ) D4
+			     , (/*관계기관*/
+			        SELECT AUD_YR, AUD_NO, DSP_RQ_SNO , COUNT(1)-1 CNT 
+			          FROM TBBADEAR006M
+			         GROUP BY AUD_YR, AUD_NO, DSP_RQ_SNO 
+			       ) D5
+			     , (/*소관청*/
+			        SELECT AUD_YR, AUD_NO, DSP_RQ_SNO , COUNT(1)-1 CNT 
+			          FROM TBBADEAR008M
+			         GROUP BY AUD_YR, AUD_NO, DSP_RQ_SNO 
+			       ) D7     			     
+			 WHERE 1=1
+			   AND D3.MNG_DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #dptAuth#, '', #strUpSpvBrdvCd#)))   /*직급이 원장일 경우 'ALL' 그외는 'DEPTLW'로 셋팅*/
+			   
+		]]>
+		<isNotEmpty property="strSpvBrdvCd">
+			   AND D3.MNG_DPT_CD = #strSpvBrdvCd#
+		</isNotEmpty>
+        <![CDATA[  			   
+			   
+			   AND D1.AUD_YR     = D2.AUD_YR
+			   AND D1.AUD_NO     = D2.AUD_NO
+			   AND D1.DSP_RQ_SNO = D2.DSP_RQ_SNO
+			   AND D1.AUD_YR     = D3.AUD_YR
+			   AND D1.AUD_NO     = D3.AUD_NO   
+			   AND D1.AUD_YR     = D4.AUD_YR(+)
+			   AND D1.AUD_NO     = D4.AUD_NO(+)
+			   AND D1.DSP_RQ_SNO = D4.DSP_RQ_SNO(+)
+			   AND D1.AUD_YR     = D5.AUD_YR(+)
+			   AND D1.AUD_NO     = D5.AUD_NO(+)
+			   AND D1.DSP_RQ_SNO = D5.DSP_RQ_SNO(+)
+			   AND D1.AUD_YR     = D7.AUD_YR(+)
+			   AND D1.AUD_NO     = D7.AUD_NO(+)
+			   AND D1.DSP_RQ_SNO = D7.DSP_RQ_SNO(+)
+			   
+			   /* 처분요구사항실시내역 추가 - 2016.02.24 yyh */
+			   AND D1.AUD_YR     = Z1.AUD_YR(+)
+			   AND D1.AUD_NO     = Z1.AUD_NO(+)
+			   AND D1.DSP_RQ_SNO = Z1.DSP_RQ_SNO(+)			   
+		]]>
+
+		<isNotEmpty property="strEnfYr">	 
+			   AND D2.ENF_DT     LIKE #strEnfYr#||'%'
+		</isNotEmpty>
+		<isNotEmpty property="strDtmStaCd">	 
+			   AND D2.DTM_STA_CD  = #strDtmStaCd#
+		</isNotEmpty>
+		<isNotEmpty property="strDspRqKndCd">	 
+			   AND D1.DSP_RQ_KND_CD = #strDspRqKndCd#
+		</isNotEmpty>
+		<isNotEmpty property="strAudYr">	 
+			   AND D1.AUD_YR      = #strAudYr#
+		</isNotEmpty>
+		<isNotEmpty  property="strAudNo">	 	
+			   AND D1.AUD_NO      = #strAudNo#
+		</isNotEmpty>
+		
+		<!-- 감사부여번호 조건 추가 - 2016.05.31 yyh -->
+		<isNotNull property="strAudGrnNo">
+			<isNotEmpty property="strAudGrnNo">
+			   AND D3.AUD_GRN_NO = #strAudGrnNo#
+			</isNotEmpty>
+		</isNotNull>		
+		
+		<isNotEmpty property="AUD_YR">	 
+			   AND D1.AUD_YR      = #AUD_YR#
+		</isNotEmpty>
+		<isNotEmpty  property="AUD_NO">	 	
+			   AND D1.AUD_NO      = #AUD_NO#
+		</isNotEmpty>	
+		<isNotEmpty  property="DSP_RQ_SNO">	 	
+			   AND D1.DSP_RQ_SNO      = #DSP_RQ_SNO#
+		</isNotEmpty>			
+		
+ 		<isNotNull property="strAudYrNoKndCd">
+			<isNotEmpty property="strAudYrNoKndCd">	 	
+	             /* 감사연번종류코드 - 2015.12.18 yyh */
+				 AND SUBSTR(D3.AUD_KND_CD,3,1) = SUBSTR(#strAudYrNoKndCd#,3,1)
+			</isNotEmpty>		
+		</isNotNull>			
+		
+		<isNotEmpty property="strTitTxt">	 	   
+			   AND D1.TIT_TXT LIKE '%'||#strTitTxt#||'%'
+		</isNotEmpty>
+		
+        <include refid="include.pageOrder" />
+	</select>	
+	
+	<!--처분요구사항기본 insert-->
+	<insert id="BADEAR003EMasterInsert" parameterClass="paramMap">
+		<![CDATA[  
+		DECLARE
+			BEGIN		
+			INSERT INTO TBBADEAR001M(
+			       AUD_YR
+			     , AUD_NO
+			     , DSP_RQ_SNO
+			     , FRM_NO
+			     , RPRT_NO
+			     , JUDG_NO
+			     , TIT_TXT
+			     , HND_SBJ_TXT
+			     , HNDL_PLAN_DVSN_CD
+			     , DSP_RQ_KND_CD
+			     , ORG_DVSN_CD
+			     , AUD_EPS_CD
+			     , FRT_USR_ID
+			     , FNL_USR_ID
+			     , FNL_DEAL_DPT_CD
+			     , FNL_MNU_ID
+			     , FRT_REGI_DH
+			     , FNL_MDF_DH
+			)VALUES(
+			       #AUD_YR#
+			     , #AUD_NO#
+			     , #DSP_RQ_SNO#
+			     , #FRM_NO#
+			     , #RPRT_NO#
+			     , #JUDG_NO#
+			     , #TIT_TXT#
+			     , #HND_SBJ_TXT#
+			     , #HNDL_PLAN_DVSN_CD#
+			     , #DSP_RQ_KND_CD#
+			     , #ORG_DVSN_CD#
+			     , #AUD_EPS_CD#
+			     , #FRT_USR_ID#
+			     , #FNL_USR_ID#
+			     , #FNL_DEAL_DPT_CD#
+			     , #FNL_MNU_ID#
+			     , SYSDATE
+			     , SYSDATE
+			);
+		END;
+			
+		]]>
+	</insert>
+	
+	<!--처분요구사항상세 insert-->
+	<insert id="BADEAR003EMasterSubInsert" parameterClass="paramMap">
+		<![CDATA[
+		DECLARE
+			BEGIN		
+				INSERT INTO TBBADEAR002D(
+				       AUD_YR
+				     , AUD_NO
+				     , DSP_RQ_SNO
+				     , DSP_RQ_SRNO
+				     , ENF_DT
+				     , HNDL_DDLN_DT
+				     , ENF_BRDV_CD
+				     , CHGR_NM
+				     , DOC_SEN_NO
+				     , DSP_RQ_IPT_DT
+				     , PSC_RQT_NOP_CNT
+				     , PNL_DRIN_PSVT_AM
+				     , RSR_AM
+				     , SPLP_AM
+				     , BGT_RDC_AM
+				     , INC_ICR_AM
+				     , PPL_BDN_RDT_AM
+				     , FRTN_INCR_AM
+				     , EXPN_RTNL_AM
+				     , IJS_AM
+				     , SLF_HNDL_RQ_AM
+				     , WRDO_CAU_CD
+				     , ENFM_MNG_BRDV_CD
+				     , DTM_YN
+				     , DTM_STA_CD
+				     , ENFM_HST_IPT_DT
+				     , ACNT_INSP_CD
+				     , CPLT_DT
+				     , HMP_OPEN_YN
+				     , DTY_OBV_UTL_YN
+				     , AM
+				     , NOP_CNT
+				     , HNDL_PLAN_RPT_NO
+				     , EVI_CNT
+				     , TOT_EVI_CNT
+				     , WRDO_TYP_CD
+				     , DTY_INSP_MTRL_TXT
+				     , AUD_POLI_CD
+				     , AUD_SPH_CD
+				     , AUD_RPT_YR
+				     , ENFM_CPLT_IPT_DT
+				     , EPT_EFCT_AM_STA_CD
+				     , EPT_EFCT_DT
+				     , ENFM_WHLS_DTM_DT
+				     , SLF_HNDL_TXT
+				     , STF_SMT_INF_TXT
+				     , COPT_OFI_CD
+				     , RLTN_ORG_CD
+				     , COPT_CNT
+				     , ORG_CNT
+				     , DSP_RQ_DTM_DT
+				     , DSP_RQ_DTM_PEN_ID
+				     , ENFM_CPLT_IPT_PEN_ID
+				     , ENFM_WHLS_DTM_PEN_ID
+				     , DSP_RQ_APV_STA_CD
+				     , DSP_RQ_APV_STA_DT
+				     , CPLT_PEN_ID
+				     , TSK_CAT_CD
+				     , EXPOT_Y_EFCT_AM
+				     , ENFM_WHLS_APV_KND_CD
+				     , EXAM_RPRT_DSP_RQ_SBT
+				     , EXAM_RPRT_UNENFM_RTWR_TXT
+				     , EXAM_RPRT_UNENFM_RSN_EXAM_TXT
+				     , EXAM_RPRT_APV_STA_DT
+				     , EXAM_RPRT_APV_STA_CD
+				     , CLSG_PRSS_STA_CD
+				     , MAIN_ENFM_MNG_TG_YN /* 주요이행관리대상여부 - 2017.01.25 yyh*/
+				     , OD_ENFM_MNG_BRDV_CD /* 구이행관리국과코드 - 2017.02.01 yyh*/
+				     , SND_STA_CD          /* 송부상태코드 - 2017.06.08 yyh*/
+				     , FRT_USR_ID
+				     , FNL_USR_ID
+				     , FNL_DEAL_DPT_CD
+				     , FNL_MNU_ID
+				     , FRT_REGI_DH
+				     , FNL_MDF_DH
+				     , JUD_RST_SBJ_CD               /* 판정유보사항코드 - 2018.08.06 yyh */
+				     , JUD_RST_RSN_TXT              /* 판정유보사유내용 - 2018.08.06 yyh */
+				     , JUD_RST_SBJ_HNDL_RSLT_TXT    /* 판정유보사항처리결과내용 - 2018.08.06 yyh */
+				) VALUES(
+				       #AUD_YR#
+				     , #AUD_NO#
+				     , #DSP_RQ_SNO#
+				     , #DSP_RQ_SRNO#
+				     , #ENF_DT#
+				     , #HNDL_DDLN_DT#
+				     , #ENF_BRDV_CD#
+				     , #CHGR_NM#
+				     , #DOC_SEN_NO#
+				     , #DSP_RQ_IPT_DT#
+				     , #PSC_RQT_NOP_CNT#
+				     , #PNL_DRIN_PSVT_AM#
+				     , #RSR_AM#
+				     , #SPLP_AM#
+				     , #BGT_RDC_AM#
+				     , #INC_ICR_AM#
+				     , #PPL_BDN_RDT_AM#
+				     , #FRTN_INCR_AM#
+				     , #EXPN_RTNL_AM#
+				     , #IJS_AM#
+				     , #SLF_HNDL_RQ_AM#
+				     , #WRDO_CAU_CD#
+				     , #ENFM_MNG_BRDV_CD#
+				     , #DTM_YN#
+				     , #DTM_STA_CD#
+				     , #ENFM_HST_IPT_DT#
+				     , #ACNT_INSP_CD#
+				     , #CPLT_DT#
+				     , #HMP_OPEN_YN#
+				     , #DTY_OBV_UTL_YN#
+				     , #AM#
+				     , #NOP_CNT#
+				     , #HNDL_PLAN_RPT_NO#
+				     , #EVI_CNT#
+				     , #TOT_EVI_CNT#
+				     , #WRDO_TYP_CD#
+				     , #DTY_INSP_MTRL_TXT#
+				     , #AUD_POLI_CD#
+				     , #AUD_SPH_CD#
+				     , #AUD_RPT_YR#
+				     , #ENFM_CPLT_IPT_DT#
+				     , #EPT_EFCT_AM_STA_CD#
+				     , #EPT_EFCT_DT#
+				     , #ENFM_WHLS_DTM_DT#
+				     , #SLF_HNDL_TXT#
+				     , #STF_SMT_INF_TXT#
+				     , #COPT_OFI_CD#
+				     , #RLTN_ORG_CD#
+				     , #COPT_CNT#
+				     , #ORG_CNT#
+				     , #DSP_RQ_DTM_DT#
+				     , #DSP_RQ_DTM_PEN_ID#
+				     , #ENFM_CPLT_IPT_PEN_ID#
+				     , #ENFM_WHLS_DTM_PEN_ID#
+				     , #DSP_RQ_APV_STA_CD#
+				     , #DSP_RQ_APV_STA_DT#
+				     , #CPLT_PEN_ID#
+				     , #TSK_CAT_CD#
+				     , #EXPOT_Y_EFCT_AM#
+				     , #ENFM_WHLS_APV_KND_CD#
+				     , #EXAM_RPRT_DSP_RQ_SBT#
+				     , #EXAM_RPRT_UNENFM_RTWR_TXT#
+				     , #EXAM_RPRT_UNENFM_RSN_EXAM_TXT#
+				     , #EXAM_RPRT_APV_STA_DT#
+				     , #EXAM_RPRT_APV_STA_CD#
+				     , #CLSG_PRSS_STA_CD#
+				     , #MAIN_ENFM_MNG_TG_YN#
+				     , (CASE WHEN #ENF_DT# >= '20170119' THEN #ENF_BRDV_CD#
+					         ELSE ''
+					     END)
+					 , '3'  
+				     , #FRT_USR_ID#
+				     , #FNL_USR_ID#
+				     , #FNL_DEAL_DPT_CD#
+				     , #FNL_MNU_ID#
+				     , SYSDATE
+				     , SYSDATE
+				     , #JUD_RST_SBJ_CD#
+				     , #JUD_RST_RSN_TXT#
+				     , #JUD_RST_SBJ_HNDL_RSLT_TXT#
+				) ;
+		END;			
+		]]>
+	</insert>  
+
+	
+	<!--처분요구기본 update-->
+	<update id="BADEAR003EMasterUpdate" parameterClass="paramMap">
+		DECLARE
+			BEGIN	
+		<![CDATA[ 	
+			UPDATE TBBADEAR001M
+			   SET AUD_YR        = #AUD_YR# 
+			     , AUD_NO        = #AUD_NO# 		
+			     , DSP_RQ_SNO    = #DSP_RQ_SNO#
+		]]>	 
+		<isNotNull prepend="," property="FRM_NO">	 	
+			      FRM_NO      = #FRM_NO#
+		</isNotNull>	
+		<isNotNull prepend="," property="RPRT_NO">	 	
+			      RPRT_NO      = #RPRT_NO#
+		</isNotNull>		
+		<isNotNull prepend="," property="JUDG_NO">	 	
+			      JUDG_NO      = #JUDG_NO#
+		</isNotNull>	
+		<isNotNull prepend="," property="TIT_TXT">	 	
+			      TIT_TXT      = #TIT_TXT#
+		</isNotNull>	
+		<isNotNull prepend="," property="HND_SBJ_TXT">	 	
+			      HND_SBJ_TXT      = #HND_SBJ_TXT#
+		</isNotNull>	
+		<isNotNull prepend="," property="HNDL_PLAN_DVSN_CD">	 	
+			      HNDL_PLAN_DVSN_CD      = #HNDL_PLAN_DVSN_CD#
+		</isNotNull>	
+		<isNotNull prepend="," property="DSP_RQ_KND_CD">	 	
+			      DSP_RQ_KND_CD      = #DSP_RQ_KND_CD#
+		</isNotNull>	
+		<isNotNull prepend="," property="ORG_DVSN_CD">	 	
+			      ORG_DVSN_CD      = #ORG_DVSN_CD#
+		</isNotNull>	
+		<isNotNull prepend="," property="AUD_EPS_CD">	 	
+			      AUD_EPS_CD      = #AUD_EPS_CD#
+		</isNotNull>
+		<isNotNull prepend="," property="FNL_USR_ID">	       
+			      FNL_USR_ID      = #FNL_USR_ID#
+		</isNotNull>	
+		<isNotNull prepend="," property="FNL_DEAL_DPT_CD">	       
+			      FNL_DEAL_DPT_CD  = #FNL_DEAL_DPT_CD#
+		</isNotNull>		
+		<isNotNull prepend="," property="FNL_MNU_ID">	       
+			      FNL_MNU_ID        = #FNL_MNU_ID#
+		</isNotNull>
+		<![CDATA[ 	
+				 , FNL_MDF_DH        = SYSDATE			
+			  WHERE 1=1
+			    AND AUD_YR = #AUD_YR# 
+			    AND AUD_NO = #AUD_NO# 	
+			    AND DSP_RQ_SNO = #DSP_RQ_SNO#
+			    ;
+		]]>		
+		END;				        
+	</update>	
+
+	<!--처분요구상세 update-->
+	<update id="BADEAR003EMasterSubUpdate" parameterClass="paramMap">
+		DECLARE
+			BEGIN		
+			<![CDATA[ 	
+				UPDATE TBBADEAR002D
+				   SET AUD_YR        = #AUD_YR# 
+				     , AUD_NO        = #AUD_NO# 		
+				     , DSP_RQ_SNO    = #DSP_RQ_SNO#
+			]]>	 
+			<isNotNull prepend="," property="DSP_RQ_SRNO">DSP_RQ_SRNO=#DSP_RQ_SRNO# </isNotNull>
+			<isNotNull prepend="," property="ENF_DT">ENF_DT=#ENF_DT# </isNotNull>
+			<isNotNull prepend="," property="HNDL_DDLN_DT">HNDL_DDLN_DT=#HNDL_DDLN_DT# </isNotNull>
+			<isNotNull prepend="," property="ENF_BRDV_CD">ENF_BRDV_CD=#ENF_BRDV_CD# </isNotNull>
+			<isNotNull prepend="," property="CHGR_NM">CHGR_NM=#CHGR_NM# </isNotNull>
+			<isNotNull prepend="," property="DOC_SEN_NO">DOC_SEN_NO=#DOC_SEN_NO# </isNotNull>
+			<isNotNull prepend="," property="DSP_RQ_IPT_DT">DSP_RQ_IPT_DT=#DSP_RQ_IPT_DT# </isNotNull>
+			<isNotNull prepend="," property="PSC_RQT_NOP_CNT">PSC_RQT_NOP_CNT=#PSC_RQT_NOP_CNT# </isNotNull>
+			<isNotNull prepend="," property="PNL_DRIN_PSVT_AM">PNL_DRIN_PSVT_AM=#PNL_DRIN_PSVT_AM# </isNotNull>
+			<isNotNull prepend="," property="RSR_AM">RSR_AM=#RSR_AM# </isNotNull>
+			<isNotNull prepend="," property="SPLP_AM">SPLP_AM=#SPLP_AM# </isNotNull>
+			<isNotNull prepend="," property="BGT_RDC_AM">BGT_RDC_AM=#BGT_RDC_AM# </isNotNull>
+			<isNotNull prepend="," property="INC_ICR_AM">INC_ICR_AM=#INC_ICR_AM# </isNotNull>
+			<isNotNull prepend="," property="PPL_BDN_RDT_AM">PPL_BDN_RDT_AM=#PPL_BDN_RDT_AM# </isNotNull>
+			<isNotNull prepend="," property="FRTN_INCR_AM">FRTN_INCR_AM=#FRTN_INCR_AM# </isNotNull>
+			<isNotNull prepend="," property="EXPN_RTNL_AM">EXPN_RTNL_AM=#EXPN_RTNL_AM# </isNotNull>
+			<isNotNull prepend="," property="IJS_AM">IJS_AM=#IJS_AM# </isNotNull>
+			<isNotNull prepend="," property="SLF_HNDL_RQ_AM">SLF_HNDL_RQ_AM=#SLF_HNDL_RQ_AM# </isNotNull>
+			<isNotNull prepend="," property="WRDO_CAU_CD">WRDO_CAU_CD=#WRDO_CAU_CD# </isNotNull>
+			<isNotNull prepend="," property="ENFM_MNG_BRDV_CD">ENFM_MNG_BRDV_CD=#ENFM_MNG_BRDV_CD# </isNotNull>
+			<isNotNull prepend="," property="DTM_YN">DTM_YN=#DTM_YN# </isNotNull>
+			<isNotNull prepend="," property="DTM_STA_CD">DTM_STA_CD=#DTM_STA_CD# </isNotNull>
+			<isNotNull prepend="," property="ENFM_HST_IPT_DT">ENFM_HST_IPT_DT=#ENFM_HST_IPT_DT# </isNotNull>
+			<isNotNull prepend="," property="ACNT_INSP_CD">ACNT_INSP_CD=#ACNT_INSP_CD# </isNotNull>
+			<isNotNull prepend="," property="CPLT_DT">CPLT_DT=#CPLT_DT# </isNotNull>
+			<isNotNull prepend="," property="HMP_OPEN_YN">HMP_OPEN_YN=#HMP_OPEN_YN# </isNotNull>
+			<isNotNull prepend="," property="DTY_OBV_UTL_YN">DTY_OBV_UTL_YN=#DTY_OBV_UTL_YN# </isNotNull>
+			<isNotNull prepend="," property="AM">AM=#AM# </isNotNull>
+			<isNotNull prepend="," property="NOP_CNT">NOP_CNT=#NOP_CNT# </isNotNull>
+			<isNotNull prepend="," property="HNDL_PLAN_RPT_NO">HNDL_PLAN_RPT_NO=#HNDL_PLAN_RPT_NO# </isNotNull>
+			<isNotNull prepend="," property="EVI_CNT">EVI_CNT=#EVI_CNT# </isNotNull>
+			<isNotNull prepend="," property="TOT_EVI_CNT">TOT_EVI_CNT=#TOT_EVI_CNT# </isNotNull>
+			<isNotNull prepend="," property="WRDO_TYP_CD">WRDO_TYP_CD=#WRDO_TYP_CD# </isNotNull>
+			<isNotNull prepend="," property="DTY_INSP_MTRL_TXT">DTY_INSP_MTRL_TXT=#DTY_INSP_MTRL_TXT# </isNotNull>
+			<isNotNull prepend="," property="AUD_POLI_CD">AUD_POLI_CD=#AUD_POLI_CD# </isNotNull>
+			<isNotNull prepend="," property="AUD_SPH_CD">AUD_SPH_CD=#AUD_SPH_CD# </isNotNull>
+			<isNotNull prepend="," property="AUD_RPT_YR">AUD_RPT_YR=#AUD_RPT_YR# </isNotNull>
+			<isNotNull prepend="," property="ENFM_CPLT_IPT_DT">ENFM_CPLT_IPT_DT=#ENFM_CPLT_IPT_DT# </isNotNull>
+			<isNotNull prepend="," property="EPT_EFCT_AM_STA_CD">EPT_EFCT_AM_STA_CD=#EPT_EFCT_AM_STA_CD# </isNotNull>
+			<isNotNull prepend="," property="EPT_EFCT_DT">EPT_EFCT_DT=#EPT_EFCT_DT# </isNotNull>
+			<isNotNull prepend="," property="ENFM_WHLS_DTM_DT">ENFM_WHLS_DTM_DT=#ENFM_WHLS_DTM_DT# </isNotNull>
+			<isNotNull prepend="," property="SLF_HNDL_TXT">SLF_HNDL_TXT=#SLF_HNDL_TXT# </isNotNull>
+			<isNotNull prepend="," property="STF_SMT_INF_TXT">STF_SMT_INF_TXT=#STF_SMT_INF_TXT# </isNotNull>
+			<isNotNull prepend="," property="COPT_OFI_CD">COPT_OFI_CD=#COPT_OFI_CD# </isNotNull>
+			<isNotNull prepend="," property="RLTN_ORG_CD">RLTN_ORG_CD=#RLTN_ORG_CD# </isNotNull>
+			<isNotNull prepend="," property="COPT_CNT">COPT_CNT=#COPT_CNT# </isNotNull>
+			<isNotNull prepend="," property="ORG_CNT">ORG_CNT=#ORG_CNT# </isNotNull>
+			<isNotNull prepend="," property="DSP_RQ_DTM_DT">DSP_RQ_DTM_DT=#DSP_RQ_DTM_DT# </isNotNull>
+			<isNotNull prepend="," property="DSP_RQ_DTM_PEN_ID">DSP_RQ_DTM_PEN_ID=#DSP_RQ_DTM_PEN_ID# </isNotNull>
+			<isNotNull prepend="," property="ENFM_CPLT_IPT_PEN_ID">ENFM_CPLT_IPT_PEN_ID=#ENFM_CPLT_IPT_PEN_ID# </isNotNull>
+			<isNotNull prepend="," property="ENFM_WHLS_DTM_PEN_ID">ENFM_WHLS_DTM_PEN_ID=#ENFM_WHLS_DTM_PEN_ID# </isNotNull>
+			<isNotNull prepend="," property="DSP_RQ_APV_STA_CD">DSP_RQ_APV_STA_CD=#DSP_RQ_APV_STA_CD# </isNotNull>
+			<isNotNull prepend="," property="DSP_RQ_APV_STA_DT">DSP_RQ_APV_STA_DT=#DSP_RQ_APV_STA_DT# </isNotNull>
+			<isNotNull prepend="," property="CPLT_PEN_ID">CPLT_PEN_ID=#CPLT_PEN_ID# </isNotNull>
+			<isNotNull prepend="," property="TSK_CAT_CD">TSK_CAT_CD=#TSK_CAT_CD# </isNotNull>
+			<isNotNull prepend="," property="EXPOT_Y_EFCT_AM">EXPOT_Y_EFCT_AM=#EXPOT_Y_EFCT_AM# </isNotNull>
+			<isNotNull prepend="," property="ENFM_WHLS_APV_KND_CD">ENFM_WHLS_APV_KND_CD=#ENFM_WHLS_APV_KND_CD# </isNotNull>
+			<isNotNull prepend="," property="EXAM_RPRT_DSP_RQ_SBT">EXAM_RPRT_DSP_RQ_SBT=#EXAM_RPRT_DSP_RQ_SBT# </isNotNull>
+			<isNotNull prepend="," property="EXAM_RPRT_UNENFM_RTWR_TXT">EXAM_RPRT_UNENFM_RTWR_TXT=#EXAM_RPRT_UNENFM_RTWR_TXT# </isNotNull>
+			<isNotNull prepend="," property="EXAM_RPRT_UNENFM_RSN_EXAM_TXT">EXAM_RPRT_UNENFM_RSN_EXAM_TXT=#EXAM_RPRT_UNENFM_RSN_EXAM_TXT# </isNotNull>
+			<isNotNull prepend="," property="EXAM_RPRT_APV_STA_DT">EXAM_RPRT_APV_STA_DT=#EXAM_RPRT_APV_STA_DT# </isNotNull>
+			<isNotNull prepend="," property="EXAM_RPRT_APV_DOC_NO">EXAM_RPRT_APV_DOC_NO=#EXAM_RPRT_APV_DOC_NO# </isNotNull>
+			<isNotNull prepend="," property="EXAM_RPRT_APV_STA_CD">EXAM_RPRT_APV_STA_CD=#EXAM_RPRT_APV_STA_CD# </isNotNull>
+			<isNotNull prepend="," property="CLSG_PRSS_STA_CD">CLSG_PRSS_STA_CD=#CLSG_PRSS_STA_CD# </isNotNull>
+			<isNotNull prepend="," property="MAIN_ENFM_MNG_TG_YN">MAIN_ENFM_MNG_TG_YN=#MAIN_ENFM_MNG_TG_YN# </isNotNull> /* 주요이행관리대상여부 - 2017.01.25 yyh*/
+			<isNotNull prepend="," property="JUD_RST_SBJ_CD">JUD_RST_SBJ_CD=#JUD_RST_SBJ_CD# </isNotNull>                                  /* 판정유보사항코드 - 2018.08.06 yyh */
+			<isNotNull prepend="," property="JUD_RST_RSN_TXT">JUD_RST_RSN_TXT=#JUD_RST_RSN_TXT# </isNotNull>                               /* 판정유보사유내용 - 2018.08.06 yyh */
+			<isNotNull prepend="," property="JUD_RST_SBJ_HNDL_RSLT_TXT">JUD_RST_SBJ_HNDL_RSLT_TXT=#JUD_RST_SBJ_HNDL_RSLT_TXT# </isNotNull> /* 판정유보사항처리결과내용 - 2018.08.06 yyh */
+			<isNotNull prepend="," property="FNL_USR_ID">	       
+				      FNL_USR_ID      = #FNL_USR_ID#
+			</isNotNull>	
+			<isNotNull prepend="," property="FNL_DEAL_DPT_CD">	       
+				      FNL_DEAL_DPT_CD  = #FNL_DEAL_DPT_CD#
+			</isNotNull>		
+			<isNotNull prepend="," property="FNL_MNU_ID">	       
+				      FNL_MNU_ID        = #FNL_MNU_ID#
+			</isNotNull>
+			
+			<isNotNull prepend="," property="IMMUN_EXAM_CD">	       
+				      IMMUN_EXAM_CD      = #IMMUN_EXAM_CD#
+			</isNotNull>
+			
+			<isNotNull prepend="," property="IMMUN_EXAM_CD2">	       
+				      IMMUN_EXAM_CD2      = #IMMUN_EXAM_CD2#
+			</isNotNull>
+			
+			<isNotNull prepend="," property="PASV_ADMN_EXAM_YN">	       
+				      PASV_ADMN_EXAM_YN      = #PASV_ADMN_EXAM_YN#
+			</isNotNull>
+			
+			<isNotNull prepend="," property="SELF_YN">	       
+				      SELF_YN      = #SELF_YN#
+			</isNotNull>
+			
+			<![CDATA[ 	
+					 , FNL_MDF_DH        = SYSDATE		
+					 
+					 /* 구집행관리국과코드 - 2017.01.25 yyh */
+					 , OD_ENFM_MNG_BRDV_CD = CASE WHEN #ENF_DT# >= '20170119' THEN #ENF_BRDV_CD#
+					                              ELSE ''
+					                          END 
+				  WHERE 1=1
+				    AND AUD_YR = #AUD_YR# 
+				    AND AUD_NO = #AUD_NO# 	
+				    AND DSP_RQ_SNO = #DSP_RQ_SNO#
+				   ;
+			END;				  
+		]]>			    					        
+	</update>	
+
+
+	<!--처분요구기본 delete-->
+	<update id="BADEAR003EMasterDelete" parameterClass="paramMap">
+		DECLARE
+			BEGIN	
+			   DELETE 
+				 FROM TBBADEAR001M
+				WHERE 1=1
+				  AND AUD_YR = #AUD_YR# 
+				  AND AUD_NO = #AUD_NO# 		
+				  AND DSP_RQ_SNO = #DSP_RQ_SNO#
+				;
+		END;		  
+	</update>
+
+
+
+	<!--처분요구상세 delete-->
+	<update id="BADEAR003EMasterSubDelete" parameterClass="paramMap">
+		DECLARE
+			BEGIN	
+			   DELETE 
+				 FROM TBBADEAR002D
+				WHERE 1=1
+				  AND AUD_YR = #AUD_YR# 
+				  AND AUD_NO = #AUD_NO# 		
+				  AND DSP_RQ_SNO = #DSP_RQ_SNO#
+			    ;
+		END;			  
+	</update>
+
+	
+	<!-- 연번 Max값 찾기 -->
+	<select id="BADEAR003EMainMaxSnoSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[     	
+			    SELECT NVL(MAX(TO_NUMBER(DSP_RQ_SNO)),0)+1 AS MAX_SEQ
+				  FROM TBBADEAR001M
+				 WHERE 1=1
+				   AND AUD_YR               = #AUD_YR# 
+				   AND AUD_NO               = #AUD_NO# 
+		]]>
+	</select>
+
+	<!-- 회계사항 -->
+	<select id="BADEAR003EAcctSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[    
+			SELECT D1.AUD_YR               AS AUD_YR               /*감사년도*/
+			     , D1.AUD_NO               AS AUD_NO               /*감사번호*/
+			     , D1.DSP_RQ_SNO           AS DSP_RQ_SNO           /*처분요구순번*/
+			     , D1.ACNT_SBJ_SNO         AS ACNT_SBJ_SNO         /*회계사항순번*/
+			     , D1.DSP_RQ_ACNT_CD       AS DSP_RQ_ACNT_CD       /*처분요구회계코드*/
+			     , F_CODE_NM('1000004',D1.DSP_RQ_ACNT_CD)       AS DSP_RQ_ACNT_NM       /*처분요구회계명*/
+			     , D1.EPT_EFCT_DVSN_CD     AS EPT_EFCT_DVSN_CD     /*기대효과구분코드*/
+			     , D1.ACNT_YE              AS ACNT_YE              /*회계연도*/
+			     , D1.PNL_DRIN_PSVT_AM     AS PNL_DRIN_PSVT_AM     /*추징회수보전금액*/    
+			     , D1.RSR_AM               AS RSR_AM               /*환급금액*/
+			     , D1.SPLP_AM              AS SPLP_AM              /*추급금액*/
+			     , D1.EPT_EFCT_AM          AS EPT_EFCT_AM          /*기대효과금액*/
+			     , D1.EXPOT_Y_EFCT_AM      AS EXPOT_Y_EFCT_AM      /*사후적효과금액*/
+			     , D1.EXPOT_Y_EFCT_AM_CALC_BAS_TXT AS EXPOT_Y_EFCT_AM_CALC_BAS_TXT /*사후적효과금액산출근거*/
+			     , D1.ETC_ACNT_NM          AS ETC_ACNT_NM			/*기타회계명 */
+			     , D1.EXPOT_Y_EFCT_AM_APC_YN  AS EXPOT_Y_EFCT_AM_APC_YN /* 사후적효과금액적용여부 추가 - 2017.10.19 yyh  */
+			     , D1.BGT_RFC_NCSY_YN         AS BGT_RFC_NCSY_YN        /* 예산반영필요여부 추가 - 2017.10.26 yyh  */
+			  FROM TBBADEAR003M D1
+			 WHERE 1=1
+			   AND D1.AUD_YR               = #AUD_YR# 
+			   AND D1.AUD_NO               = #AUD_NO# 	
+			   AND D1.DSP_RQ_SNO			= #DSP_RQ_SNO#	
+		    ORDER BY D1.EPT_EFCT_DVSN_CD	  
+		]]>
+	</select>
+
+	<!-- 회계사항 순번 Max값 찾기 -->
+	<select id="BADEAR003EAcctMaxSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[     	
+			    SELECT TO_CHAR(NVL(MAX(TO_NUMBER(ACNT_SBJ_SNO)),0)+1) AS MAX_ACNT_SBJ_SNO
+				  FROM TBBADEAR003M
+				 WHERE 1=1
+					AND AUD_YR = #AUD_YR#
+					AND AUD_NO = #AUD_NO#
+					AND DSP_RQ_SNO = #DSP_RQ_SNO#
+		]]>
+	</select>	
+
+
+	<!--회계사항 insert-->
+	<insert id="BADEAR003EAcctInsert" parameterClass="paramMap">
+		<![CDATA[
+		DECLARE
+			BEGIN			
+			INSERT INTO TBBADEAR003M (
+			       AUD_YR
+			     , AUD_NO
+			     , DSP_RQ_SNO
+			     , ACNT_SBJ_SNO
+			     , DSP_RQ_ACNT_CD
+			     , EPT_EFCT_DVSN_CD
+			     , ACNT_YE
+			     , PNL_DRIN_PSVT_AM
+			     , RSR_AM
+			     , SPLP_AM
+			     , EPT_EFCT_AM
+			     , EXPOT_Y_EFCT_AM
+			     , EXPOT_Y_EFCT_AM_CALC_BAS_TXT
+			     , ETC_ACNT_NM
+			     , FRT_USR_ID
+			     , FNL_USR_ID
+			     , FNL_DEAL_DPT_CD
+			     , FNL_MNU_ID
+			     , FRT_REGI_DH
+			     , FNL_MDF_DH
+			     , EXPOT_Y_EFCT_AM_APC_YN /* 사후적효과금액적용여부 추가 - 2017.10.19 yyh  */
+			     , BGT_RFC_NCSY_YN        /* 예산반영필요여부 추가 - 2017.10.26 yyh  */
+			) VALUES(
+			       #AUD_YR#
+			     , #AUD_NO#
+			     , #DSP_RQ_SNO#
+			     , #ACNT_SBJ_SNO#
+			     , #DSP_RQ_ACNT_CD#
+			     , #EPT_EFCT_DVSN_CD#
+			     , #ACNT_YE#
+			     , #PNL_DRIN_PSVT_AM#
+			     , #RSR_AM#
+			     , #SPLP_AM#
+			     , #EPT_EFCT_AM#
+			     , #EXPOT_Y_EFCT_AM#
+			     , #EXPOT_Y_EFCT_AM_CALC_BAS_TXT#
+			     , #ETC_ACNT_NM#
+			     , #FRT_USR_ID#
+			     , #FNL_USR_ID#
+			     , #FNL_DEAL_DPT_CD#
+			     , #FNL_MNU_ID#
+			     , SYSDATE
+			     , SYSDATE
+			     , #EXPOT_Y_EFCT_AM_APC_YN#
+			     , #BGT_RFC_NCSY_YN#
+			);
+		END;			
+		]]>
+	</insert>
+	
+	<!-- 회계사항 Update -->
+	<update id="BADEAR003EAcctUpdate" parameterClass="paramMap">
+		<![CDATA[ 	
+		DECLARE
+			BEGIN		
+			UPDATE TBBADEAR003M
+			   SET AUD_YR        = #AUD_YR# 
+			     , AUD_NO        = #AUD_NO# 		
+			     , DSP_RQ_SNO    = #DSP_RQ_SNO#
+			     , ACNT_SBJ_SNO  = #ACNT_SBJ_SNO#
+   
+		]]>	 
+		<isNotNull prepend="," property="DSP_RQ_ACNT_CD">	
+			     DSP_RQ_ACNT_CD	= #DSP_RQ_ACNT_CD#
+		</isNotNull>	
+		<isNotNull prepend="," property="EPT_EFCT_DVSN_CD">	
+			     EPT_EFCT_DVSN_CD	= #EPT_EFCT_DVSN_CD#	
+		</isNotNull>		  		
+		<isNotNull prepend="," property="ACNT_YE">	       
+			      ACNT_YE      = #ACNT_YE#
+		</isNotNull>	
+		<isNotNull prepend="," property="PNL_DRIN_PSVT_AM">	       
+			      PNL_DRIN_PSVT_AM      = #PNL_DRIN_PSVT_AM#
+		</isNotNull>	
+		<isNotNull prepend="," property="RSR_AM">	       
+			      RSR_AM      = #RSR_AM#
+		</isNotNull>	
+		<isNotNull prepend="," property="SPLP_AM">	       
+			      SPLP_AM      = #SPLP_AM#
+		</isNotNull>	
+		<isNotNull prepend="," property="EPT_EFCT_AM">	       
+			      EPT_EFCT_AM      = #EPT_EFCT_AM#
+		</isNotNull>	
+		<isNotNull prepend="," property="EXPOT_Y_EFCT_AM">	       
+			      EXPOT_Y_EFCT_AM      = #EXPOT_Y_EFCT_AM#
+		</isNotNull>	
+		<isNotNull prepend="," property="EXPOT_Y_EFCT_AM_CALC_BAS_TXT">	       
+			      EXPOT_Y_EFCT_AM_CALC_BAS_TXT      = #EXPOT_Y_EFCT_AM_CALC_BAS_TXT#
+		</isNotNull>				
+		<isNotNull prepend="," property="FNL_USR_ID">	       
+			      FNL_USR_ID      = #FNL_USR_ID#
+		</isNotNull>	
+		<isNotNull prepend="," property="FNL_DEAL_DPT_CD">	       
+			      FNL_DEAL_DPT_CD  = #FNL_DEAL_DPT_CD#
+		</isNotNull>		
+		<isNotNull prepend="," property="FNL_MNU_ID">	       
+			      FNL_MNU_ID        = #FNL_MNU_ID#
+		</isNotNull>
+		<isNotNull prepend="," property="ETC_ACNT_NM">	       
+			      ETC_ACNT_NM        = #ETC_ACNT_NM#
+		</isNotNull>	
+			
+		<isNotNull prepend="," property="EXPOT_Y_EFCT_AM_APC_YN">	       
+			      EXPOT_Y_EFCT_AM_APC_YN = #EXPOT_Y_EFCT_AM_APC_YN# /* 사후적효과금액적용여부 추가 - 2017.10.19 yyh  */
+		</isNotNull>		
+		
+		<isNotNull prepend="," property="BGT_RFC_NCSY_YN">	       
+			      BGT_RFC_NCSY_YN = #BGT_RFC_NCSY_YN# /* 예산반영필요여부 추가 - 2017.10.26 yyh  */
+		</isNotNull>
+			
+		<![CDATA[ 	
+				 , FNL_MDF_DH        = SYSDATE			
+			  WHERE 1=1
+			    AND AUD_YR 		= #AUD_YR# 
+			    AND AUD_NO 		= #AUD_NO# 	
+			    AND DSP_RQ_SNO 	= #DSP_RQ_SNO#
+			    AND ACNT_SBJ_SNO		= #ACNT_SBJ_SNO#				    
+			  ; 
+		END; 				  
+		]]>			    					        
+	</update>		
+	
+	<!--회계사항 delete-->
+	<update id="BADEAR003EAcctDelete" parameterClass="paramMap">
+		<![CDATA[
+		DECLARE
+			BEGIN			
+			  FOR CS IN ( 
+			    SELECT AUD_YR
+			         , AUD_NO
+			         , DSP_RQ_SNO
+			         , ACNT_SBJ_SNO
+				  FROM TBBADEAR003M
+				 WHERE 1=1
+				   AND AUD_YR 		= #AUD_YR# 
+				   AND AUD_NO 		= #AUD_NO# 	
+				   AND DSP_RQ_SNO 	= #DSP_RQ_SNO#	
+		]]>
+		<isNotEmpty property="ACNT_SBJ_SNO">
+			       AND ACNT_SBJ_SNO		= #ACNT_SBJ_SNO#
+		</isNotEmpty>	
+		<isNotEmpty property="DSP_RQ_ACNT_CD">
+			      AND DSP_RQ_ACNT_CD	= #DSP_RQ_ACNT_CD#
+		</isNotEmpty>	
+		<isNotEmpty property="EPT_EFCT_DVSN_CD"> 	  
+ 			      AND EPT_EFCT_DVSN_CD	= #EPT_EFCT_DVSN_CD#	
+		</isNotEmpty>	
+		<![CDATA[
+			)
+			LOOP 				   		
+			   DELETE 
+				 FROM TBBADEAR003M
+				WHERE 1=1
+				  AND AUD_YR 		= CS.AUD_YR
+				  AND AUD_NO 		= CS.AUD_NO
+				  AND DSP_RQ_SNO 	= CS.DSP_RQ_SNO
+				  AND ACNT_SBJ_SNO	= CS.ACNT_SBJ_SNO
+				;
+				
+			END LOOP;
+		END;												
+		]]>
+	</update>	
+
+	<!-- 소관청조회 -->
+	<select id="BADEAR003ECoptSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[    
+			SELECT D1.AUD_YR            AS AUD_YR               /*감사년도*/
+			     , D1.AUD_NO            AS AUD_NO               /*감사번호*/
+			     , D1.DSP_RQ_SNO        AS DSP_RQ_SNO           /*처분요구순번*/
+			     , D1.RLTN_ORG_CD       AS RLTN_ORG_CD          /*관계기관코드*/
+			     , F_ORG_INFO(D1.RLTN_ORG_CD,'1') AS RLTN_ORG_NM          /*관계기관코드*/
+			     , D1.COPT_ORG_DVSN_CD  AS COPT_ORG_DVSN_CD     /*소관기관구분코드*/    
+			     , D1.DSP_RQ_TG_KND_CD  AS DSP_RQ_TG_KND_CD     /*처분요구대상종류코드*/
+			     , D1.CPLT_YN           AS CPLT_YN              /*완결여부*/
+			  FROM TBBADEAR008M D1
+			 WHERE 1=1
+			   AND D1.AUD_YR               = #AUD_YR# 
+			   AND D1.AUD_NO               = #AUD_NO# 	
+			   AND D1.DSP_RQ_SNO		   = #DSP_RQ_SNO#	
+		    ORDER BY D1.FRT_REGI_DH, D1.RLTN_ORG_CD	  
+		]]>
+	</select>
+
+	<!--소관청 insert-->
+	<insert id="BADEAR003ECoptInsert" parameterClass="paramMap">
+		<![CDATA[
+		DECLARE
+			BEGIN	
+			INSERT INTO TBBADEAR008M (
+			      AUD_YR            
+			    , AUD_NO            
+			    , DSP_RQ_SNO        
+			    , RLTN_ORG_CD       
+			    , COPT_ORG_DVSN_CD  
+			    , DSP_RQ_TG_KND_CD  
+			    , CPLT_YN           
+			    , FRT_USR_ID
+			    , FNL_USR_ID
+			    , FNL_DEAL_DPT_CD
+			    , FNL_MNU_ID
+			    , FRT_REGI_DH
+			    , FNL_MDF_DH 
+			) VALUES(
+			      #AUD_YR#            
+			    , #AUD_NO#            
+			    , #DSP_RQ_SNO#        
+			    , #RLTN_ORG_CD#       
+			    , #COPT_ORG_DVSN_CD#  
+			    , #DSP_RQ_TG_KND_CD#  
+			    , #CPLT_YN#           
+			    , #FRT_USR_ID#
+			    , #FNL_USR_ID#
+			    , #FNL_DEAL_DPT_CD#
+			    , #FNL_MNU_ID#
+			    , SYSDATE
+			    , SYSDATE
+			) 	
+			;
+
+		END;		
+				
+		]]>
+	</insert>	
+
+	<!-- 소관청 Update -->
+	<update id="BADEAR003ECoptUpdate" parameterClass="paramMap">
+		<![CDATA[ 	
+		DECLARE
+			BEGIN	
+			UPDATE TBBADEAR008M
+			   SET AUD_YR        = #AUD_YR# 
+			     , AUD_NO        = #AUD_NO# 		
+			     , DSP_RQ_SNO    = #DSP_RQ_SNO#		
+			     , RLTN_ORG_CD   = #RLTN_ORG_CD#     
+		]]>	 
+		<isNotNull prepend="," property="COPT_ORG_DVSN_CD">	       
+			      COPT_ORG_DVSN_CD      = #COPT_ORG_DVSN_CD#
+		</isNotNull>
+		<isNotNull prepend="," property="DSP_RQ_TG_KND_CD">	       
+			      DSP_RQ_TG_KND_CD      = #DSP_RQ_TG_KND_CD#
+		</isNotNull>
+		<isNotNull prepend="," property="CPLT_YN">	       
+			      CPLT_YN      = #CPLT_YN#
+		</isNotNull>
+		<isNotNull prepend="," property="FNL_USR_ID">	       
+			      FNL_USR_ID      = #FNL_USR_ID#
+		</isNotNull>	
+		<isNotNull prepend="," property="FNL_DEAL_DPT_CD">	       
+			      FNL_DEAL_DPT_CD  = #FNL_DEAL_DPT_CD#
+		</isNotNull>		
+		<isNotNull prepend="," property="FNL_MNU_ID">	       
+			      FNL_MNU_ID        = #FNL_MNU_ID#
+		</isNotNull>
+		<![CDATA[ 	
+				 , FNL_MDF_DH        = SYSDATE			
+			  WHERE 1=1
+			    AND AUD_YR 		= #AUD_YR# 
+			    AND AUD_NO 		= #AUD_NO# 	
+			    AND DSP_RQ_SNO 	= #DSP_RQ_SNO#	
+			    AND RLTN_ORG_CD = #RLTN_ORG_CD#		
+			 ; 
+
+		END;
+		]]>			    					        
+	</update>		
+
+
+	<!--소관청 delete-->
+	<update id="BADEAR003ECoptDelete" parameterClass="paramMap">
+		<![CDATA[ 	
+		DECLARE
+			BEGIN	
+				FOR CS IN (
+				 
+				    SELECT AUD_YR
+				         , AUD_NO
+				         , DSP_RQ_SNO
+				         , RLTN_ORG_CD
+					  FROM TBBADEAR008M
+					 WHERE 1=1
+					   AND AUD_YR 		= #AUD_YR# 
+					   AND AUD_NO 		= #AUD_NO# 	
+					   AND DSP_RQ_SNO 	= #DSP_RQ_SNO#
+		]]>			   	
+		<isNotEmpty property="RLTN_ORG_CD">
+			 		   AND RLTN_ORG_CD = #RLTN_ORG_CD#
+		</isNotEmpty>					   	
+		<![CDATA[ 	
+				)
+				LOOP
+				     DELETE 
+					   FROM TBBADEAR008M
+					  WHERE 1=1
+					    AND AUD_YR 		= CS.AUD_YR
+					    AND AUD_NO 		= CS.AUD_NO
+					    AND DSP_RQ_SNO 	= CS.DSP_RQ_SNO
+					    AND RLTN_ORG_CD = CS.RLTN_ORG_CD
+					  ; 
+				END LOOP;
+			END;
+		]]>   
+	</update>	
+
+	<!-- 관계기관&관계자 조회 -->
+	<select id="BADEAR003ERltnDfntSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+			SELECT D1.AUD_YR            AS AUD_YR               /*감사년도*/
+			     , D1.AUD_NO            AS AUD_NO               /*감사번호*/
+			     , D1.DSP_RQ_SNO        AS DSP_RQ_SNO           /*처분요구순번*/
+			     , D1.RLTN_ORG_CD       AS RLTN_ORG_CD          /*관계기관코드*/
+			     , F_ORG_INFO(D1.RLTN_ORG_CD,'1') AS RLTN_ORG_NM
+			     , D1.RLTN_ORG_DVSN_CD  AS RLTN_ORG_DVSN_CD     /*관계기관구분코드*/    
+			     , D1.DSP_RQ_TG_KND_CD  AS DSP_RQ_TG_KND_CD     /*처분요구대상종류코드*/
+			     , D1.CPLT_YN           AS CPLT_YN              /*완결여부*/
+			     , D1.CPLT_DT           AS CPLT_DT              /*완결일*/
+			     , D1.CPLT_PEN_ID       AS CPLT_PEN_ID          /*완결자ID*/
+			     , D1.SLF_ACP_STA_CD    AS SLF_ACP_STA_CD       /*자체접수상태고드*/
+			     , D1.SLF_APV_DT        AS SLF_APV_DT           /*자체결재일*/
+			     , D1.SLF_ACP_DT        AS SLF_ACP_DT           /*자체접수일*/
+			     , D1.ENFM_MNG_ORG_CD   AS ENFM_MNG_ORG_CD      /*집행관리기관코드*/
+			     , F_ORG_INFO(D1.ENFM_MNG_ORG_CD,'1') AS ENFM_MNG_ORG_NM
+			     , D2.DFNT_SNO          AS DFNT_SNO             /*관계자순번*/
+			     , D2.AD                AS AD                   /*주소*/
+			     , D2.OCP_CD            AS OCP_CD               /*직종코드*/
+			     , D2.RANK_CD           AS RANK_CD              /*직급코드*/
+			     , D2.DFNT_NAM          AS DFNT_NAM             /*관계자성명*/
+			     , D2.EIN               AS EIN                  /*주민번호*/
+			     , D2.BK_COM_AD         AS BK_COM_AD            /*이전직장주소*/
+			     , D2.CMPY_NM           AS CMPY_NM              /*회사명*/    
+			     , D2.ACNT_NM           AS ACNT_NM              /*회계명*/
+			     , D2.HND_CD            AS HND_CD               /*조치코드*/
+			     , D2.AM                AS AM                   /*금액*/
+			     , D2.CPLT_YN           AS PSN_CPLT_YN          /*완결여부*/
+			     , D2.HND_RQ_KND_CD     AS HND_RQ_KND_CD        /*조치요구종류코드*/
+			     , D2.CPLT_DT           AS PSN_CPLT_DT          /*완결일*/
+			     , D2.CPLT_PEN_ID       AS PSN_CPLT_PEN_ID      /*완결자ID*/
+			     , D2.SDY_GRT_AM        AS SDY_GRT_AM           /*연대보증금액*/
+			     , D2.SDY_GRT_RSN       AS SDY_GRT_RSN          /*연대보증사유*/
+			     , D2.PST_NM            AS PST_NM               /*직위명 - 2017.10.19 yyh */
+			     , D2.RMK_TXT           AS RMK_TXT              /*비고내용 - 2017.10.19 yyh */
+			  FROM TBBADEAR006M D1
+			     , TBBADEAR007M D2
+			 WHERE 1=1 
+			   AND D1.AUD_YR       = D2.AUD_YR(+)
+			   AND D1.AUD_NO       = D2.AUD_NO(+)
+			   AND D1.DSP_RQ_SNO   = D2.DSP_RQ_SNO(+)
+			   AND D1.RLTN_ORG_CD  = D2.RLTN_ORG_CD(+)   
+			   AND D1.AUD_YR       = #AUD_YR# 
+			   AND D1.AUD_NO       = #AUD_NO# 	
+			   AND D1.DSP_RQ_SNO   = #DSP_RQ_SNO#	
+		    ORDER BY D1.FRT_REGI_DH, D1.RLTN_ORG_CD	,D2.DFNT_SNO  			            
+        ]]>
+	</select>   
+	  
+	<!--관계기관 조회 -->   
+	<select id="BADEAR003ERltnSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[	
+            SELECT AUD_YR
+			     , AUD_NO
+			     , DSP_RQ_SNO
+			     , RLTN_ORG_CD
+			     , RLTN_ORG_DVSN_CD 
+		      FROM TBBADEAR006M
+			 WHERE 1=1         
+			   AND AUD_YR       = #AUD_YR# 
+			   AND AUD_NO       = #AUD_NO# 	
+			   AND DSP_RQ_SNO   = #DSP_RQ_SNO#	        
+			   AND RLTN_ORG_CD  = #RLTN_ORG_CD#
+        ]]>
+	</select>
+	
+	<!--관계기관 조회 -->   
+	<update id="BADEAR003EEnFmMngBrdvCdUpdate" parameterClass="paramMap">
+        <![CDATA[	
+			UPDATE TBBADEAR002D MST
+			   SET ENFM_MNG_BRDV_CD  = (    SELECT D2.ENFM_DPT_CD 
+			                                  FROM (
+			                                        SELECT TBBADEAR006M.*, ROW_NUMBER() OVER( ORDER BY FRT_REGI_DH) ROW_NUM 
+			                                          FROM TBBADEAR006M
+			                                         WHERE 1=1
+			                                           AND AUD_YR      = #AUD_YR# 
+			                                           AND AUD_NO      = #AUD_NO# 	
+			                                           AND DSP_RQ_SNO  = #DSP_RQ_SNO#	        
+			                                        ) D1
+			                                     , TBDCMACM015M D2
+			                                 WHERE 1=1
+			                                   AND D1.RLTN_ORG_CD = D2.ORG_CD
+			                                   AND ROW_NUM = '1'
+			                            ) 
+			  WHERE 1=1
+			    AND MST.AUD_YR       = #AUD_YR# 
+			    AND MST.AUD_NO       = #AUD_NO# 	
+			    AND MST.DSP_RQ_SNO   = #DSP_RQ_SNO#	        
+        ]]>
+	</update>
+	           
+	<!--관계자 조회 -->   
+	<select id="BADEAR003EDfntSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+			SELECT AUD_YR       
+			     , AUD_NO
+			     , DSP_RQ_SNO
+			     , RLTN_ORG_CD
+			     , DFNT_SNO
+			     , AD
+			     , OCP_CD
+			     , RANK_CD
+			     , DFNT_NAM
+			     , EIN
+			     , BK_COM_AD
+			     , CMPY_NM
+			     , ACNT_NM
+			     , HND_CD
+			     , AM
+			     , CPLT_YN
+			     , HND_RQ_KND_CD
+			     , CPLT_DT
+			     , CPLT_PEN_ID
+			     , SDY_GRT_AM
+			     , SDY_GRT_RSN
+			     , PST_NM           /*직위명 - 2017.10.19 yyh */
+			     , RMK_TXT          /*비고내용 - 2017.10.19 yyh */
+			  FROM TBBADEAR007M
+			 WHERE 1=1         
+			   AND AUD_YR       = #AUD_YR# 
+			   AND AUD_NO       = #AUD_NO# 	
+			   AND DSP_RQ_SNO   = #DSP_RQ_SNO#	
+			   AND RLTN_ORG_CD  = #RLTN_ORG_CD#			 
+        ]]>
+	</select>      
+        
+	<!--관계기관 insert-->
+	<insert id="BADEAR003ERltnInsert" parameterClass="paramMap">
+		DECLARE
+			BEGIN			
+		<![CDATA[
+			INSERT INTO TBBADEAR006M ( 
+			       AUD_YR
+			     , AUD_NO
+			     , DSP_RQ_SNO
+			     , RLTN_ORG_CD
+			     , RLTN_ORG_DVSN_CD
+			     , DSP_RQ_TG_KND_CD
+			     , CPLT_YN
+			     , CPLT_DT
+			     , CPLT_PEN_ID
+			     , SLF_ACP_STA_CD
+			     , SLF_APV_DT
+			     , SLF_ACP_DT
+			     , ENFM_MNG_ORG_CD
+			     , FNL_USR_ID
+			     , FNL_DEAL_DPT_CD
+			     , FNL_MNU_ID
+			     , FRT_REGI_DH
+			     , FNL_MDF_DH
+			     , FRT_USR_ID
+			) VALUES ( 
+			       #AUD_YR#
+			     , #AUD_NO#
+			     , #DSP_RQ_SNO#
+			     , #RLTN_ORG_CD#
+			     , #RLTN_ORG_DVSN_CD#
+			     , #DSP_RQ_TG_KND_CD#
+			     , #CPLT_YN#
+			     , #CPLT_DT#
+			     , #CPLT_PEN_ID#
+			     , #SLF_ACP_STA_CD#
+			     , #SLF_APV_DT#
+			     , #SLF_ACP_DT#
+			     , #ENFM_MNG_ORG_CD#
+			     , #FNL_USR_ID#
+			     , #FNL_DEAL_DPT_CD#
+			     , #FNL_MNU_ID#
+			     , SYSDATE
+			     , SYSDATE
+			     , #FRT_USR_ID#
+			) ;
+		]]>
+		END;	
+	</insert>	        
+
+	<!--관계자 insert-->
+	<insert id="BADEAR003EDfntInsert" parameterClass="paramMap">
+		DECLARE
+			BEGIN	
+		<![CDATA[
+			INSERT INTO TBBADEAR007M ( 
+			       AUD_YR
+			     , AUD_NO
+			     , DSP_RQ_SNO
+			     , RLTN_ORG_CD
+			     , DFNT_SNO
+			     , AD
+			     , OCP_CD
+			     , RANK_CD
+			     , DFNT_NAM
+			     , EIN
+			     , BK_COM_AD
+			     , CMPY_NM
+			     , ACNT_NM
+			     , HND_CD
+			     , AM
+			     , CPLT_YN
+			     , HND_RQ_KND_CD
+			     , CPLT_DT
+			     , CPLT_PEN_ID
+			     , SDY_GRT_AM
+			     , SDY_GRT_RSN
+			     , FRT_USR_ID
+			     , FNL_USR_ID
+			     , FNL_DEAL_DPT_CD
+			     , FNL_MNU_ID
+			     , FRT_REGI_DH
+			     , FNL_MDF_DH
+			     , PST_NM
+			     , RMK_TXT
+			 ) VALUES ( 
+			       #AUD_YR#
+			     , #AUD_NO#
+			     , #DSP_RQ_SNO#
+			     , #RLTN_ORG_CD#
+			     , #DFNT_SNO#
+			     , #AD#
+			     , #OCP_CD#
+			     , #RANK_CD#
+			     , #DFNT_NAM#
+			     , #EIN#
+			     , #BK_COM_AD#
+			     , #CMPY_NM#
+			     , #ACNT_NM#
+			     , #HND_CD#
+			     , #AM#
+			     , #CPLT_YN#
+			     , SUBSTR(#HND_CD#, 4)
+			     , #CPLT_DT#
+			     , #CPLT_PEN_ID#
+			     , #SDY_GRT_AM#
+			     , #SDY_GRT_RSN#
+			     , #FRT_USR_ID#
+			     , #FNL_USR_ID#
+			     , #FNL_DEAL_DPT_CD#
+			     , #FNL_MNU_ID#
+			     , SYSDATE
+			     , SYSDATE
+			     , #PST_NM#
+			     , #RMK_TXT#
+			 )
+			 ;		
+		]]>
+		END;
+	</insert>
+
+	<!-- 관계기관 Update -->
+	<update id="BADEAR003ERltnUpdate" parameterClass="paramMap">
+		DECLARE
+			BEGIN		
+			<![CDATA[ 	
+				UPDATE TBBADEAR006M
+				   SET AUD_YR        = #AUD_YR# 
+				     , AUD_NO        = #AUD_NO# 		
+				     , DSP_RQ_SNO    = #DSP_RQ_SNO#		
+				     , RLTN_ORG_CD   = #RLTN_ORG_CD#     
+			]]>	 
+			<isNotNull prepend="," property="RLTN_ORG_DVSN_CD">	       
+				      RLTN_ORG_DVSN_CD      = #RLTN_ORG_DVSN_CD#
+			</isNotNull>
+			<isNotNull prepend="," property="DSP_RQ_TG_KND_CD">	       
+				      DSP_RQ_TG_KND_CD      = #DSP_RQ_TG_KND_CD#
+			</isNotNull>
+			<isNotNull prepend="," property="CPLT_YN">	       
+				      CPLT_YN      = #CPLT_YN#
+			</isNotNull>
+			<isNotNull prepend="," property="CPLT_DT">	       
+				      CPLT_DT      = #CPLT_DT#
+			</isNotNull>
+			<isNotNull prepend="," property="CPLT_PEN_ID">	       
+				      CPLT_PEN_ID      = #CPLT_PEN_ID#
+			</isNotNull>
+			<isNotNull prepend="," property="SLF_ACP_STA_CD">	       
+				      SLF_ACP_STA_CD      = #SLF_ACP_STA_CD#
+			</isNotNull>
+			<isNotNull prepend="," property="SLF_APV_DT">	       
+				      SLF_APV_DT      = #SLF_APV_DT#
+			</isNotNull>
+			<isNotNull prepend="," property="SLF_ACP_DT">	       
+				      SLF_ACP_DT      = #SLF_ACP_DT#
+			</isNotNull>
+			<isNotNull prepend="," property="ENFM_MNG_ORG_CD">	       
+				      ENFM_MNG_ORG_CD      = #ENFM_MNG_ORG_CD#
+			</isNotNull>
+			<isNotNull prepend="," property="FNL_USR_ID">	       
+				      FNL_USR_ID      = #FNL_USR_ID#
+			</isNotNull>	
+			<isNotNull prepend="," property="FNL_DEAL_DPT_CD">	       
+				      FNL_DEAL_DPT_CD  = #FNL_DEAL_DPT_CD#
+			</isNotNull>		
+			<isNotNull prepend="," property="FNL_MNU_ID">	       
+				      FNL_MNU_ID        = #FNL_MNU_ID#
+			</isNotNull>
+			<![CDATA[ 	
+					 , FNL_MDF_DH        = SYSDATE			
+				  WHERE 1=1
+				    AND AUD_YR 		= #AUD_YR# 
+				    AND AUD_NO 		= #AUD_NO# 	
+				    AND DSP_RQ_SNO 	= #DSP_RQ_SNO#	
+				    AND RLTN_ORG_CD = #RLTN_ORG_CD#		
+				    ;	    
+			]]>			    					        
+		END;
+	</update>	
+
+	<!-- 관계자 Update -->
+	<update id="BADEAR003EDfntUpdate" parameterClass="paramMap">
+		<![CDATA[ 	
+		DECLARE
+			BEGIN				
+			UPDATE TBBADEAR007M
+			   SET AUD_YR        = #AUD_YR# 
+			     , AUD_NO        = #AUD_NO# 		
+			     , DSP_RQ_SNO    = #DSP_RQ_SNO#		
+			     , RLTN_ORG_CD   = #RLTN_ORG_CD#    
+			     , DFNT_SNO      = #DFNT_SNO# 
+		]]>	 
+		<isNotNull prepend="," property="AD">	       
+			      AD      = #AD#
+		</isNotNull>
+		<isNotNull prepend="," property="OCP_CD">	       
+			      OCP_CD      = #OCP_CD#
+		</isNotNull>
+		<isNotNull prepend="," property="RANK_CD">	       
+			      RANK_CD      = #RANK_CD#
+		</isNotNull>
+		<isNotNull prepend="," property="DFNT_NAM">	       
+			      DFNT_NAM      = #DFNT_NAM#
+		</isNotNull>
+		<isNotNull prepend="," property="EIN">	       
+			      EIN      = #EIN#
+		</isNotNull>
+		<isNotNull prepend="," property="BK_COM_AD">	       
+			      BK_COM_AD      = #BK_COM_AD#
+		</isNotNull>
+		<isNotNull prepend="," property="CMPY_NM">	       
+			      CMPY_NM      = #CMPY_NM#
+		</isNotNull>
+		<isNotNull prepend="," property="ACNT_NM">	       
+			      ACNT_NM      = #ACNT_NM#
+		</isNotNull>
+		<isNotNull prepend="," property="HND_CD">	       
+			      HND_CD      = #HND_CD#
+		</isNotNull>
+		<isNotNull prepend="," property="AM">	       
+			      AM      = #AM#
+		</isNotNull>
+		<isNotNull prepend="," property="CPLT_YN">	       
+			      CPLT_YN      = #CPLT_YN#
+		</isNotNull>
+		<isNotNull prepend="," property="HND_CD">	       
+			      HND_RQ_KND_CD      = SUBSTR(#HND_CD#, 4) 
+		</isNotNull>
+		<isNotNull prepend="," property="CPLT_DT">	       
+			      CPLT_DT      = #CPLT_DT#
+		</isNotNull>
+		<isNotNull prepend="," property="CPLT_PEN_ID">	       
+			      CPLT_PEN_ID      = #CPLT_PEN_ID#
+		</isNotNull>
+		<isNotNull prepend="," property="SDY_GRT_AM">	       
+			      SDY_GRT_AM      = #SDY_GRT_AM#
+		</isNotNull>
+		<isNotNull prepend="," property="SDY_GRT_RSN">	       
+			      SDY_GRT_RSN      = #SDY_GRT_RSN#
+		</isNotNull>
+		<isNotNull prepend="," property="FNL_USR_ID">	       
+			      FNL_USR_ID      = #FNL_USR_ID#
+		</isNotNull>	
+		<isNotNull prepend="," property="FNL_DEAL_DPT_CD">	       
+			      FNL_DEAL_DPT_CD  = #FNL_DEAL_DPT_CD#
+		</isNotNull>		
+		<isNotNull prepend="," property="FNL_MNU_ID">	       
+			      FNL_MNU_ID        = #FNL_MNU_ID#
+		</isNotNull>
+		<isNotNull prepend="," property="PST_NM">	       
+			      PST_NM         = #PST_NM#
+		</isNotNull>
+		<isNotNull prepend="," property="RMK_TXT">	       
+			      RMK_TXT        = #RMK_TXT#
+		</isNotNull>
+		
+		<![CDATA[ 	
+				 , FNL_MDF_DH        = SYSDATE			
+			  WHERE 1=1
+			    AND AUD_YR 		= #AUD_YR# 
+			    AND AUD_NO 		= #AUD_NO# 	
+			    AND DSP_RQ_SNO 	= #DSP_RQ_SNO#	
+			    AND RLTN_ORG_CD = #RLTN_ORG_CD#		
+			    AND DFNT_SNO    = #DFNT_SNO# 	 
+			; 			
+		END;							       
+		]]>			    					        
+	</update>	
+	
+	<!--관계기관 delete-->
+	<update id="BADEAR003ERltnDelete" parameterClass="paramMap">
+		DECLARE
+			BEGIN	
+			  FOR CS IN ( 
+			    SELECT AUD_YR
+			         , AUD_NO
+			         , DSP_RQ_SNO
+			         , RLTN_ORG_CD
+				  FROM TBBADEAR006M
+				 WHERE 1=1
+				   AND AUD_YR 		= #AUD_YR# 
+				   AND AUD_NO 		= #AUD_NO# 	
+				   AND DSP_RQ_SNO 	= #DSP_RQ_SNO#	
+		<isNotEmpty property="RLTN_ORG_CD">
+			 	   AND RLTN_ORG_CD = #RLTN_ORG_CD#
+		</isNotEmpty>	   			  
+		<![CDATA[
+			   )
+			LOOP
+			      DELETE 
+				   FROM TBBADEAR006M
+				  WHERE 1=1
+				    AND AUD_YR 		= CS.AUD_YR
+				    AND AUD_NO 		= CS.AUD_NO
+				    AND DSP_RQ_SNO 	= CS.DSP_RQ_SNO
+					AND RLTN_ORG_CD = CS.RLTN_ORG_CD
+					;
+			
+			END LOOP ;	
+		END;	
+	]]>	
+	</update>		
+	
+	<!--관계자 delete-->
+	<update id="BADEAR003EDfntDelete" parameterClass="paramMap">
+		<![CDATA[ 	
+		DECLARE
+			BEGIN	
+			  FOR CS IN ( 
+			  	SELECT AUD_YR
+			  	     , AUD_NO
+			  	     , DSP_RQ_SNO
+			  	     , RLTN_ORG_CD
+			  	     , DFNT_SNO
+			  	  FROM TBBADEAR007M
+				 WHERE 1=1
+				   AND AUD_YR 		= #AUD_YR# 
+				   AND AUD_NO 		= #AUD_NO# 	
+				   AND DSP_RQ_SNO 	= #DSP_RQ_SNO#	
+			]]>   
+		<isNotEmpty property="RLTN_ORG_CD">
+			 	   AND RLTN_ORG_CD = #RLTN_ORG_CD#
+		</isNotEmpty>	 
+		<isNotEmpty property="DFNT_SNO">
+			 	   AND DFNT_SNO = #DFNT_SNO#
+		</isNotEmpty>	  		       		
+		<![CDATA[ 
+		   )
+		   LOOP 
+				 DELETE 
+				   FROM TBBADEAR007M
+				  WHERE 1=1
+				    AND AUD_YR 		= CS.AUD_YR
+				    AND AUD_NO 		= CS.AUD_NO
+				    AND DSP_RQ_SNO 	= CS.DSP_RQ_SNO
+				    AND RLTN_ORG_CD = CS.RLTN_ORG_CD
+				    AND DFNT_SNO    = CS.DFNT_SNO
+				  ; 
+			END LOOP ;	
+		END;								  
+		]]>   
+	</update>		
+
+	
+	<!-- 관계자 Max값 찾기 -->
+	<select id="BADEAR003EDfntMaxSnoSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[     	
+			    SELECT NVL(MAX(TO_NUMBER(DFNT_SNO)),0)+1 AS MAX_SEQ
+				  FROM TBBADEAR007M
+				 WHERE 1=1
+				   AND AUD_YR 		= #AUD_YR# 
+				   AND AUD_NO 		= #AUD_NO# 	
+				   AND DSP_RQ_SNO 	= #DSP_RQ_SNO#	
+				   AND RLTN_ORG_CD  = #RLTN_ORG_CD#
+		]]>
+	</select>
+
+	<!-- 감사자 SELECT -->
+	<select id="BADEAR003EEtrSelect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[     	
+			SELECT D1.AUD_YR                    AS AUD_YR                   /*감사년도*/
+			     , D1.AUD_NO                    AS AUD_NO                   /*감사번호*/
+			     , D1.DSP_RQ_SNO                AS DSP_RQ_SNO               /*처분요구순번*/
+			     , D1.ETR_PEN_ID                AS ETR_PEN_ID               /*적출자ID*/
+			     , D1.ETR_PEN_BLT_CD            AS ETR_PEN_BLT_CD           /*적출자소속코드*/
+			     , D1.ETR_PEN_RANK_CD           AS ETR_PEN_RANK_CD          /*적출자직급코드*/
+			     , D1.ETR_PEN_NAM               AS ETR_PEN_NAM              /*적출자성명*/
+			     , F_DPT_INFO(D1.ETR_PEN_BLT_CD,'1')	    AS ETR_PEN_BLT_NM   /*적출자소속명*/
+			     , F_CODE_NM('1000173',D1.ETR_PEN_RANK_CD)	AS ETR_PEN_RANK_NM  /*적출자직급명*/
+			     , D1.CTB_RTE                   AS CTB_RTE                  /*기여율*/
+			     , D1.PNL_DRIN_PSVT_AM          AS PNL_DRIN_PSVT_AM         /*추징회수보전금액*/
+			     , D1.IJS_AM                    AS IJS_AM                   /*부당금액*/
+			     , D1.NOP_RTE                   AS NOP_RTE                  /*인원율*/
+			     , D1.ETR_PEN_EXAM_OPIN_TXT     AS ETR_PEN_EXAM_OPIN_TXT    /*적출자검토의견내용*/
+			     , F_DPT_INFO( F_USR_INFO(D1.ETR_PEN_ID, '5'),'1')       AS BLT_NM	/*현재소속부서*/
+                 , F_CODE_NM('1000173',F_USR_INFO(D1.ETR_PEN_ID, '3'))   AS RANK_NM	/*현재직급*/
+			  FROM TBBADEAR004M D1      
+			 WHERE 1=1
+			   AND D1.AUD_YR 		= #AUD_YR# 
+			   AND D1.AUD_NO 		= #AUD_NO# 	
+			   AND D1.DSP_RQ_SNO 	= #DSP_RQ_SNO#	
+			 ORDER BY D1.ETR_PEN_ID			 
+		]]>
+	</select>
+
+	<!--감사자 insert-->
+	<insert id="BADEAR003EEtrInsert" parameterClass="paramMap">
+		DECLARE
+			BEGIN		
+		<![CDATA[
+			INSERT INTO TBBADEAR004M ( 
+			       AUD_YR
+			     , AUD_NO
+			     , DSP_RQ_SNO
+			     , ETR_PEN_ID
+			     , ETR_PEN_BLT_CD
+			     , ETR_PEN_RANK_CD
+			     , ETR_PEN_NAM
+			     , CTB_RTE
+			     , PNL_DRIN_PSVT_AM
+			     , IJS_AM
+			     , NOP_RTE
+			     , ETR_PEN_EXAM_OPIN_TXT
+			     , FRT_USR_ID
+			     , FNL_USR_ID
+			     , FNL_DEAL_DPT_CD
+			     , FNL_MNU_ID
+			     , FRT_REGI_DH
+			     , FNL_MDF_DH
+			) VALUES(
+			       #AUD_YR#
+			     , #AUD_NO#
+			     , #DSP_RQ_SNO#
+			     , #ETR_PEN_ID#
+			     , #ETR_PEN_BLT_CD#
+			     , #ETR_PEN_RANK_CD#
+			     , #ETR_PEN_NAM#
+			     , #CTB_RTE#
+			     , #PNL_DRIN_PSVT_AM#
+			     , #IJS_AM#
+			     , #NOP_RTE#
+			     , #ETR_PEN_EXAM_OPIN_TXT#
+			     , #FRT_USR_ID#
+			     , #FNL_USR_ID#
+			     , #FNL_DEAL_DPT_CD#
+			     , #FNL_MNU_ID#
+			     , SYSDATE
+			     , SYSDATE
+			);
+	
+		]]>
+		END;
+	</insert>		
+	
+	<!-- 감사자 Update -->
+	<update id="BADEAR003EEtrUpdate" parameterClass="paramMap">
+		DECLARE
+			BEGIN	
+		<![CDATA[ 	
+			UPDATE TBBADEAR004M
+			   SET AUD_YR        = #AUD_YR# 
+			     , AUD_NO        = #AUD_NO# 		
+			     , DSP_RQ_SNO    = #DSP_RQ_SNO#		
+			     , ETR_PEN_ID    = #ETR_PEN_ID#  
+		]]>	 
+		<isNotNull prepend="," property="ETR_PEN_BLT_CD">	       
+			      ETR_PEN_BLT_CD      = #ETR_PEN_BLT_CD#
+		</isNotNull>
+		<isNotNull prepend="," property="ETR_PEN_RANK_CD">	       
+			      ETR_PEN_RANK_CD      = #ETR_PEN_RANK_CD#
+		</isNotNull>
+		<isNotNull prepend="," property="ETR_PEN_NAM">	       
+			      ETR_PEN_NAM      = #ETR_PEN_NAM#
+		</isNotNull>
+		<isNotNull prepend="," property="CTB_RTE">	       
+			      CTB_RTE      = #CTB_RTE#
+		</isNotNull>
+		<isNotNull prepend="," property="PNL_DRIN_PSVT_AM">	       
+			      PNL_DRIN_PSVT_AM      = #PNL_DRIN_PSVT_AM#
+		</isNotNull>
+		<isNotNull prepend="," property="IJS_AM">	       
+			      IJS_AM      = #IJS_AM#
+		</isNotNull>
+		<isNotNull prepend="," property="NOP_RTE">	       
+			      NOP_RTE      = #NOP_RTE#
+		</isNotNull>
+		<isNotNull prepend="," property="ETR_PEN_EXAM_OPIN_TXT">	       
+			      ETR_PEN_EXAM_OPIN_TXT      = #ETR_PEN_EXAM_OPIN_TXT#
+		</isNotNull>
+		<isNotNull prepend="," property="FNL_USR_ID">	       
+			      FNL_USR_ID      = #FNL_USR_ID#
+		</isNotNull>	
+		<isNotNull prepend="," property="FNL_DEAL_DPT_CD">	       
+			      FNL_DEAL_DPT_CD  = #FNL_DEAL_DPT_CD#
+		</isNotNull>		
+		<isNotNull prepend="," property="FNL_MNU_ID">	       
+			      FNL_MNU_ID        = #FNL_MNU_ID#
+		</isNotNull>
+		<![CDATA[ 	
+				 , FNL_MDF_DH        = SYSDATE			
+			  WHERE 1=1
+			    AND AUD_YR 		= #AUD_YR# 
+			    AND AUD_NO 		= #AUD_NO# 	
+			    AND DSP_RQ_SNO 	= #DSP_RQ_SNO#	
+			    AND ETR_PEN_ID  = #ETR_PEN_ID#   
+			 ; 
+		END;			   
+		]]>			    					        
+	</update>		
+
+	<!--감사자 delete-->
+	<update id="BADEAR003EEtrDelete" parameterClass="paramMap">
+		DECLARE
+			BEGIN
+			  FOR CS IN ( 
+		<![CDATA[ 			  
+			  	SELECT AUD_YR
+			  	     , AUD_NO
+			  	     , DSP_RQ_SNO
+			  	     , ETR_PEN_ID
+			  	  FROM TBBADEAR004M
+				 WHERE 1=1
+				   AND AUD_YR 		= #AUD_YR# 
+				   AND AUD_NO 		= #AUD_NO# 	
+				   AND DSP_RQ_SNO 	= #DSP_RQ_SNO#	
+		]]>  		   							
+		<isNotEmpty property="ETR_PEN_ID">
+			 	   AND ETR_PEN_ID = #ETR_PEN_ID#
+		</isNotEmpty>	 
+		<![CDATA[ 	
+	   		 )
+		     LOOP 
+			      DELETE 
+				   FROM TBBADEAR004M
+				  WHERE 1=1
+				    AND AUD_YR 		= CS.AUD_YR
+				    AND AUD_NO 		= CS.AUD_NO
+				    AND DSP_RQ_SNO 	= CS.DSP_RQ_SNO
+				    AND ETR_PEN_ID 	= CS.ETR_PEN_ID	
+				  ;  
+			END LOOP ;	
+		END;	
+		]]>   
+	</update>	
+
+	<!-- 회계사항 이력 insert-->
+	<insert id="BADEAR003EAcctHisInsert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO TBBADEAR009H (
+			       AUD_YR
+			     , AUD_NO
+			     , DSP_RQ_SNO
+			     , ACNT_SBJ_SNO
+			     , DSP_RQ_ACNT_CD
+			     , EPT_EFCT_DVSN_CD
+			     , HST_SNO
+			     , ACNT_YE
+			     , PNL_DRIN_PSVT_AM
+			     , RSR_AM
+			     , SPLP_AM
+			     , EPT_EFCT_AM
+			     , EXPOT_Y_EFCT_AM
+			     , EXPOT_Y_EFCT_AM_CALC_BAS_TXT
+			     , FRT_USR_ID
+			     , FNL_USR_ID
+			     , FNL_DEAL_DPT_CD
+			     , FNL_MNU_ID
+			     , FRT_REGI_DH
+			     , FNL_MDF_DH 
+			) 
+			SELECT AUD_YR
+			     , AUD_NO
+			     , DSP_RQ_SNO
+			     , ACNT_SBJ_SNO
+			     , DSP_RQ_ACNT_CD
+			     , EPT_EFCT_DVSN_CD
+			     , #HST_SNO#
+			     , ACNT_YE
+			     , PNL_DRIN_PSVT_AM
+			     , RSR_AM
+			     , SPLP_AM
+			     , EPT_EFCT_AM
+			     , EXPOT_Y_EFCT_AM
+			     , EXPOT_Y_EFCT_AM_CALC_BAS_TXT
+			     , #FRT_USR_ID#
+			     , #FNL_USR_ID#
+			     , #FNL_DEAL_DPT_CD#
+			     , #FNL_MNU_ID#
+			     , SYSDATE
+			     , SYSDATE
+			  FROM TBBADEAR003M
+			 WHERE 1=1
+			   AND AUD_YR     = #AUD_YR#
+			   AND AUD_NO     = #AUD_NO#
+			   AND DSP_RQ_SNO = #DSP_RQ_SNO#
+		]]>
+	</insert>	
+
+	<!-- 이력 Max값 찾기 -->
+	<select id="BADEAR003EHistoryMaxSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[     	
+			SELECT TO_CHAR(NVL(MAX(TO_NUMBER(HST_SNO)),0)+1) AS MAX_HST_SNO
+			  FROM TBBADEAR009H
+			 WHERE 1=1
+			   AND AUD_YR     = #AUD_YR#
+			   AND AUD_NO     = #AUD_NO#
+			   AND DSP_RQ_SNO = #DSP_RQ_SNO#
+		]]>
+	</select>	
+
+	<!-- 회계사항 수정시 처분요구상세에 회계사항 관련 컬럼을 Update 한다. -->
+	<update id="BADEAR003EAcctToDetailUpdate" parameterClass="paramMap">
+		<![CDATA[ 	
+			UPDATE TBBADEAR002D D1
+			   SET ( BGT_RDC_AM         /*예산절감*/
+			       , INC_ICR_AM         /*수입증대*/
+			       , PPL_BDN_RDT_AM     /*국민부담경감금액*/
+			       , FRTN_INCR_AM       /*재산증가*/
+			       , EXPN_RTNL_AM       /*지출합리화*/
+			       , PNL_DRIN_PSVT_AM   /*추징회수보전금액*/ 
+			       , RSR_AM             /*환급금액*/
+			       , SPLP_AM            /*추급금액*/
+			       , EXPOT_Y_EFCT_AM    /*사후적효과금액*/
+			       
+			       ) = (SELECT SUM(DECODE(EPT_EFCT_DVSN_CD,'1',EPT_EFCT_AM,''))     AS EPT_EFCT_AM1                 /*예산절감*/
+			                 , SUM(DECODE(EPT_EFCT_DVSN_CD,'2',EPT_EFCT_AM,''))     AS EPT_EFCT_AM2                 /*수입증대*/
+			                 , SUM(DECODE(EPT_EFCT_DVSN_CD,'3',EPT_EFCT_AM,''))     AS EPT_EFCT_AM3                 /*국민편익*/
+			                 , SUM(DECODE(EPT_EFCT_DVSN_CD,'4',EPT_EFCT_AM,''))     AS EPT_EFCT_AM4                 /*재산증가*/     
+			                 , SUM(DECODE(EPT_EFCT_DVSN_CD,'5',EPT_EFCT_AM,''))     AS EPT_EFCT_AM5                 /*지출합리화*/    
+			                 , SUM(PNL_DRIN_PSVT_AM)                                AS PNL_DRIN_PSVT_AM             /*추징회수보전금액*/
+			                 , SUM(RSR_AM)                                          AS RSR_AM                       /*환급금액*/
+			                 , SUM(SPLP_AM)                                         AS SPLP_AM                      /*추급금액*/
+			                 , SUM(EXPOT_Y_EFCT_AM)                                 AS EXPOT_Y_EFCT_AM              /*사후적효과금액*/
+			              FROM TBBADEAR003M
+			             WHERE 1=1
+			               AND AUD_YR       = D1.AUD_YR
+			               AND AUD_NO       = D1.AUD_NO
+			               AND DSP_RQ_SNO   = D1.DSP_RQ_SNO
+			             GROUP BY AUD_YR
+			                    , AUD_NO
+			                    , DSP_RQ_SNO)
+			 WHERE 1=1
+			   AND D1.AUD_YR        = #AUD_YR#
+			   AND D1.AUD_NO        = #AUD_NO#
+			   AND D1.DSP_RQ_SNO    = #DSP_RQ_SNO#
+		]]>			    					        
+	</update>	
+	
+	<!--회계이력 조회-->
+	<select id="BADEAR003EAcctHstSelect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[    
+			SELECT D1.AUD_YR
+			     , D1.AUD_NO
+			     , D1.DSP_RQ_SNO
+			     , D2.HST_SNO
+			     , MAX(TO_CHAR(D2.FRT_REGI_DH,'YYYY-MM-DD HH24:SS')) HST_TIME
+			     , MAX(F_USR_INFO_BY_ID(D2.FRT_USR_ID,'2')) HST_NM
+			  FROM TBBADEAR003M D1
+			     , TBBADEAR009H D2
+			 WHERE 1=1
+			   AND D1.AUD_YR = D2.AUD_YR
+			   AND D1.AUD_NO = D2.AUD_NO
+			   AND D1.DSP_RQ_SNO = D2.DSP_RQ_SNO
+			   AND D1.AUD_YR = #AUD_YR#
+			   AND D1.AUD_NO = #AUD_NO#
+			   AND D1.DSP_RQ_SNO = #DSP_RQ_SNO#
+			 GROUP BY D1.AUD_YR
+			        , D1.AUD_NO
+			        , D1.DSP_RQ_SNO
+			        , D2.HST_SNO
+			 ORDER BY D2.HST_SNO DESC       
+		]]>
+	</select>		
+
+	<!--회계이력 조회-->
+	<select id="BADEAR003EAcctHstDetailSelect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[    
+			SELECT AUD_YR
+			     , AUD_NO
+			     , DSP_RQ_SNO
+			     , DSP_RQ_ACNT_CD
+			     , EPT_EFCT_DVSN_CD
+			     , HST_SNO
+			     , ACNT_YE
+			     , PNL_DRIN_PSVT_AM
+			     , RSR_AM
+			     , SPLP_AM
+			     , EPT_EFCT_AM
+			     , EXPOT_Y_EFCT_AM
+			     , EXPOT_Y_EFCT_AM_CALC_BAS_TXT
+			  FROM TBBADEAR009H
+			 WHERE 1=1
+			   AND AUD_YR 		= #AUD_YR#
+			   AND AUD_NO 		= #AUD_NO#
+			   AND DSP_RQ_SNO 	= #DSP_RQ_SNO#
+			   AND HST_SNO 		= #HST_SNO#
+			 ORDER BY DSP_RQ_ACNT_CD , EPT_EFCT_DVSN_CD
+		]]>
+	</select>		
+
+	<!--감사사항 상세 조회-->
+	<select id="BADEAR003EAudMasterSelect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[   
+	        SELECT D1.AUD_YR
+	             , D1.AUD_NO
+	             , D1.SPV_BRDV_CD
+	             , D1.AUD_KND_CD
+			     , CASE WHEN D1.AUD_YR >= '2016' 
+			                 THEN D1.AUD_KND_CD
+			            ELSE '' 
+			        END        AS AUD_YR_NO_KND_CD /*감사연번호종류코드 추가 - 2015.12.18 yyh*/		
+	             , F_DPT_INFO(D1.SPV_BRDV_CD,'1')||'(단장 : '||F_USR_INFO(D1.AUD_TOT_DRTR_CNB,'2')||', 주관 : '||F_USR_INFO(D1.SPVR_CNB,'2')||')' AS PRT_SPV_BRDV_NM
+	             , '<'||F_CODE_NM('1000007',D1.AUD_KND_CD) ||'>'||D1.AUD_SBJ_NM AS AUD_SBJ_NM
+	             , F_ORG_CNT_NM_AUD(D1.AUD_YR,D1.AUD_NO,'AUD') AS AUD_ORG_CNT
+	          FROM TBBADDED001M D1
+	         WHERE 1=1
+	           AND D1.AUD_YR = #AUD_YR#
+	           AND D1.AUD_NO = #AUD_NO#
+		]]>
+	</select>			
+	
+	<!--성과금액 명세 출력-->
+	<select id="BADEAR003EReport1Select" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[   
+			SELECT Z.AUD_YR ,  /*감사년도*/
+			       Z.AUD_NO ,  /*감사순번*/
+			       MAX(Z.SPV_BRDV_CD)  AS SPV_BRDV_CD ,  /*부서코드*/
+			       MAX(Z.EXEC_DPT_NM)  AS EXEC_DPT_NM,  /*부서명*/
+			       MAX(Z.AUD_KND_CD)  AS AUD_KND_CD,  /*감사종류코드*/
+			       MAX(Z.AUD_EXEC_DVSN_CD_NM)  AS AUD_EXEC_DVSN_CD_NM,  /*감사종류명*/
+			       MAX(Z.AUD_SBJ_NM) AS AUD_SBJ_NM,  /*감사사항명*/
+			       MAX(Z.AUD) AS AUD,  /*감사연번호*/
+			       MAX(Z.AUD_RPST_ORG_CD) AS AUD_RPST_ORG_CD,  /*감사대상기관코드*/
+			       MAX(Z.AUD_REP_ORG_NM) AS AUD_REP_ORG_NM,  /*감사대상기관명*/
+			       SUM(Z.AM)AS AM ,  /*재정적성과금액*/
+			       SUM(Z.MEASURES_AM) AS MEA_AM ,      /*조치금액 : 추징회수보전금액 + 환급금액 + 추급금액*/ 
+			       SUM(Z.EXP_EFT_AM) AS EXP_EFT_AM ,   /*기대효과금액 : 예산절감금액 + 수입증대금액 + 재산증가금액 + 지출합리화금액 + 국민부담경감금액(극민편익)*/
+			       SUM(Z.BGT_RDC_AM) AS BGT_RDC_AM ,    /*예산절감금액*/
+			       SUM(Z.INC_ICR_AM) AS INC_ICR_AM ,    /*수입증대금액*/
+			       SUM(Z.FRTN_INCR_AM) AS FRTN_INCR_AM , /*재산증가금액*/
+			       SUM(Z.EXPN_RTNL_AM) AS EXPN_RTNL_AM , /*지출합리화금액*/
+			       SUM(Z.PPL_BDN_RDT_AM) AS PPL_BDN_RDT_AM , /*국민부담경감금액(극민편익)*/
+			       SUM(Z.EXPOT_Y_EFCT_AM) AS AFT_EFT_AM  /*사후적효과금액*/
+			  FROM (SELECT A.AUD_YR ,
+			               A.AUD_NO ,
+			               A.DSP_RQ_SNO ,
+			               C.SPV_BRDV_CD ,
+			               F_DPT_INFO(C.SPV_BRDV_CD ,'1')  AS EXEC_DPT_NM ,
+			               C.AUD_KND_CD,               
+			               F_CODE_NM('1000007',C.AUD_KND_CD) AUD_EXEC_DVSN_CD_NM, /*감사종류명*/
+			               C.AUD_SBJ_NM ,
+			               F_MNG_KND_AUDYRNO(C.AUD_YR, C.AUD_NO, C.AUD_KND_CD, '-')  AS AUD ,
+			               C.AUD_RPST_ORG_CD ,
+			               F_ORG_INFO(C.AUD_RPST_ORG_CD,'1') AS AUD_REP_ORG_NM ,
+			               (NVL(B.PNL_DRIN_PSVT_AM, 0) + NVL(B.RSR_AM, 0) + NVL(B.SPLP_AM, 0) + NVL(B.BGT_RDC_AM, 0) + NVL(B.INC_ICR_AM, 0) + NVL(B.PPL_BDN_RDT_AM, 0) + NVL(B.FRTN_INCR_AM, 0) + NVL(B.EXPN_RTNL_AM, 0) + NVL(B.EXPOT_Y_EFCT_AM, 0)) AS AM ,
+			               (NVL(B.PNL_DRIN_PSVT_AM, 0) + NVL(B.RSR_AM, 0) + NVL(B.SPLP_AM, 0)) AS MEASURES_AM ,  /*추징회수보전금액 + 환급금액 + 추급금액 =조치금액*/
+			               (NVL(B.BGT_RDC_AM, 0) + NVL(B.INC_ICR_AM, 0) + NVL(B.FRTN_INCR_AM, 0) + NVL(B.EXPN_RTNL_AM, 0) + NVL(B.PPL_BDN_RDT_AM, 0)) AS EXP_EFT_AM ,  /*기대효과금액*/
+			               NVL(B.BGT_RDC_AM, 0) AS BGT_RDC_AM ,      /*예산절감금액*/
+			               NVL(B.INC_ICR_AM, 0) AS INC_ICR_AM ,      /*수입증대금액*/
+			               NVL(B.FRTN_INCR_AM, 0) AS FRTN_INCR_AM ,  /*재산증가금액*/
+			               NVL(B.EXPN_RTNL_AM, 0) AS EXPN_RTNL_AM ,  /*지출합리화금액*/
+			               NVL(B.PPL_BDN_RDT_AM, 0) AS PPL_BDN_RDT_AM ,  /*국민부담경감금액(극민편익)*/
+			               NVL(B.EXPOT_Y_EFCT_AM, 0) AS EXPOT_Y_EFCT_AM  /*사후적효과금액*/
+			          FROM TBBADEAR001M A ,
+			               TBBADEAR002D B ,
+			               TBBADDED001M C
+			         WHERE 1 = 1
+			           AND A.AUD_YR = B.AUD_YR
+			           AND A.AUD_NO = B.AUD_NO
+			           AND A.DSP_RQ_SNO = B.DSP_RQ_SNO
+			           AND A.AUD_YR = C.AUD_YR
+			           AND A.AUD_NO = C.AUD_NO
+			           AND A.AUD_YR = #strAudYr#  /*화면 인자값 감사년도*/
+			           AND A.AUD_NO = #strAudNo#   /*화면 인자값 감사순번*/
+			     ) Z
+			 GROUP BY Z.AUD_YR ,
+			       Z.AUD_NO 
+		]]>
+	</select>	
+	
+	<!--성과금액 명세 출력-->
+	<select id="BADEAR003EReport21Select" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+				SELECT DISTINCT A.AUD_YR ,
+				       A.AUD_NO ,
+				       F_MNG_KND_AUDYRNO(C.AUD_YR, C.AUD_NO, C.AUD_KND_CD, '-')  AS AUD_NUM ,  /*감사연번호*/
+				       C.AUD_SBJ_NM   							 /*감사사항명*/
+				  FROM TBBADEAR001M A ,
+				       TBBADEAR002D B ,
+				       TBBADDED001M C
+				 WHERE 1 = 1
+				   AND A.AUD_YR = B.AUD_YR
+				   AND A.AUD_NO = B.AUD_NO
+				   AND A.DSP_RQ_SNO = B.DSP_RQ_SNO
+				   AND A.AUD_YR = C.AUD_YR
+				   AND A.AUD_NO = C.AUD_NO
+				   AND A.AUD_YR = #strAudYr#  /*화면 인자값 감사년도*/
+				   AND A.AUD_NO = #strAudNo#  /*화면 인자값 감사순번  */    
+		]]>
+	</select>	
+	
+	<!--성과금액 명세 출력 - 쿼리 수정 2017.09.14 yyh -->
+	<select id="BADEAR003EReport22Select" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[ 
+        
+				SELECT  D1.AUD_YR                                                                 AS AUD_YR
+				      , D1.AUD_NO                                                                 AS AUD_NO
+				      , D1.DSP_RQ_SNO                                                             AS DSP_RQ_SNO
+			          , F_MNG_KND_AUDYRNO(D1.AUD_YR, D1.AUD_NO, '', '-')                          AS AUD_NUM 
+			          , F_MNG_KND_AUDYRNO(D1.AUD_YR, D1.AUD_NO, '', '-') || '-' || D1.DSP_RQ_SNO  AS AUD 
+				      , D2.DSP_RQ_KND_CD                                                          AS DSP_RQ_KND_CD
+			          , F_CODE_NM('1000002', D2.DSP_RQ_KND_CD)                                    AS DISP_REQ_NM 
+                      , D3.AUD_SBJ_NM                                                             AS AUD_SBJ_NM
+                      , D2.TIT_TXT                                                                AS TIT_TXT 
+				      , D1.TYPE                                                                   AS TYPE
+				      , D1.AM                                                                     AS AM
+				  FROM (
+				            SELECT AUD_YR                                                                AS AUD_YR
+							     , AUD_NO                                                                AS AUD_NO
+							     , DSP_RQ_SNO                                                            AS DSP_RQ_SNO              
+				                 , CASE WHEN EPT_EFCT_DVSN_CD = '1'      THEN '예산절감금액'
+				                        WHEN EPT_EFCT_DVSN_CD = '2'      THEN '수입증대금액'
+				                        WHEN EPT_EFCT_DVSN_CD = '3'      THEN '국민편익금액'
+				                        WHEN EPT_EFCT_DVSN_CD = '4'      THEN '재산증가금액'
+				                        WHEN EPT_EFCT_DVSN_CD = '5'      THEN '지출합리화금액'  
+				                    END                                                                  AS TYPE                 
+				                 ,NVL(EPT_EFCT_AM,0)                                                     AS AM
+							  FROM TBBADEAR003M 
+							 WHERE 1=1           
+							   AND AUD_YR = #strAudYr#
+							   AND AUD_NO = #strAudNo#
+				               AND NVL(EPT_EFCT_AM,0) != 0
+				               
+				        UNION ALL                
+				        
+							SELECT AUD_YR                                                                AS AUD_YR
+							     , AUD_NO                                                                AS AUD_NO
+							     , DSP_RQ_SNO                                                            AS DSP_RQ_SNO              
+				                 , '조치금액'                                                             AS TYPE                 
+				                 ,NVL(PNL_DRIN_PSVT_AM, 0) + NVL(RSR_AM, 0) + NVL(SPLP_AM, 0)            AS AM
+							  FROM TBBADEAR003M D1
+							 WHERE 1=1            
+							   AND AUD_YR = #strAudYr#
+							   AND AUD_NO = #strAudNo#
+				               AND (NVL(PNL_DRIN_PSVT_AM, 0) != 0  OR NVL(RSR_AM, 0) != 0  OR NVL(SPLP_AM, 0) != 0)
+				               
+				        UNION ALL                
+				        
+							SELECT AUD_YR                                                                AS AUD_YR
+							     , AUD_NO                                                                AS AUD_NO
+							     , DSP_RQ_SNO                                                            AS DSP_RQ_SNO            
+				                 , '사후적효과금액'                                                        AS TYPE                 
+				                 , NVL(EXPOT_Y_EFCT_AM, 0)                                               AS AM
+							  FROM TBBADEAR003M D1
+							 WHERE 1=1             
+							   AND AUD_YR = #strAudYr#
+							   AND AUD_NO = #strAudNo#
+				               AND NVL(EXPOT_Y_EFCT_AM, 0) != 0               
+				    ) D1
+                  ,TBBADEAR001M D2
+                  ,TBBADDED001M D3 
+             WHERE D1.AUD_YR       = D2.AUD_YR
+               AND D1.AUD_NO       = D2.AUD_NO
+               AND D1.DSP_RQ_SNO   = D2.DSP_RQ_SNO
+               AND D1.AUD_YR       = D3.AUD_YR
+               AND D1.AUD_NO       = D3.AUD_NO   
+		     ORDER BY D1.AUD_YR
+			         ,D1.AUD_NO
+			         ,D1.DSP_RQ_SNO		
+			        	
+		]]>
+	</select>
+	
+	
+	<!--인원율을 계산조회한다. -->
+	<select id="BADEAR003ERteSelect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[ 
+			    SELECT CASE WHEN CNT > 0 
+			    			THEN TO_CHAR(ROUND(CNT * (NVL(TO_NUMBER(#NOP_RTE#),0)/100),2))
+			            	ELSE '' END 	AS NOP_RTE
+			      FROM (
+			             SELECT COUNT(1) CNT
+			                FROM TBBADEAR007M
+			               WHERE 1=1
+			                 AND AUD_YR		= #AUD_YR#
+			                 AND AUD_NO 	= #AUD_NO#
+			                 AND DSP_RQ_SNO = #DSP_RQ_SNO#
+			           )         
+        ]]>
+	</select>        
+ 
+	<!--처분요구기본상세 update-->
+	<update id="BADEAR003ERltnToDetailUpdate" parameterClass="paramMap">
+		<![CDATA[ 	
+			 UPDATE TBBADEAR002D
+			    SET COPT_OFI_CD = (
+			                        SELECT RLTN_ORG_CD
+			                          FROM (
+			                                SELECT ROW_NUMBER() OVER(ORDER BY  FRT_REGI_DH) RNUM
+			                                     , RLTN_ORG_CD 
+			                                  FROM TBBADEAR008M
+			                                 WHERE 1=1
+			                                   AND AUD_YR 		= #AUD_YR#
+			                                   AND AUD_NO  		= #AUD_NO#
+			                                   AND DSP_RQ_SNO 	= #DSP_RQ_SNO#
+			                                ) 
+			                         WHERE RNUM = '1'
+			                      )
+			     , RLTN_ORG_CD = (
+			                          SELECT RLTN_ORG_CD
+			                          FROM (
+			                                SELECT ROW_NUMBER() OVER(ORDER BY  FRT_REGI_DH) RNUM
+			                                     , RLTN_ORG_CD 
+			                                  FROM TBBADEAR006M
+			                                 WHERE 1=1
+			                                   AND AUD_YR 		= #AUD_YR#
+			                                   AND AUD_NO  		= #AUD_NO#
+			                                   AND DSP_RQ_SNO 	= #DSP_RQ_SNO#
+			                                ) 
+			                         WHERE RNUM = '1'   
+			                     ) 
+			      , NOP_CNT = (
+			      
+      							SELECT COUNT(1) AS CNT 
+                                  FROM TBBADEAR007M
+                                 WHERE 1=1
+                                   AND AUD_YR 		= #AUD_YR#
+                                   AND AUD_NO  		= #AUD_NO#
+                                   AND DSP_RQ_SNO 	= #DSP_RQ_SNO#
+			                  ) 
+			 WHERE 1=1
+			   AND AUD_YR 		= #AUD_YR#
+			   AND AUD_NO  		= #AUD_NO#
+			   AND DSP_RQ_SNO 	= #DSP_RQ_SNO#
+		]]>						        
+	</update>	 
+        		
+        		
+    <!--처분요구기본 update-->
+	<update id="BADEAR003EOrgDvsnCdUpdate" parameterClass="paramMap">
+		<![CDATA[ 	
+			 UPDATE TBBADEAR001M
+			    SET ORG_DVSN_CD = (
+			                        SELECT COPT_ORG_DVSN_CD
+			                          FROM (
+			                                SELECT ROW_NUMBER() OVER(ORDER BY  FRT_REGI_DH) RNUM
+			                                     , COPT_ORG_DVSN_CD 
+			                                  FROM TBBADEAR008M
+			                                 WHERE 1=1
+			                                   AND AUD_YR 		= #AUD_YR#
+			                                   AND AUD_NO  		= #AUD_NO#
+			                                   AND DSP_RQ_SNO 	= #DSP_RQ_SNO#
+			                                ) 
+			                         WHERE RNUM = '1'
+			                      )
+			 WHERE 1=1
+			   AND AUD_YR 		= #AUD_YR#
+			   AND AUD_NO  		= #AUD_NO#
+			   AND DSP_RQ_SNO 	= #DSP_RQ_SNO#
+		]]>						        
+	</update>	
+	
+	<!-- 실시구분 insert-->
+	<insert id="BADEAR003ETskExecInsert" parameterClass="paramMap">
+			INSERT INTO TBBADEAR035L
+			 (
+				   AUD_YR
+			     , AUD_NO
+			     , DSP_RQ_SNO
+			     , DVSN_CD
+			     , TSK_KEY1
+			     , TSK_KEY2
+			     , TSK_KEY3
+			     , TSK_KEY4
+			     , FRT_USR_ID
+			     , FNL_USR_ID
+			     , FNL_DEAL_DPT_CD
+			     , FNL_MNU_ID
+			     , FRT_REGI_DH
+			     , FNL_MDF_DH
+			 ) VALUES
+			 (
+			       #AUD_YR#
+			     , #AUD_NO#
+			     , #DSP_RQ_SNO#
+			     , #DVSN_CD#
+			     , #TSK_KEY1#
+			     , #TSK_KEY2#
+			     , #TSK_KEY3#
+			     , #TSK_KEY4#				    
+			     , #FRT_USR_ID#
+			     , #FNL_USR_ID#
+			     , #FNL_DEAL_DPT_CD#
+			     , #FNL_MNU_ID#
+			     , SYSDATE
+			     , SYSDATE
+			 ) 
+	</insert>	
+	
+	
+	<!--실시구분 삭제 delete-->
+	<update id="BADEAR003ETskExecDelete" parameterClass="paramMap">
+			DELETE 
+			  FROM TBBADEAR035L
+			 WHERE AUD_YR     = #AUD_YR# 
+			   AND AUD_NO     = #AUD_NO#
+			   AND DSP_RQ_SNO = #DSP_RQ_SNO#	
+	</update>
+	
+	<!-- 관계기관 조회 - 2016.04.27 yyh -->
+	<select id="BADEAR003ERltnOrgCdSelect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[  
+                  SELECT AUD_YR 
+                        ,AUD_NO
+                        ,DSP_RQ_SNO
+                        ,RLTN_ORG_CD
+                        ,RLTN_ORG_DVSN_CD
+                        ,FRT_USR_ID
+                        ,FNL_USR_ID
+                        ,FNL_DEAL_DPT_CD
+                        ,FNL_MNU_ID  
+                    FROM (
+                           SELECT AUD_YR 
+                                 ,AUD_NO
+                                 ,DSP_RQ_SNO
+                                 ,RLTN_ORG_CD
+                                 ,RLTN_ORG_DVSN_CD
+                                 ,FRT_USR_ID
+                                 ,FNL_USR_ID
+                                 ,FNL_DEAL_DPT_CD
+                                 ,FNL_MNU_ID                        
+                             FROM TBBADEAR006M
+                            WHERE AUD_YR     = #AUD_YR# 
+                              AND AUD_NO     = #AUD_NO#
+                              AND DSP_RQ_SNO = #DSP_RQ_SNO#
+                            ORDER BY FRT_REGI_DH, RLTN_ORG_CD
+                         )
+                   WHERE ROWNUM = 1 /* 1차기관은 1개만 입력 */
+		]]>
+	</select>	
+	
+	<!-- 1차기관 조회 - 2016.04.27 yyh -->
+	<select id="BADEAR003EDge1OrgCdSelect" parameterClass="String" resultClass="resultMap">
+        <![CDATA[    
+                  SELECT ORG_CD
+	                    ,ORG_NM
+	                    ,ORG_DVSN_CD
+	                    ,ORG_DGE_CD 
+	                FROM TBDCMACM015M
+	               WHERE ORG_CD      = RPAD(#CUT_ORG_CD#, 12, '0')
+	                 AND ORG_DGE_CD  = '1'
+	                 AND USE_DVSN_NO = 'Y'        
+		]]>
+	</select>
+	
+	
+	<!--1차기관 - 2016.04.27 yyh -->
+	<insert id="BADEAR003ECoptMergeInsert" parameterClass="paramMap">
+		<![CDATA[
+			MERGE INTO TBBADEAR008M
+			USING DUAL
+			   ON (     
+			            AUD_YR      = #AUD_YR#
+			        AND AUD_NO      = #AUD_NO#
+			        AND DSP_RQ_SNO  = #DSP_RQ_SNO#
+			        AND RLTN_ORG_CD = #RLTN_ORG_CD#
+			      ) 
+			 WHEN NOT MATCHED THEN   
+                    INSERT 
+                    (
+	                      AUD_YR            
+	                    , AUD_NO            
+	                    , DSP_RQ_SNO        
+	                    , RLTN_ORG_CD       
+	                    , COPT_ORG_DVSN_CD  
+	                    , DSP_RQ_TG_KND_CD  
+	                    , CPLT_YN           
+	                    , FRT_USR_ID
+	                    , FNL_USR_ID
+	                    , FNL_DEAL_DPT_CD
+	                    , FNL_MNU_ID
+	                    , FRT_REGI_DH
+	                    , FNL_MDF_DH 
+	                ) VALUES(
+	                      #AUD_YR#            
+	                    , #AUD_NO#            
+	                    , #DSP_RQ_SNO#        
+	                    , #RLTN_ORG_CD#       
+	                    , #COPT_ORG_DVSN_CD#  
+	                    , #DSP_RQ_TG_KND_CD#  
+	                    , #CPLT_YN#           
+	                    , #FRT_USR_ID#
+	                    , #FNL_USR_ID#
+	                    , #FNL_DEAL_DPT_CD#
+	                    , #FNL_MNU_ID#
+	                    , SYSDATE
+	                    , SYSDATE
+	                )
+		]]>
+	</insert>
+	
+	<!-- 메인정보에서 1차기관(=소관청) 변경시 Update -->
+	<update id="BADEAR003EMasterCoptUpdate" parameterClass="paramMap">
+		<![CDATA[ 	
+			   UPDATE TBBADEAR008M
+			      SET RLTN_ORG_CD       = #RLTN_ORG_CD#     
+			         ,COPT_ORG_DVSN_CD  = (SELECT ORG_DVSN_CD
+                                             FROM TBDCMACM015M
+                                            WHERE ORG_CD = #RLTN_ORG_CD#)
+			         ,FNL_USR_ID        = #FNL_USR_ID#
+			         ,FNL_DEAL_DPT_CD   = #FNL_DEAL_DPT_CD#
+			         ,FNL_MNU_ID        = #FNL_MNU_ID#
+				     ,FNL_MDF_DH        = SYSDATE			
+			    WHERE 1=1
+			      AND AUD_YR            = #AUD_YR# 
+			      AND AUD_NO            = #AUD_NO# 	
+			      AND DSP_RQ_SNO        = #DSP_RQ_SNO# 
+		]]>			    					        
+	</update>	
+	
+	<insert id="BADEAR003EMasterCoptInsert" parameterClass="paramMap">
+		<![CDATA[ 	
+			   INSERT INTO TBBADEAR008M ( 
+			   		  AUD_YR
+			   		, AUD_NO
+			   		, DSP_RQ_SNO
+			   		, RLTN_ORG_CD
+			   		, COPT_ORG_DVSN_CD
+			   		, FRT_USR_ID
+			   		, FNL_USR_ID
+			   		, FNL_DEAL_DPT_CD
+			   		, FNL_MNU_ID
+			   		, FRT_REGI_DH
+			   		, FNL_MDF_DH
+			   		)
+			   		VALUES (
+			   		  #AUD_YR#
+			   		, #AUD_NO#
+			   		, #DSP_RQ_SNO#
+			   		, #RLTN_ORG_CD#
+			   		, (SELECT ORG_DVSN_CD FROM TBDCMACM015M WHERE ORG_CD = #RLTN_ORG_CD#)
+			   		, #FNL_USR_ID#
+			   		, #FNL_USR_ID#
+			   		, #FNL_DEAL_DPT_CD#
+			   		, #FNL_MNU_ID#
+			   		, SYSDATE
+			   		, SYSDATE
+			   		)
+		]]>			    					        
+	</insert>	
+		
+		
+	<!-- 키워드 delete-->
+	<update id="BADEAR003EKywdDelete" parameterClass="paramMap">
+		   DELETE 
+			 FROM TBBADEAR037M
+			WHERE 1=1
+			  AND AUD_YR     = #AUD_YR# 
+			  AND AUD_NO     = #AUD_NO# 		
+			  AND DSP_RQ_SNO = #DSP_RQ_SNO#
+	</update> 
+	
+	<!-- 키워드 insert -->
+	<insert id="BADEAR003EKywdInsert" parameterClass="paramMap">
+			INSERT INTO TBBADEAR037M(
+			       AUD_YR
+			     , AUD_NO
+			     , DSP_RQ_SNO
+			     , SNO
+			     , KYWD			     
+			     , FRT_USR_ID
+			     , FNL_USR_ID
+			     , FNL_DEAL_DPT_CD
+			     , FNL_MNU_ID
+			     , FRT_REGI_DH
+			     , FNL_MDF_DH
+			) VALUES (
+			       #AUD_YR#
+			     , #AUD_NO#
+			     , #DSP_RQ_SNO#
+			     , (SELECT NVL(MAX(SNO),0) + 1 
+			          FROM TBBADEAR037M
+			         WHERE AUD_YR     = #AUD_YR#
+			           AND AUD_NO     = #AUD_NO#
+			           AND DSP_RQ_SNO = #DSP_RQ_SNO# )
+			     , #KYWD#
+			     , #FRT_USR_ID#
+			     , #FNL_USR_ID#
+			     , #FNL_DEAL_DPT_CD#
+			     , #FNL_MNU_ID#
+			     , SYSDATE
+			     , SYSDATE
+			);
+	</insert>
+				
+</sqlMap> 

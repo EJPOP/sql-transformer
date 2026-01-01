@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/kde/007">
+
+	<!-- 변상판정관리 상세조회 -->
+	<select id="CSPKDE007EMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+                 SELECT
+                         D1.JUD_YR                             AS JUD_YR             /*판정년도*/
+                        ,D1.JUD_NO                             AS JUD_NO             /*판정번호*/
+                        ,D1.HNDL_DPT_CD                        AS HNDL_DPT_CD        /*처리부서코드*/
+                        ,F_DPT_INFO(D1.HNDL_DPT_CD, '1')       AS HNDL_DPT_NM        /*처리부서코드명*/
+                        ,D1.REGI_NO                            AS REGI_NO            /*등재번호*/
+                        ,D1.CMT_SQ                             AS CMT_SQ             /*위원회회차*/
+                        ,D1.CMT_VT_DT                          AS CMT_VT_DT          /*위원회의결일자*/
+                        ,D1.CMT_SQ 
+                        ,D1.COPT_OFI_CD                        AS COPT_OFI_CD        /*소관청코드*/
+                        ,F_ORG_INFO(D1.COPT_OFI_CD, '1')       AS COPT_OFI_NM        /*소관청명*/
+                        ,D1.RLTN_ORG_CD                        AS RLTN_ORG_CD        /*관계기관코드*/
+                        ,F_ORG_INFO(D1.RLTN_ORG_CD, '1')       AS RLTN_ORG_NM        /*관계기관명*/
+                        ,D1.JUD_DVSN_CD                        AS JUD_DVSN_CD        /*판정구분코드*/
+                        ,F_CODE_NM('1000743', D1.JUD_DVSN_CD)  AS JUD_DVSN_NM        /*판정구분명*/      
+                        ,D1.AUD_YR                             AS AUD_YR             /*감사년도*/      
+                        ,D1.AUD_NO                             AS AUD_NO             /*감사번호*/      
+                        ,D1.DSP_RQ_SNO                         AS DSP_RQ_SNO         /*처분요구순번*/
+                        ,D3.AUD_GRN_NO                         AS AUD_GRN_NO         /*감사부여번호 - 2016.06.10 yyh*/
+                        ,F_MNG_KND_AUDYRNO(D1.AUD_YR, D1.AUD_NO, D3.AUD_KND_CD, '-') ||'-'|| D1.DSP_RQ_SNO
+                                                               AS AUD_DSP_NO         /*처분요구번호*/
+			      		,CASE WHEN D3.AUD_YR >= '2016' 
+			            		   THEN F_CODE_NM('1000739', SUBSTR(D3.AUD_KND_CD,3,1))
+			            	  ELSE '' 
+			          	 END                                   AS AUD_YR_NO_KND_NM   /*감사연번호종류코드 추가 - 2016.06.10 yyh*/                                                                 
+                        ,D1.TSK_DVSN_CD                        AS TSK_DVSN_CD        /*업무구분코드*/
+                        ,F_CODE_NM('1000744', D1.TSK_DVSN_CD)  AS TSK_DVSN_NM        /*업무구분코드명*/  
+                        ,D1.TSK_KEY1                           AS TSK_KEY1           /*업무키1*/       
+                        ,D1.TSK_KEY2                           AS TSK_KEY2           /*업무키2*/ 
+                        ,CASE WHEN D1.TSK_DVSN_CD = '1' 
+                                   THEN D2.AUD_GRN_NO
+                              ELSE D1.TSK_KEY2
+                          END                                  AS TSK_KEY2_DSP       /*업무키2 - 화면에 보이기만 */                         
+                        ,D1.TSK_KEY3                           AS TSK_KEY3           /*업무키3*/       
+                        ,D1.TSK_KEY4                           AS TSK_KEY4           /*업무키4*/
+                        ,CASE WHEN D1.TSK_DVSN_CD = '1'
+                                   THEN 
+                                        (CASE WHEN D2.AUD_YR >= '2016' 
+              	    	                           THEN F_CODE_NM('1000739',SUBSTR(D2.AUD_KND_CD,3,1))
+              	    	                      ELSE '' 
+              	    	                  END)
+              	    	      WHEN D1.TSK_DVSN_CD = '2'
+              	    	           THEN '손망실'
+              	    	      WHEN D1.TSK_DVSN_CD = '3'
+              	    	           THEN '판정청구'
+              	    	  END                                  AS KND_NM 
+                   FROM TBCSPKDE004M D1    /* 변상판정관리기본 */
+                       ,TBBADDED001M D2    /* 감사사항기본 */
+                       ,TBBADDED001M D3    /* 감사사항기본 */
+                  WHERE 1=1
+                    AND D1.TSK_KEY1 = D2.AUD_YR(+)
+                    AND D1.TSK_KEY2 = D2.AUD_NO(+)  
+    				AND D1.AUD_YR   = D3.AUD_YR(+)
+    				AND D1.AUD_NO   = D3.AUD_NO(+)                                  
+		]]>			
+			/* 판정년도 */
+			<isNotEmpty property="strJudYr">
+                AND D1.JUD_YR      = #strJudYr#
+            </isNotEmpty> 	                 
+
+			/* 판정번호 */
+			<isNotEmpty property="strJudNo">
+                AND D1.JUD_NO      = #strJudNo#
+            </isNotEmpty> 	             		
+	</select>
+
+	<!-- 변상판정관리 대상자 조회  -->
+	<select id="CSPKDE007ETgSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+                 SELECT
+                         D1.JUD_YR                          AS JUD_YR         /*판정년도*/
+                        ,D1.JUD_NO                          AS JUD_NO         /*판정번호*/
+                        ,D1.SRNO                            AS SRNO           /*일련번호*/
+                        ,D1.NAM                             AS NAM            /*성명*/
+                        ,D1.BLT_NM                          AS BLT_NM         /*소속명*/
+                        ,D1.RANK_CD                         AS RANK_CD        /*직급코드*/
+                        ,F_CODE_NM('1000173',D1.RANK_CD)    AS RANK_NM        /*직급명*/
+                        ,D1.PST_CD                          AS PST_CD         /*직위코드*/
+						,F_CODE_NM('1000176',D1.PST_CD)     AS PST_NM         /*직위명*/
+						,D1.ACNT_RANK_NM                    AS ACNT_RANK_NM   /*회계직명*/
+                   FROM TBCSPKDE004L D1    /* 변상판정대상자내역 */
+                  WHERE 1=1
+		]]>			
+			/* 판정년도 */
+			<isNotEmpty property="strJudYr">
+                AND D1.JUD_YR      = #strJudYr#
+            </isNotEmpty> 	                 
+
+			/* 판정번호 */
+			<isNotEmpty property="strJudNo">
+                AND D1.JUD_NO      = #strJudNo#
+            </isNotEmpty>
+                ORDER BY D1.SRNO      		
+	</select>
+	
+	<!-- 변상판정관리기본 채번 -->
+	<select id="CSPKDE007EMainMaxJudNoSelect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[     	
+			    SELECT TO_CHAR(NVL(MAX(TO_NUMBER(JUD_NO)),0)+1) AS MAX_JUD_NO
+				  FROM TBCSPKDE004M
+				 WHERE 1=1
+				   AND JUD_YR = NVL(#JUD_YR#,TO_CHAR(SYSDATE,'YYYY')) 
+		]]>
+	</select>
+
+	<!--변상판정관리기본 insert-->
+	<insert id="CSPKDE007EMainInsert" parameterClass="paramMap">
+        INSERT INTO TBCSPKDE004M
+        (
+             JUD_YR
+            ,JUD_NO
+            ,HNDL_DPT_CD
+            ,REGI_NO
+            ,CMT_SQ
+            ,CMT_VT_DT
+            ,COPT_OFI_CD
+            ,RLTN_ORG_CD
+            ,JUD_DVSN_CD
+            ,AUD_YR
+            ,AUD_NO
+            ,DSP_RQ_SNO
+            ,TSK_DVSN_CD
+            ,TSK_KEY1
+            ,TSK_KEY2
+            ,TSK_KEY3
+            ,TSK_KEY4
+            ,FRT_USR_ID
+            ,FNL_USR_ID
+            ,FNL_DEAL_DPT_CD
+            ,FNL_MNU_ID
+            ,FRT_REGI_DH
+            ,FNL_MDF_DH
+        ) VALUES (
+             #JUD_YR#
+            ,#JUD_NO#
+            ,#HNDL_DPT_CD#
+            ,#REGI_NO#
+            ,#CMT_SQ#
+            ,#CMT_VT_DT#
+            ,#COPT_OFI_CD#
+            ,#RLTN_ORG_CD#
+            ,#JUD_DVSN_CD#
+            ,#AUD_YR#
+            ,#AUD_NO#
+            ,#DSP_RQ_SNO#
+            ,#TSK_DVSN_CD#
+            ,#TSK_KEY1#
+            ,#TSK_KEY2#
+            ,#TSK_KEY3#
+            ,#TSK_KEY4#
+            ,#FRT_USR_ID#
+            ,#FNL_USR_ID#
+            ,#FNL_DEAL_DPT_CD#
+            ,#FNL_MNU_ID#
+            ,SYSDATE
+            ,SYSDATE
+        )
+	</insert>
+	
+	<!--변상판정관리기본 update-->
+	<update id="CSPKDE007EMainUpdate" parameterClass="paramMap">
+        UPDATE TBCSPKDE004M
+           SET HNDL_DPT_CD      = #HNDL_DPT_CD#    
+              ,REGI_NO          = #REGI_NO#        
+              ,CMT_SQ           = #CMT_SQ#         
+              ,CMT_VT_DT        = #CMT_VT_DT#      
+              ,COPT_OFI_CD      = #COPT_OFI_CD#    
+              ,RLTN_ORG_CD      = #RLTN_ORG_CD#    
+              ,JUD_DVSN_CD      = #JUD_DVSN_CD#    
+              ,AUD_YR           = #AUD_YR#         
+              ,AUD_NO           = #AUD_NO#         
+              ,DSP_RQ_SNO       = #DSP_RQ_SNO#     
+              ,TSK_DVSN_CD      = #TSK_DVSN_CD#    
+              ,TSK_KEY1         = #TSK_KEY1#       
+              ,TSK_KEY2         = #TSK_KEY2#       
+              ,TSK_KEY3         = #TSK_KEY3#       
+              ,TSK_KEY4         = #TSK_KEY4#            
+              ,FNL_USR_ID       = #FNL_USR_ID#     
+              ,FNL_DEAL_DPT_CD  = #FNL_DEAL_DPT_CD#
+              ,FNL_MNU_ID       = #FNL_MNU_ID#     
+              ,FNL_MDF_DH       = SYSDATE
+         WHERE 1=1
+           AND JUD_YR           = #JUD_YR#  
+           AND JUD_NO           = #JUD_NO#             
+	</update>
+	
+	<!--변상판정관리기본 delete-->
+	<update id="CSPKDE007EMainDelete" parameterClass="paramMap">
+        DELETE 
+          FROM TBCSPKDE004M
+         WHERE 1=1
+           AND JUD_YR           = #JUD_YR#  
+           AND JUD_NO           = #JUD_NO#             
+	</update>    
+	
+	
+	<!--변상판정대상자내역 insert-->                              
+	<insert id="CSPKDE007ETgInsert" parameterClass="paramMap">
+	    INSERT INTO TBCSPKDE004L
+	    (
+             JUD_YR
+            ,JUD_NO
+            ,SRNO
+            ,NAM
+            ,BLT_NM
+            ,RANK_CD
+            ,PST_CD
+            ,ACNT_RANK_NM
+            ,FRT_USR_ID
+            ,FNL_USR_ID
+            ,FNL_DEAL_DPT_CD
+            ,FNL_MNU_ID
+            ,FRT_REGI_DH
+            ,FNL_MDF_DH
+        ) VALUES ( 
+             #JUD_YR#
+            ,#JUD_NO#
+            ,(SELECT NVL(MAX(SRNO),0) + 1  
+                FROM TBCSPKDE004L
+               WHERE 1=1
+                 AND JUD_YR = #JUD_YR#
+                 AND JUD_NO = #JUD_NO#) 
+            ,#NAM#
+            ,#BLT_NM#
+            ,#RANK_CD#
+            ,#PST_CD#
+            ,#ACNT_RANK_NM#
+            ,#FRT_USR_ID#
+            ,#FNL_USR_ID#
+            ,#FNL_DEAL_DPT_CD#
+            ,#FNL_MNU_ID#
+            ,SYSDATE
+            ,SYSDATE
+        )        
+	</insert>	
+	
+	<!--변상판정대상자내역 update-->
+	<update id="CSPKDE007ETgUpdate" parameterClass="paramMap">	                           
+	    UPDATE TBCSPKDE004L
+	       SET 
+               NAM             = #NAM#             
+              ,BLT_NM          = #BLT_NM#          
+              ,RANK_CD         = #RANK_CD#         
+              ,PST_CD          = #PST_CD#          
+              ,ACNT_RANK_NM    = #ACNT_RANK_NM#    
+              ,FNL_USR_ID      = #FNL_USR_ID#      
+              ,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD# 
+              ,FNL_MNU_ID      = #FNL_MNU_ID#      
+              ,FNL_MDF_DH      = SYSDATE 
+         WHERE 1=1
+           AND JUD_YR          = #JUD_YR# 
+           AND JUD_NO          = #JUD_NO# 
+           AND SRNO            = #SRNO# 
+	</update> 
+	
+	<!--변상판정대상자내역 delete-->
+	<update id="CSPKDE007ETgDelete" parameterClass="paramMap">
+        DELETE 
+          FROM TBCSPKDE004L
+         WHERE 1=1
+           AND JUD_YR = #JUD_YR#  
+           AND JUD_NO = #JUD_NO#
+             
+		<isNotEmpty property="SRNO">           
+           AND SRNO   = #SRNO#
+        </isNotEmpty>   
+                 
+	</update>   	
+</sqlMap>

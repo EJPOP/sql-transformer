@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd" >
+<sqlMap namespace="csp/nbk/611">
+	
+	<select id="CSPNBK611QSlipListSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT	/* CSPNBK611QSlipListSelect */
+				D1.SMB_DEAL_DT
+				, D1.SMB_SLN
+				, TO_CHAR(D1.PET_DH, 'YYYY-MM-DD HH24:MI') AS PET_DH
+				, D1.LEDG_KND_CD
+				, F_CODE_NM( '1000157', D1.LEDG_KND_CD ) AS LEDG_KND_CD_NM
+				, D1.CRDT_MNST_CLU_CD || '-' || D1.CRDT_TAX_SITM_CD AS CRDT_ACCT_CD
+				, (
+					SELECT	D2.ACCT_NM
+					FROM	TBCSPNBK501M D2
+					WHERE	D2.MNST_CLU_CD = D1.CRDT_MNST_CLU_CD
+					AND		D2.TAX_SITM_CD = D1.CRDT_TAX_SITM_CD
+				) AS CRDT_ACCT_NM
+				, DECODE(D1.DEPTS_PMT_DVSN_CD, 'C', AM, 0) AS CRDT_AM
+				, D1.DS_MNST_CLU_CD || '-' || D1.DS_TAX_SITM_CD AS DS_ACCT_CD
+				, (
+					SELECT	D2.ACCT_NM
+					FROM	TBCSPNBK501M D2
+					WHERE	D2.MNST_CLU_CD = D1.DS_MNST_CLU_CD
+					AND		D2.TAX_SITM_CD = D1.DS_TAX_SITM_CD
+				) AS DS_ACCT_NM
+				, DECODE(D1.DEPTS_PMT_DVSN_CD, 'D', AM, 0) AS DS_AM
+				, '재출력' AS SLIP_PRT_NM
+		FROM	TBCSPNBK301M D1
+		WHERE	D1.SMB_DEAL_DT = #smbDealDt#
+		AND		D1.CNL_YN = 'N'
+	]]>
+		<dynamic>
+			<isNotEmpty property="ledgKndCd" prepend="AND">
+				D1.LEDG_KND_CD = #ledgKndCd#
+			</isNotEmpty>
+			<isNotEmpty property="mnstCluCd">
+				<isNotEmpty property="taxSitmCd" prepend="AND">
+				(( D1.CRDT_MNST_CLU_CD = #mnstCluCd# AND D1.CRDT_TAX_SITM_CD = #taxSitmCd# )
+				OR ( D1.DS_MNST_CLU_CD = #mnstCluCd# AND D1.DS_TAX_SITM_CD = #taxSitmCd# ) )
+				</isNotEmpty>
+			</isNotEmpty>			
+		</dynamic>
+	<![CDATA[
+		ORDER BY D1.PET_DH DESC
+	]]>
+	</select>
+	
+	<select id="CSPNBK611QBasicInfo" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+      SELECT	/* CSPNBK611QBasicInfo */
+	            A.SMB_DEAL_DT AS V_SL_DATE
+              , TO_CHAR(A.SMB_SLN) AS V_SL_SEQ
+              , A.LEDG_KND_CD AS V_SL_KIND
+              , A.DEPTS_PMT_DVSN_CD AS V_CRDR_KIND
+              , A.CRDT_MNST_CLU_CD AS V_CR_BS_CODE
+              , A.CRDT_TAX_SITM_CD AS V_CR_BS_TAG
+              , A.DS_MNST_CLU_CD AS V_DR_BS_CODE
+              , A.DS_TAX_SITM_CD AS V_DR_BS_TAG
+              , A.OPT_MOUI_NO AS V_SL_DEAL_OP
+              , TO_CHAR(A.AM) AS V_SL_AMOUNT
+              , C.USR_NAM AS P_OPNAME
+         FROM TBCSPNBK301M A
+            , TBCSPNBK001M B
+            , TBDCMACM001M C
+         WHERE B.MOUI_NO = A.OPT_MOUI_NO
+           AND C.CNB = B.CNB
+           AND SMB_DEAL_DT = #strSMB_DEAL_DT#
+           AND SMB_SLN = #strSMB_SLN#
+	]]>
+	</select>
+	
+	<select id="CSPNBK611QLendInfo" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+         SELECT /* CSPNBK611QLendInfo */
+                MOUI_NO AS P_MNO
+              , LEND_BL AS P_AFAMT
+              , MOUI_NO AS V_M_NO
+              , INT_AM AS V_LN_INT
+              , TO_CHAR(SMB_SLN_2) AS V_LN_SL_SEQ2
+              , LAG_WDL_RMK AS P_REMARK
+         FROM TBCSPNBK205L A 
+         WHERE ( A.SMB_DEAL_DT_1 =  #V_SL_DATE# AND A.SMB_SLN_1 = #V_SL_SEQ# )  
+         	OR ( A.SMB_DEAL_DT_2 = #V_SL_DATE# AND A.SMB_SLN_2 = #V_SL_SEQ# ) 
+	]]>
+	</select>
+	
+	<select id="CSPNBK611QMouiDvsnInfo" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+
+        SELECT /* CSPNBK611QMouiDvsnInfo */
+               MOUI_DVSN_CD AS V_M_KIND
+             , OGNZ_NM AS V_CI_NAME
+             , CNB AS V_EMPLNUM
+        FROM TBCSPNBK001M
+        WHERE MOUI_NO = #V_M_NO#
+	]]>
+	</select>
+	
+	<select id="CSPNBK611QSelectUsrName" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		/* CSPNBK611QSelectUsrName */
+        SELECT USR_NAM AS P_MNAME
+        FROM TBDCMACM001M
+        WHERE CNB = #V_EMPLNUM#
+	]]>
+	</select>
+	
+	<select id="CSPNBK611QInvInfo" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+	    /* CSPNBK611QInvInfo */
+        SELECT MOUI_NO AS P_MNO
+             , DEAL_AF_LEDG_BL AS P_AFAMT
+             , MOUI_NO AS V_M_NO
+             , RMK AS P_REMARK
+          FROM TBCSPNBK102L A 
+          WHERE A.SMB_DEAL_DT = #V_SL_DATE#
+          AND A.SMB_SLN = #V_SL_SEQ#
+	]]>
+	</select>
+	
+	
+</sqlMap>

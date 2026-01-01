@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.ewm.dao.AEPEWM008QMapper">
+	
+	<!-- 특수관리통계 조회 BADFRE017EMainselect-->
+	<select id="selectMainList" parameterType="paramMap" resultType="egovMap">
+	<![CDATA[
+	/* kr.go.bai.eip.aep.ewm.dao.AEPEWM008QMapper.selectMainList  */
+	
+       SELECT ENFM_HIRK_DPT_NM          AS ENFM_HIRK_DPT_NM     /* 집행상위관리부서 */
+             ,ENFM_DPT_NM               AS ENFM_DPT_NM          /* 집행관리부서 */
+             ,AUD_SBJ                   AS AUD_SBJ              /* 감사사항 */
+             ,DSP_RQ_KND_NM                                                  || '(' || 
+              TO_NUMBER((ASG_ACP + ASG_DTM + RLS_ACP + RLS_DTM),'9,999,999') || '건)' 
+                                        AS DSP_RQ_KND_NM   /* 처분요구종류코드명 */
+             ,(ASG_ACP + ASG_DTM + RLS_ACP + RLS_DTM)            AS DSP_RQ_KND_CNT
+             ,ASG_ACP                   AS ASG_ACP         /* 지정접수 */
+             ,ASG_DTM                   AS ASG_DTM         /* 지정확정 */
+             ,RLS_ACP                   AS RLS_ACP         /* 해제접수 */
+             ,RLS_DTM                   AS RLS_DTM         /* 해제확정 */
+         FROM(
+                SELECT A.ENFM_HIRK_DPT_NM      AS ENFM_HIRK_DPT_NM    
+                      ,A.ENFM_DPT_NM           AS ENFM_DPT_NM    
+                      ,A.AUD_SBJ               AS AUD_SBJ        
+                      ,A.DSP_RQ_KND_NM         AS DSP_RQ_KND_NM  
+                      ,NVL(SUM(A.ASG_ACP),0)   AS ASG_ACP        
+                      ,NVL(SUM(A.ASG_DTM),0)   AS ASG_DTM        
+                      ,NVL(SUM(A.RLS_ACP),0)   AS RLS_ACP        
+                      ,NVL(SUM(A.RLS_DTM),0)   AS RLS_DTM        
+                  FROM(  
+                       SELECT
+                              (SELECT F_DPT_INFO(HIRK_DPT_CD , '1')
+                                 FROM TBDCMACM002M
+                                WHERE DPT_CD = D1.SPV_BRDV_CD)                  AS ENFM_HIRK_DPT_NM  /* 집행상위관리부서 */
+                             ,F_DPT_INFO(D1.SPV_BRDV_CD , '1')                  AS ENFM_DPT_NM       /* 집행관리부서 */ 
+                             ,'(' || F_MNG_KND_AUDYRNO(D3.AUD_YR, D3.AUD_NO, D3.AUD_KND_CD, '-') || ') ' || D3.AUD_SBJ_NM                                     
+                                                                                AS AUD_SBJ        /* 감사사항 */
+                             ,F_CODE_NM('1000002', D2.DSP_RQ_KND_CD)            AS DSP_RQ_KND_NM  /* 처분요구종류코드명 */     
+                             ,CASE WHEN NVL(D1.DTM_YN,'N') <> 'Y' 
+                                    AND D1.ASG_DT IS NOT NULL                 
+                                    AND D1.RLS_DT IS NULL        
+                                   THEN 1 ELSE 0         
+                               END                                              AS ASG_ACP        /* 지정접수 */
+                             ,CASE WHEN NVL(D1.DTM_YN,'N')  = 'Y' 
+                                    AND D1.ASG_DT IS NOT NULL                 
+                                    AND D1.RLS_DT IS NULL        
+                                   THEN 1 ELSE 0         
+                               END                                              AS ASG_DTM        /* 지정확정 */
+                             ,CASE WHEN NVL(D1.DTM_YN,'N') <> 'Y'                
+                                    AND D1.RLS_DT IS NOT NULL    
+                                   THEN 1 ELSE 0        
+                               END                                              AS RLS_ACP        /* 해제접수 */
+                             ,CASE WHEN NVL(D1.DTM_YN,'N')  = 'Y'               
+                                    AND D1.RLS_DT IS NOT NULL   
+                                   THEN 1 ELSE 0         
+                               END                                              AS RLS_DTM        /* 해제확정 */    
+                         FROM TBBADFRE011M D1 /* 특수관리기본 */
+                             INNER JOIN  TBBADEAR001M D2 /* 처분요구사항기본 */ ON D1.AUD_YR     = D2.AUD_YR
+                                                                          AND D1.AUD_NO     = D2.AUD_NO
+                                                                          AND D1.DSP_RQ_SNO = D2.DSP_RQ_SNO
+                             INNER JOIN TBBADDED001M D3 /* 감사사항기본 */    ON D2.AUD_YR     = D3.AUD_YR
+                                                                         AND D2.AUD_NO     = D3.AUD_NO 
+                        WHERE 1=1
+                          AND D1.SPV_BRDV_CD   IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#{sCnb}, #{dptAuth}, '', #{upSpvBrdvCd})))
+                          ]]>
+            		  <!-- 주관국과코드 -->    
+					<if test='spvBrdvCd != null and spvBrdvCd != ""'>
+                		  AND D1.SPV_BRDV_CD = #{spvBrdvCd}
+            		</if>
+            		   
+                      <!-- 지정접수 -->
+					<if test='spCnMngStaCd == "1"'>
+		               <![CDATA[
+                          AND NVL(D1.DTM_YN,'N') <> 'Y'                           
+        	              AND D1.ASG_DT IS NOT NULL                            
+        	              AND D1.RLS_DT IS NULL
+        	             ]]>
+	                </if>     
+                      <!-- 지정확정 -->
+					<if test='spCnMngStaCd == "2"'>
+                          AND NVL(D1.DTM_YN,'N') = 'Y'                            
+                          AND D1.ASG_DT IS NOT NULL                            
+                          AND D1.RLS_DT IS NULL     
+	                </if>                 
+                      <!-- 해제접수 -->
+					<if test='spCnMngStaCd == "3"'>
+	                  <![CDATA[
+                          AND NVL(D1.DTM_YN,'N') <> 'Y'                           
+                          AND D1.RLS_DT IS NOT NULL
+                          ]]>
+	                </if>               
+                      <!-- 해제확정 -->
+					<if test='spCnMngStaCd == "4"'>
+                          AND NVL(D1.DTM_YN,'N') = 'Y'                           
+                          AND D1.RLS_DT IS NOT NULL     
+	                </if>
+	                  
+	                  <!-- 시작 년도 -->
+					<if test='audYrStr != null and audYrStr != ""'>
+	                  <![CDATA[					
+                          AND D1.AUD_YR >= #{audYrStr}
+                      ]]>   
+                    </if>  
+                    
+	                  <!-- 종료 년도 -->
+					<if test='audYrEnd != null and audYrEnd != ""'>
+	                  <![CDATA[					
+                          AND D1.AUD_YR <= #{audYrEnd}
+                      ]]>   
+                    </if>                      
+
+                      ) A
+                 WHERE 1=1
+              GROUP BY A.ENFM_HIRK_DPT_NM
+                      ,A.ENFM_DPT_NM
+                      ,A.AUD_SBJ
+                      ,A.DSP_RQ_KND_NM                      
+              )
+          ORDER BY ENFM_HIRK_DPT_NM
+                  ,ENFM_DPT_NM
+                  ,AUD_SBJ
+	</select>
+
+	<!-- 감사사항 건수 조회 BADFRE017EAudSbjCntselect-->
+	<select id="selectAudSbjCnt" parameterType="paramMap" resultType="egovMap">
+          /* kr.go.bai.eip.aep.ewm.dao.AEPEWM008QMapper.selectAudSbjCnt  */
+           SELECT '감사사항(' || TO_NUMBER(COUNT(DISTINCT(AUD_YR || AUD_NO)),'9,999,999') || '건)' AS AUD_SBJ_CNT_INFO
+             FROM TBBADFRE011M D1 /* 특수관리기본 */
+            WHERE 1=1
+
+          	  	AND D1.SPV_BRDV_CD   IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#{sCnb}, #{dptAuth}, '', #{upSpvBrdvCd})))
+                         
+			<!-- 주관국과코드 -->    
+		<if test='spvBrdvCd != null and spvBrdvCd != ""'>
+				AND D1.SPV_BRDV_CD = #{spvBrdvCd}
+			</if>
+            		  
+          <!-- 지정접수 -->
+		<if test='spCnMngStaCd == "1"'>
+		<![CDATA[
+              AND NVL(D1.DTM_YN,'N') <> 'Y'                           
+              AND D1.ASG_DT IS NOT NULL                            
+              AND D1.RLS_DT IS NULL
+           ]]>
+          </if>     
+          <!-- 지정확정 -->
+		<if test='spCnMngStaCd == "2"'>
+              AND NVL(D1.DTM_YN,'N') = 'Y'                            
+              AND D1.ASG_DT IS NOT NULL                            
+              AND D1.RLS_DT IS NULL     
+          </if>                 
+          <!-- 해제접수 -->
+		<if test='spCnMngStaCd == "3"'>
+		<![CDATA[
+              AND NVL(D1.DTM_YN,'N') <> 'Y'                           
+              AND D1.RLS_DT IS NOT NULL 
+          ]]>    
+          </if>               
+          <!-- 해제확정 -->
+		<if test='spCnMngStaCd == "4"'>
+              AND NVL(D1.DTM_YN,'N') = 'Y'                           
+              AND D1.RLS_DT IS NOT NULL     
+          </if>
+       
+                <!-- 시작 년도 -->
+		<if test='audYrStr != null and audYrStr != ""'>
+           <![CDATA[					
+                  	AND D1.AUD_YR >= #{audYrStr}
+              ]]>   
+        </if>  
+                 
+                <!-- 종료 년도 -->
+		<if test='audYrEnd != null and audYrEnd != ""'>
+            <![CDATA[					
+					AND D1.AUD_YR <= #{audYrEnd}
+              ]]>   
+        </if>                      
+                                         
+	</select>
+</mapper> 

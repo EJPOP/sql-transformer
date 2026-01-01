@@ -1,0 +1,652 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="aep/gkm/032">
+	<select id="AEPGKM032EInit_all" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT  SC_GRN_TG_CD AS CD,
+		        KLD_ACTV_NM AS CD_NM,
+		        '' AS EVL_YR,
+		        '' AS EVL_DVSN_CD
+		FROM    TBAEPGKM006M
+		WHERE	SET_DVSN_CD = 'C'
+	</select>
+	<select id="AEPGKM032EInit" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	A.SC_GRN_TG_CD AS CD,
+		        KLD_ACTV_NM AS CD_NM,
+		        EVL_YR,
+		        EVL_DVSN_CD
+		FROM    TBAEPGKM006M AS A,
+		        TBAEPGKM012L AS B
+		WHERE   1=1
+		AND     A.SC_GRN_TG_CD = B.SC_GRN_TG_CD
+		AND		A.SET_DVSN_CD = 'C'
+		AND		EVL_YR = #EVL_YR#
+		AND		EVL_DVSN_CD = #EVL_DVSN_CD#
+	</select>
+	
+	<select id="AEPGKM032EInitCol" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT  B.EVL_CLU_NM, B.EVL_CLU_CD,
+		        C.EVL_RK_NM, C.EVL_RK_CD, C.EVL_SC
+		FROM    TBAEPGKM010L AS A, /** 평가기간별평가항목내역 **/
+		        TBAEPGKM008M AS B, /** 평가항목기본 **/
+		        TBAEPGKM009D AS C  /** 평가항목별등급상세 **/
+		WHERE   A.EVL_CLU_CD = B.EVL_CLU_CD
+		AND     A.EVL_CLU_CD = C.EVL_CLU_CD
+		AND     A.EVL_YR = #EVL_YR#
+		AND     A.EVL_DVSN_CD = #EVL_DVSN_CD#
+		ORDER BY B.EVL_CLU_CD, EVL_SC
+	</select>
+	
+	<select id="AEPGKM032Egridcol" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	EVL_CLU_CD
+		FROM	TBAEPGKM010L
+		WHERE	EVL_YR = #EVL_YR#
+		AND		EVL_DVSN_CD = #EVL_DVSN_CD#
+	</select>
+	
+	<select id="AEPGKM032Emainselect" parameterClass="paramMap" resultClass="resultMap">
+		SELECT  CASE
+		            WHEN EVL.COFM_YN IS NULL
+		            THEN '신규'
+		            ELSE '수정'
+		        END AS STATUS /* 상태정보 */
+		       ,KLD.KNB /* 지식번호 */
+		       ,KLD.KLD_NM /* 지식명 */
+		       ,KLD.REGN_DPT_NM /* 등록자부서명 */
+		       ,KLD.REGN_CNB /* 등록자전산번호 */
+		       ,KLD.REGN_USR_NM /* 등록자명 */
+		       ,KLD.EVL_YR	/* 평가년도 */
+			   ,KLD.EVL_DVSN_CD /* 평가구분 */
+			   ,KLD.SC_GRN_TG_CD /* 점수부여대상코드 */
+			   ,KLD.KLD_ACTV_NM /* 점수부여대상명 */
+			   ,KLD.EVLT_CNB AS EVL_CNB
+		       ,F_USR_INFO(KLD.EVLT_CNB, 2) AS EVL_USR_NM /* 평가자전산번호 */
+			   ,KLD.BSC_SC /* 기본점수 */
+		       ,KLD.MIN_SC /* 최소점수 */
+		       ,KLD.MAX_SC /* 최대점수 */
+		       ,KLD.ADD_SC /* 가산점수 */
+		       ,NVL(KLD.DTM_YN, 'N') AS DTM_YN /*확정여부*/
+			   ,NVL(EVL.BSC_SC, KLD.BSC_SC) AS EVL_BSC_SC /* 기본점수 */
+			    <iterate property="condition" prepend="," conjunction=",">
+		        $condition[]$
+		        </iterate>
+			   ,NVL(EVL.ADD_SC, 0) AS EVL_ADD_SC /* 가산점수 */
+		       ,TO_NUMBER(NVL(EVL.BSC_SC, KLD.BSC_SC) + NVL(EVL_CLU_SC, 0) + NVL(EVL.ADD_SC, 0)) AS TOT_SC /* 점수합계 */
+		       ,NVL(EVL.COFM_YN, 'N') AS COFM_YN /* 승인여부 */
+		  FROM  (
+				SELECT  A.EVL_YR	/* 평가년도 */
+					   ,A.EVL_DVSN_CD /* 평가구분 */
+					   ,A.SC_GRN_TG_CD /* 점수부여대상코드 */
+					   ,A.KLD_ACTV_NM /* 점수부여대상명 */
+					   ,A.SET_ID /* 설정ID */
+					   ,A.TG_CAT_NM /* 설정명(지식카테고리명) */
+					   ,A.EVLT_CNB/* 평가자전산번호 */
+					   ,A.DTM_YN /*확정여부*/
+					   ,B.KNB /* 지식번호 */
+					   ,B.KLD_NM /* 지식명 */
+		               ,B.REGN_DPT_NM /* 등록자부서명 */
+		               ,B.REGN_CNB /* 등록자전산번호 */
+		               ,F_USR_INFO(B.REGN_CNB, '2') AS REGN_USR_NM /* 등록자명 */
+		               ,A.BSC_SC /* 기본점수 */
+		               ,A.MIN_SC /* 최소점수 */
+		               ,A.MAX_SC /* 최대점수 */
+		               ,A.ADD_SC /* 가산점수 */
+				FROM    (  
+						SELECT  A1.EVL_YR	/* 평가년도 */
+							   ,A1.EVL_DVSN_CD /* 평가구분 */
+							   ,A1.EVL_ACTV_STR_DT /* 평가활동시작일 */
+							   ,A1.EVL_ACTV_END_DT /* 평가활동종료일 */
+							   ,A1.DTM_YN /*확정여부*/
+							   ,A2.SC_GRN_TG_CD /* 점수부여대상코드 */
+							   ,A3.KLD_ACTV_NM /* 점수부여대상명 */
+		                       ,A3.BSC_SC /* 기본점수 */
+		                       ,A3.MIN_SC /* 최소점수 */
+		                       ,A3.MAX_SC /* 최대점수 */
+		                       ,A3.ADD_SC /* 가산점수 */
+							   ,A4.SET_ID /* 설정ID */
+							   ,A5.TG_CAT_NM /* 설정명(지식카테고리명) */
+							   ,A6.CNB AS EVLT_CNB/* 평가자전산번호 */
+						FROM    TBAEPGKM011M A1 /* 평가기간기본 */
+							   ,TBAEPGKM012L A2 /* 평가기간별점수부여대상내역 */
+							   ,TBAEPGKM006M A3 /* 점수부여대상내역 */
+							   ,TBAEPGKM007L A4 /* 점수부여대상설정내역 */
+							   ,TBAEPGKM017M A5 /* 대상분류기본 (지식카테고리) */
+							   ,TBAEPGKM013L A6 /* 평가기간별평가자내역 */
+						WHERE   A1.EVL_YR = A2.EVL_YR
+						AND     A1.EVL_DVSN_CD = A2.EVL_DVSN_CD
+						AND     A2.SC_GRN_TG_CD = A3.SC_GRN_TG_CD
+						AND     A3.SC_GRN_TG_CD = A4.SC_GRN_TG_CD
+						AND     A4.SET_ID = A5.TG_CAT_ID
+						AND     A1.EVL_YR = A6.EVL_YR
+						AND     A1.EVL_DVSN_CD = A6.EVL_DVSN_CD
+						AND     A1.EVL_YR = #EVL_YR#
+						AND     A1.EVL_DVSN_CD = #EVL_DVSN_CD#
+						AND     A2.SC_GRN_TG_CD IN (
+		                        SELECT  A.SC_GRN_TG_CD 
+		                        FROM    TBAEPGKM012L AS A
+		                               ,TBAEPGKM006M AS B
+		                        WHERE   A.SC_GRN_TG_CD = B.SC_GRN_TG_CD
+		                        AND     B.SET_DVSN_CD = 'C'
+		                        AND     A.EVL_YR = #EVL_YR#
+		                        AND     A.EVL_DVSN_CD = #EVL_DVSN_CD#
+		                        )
+						ORDER BY A1.EVL_YR, A1.EVL_DVSN_CD, A2.SC_GRN_TG_CD, A6.CNB, A4.SET_ID   
+					    ) A
+					   ,TBAEPGKM001M B
+				WHERE   A.SET_ID = B.KLD_CAT_CD /* 점수부여대상에서 선택된 카테고리에 해당하는 지식 */
+				<![CDATA[
+				AND     A.EVL_ACTV_STR_DT <= B.REGI_RQS_DT /* 평가활동기간내에 등록된 지식 */
+				AND     A.EVL_ACTV_END_DT >= B.REGI_RQS_DT /* 평가활동기간내에 등록된 지식 */       
+				]]>
+				AND     A.EVL_YR = #EVL_YR#
+				AND     A.EVL_DVSN_CD = #EVL_DVSN_CD#
+				<isNotEmpty property="GRN_TG" prepend="AND">
+						A.SC_GRN_TG_CD = #GRN_TG#
+				</isNotEmpty>
+		        <isNotEmpty property="NM" prepend="AND">
+				   		F_USR_INFO(B.REGN_CNB, '2') LIKE '%' || #NM# || '%' 
+				</isNotEmpty>
+				<isNotEmpty property="TITLE" prepend="AND">
+						B.KLD_NM LIKE '%' || #TITLE# || '%'
+				</isNotEmpty>
+		       ) KLD	   
+		      ,(
+				SELECT  EVL_YR /*평가년도*/
+					   ,EVL_DVSN_CD	/* 평가구분코드 */
+					   ,SC_GRN_TG_CD /* 점수부여대상코드 */
+					   ,KNB /* 지식번호 */          
+					   ,EVLT_CNB /* 평가자전산번호 */
+		               ,CNB AS REGN_CNB /* 전산번호 */
+		               ,COFM_YN /* 승인여부 */
+					   ,MAX(CASE WHEN SC_CAT_CD = '1' THEN SC END) AS BSC_SC /* 기본점수 */
+		                <iterate property="condition" prepend="," conjunction=",">
+		                SUM(CASE WHEN SC_CAT_CD = '2' AND EVL_CLU_CD = SUBSTR(#condition[]#, 9) THEN EVL_RK_CD END) AS $condition[]$
+		                </iterate>
+		               ,SUM(CASE WHEN SC_CAT_CD = '2' THEN SC END) AS EVL_CLU_SC
+					   ,SUM(CASE WHEN SC_CAT_CD = '3' THEN SC END) AS ADD_SC /* 가산점수 */
+				FROM    TBAEPGKM016L /* 지식평가기본 */
+				WHERE   SC_GRN_TG_CD IN (
+		                SELECT  A.SC_GRN_TG_CD 
+		                FROM    TBAEPGKM012L AS A
+		                       ,TBAEPGKM006M AS B
+		                WHERE   A.SC_GRN_TG_CD = B.SC_GRN_TG_CD
+		                AND     B.SET_DVSN_CD = 'C'
+		                AND     A.EVL_YR = #EVL_YR#
+		                AND     A.EVL_DVSN_CD = #EVL_DVSN_CD#
+		                )
+				AND     EVL_YR = #EVL_YR#
+				AND     EVL_DVSN_CD = #EVL_DVSN_CD#
+				GROUP BY EVL_YR, EVL_DVSN_CD, SC_GRN_TG_CD, KNB, EVLT_CNB, CNB, COFM_YN
+		       ) EVL
+		WHERE   KLD.EVL_YR = EVL.EVL_YR(+)
+		AND     KLD.EVL_DVSN_CD = EVL.EVL_DVSN_CD(+)
+		AND     KLD.SC_GRN_TG_CD = EVL.SC_GRN_TG_CD(+)
+		AND     KLD.KNB = EVL.KNB(+) 
+		AND     KLD.EVLT_CNB = EVL.EVLT_CNB(+)
+		AND     KLD.REGN_CNB = EVL.REGN_CNB(+)
+		ORDER BY KLD.SC_GRN_TG_CD, KLD.KNB, KLD.REGN_CNB, EVL.EVLT_CNB
+	</select>
+	
+	<select id="AEPGKM032Eexcelselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT  KLD.KNB AS KNB_H /* 지식번호 */
+		       ,KLD.KLD_NM /* 지식명 */
+		       ,KLD.REGN_DPT_NM /* 등록자부서명 */
+		       ,KLD.REGN_CNB AS REGN_CNB_H /* 등록자전산번호 */
+		       ,KLD.REGN_USR_NM /* 등록자명 */
+		       ,KLD.EVL_YR AS EVL_YR_H /* 평가년도 */
+			   ,KLD.EVL_DVSN_CD AS EVL_DVSN_CD_H /* 평가구분 */
+			   ,KLD.SC_GRN_TG_CD AS SC_GRN_TG_CD_H /* 점수부여대상코드 */
+		       ,KLD.KLD_ACTV_NM AS SC_GRN_TG_NM /* 점수부여대상명 */
+			   ,KLD.EVLT_CNB AS EVL_CNB_H /* 평가자전산번호 */
+		       ,F_USR_INFO(KLD.EVLT_CNB, 2) AS EVL_USR_NM /* 평가자명 */
+			   ,NVL(EVL.BSC_SC, KLD.BSC_SC) AS EVL_BSC_SC /* 기본점수 */
+			    <iterate property="condition" prepend="," conjunction=",">
+		        EVL_COL_$condition[]$
+		        </iterate>
+			   ,EVL.ADD_SC AS EVL_ADD_SC/* 가산점수 */
+		  FROM  (
+				SELECT  A.EVL_YR	/* 평가년도 */
+					   ,A.EVL_DVSN_CD /* 평가구분 */
+					   ,A.SC_GRN_TG_CD /* 점수부여대상코드 */
+					   ,A.KLD_ACTV_NM /* 점수부여대상명 */
+					   ,A.SET_ID /* 설정ID */
+					   ,A.TG_CAT_NM /* 설정명(지식카테고리명) */
+					   ,A.EVLT_CNB/* 평가자전산번호 */
+					   ,A.BSC_SC /* 기본점수 */
+					   ,B.KNB /* 지식번호 */
+					   ,B.KLD_NM /* 지식명 */
+		               ,B.REGN_DPT_NM /* 등록자부서명 */
+		               ,B.REGN_CNB /* 등록자전산번호 */
+		               ,F_USR_INFO(B.REGN_CNB, '2') AS REGN_USR_NM /* 등록자명 */
+				FROM    (  
+						SELECT  A1.EVL_YR	/* 평가년도 */
+							   ,A1.EVL_DVSN_CD /* 평가구분 */
+							   ,A1.EVL_ACTV_STR_DT /* 평가활동시작일 */
+							   ,A1.EVL_ACTV_END_DT /* 평가활동종료일 */
+							   ,A2.SC_GRN_TG_CD /* 점수부여대상코드 */
+							   ,A3.KLD_ACTV_NM /* 점수부여대상명 */
+		                       ,A3.BSC_SC /* 기본점수 */
+		                       ,A3.MIN_SC /* 최소점수 */
+		                       ,A3.MAX_SC /* 최대점수 */
+		                       ,A3.ADD_SC /* 가산점수 */
+							   ,A4.SET_ID /* 설정ID */
+							   ,A5.TG_CAT_NM /* 설정명(지식카테고리명) */
+							   ,A6.CNB AS EVLT_CNB/* 평가자전산번호 */
+						FROM    TBAEPGKM011M A1 /* 평가기간기본 */
+							   ,TBAEPGKM012L A2 /* 평가기간별점수부여대상내역 */
+							   ,TBAEPGKM006M A3 /* 점수부여대상내역 */
+							   ,TBAEPGKM007L A4 /* 점수부여대상설정내역 */
+							   ,TBAEPGKM017M A5 /* 대상분류기본 (지식카테고리) */
+							   ,TBAEPGKM013L A6 /* 평가기간별평가자내역 */
+						WHERE   A1.EVL_YR = A2.EVL_YR
+						AND     A1.EVL_DVSN_CD = A2.EVL_DVSN_CD
+						AND     A2.SC_GRN_TG_CD = A3.SC_GRN_TG_CD
+						AND     A3.SC_GRN_TG_CD = A4.SC_GRN_TG_CD
+						AND     A4.SET_ID = A5.TG_CAT_ID
+						AND     A1.EVL_YR = A6.EVL_YR
+						AND     A1.EVL_DVSN_CD = A6.EVL_DVSN_CD
+						AND     A1.EVL_YR = #EVL_YR#
+						AND     A1.EVL_DVSN_CD = #EVL_DVSN_CD#
+						AND     A2.SC_GRN_TG_CD IN (
+		                        SELECT  A.SC_GRN_TG_CD 
+		                        FROM    TBAEPGKM012L AS A
+		                               ,TBAEPGKM006M AS B
+		                        WHERE   A.SC_GRN_TG_CD = B.SC_GRN_TG_CD
+		                        AND     B.SET_DVSN_CD = 'C'
+		                        AND     A.EVL_YR = #EVL_YR#
+		                        AND     A.EVL_DVSN_CD = #EVL_DVSN_CD#
+		                        )
+						ORDER BY A1.EVL_YR, A1.EVL_DVSN_CD, A2.SC_GRN_TG_CD, A6.CNB, A4.SET_ID   
+					    ) A
+					   ,TBAEPGKM001M B
+				WHERE   A.SET_ID = B.KLD_CAT_CD /* 점수부여대상에서 선택된 카테고리에 해당하는 지식 */
+				<![CDATA[
+				AND     A.EVL_ACTV_STR_DT <= B.REGI_RQS_DT /* 평가활동기간내에 등록된 지식 */
+				AND     A.EVL_ACTV_END_DT >= B.REGI_RQS_DT /* 평가활동기간내에 등록된 지식 */       
+				]]>   
+				AND     A.EVL_YR = #EVL_YR#
+				AND     A.EVL_DVSN_CD = #EVL_DVSN_CD#
+				<isNotEmpty property="GRN_TG" prepend="AND">
+						A.SC_GRN_TG_CD = #GRN_TG#
+				</isNotEmpty>
+				<isNotEmpty property="NM" prepend="AND">
+				   		F_USR_INFO(B.REGN_CNB, '2') LIKE '%' || #NM# || '%' 
+				</isNotEmpty>
+				<isNotEmpty property="TITLE" prepend="AND">
+						B.KLD_NM LIKE '%' || #TITLE# || '%'
+				</isNotEmpty>
+		       ) KLD	   
+		      ,(
+				SELECT  EVL_YR /*평가년도*/
+					   ,EVL_DVSN_CD	/* 평가구분코드 */
+					   ,SC_GRN_TG_CD /* 점수부여대상코드 */
+					   ,KNB /* 지식번호 */          
+					   ,EVLT_CNB /* 평가자전산번호 */
+		               ,CNB AS REGN_CNB /* 전산번호 */
+					   ,MAX(CASE WHEN SC_CAT_CD = '1' THEN SC END) AS BSC_SC /* 기본점수 */
+		                <iterate property="condition" prepend="," conjunction=",">
+		                MAX(
+		                CASE
+					    	WHEN    EVL_CLU_CD = SUBSTR(#condition[]#, 1, INSTR(#condition[]#, 0) - 1) 
+		                    AND     EVL_RK_CD = SUBSTR(#condition[]#, INSTR(#condition[]#, 0, 1) + 1)	
+		                    AND     SC_CAT_CD = '2'
+					    	THEN '●'
+					   	END) AS EVL_COL_$condition[]$
+		                </iterate>
+					   ,SUM(CASE WHEN SC_CAT_CD = '3' THEN SC END) AS ADD_SC /* 가산점수 */
+				FROM    TBAEPGKM016L /* 지식평가기본 */
+				WHERE   SC_GRN_TG_CD IN (
+		                    SELECT  A.SC_GRN_TG_CD 
+		                    FROM    TBAEPGKM012L AS A
+		                           ,TBAEPGKM006M AS B
+		                    WHERE   A.SC_GRN_TG_CD = B.SC_GRN_TG_CD
+		                    AND     B.SET_DVSN_CD = 'C'
+		                    AND     A.EVL_YR = #EVL_YR#
+		                    AND     A.EVL_DVSN_CD = #EVL_DVSN_CD#
+		                )
+				AND     EVL_YR = #EVL_YR#
+				AND     EVL_DVSN_CD = #EVL_DVSN_CD#
+				GROUP BY EVL_YR, EVL_DVSN_CD, SC_GRN_TG_CD, KNB, EVLT_CNB, CNB
+		       ) EVL
+		WHERE   KLD.EVL_YR = EVL.EVL_YR(+)
+		AND     KLD.EVL_DVSN_CD = EVL.EVL_DVSN_CD(+)
+		AND     KLD.SC_GRN_TG_CD = EVL.SC_GRN_TG_CD(+)
+		AND     KLD.KNB = EVL.KNB(+) 
+		AND     KLD.EVLT_CNB = EVL.EVLT_CNB(+)
+		AND     KLD.REGN_CNB = EVL.REGN_CNB(+)
+		ORDER BY KLD.SC_GRN_TG_CD, KLD.REGN_CNB, EVL.EVLT_CNB
+	</select>
+	
+	<insert id="AEPGKM032Emaininsert" parameterClass="java.util.Map">
+		INSERT INTO TBAEPGKM016L
+		(
+		EVL_YR	/* 평가년도 */
+		,EVL_DVSN_CD	/* 평가구분코드 */
+		,SC_GRN_TG_CD	/* 점수부여대상코드 */
+		,SNO	/* 순번 */
+		,EVLT_CNB	/* 평가자전산번호 */
+		,KNB	/* 지식번호 */
+		,BRD_NO	/* 게시판번호 */
+		,BRD_BKNO	/* 게시판행번 */
+		,CMNT_NO	/* 댓글번호 */
+		,SC_CAT_CD	/* 점수분류코드 */
+		,EVL_CLU_CD	/* 평가항목코드 */
+		,EVL_RK_CD	/* 평가등급코드 */
+		,SC	/* 점수 */
+		,CNB	/* 전산번호 */
+		,COFM_YN	/* 승인여부 */
+		,FRT_USR_ID	/* 최초사용자ID */
+		,FNL_USR_ID	/* 최종사용자ID */
+		,FNL_DEAL_DPT_CD	/* 최종거래부서코드 */
+		,FNL_MNU_ID	/* 최종메뉴ID */
+		,FRT_REGI_DH	/* 최초등록일시 */
+		,FNL_MDF_DH	/* 최종수정일시 */
+		)
+		VALUES
+		(
+		#EVL_YR#
+		,#EVL_DVSN_CD#
+		,#SC_GRN_TG_CD#
+		,(SELECT NVL(MAX(TO_NUMBER(SNO)), 0) + 1 FROM TBAEPGKM016L WHERE EVL_YR = #EVL_YR# AND EVL_DVSN_CD = #EVL_DVSN_CD# AND SC_GRN_TG_CD = #SC_GRN_TG_CD#)
+		,#EVL_CNB#
+		,#KNB#
+		,''
+		,''
+		,''
+		,#SC_CAT_CD#
+		<isEqual property="SC_CAT_CD" compareValue="1">
+		,''
+		,''
+		,#EVL_BSC_SC#
+		</isEqual>
+		<isEqual property="SC_CAT_CD" compareValue="2">
+		,#EVL_CLU_CD#
+		,#EVL_RK_CD#
+		<isNotEmpty property="EVL_RK_CD">
+		,(SELECT EVL_SC FROM TBAEPGKM009D WHERE EVL_CLU_CD = #EVL_CLU_CD# AND EVL_RK_CD = #EVL_RK_CD#)
+		</isNotEmpty>
+		<isEmpty property="EVL_RK_CD">
+		,'0'
+		</isEmpty>
+		</isEqual>
+		<isEqual property="SC_CAT_CD" compareValue="3">
+		,''
+		,''
+		,#EVL_ADD_SC#
+		</isEqual>
+		,#REGN_CNB#
+		,'Y'
+		,#FRT_USR_ID#
+		,#FNL_USR_ID#
+		,#FNL_DEAL_DPT_CD#
+		,#FNL_MNU_ID#
+		,SYSDATE
+		,SYSDATE
+		)
+	</insert>
+	
+	<update id="AEPGKM032Emainupdate" parameterClass="java.util.Map">
+		UPDATE	TBAEPGKM016L
+		SET
+		<isEqual property="SC_CAT_CD" compareValue="2">
+				EVL_RK_CD = #EVL_RK_CD#,
+				SC = (SELECT EVL_SC FROM TBAEPGKM009D WHERE EVL_CLU_CD = #EVL_CLU_CD# AND EVL_RK_CD = #EVL_RK_CD#),
+		</isEqual>
+		<isEqual property="SC_CAT_CD" compareValue="3">
+				SC = #EVL_ADD_SC#,
+		</isEqual>
+				COFM_YN = #COFM_YN#,
+				FNL_USR_ID = #FNL_USR_ID#,
+				FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#,
+				FNL_MDF_DH = SYSDATE
+		WHERE	EVL_YR = #EVL_YR#
+		AND		EVL_DVSN_CD = #EVL_DVSN_CD#
+		AND		SC_GRN_TG_CD = #SC_GRN_TG_CD#
+		AND		KNB = #KNB#
+		AND		CNB = #REGN_CNB#
+		AND		EVLT_CNB = #EVL_CNB#
+		AND		SC_CAT_CD = #SC_CAT_CD#
+		<isEqual property="SC_CAT_CD" compareValue="2">
+		AND		EVL_CLU_CD = #EVL_CLU_CD#
+		</isEqual>
+	</update>
+	
+	<delete id="AEPGKM032Eexceldelete" parameterClass="java.util.Map">
+		DELETE
+		FROM	TBAEPGKM016L
+		WHERE	EVL_YR = #EVL_YR#
+		AND		EVL_DVSN_CD = #EVL_DVSN_CD#
+		AND		SC_GRN_TG_CD IN (
+				SELECT	A.SC_GRN_TG_CD
+				FROM	TBAEPGKM012L AS A,
+						TBAEPGKM006M AS B
+				WHERE	A.SC_GRN_TG_CD = B.SC_GRN_TG_CD
+				AND		B.SET_DVSN_CD = 'C'
+				AND		A.EVL_YR = #EVL_YR#
+				AND		A.EVL_DVSN_CD = #EVL_DVSN_CD#
+		)
+	</delete>
+	
+	<select id="AEPGKM032CommitSelect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	DTM_YN
+		FROM	TBAEPGKM011M
+		WHERE	EVL_YR = #EVL_YR#
+		AND		EVL_DVSN_CD = #EVL_DVSN_CD#
+	</select>
+	
+	<update id="AEPGKM032ECommitUpdate" parameterClass="java.util.Map">
+		UPDATE TBAEPGKM011M
+		SET    DTM_YN = #COMMIT_YN#
+			  ,FNL_USR_ID = #FNL_USR_ID#
+			  ,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+			  ,FNL_MDF_DH = SYSDATE
+		WHERE  EVL_YR = #EVL_YR#
+		AND    EVL_DVSN_CD = #EVL_DVSN_CD#
+	</update>
+	
+	
+	<resultMap class="java.util.HashMap" id="hwpDocMap">
+		<result property="KNB" column="KNB" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="KLD_NM" column="KLD_NM" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="KLD_SMM_TXT" column="KLD_SMM_TXT" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="KYWD_NM" column="KYWD_NM" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="KYWD_NM_1" column="KYWD_NM_1" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="KYWD_NM_2" column="KYWD_NM_2" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="KYWD_NM_3" column="KYWD_NM_3" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="REGI_RQS_DT" column="REGI_RQS_DT" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="REGI_RQS_DT_Q" column="REGI_RQS_DT_Q" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="PRSV_WAY_CD" column="PRSV_WAY_CD" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="PRSV_WAY_NM" column="PRSV_WAY_NM" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="PRSV_DDLN_DH" column="PRSV_DDLN_DH" jdbcType="TIMESTAMP" javaType="java.lang.String" />
+		<result property="PRSV_WAY_DH" column="PRSV_WAY_DH" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="KLD_CAT_CD" column="KLD_CAT_CD" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="KLD_CAT_NM" column="KLD_CAT_NM" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="KLD_TXT" column="KLD_TXT" jdbcType="CLOB" javaType="java.lang.String" />
+		<result property="KLD_TXT_REVOKE" column="KLD_TXT_REVOKE" jdbcType="CLOB" javaType="java.lang.String" />
+		<result property="TG_ORG_CD" column="TG_ORG_CD" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="TG_ORG_NM" column="TG_ORG_NM" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="AUD_YR" column="AUD_YR" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="AUD_NO" column="AUD_NO" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="DSP_RQ_SNO" column="DSP_RQ_SNO" jdbcType="NUMBER" javaType="java.lang.String" />
+		<result property="FUNC_SPH_CD" column="FUNC_SPH_CD" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="FUNC_SPH_NM" column="FUNC_SPH_NM" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="CAT_SPH_CD" column="CAT_SPH_CD" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="CAT_SPH_NM" column="CAT_SPH_NM" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="SPH_NM" column="SPH_NM" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="DOC_ID" column="DOC_ID" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="REGN_OPEN_YN" column="REGN_OPEN_YN" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="REGN_OPEN_NM" column="REGN_OPEN_NM" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="KLD_STA_CD" column="KLD_STA_CD" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="KLD_STA_NM" column="KLD_STA_NM" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="AUD_SBJ_NM" column="AUD_SBJ_NM" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="DSP_RQ_NM" column="DSP_RQ_NM" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="KLD_SRC_NM" column="KLD_SRC_NM" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="KLD_REGI_YR" column="KLD_REGI_YR" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="KLD_REGI_YR_Q" column="KLD_REGI_YR_Q" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="REGN_CNB" column="REGN_CNB" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="USR_NM" column="USR_NM" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="TNB" column="TNB" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="USR_EMAIL" column="USR_EMAIL" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="USR_DPT_NM" column="USR_DPT_NM" jdbcType="VARCHAR2" javaType="java.lang.String" />
+	</resultMap>
+	
+	<select id="AEPGKM032Qmainselect" parameterClass="java.util.Map" resultMap="hwpDocMap">
+		SELECT  KNB	                                        							/* 지식번호 */
+		        ,KLD_NM                                        							/* 지식명 */
+		        ,KLD_SMM_TXT	                                    					/* 지식요약내용 */
+		        ,KYWD_NM_1 ||
+                (CASE
+                    WHEN TRIM(KYWD_NM_1) IS NOT NULL AND TRIM(KYWD_NM_2) IS NOT NULL
+                    THEN ' / ' || KYWD_NM_2
+                END) ||
+                (CASE
+                    WHEN (TRIM(KYWD_NM_1) IS NOT NULL OR TRIM(KYWD_NM_2) IS NOT NULL) 
+                    AND TRIM(KYWD_NM_3) IS NOT NULL
+                    THEN ' / ' || KYWD_NM_3
+                END) AS KYWD_NM															/* 키워드명조합 */
+		        ,KYWD_NM_1							                					/* 키워드명1 */
+		        ,KYWD_NM_2						                                        /* 키워드명2 */
+		        ,KYWD_NM_3	                					                        /* 키워드명3 */
+		        ,REGI_RQS_DT	                                					    /* 등록요청일 */
+		        ,TO_CHAR(TO_DATE(REGI_RQS_DT), 'YYYY-MM-DD') AS REGI_RQS_DT_Q			/* 등록요청일 상세 */
+		        ,PRSV_WAY_CD	                                    					/* 보존방법코드 */
+		        ,F_CODE_NM('1000352', PRSV_WAY_CD) AS PRSV_WAY_NM   					/* 보존방법명 */
+		        ,(CASE
+		            WHEN PRSV_WAY_CD = '0'
+		            THEN NULL
+		            ELSE PRSV_DDLN_DH
+		         END) AS PRSV_DDLN_DH	                            					/* 보존기한일시 */
+		        ,F_CODE_NM('1000352', PRSV_WAY_CD) || '  ' ||
+		        (CASE
+		            WHEN PRSV_WAY_CD = '0'
+		            THEN NULL
+		            ELSE TO_CHAR(PRSV_DDLN_DH, 'YYYY-MM-DD')
+		         END) AS PRSV_WAY_DH													/* 보존방법명/일시 */
+		        ,KLD_CAT_CD	                                        					/* 지식분류코드 */
+		        ,(SELECT    TG_CAT_NM                               
+		          FROM      TBAEPGKM017M                            					/* 대상분류기본T */
+		          WHERE     TG_CAT_ID = KLD_CAT_CD) AS KLD_CAT_NM   					/* 지식분류명 */
+		        ,KLD_TXT	                                        					/* 지식내용 */
+		        ,KLD_TXT AS KLD_TXT_REVOKE	                                        	/* 지식내용 - 초기화때 쓸 꺼 */
+		        ,TG_ORG_CD	                                        					/* 대상기관코드 */
+		        ,F_ORG_INFO(TG_ORG_CD, '1') AS TG_ORG_NM            					/* 대상기관명 */
+		        ,AUD_YR	                                            					/* 감사년도 */
+		        ,AUD_NO	                                            					/* 감사번호 */
+		        ,DSP_RQ_SNO                                         					/* 처분요구순번 */
+		        ,FUNC_SPH_CD                                        					/* 기능분야코드 */
+		        ,CAT_SPH_CD                                         					/* 분류분야코드 */
+		        ,F_CODE_NM('1000466', CAT_SPH_CD)
+                 ||
+                 (CASE
+                    WHEN F_CODE_NM('1000466', CAT_SPH_CD) IS NOT NULL 
+                    AND  F_CODE_NM('1000467', FUNC_SPH_CD) IS NOT NULL
+                    THEN ' / '
+                 END
+                 )
+                 ||
+                 F_CODE_NM('1000467', FUNC_SPH_CD) AS SPH_NM							/* 분야명조합 */
+		        ,F_CODE_NM('1000466', CAT_SPH_CD) AS CAT_SPH_NM							/* 기능분야명 */
+		        ,F_CODE_NM('1000467', FUNC_SPH_CD) AS FUNC_SPH_NM   					/* 분류분야명 */
+		        ,A.DOC_ID	                                            					/* 문서ID */
+		        ,REGN_OPEN_YN	                                    					/* 등록자공개여부 */
+		        ,(CASE
+		            WHEN REGN_OPEN_YN = 'Y'
+		            THEN '공개'
+		            ELSE '비공개'
+		        END) AS REGN_OPEN_NM                                					/* 등록자공개여부명 */
+		        ,KLD_STA_CD	                                       						/* 지식상태코드 */
+		        ,(CASE
+		        	WHEN KLD_STA_CD = '7'
+		        	THEN F_CODE_NM('1000351', KLD_STA_CD) || ' (' || TO_CHAR(EXPR_DH, 'YYYY-MM-DD') || ')'
+		        	WHEN KLD_STA_CD = '8'
+		        	THEN F_CODE_NM('1000351', KLD_STA_CD) || ' (' || TO_CHAR(ABRG_DH, 'YYYY-MM-DD') || ')'
+		        	ELSE F_CODE_NM('1000351', KLD_STA_CD)
+		       	END) AS KLD_STA_NM     													/* 지식상태명 */
+		        ,AUD_SBJ_NM	                                        					/* 감사사항명 */
+		        ,DSP_RQ_NM	                                        					/* 처분요구명 */
+		        ,KLD_SRC_NM	                                        					/* 지식출처명 */
+		        ,KLD_REGI_YR	                                    					/* 지식등록년도 */
+		        ,KLD_REGI_YR || ' 년도' AS KLD_REGI_YR_Q								/* 지식등록년도[텍스트] */
+		        , REGN_CNB /*등록자 전산번호*/
+		        , F_USR_INFO(REGN_CNB, '2') AS USR_NM /*등록자명*/
+		        , B.TNB /*내선번호*/
+		        , B.EML_AD AS USR_EMAIL /*이메일*/
+		        , A.REGN_DPT_NM AS USR_DPT_NM /*등록자 소속명*/
+		FROM TBAEPGKM001M A
+		   , TBDCMACM001M B
+        WHERE A.REGN_CNB = B.CNB (+)
+		  AND A.KNB = #KNB#
+	</select>
+	
+	<select id="AEPGKM032Qsubselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT  EVL_CLU_CD
+		       	,EVL_CLU_NM
+				,EVL_TXT
+				,EVL_RK_NM AS GRADE
+				,KNB
+				,AVG_SC AS SC
+				,MINUS_SC AS MINUS_SC
+		FROM    (
+		        SELECT  EVL_CLU_CD
+		               ,EVL_CLU_NM
+		               ,EVL_TXT
+		               ,EVL_RK_CD
+		               ,EVL_RK_NM
+		               ,KNB
+		               ,AVG_SC
+		               ,MINUS_SC
+		               ,ROW_NUMBER() OVER (PARTITION BY EVL_CLU_CD, EVL_CLU_NM, EVL_TXT, KNB, AVG_SC ORDER BY MINUS_SC) AS SEQ
+		        FROM    (
+		        		<![CDATA[
+		                SELECT  A.EVL_CLU_CD
+		                       ,A.EVL_CLU_NM
+		                       ,A.EVL_TXT
+		                       ,B.EVL_RK_CD
+		                       ,B.EVL_RK_NM
+		                       ,B.EVL_SC
+		                       ,C.KNB
+		                       ,C.AVG_SC
+		                       ,CASE
+		                            WHEN B.EVL_SC >= TO_NUMBER(NVL(C.AVG_SC, 0))
+		                            THEN TO_NUMBER(B.EVL_SC) - TO_NUMBER(NVL(C.AVG_SC, 0))
+		                            ELSE TO_NUMBER(NVL(C.AVG_SC, 0)) - TO_NUMBER(B.EVL_SC)
+		                        END AS MINUS_SC
+		                FROM    TBAEPGKM008M AS A
+		                       ,TBAEPGKM009D AS B
+		                       ,(SELECT  EVL_YR
+		                                ,EVL_DVSN_CD
+		                                ,SC_GRN_TG_CD
+		                                ,EVL_CLU_CD
+		                                ,KNB
+		                                ,SC_CAT_CD
+		                                ,AVG(SC) AS AVG_SC
+		                        FROM    TBAEPGKM016L
+		                        WHERE   SC_CAT_CD = '2'
+		                        AND     KNB = #KNB#
+		                        GROUP BY EVL_YR
+		                                ,EVL_DVSN_CD
+		                                ,SC_GRN_TG_CD
+		                                ,EVL_CLU_CD
+		                                ,KNB
+		                                ,SC_CAT_CD
+		                        ORDER BY EVL_YR
+		                                ,EVL_DVSN_CD
+		                                ,SC_GRN_TG_CD
+		                                ,EVL_CLU_CD
+		                                ,KNB) AS C
+		                WHERE   A.EVL_CLU_CD = B.EVL_CLU_CD
+		                AND     A.EVL_CLU_CD = C.EVL_CLU_CD
+		                ]]>
+		                )
+		        )
+		WHERE   SEQ = '1'
+	</select>
+	
+	<select id="AEPGKM032Echeckcommit" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	DTM_YN
+		FROM	TBAEPGKM011M
+		WHERE	EVL_YR = #EVL_YR#
+		AND		EVL_DVSN_CD = #EVL_DVSN_CD#
+	</select>
+</sqlMap>
+

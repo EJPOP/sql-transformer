@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/bii/717">
+	<!-- 관련처분 목록 조회 -->   
+	<select id="CSPBII717QReltAudInfSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[       
+			SELECT A.YE      /* 연도 */
+			     , A.SRNO    /* 일련번호 */			     
+			     , A.INF_NO  /* 정보번호 */
+			     , A.TIT_TXT /* 제목내용 (/		  
+			  FROM TBCSPBII170M A /* 감사정보기본 */
+			 WHERE A.YE   = REGEXP_SUBSTR(#strInfNo#, '[^|-]+', 1, 1)
+			   AND A.SRNO = REGEXP_SUBSTR(#strInfNo#, '[^|-]+', 1, 2)
+		]]>
+	</select>
+	
+	<!-- 관련처분 목록 조회 -->   
+	<select id="CSPBII717ERelDspSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[       
+			SELECT /*A.AUD_YR || '-' || A.AUD_NO || '-' || A.DSP_RQ_SNO AS DSP_NO    */          /* 처분번호 */
+				F_MNG_KND_AUDYRNO(A.AUD_YR, A.AUD_NO, C.AUD_KND_CD, '-') ||'-'|| A.DSP_RQ_SNO AS DSP_NO
+			     , B.ENF_DT                                                                  /* 시행일 */
+			     , A.DSP_RQ_KND_CD                                                           /* 처분요구종류코드 */
+			     , F_CODE_NM('1000002', A.DSP_RQ_KND_CD)              AS DSP_RQ_KND_NM       /* 처분요구종류명 */
+			     , A.TIT_TXT                                          AS DSP_TIT_TXT         /* 처분제목내용 */
+			     , B.RLTN_ORG_CD                                                             /* 관계기관코드 */
+			     , (SELECT C.ORG_NM
+			          FROM TBDCMACM015M C
+			         WHERE C.ORG_CD = B.RLTN_ORG_CD)                  AS RLTN_ORG_NM         /* 관계기관명 */			    
+			     , A.AUD_YR                                                                  /* 감사연도 */
+			     , A.AUD_NO                                                                  /* 감사번호 */
+			     , A.DSP_RQ_SNO                                                              /* 처분요구순번 */		  
+			  FROM TBBADEAR001M A /* 처분요구사항기본 */
+			     , TBBADEAR002D B /* 처분요구사항상세 */
+			     , TBBADDED001M C
+			 WHERE A.AUD_YR     = B.AUD_YR
+			   AND A.AUD_NO     = B.AUD_NO
+			   AND A.DSP_RQ_SNO = B.DSP_RQ_SNO
+			   AND     A.AUD_YR = C.AUD_YR
+			   AND     A.AUD_NO = C.AUD_NO
+			   AND A.AUD_YR     = #strAudYr#
+			   AND A.AUD_NO     = #strAudNo#
+			   AND A.DSP_RQ_SNO = #strDspRqSno#
+		]]>
+	</select>
+	
+	
+	
+	<!-- 감사정보기본 수정 -->
+	<update id="CSPBII717EMainUpdate170M" parameterClass="paramMap">
+		UPDATE TBCSPBII170M                       
+		   SET TIT_TXT         = #TIT_TXT#           /* 제목내용 */
+		     , PRSR_DPT_CD     = #PRSR_DPT_CD#       /* 제출자부서코드 */
+		     , PRSR_CNB        = #PRSR_CNB#		     /* 제출자전산번호 */	
+		     , PRSR_RANK_CD    = #PRSR_RANK_CD#		 /* 제출자 직급 코드*/	           
+		     , CLC_DVSN_CD     = #CLC_DVSN_CD#       /* 수집구분코드 */
+		     , SRC_DVSN_CD     = #SRC_DVSN_CD#       /* 출처구분코드 */
+		     , INF_DVSN_CD     = #INF_DVSN_CD#       /* 정보구분코드*/
+		     , REL_ORG_CD      = #REL_ORG_CD#        /* 관련기관코드  */
+		     , REL_ORG_CD_1    = #REL_ORG_CD_1#      /* 관련기관코드1 */ 
+		     , REL_ORG_CD_2    = #REL_ORG_CD_2#      /* 관련기관코드2 */
+		     , UTL_SC          = #UTL_SC#            /* 활용가능성 */
+		     , FDLTY_SC        = #FDLTY_SC#          /* 충실성 */
+		     , RIBLY_SC        = #RIBLY_SC#          /* 신뢰성 */
+		     , ACP_DT          = REPLACE(#ACP_DT#, '.', '')     /* 접수일 */
+		     , TRNF_DT         = REPLACE(#TRNF_DT#, '.', '')     /* 이송일 */
+		     , TRNF_ACP_DT     = REPLACE(#TRNF_ACP_DT#, '.', '') /* 이송접수일 */
+		     , HNDL_DPT_CD     = #HNDL_DPT_CD# /* 처리부서코드  */
+			 , HNDL_ORD_CD     = #HNDL_ORD_CD#       /* 처리지시코드 */			                                           
+		     , OPEN_YN         = #OPEN_YN#           /* 공개여부  */
+		     , HNDL_DT         = REPLACE(#HNDL_DT#, '.', '') /* 처리일 */
+		     , CMPT_DT         = REPLACE(#CMPT_DT#, '.', '') /* 완료일 */
+		     , HNDL_RSLT_CD    = #HNDL_RSLT_CD#      /* 처리결과코드 */	
+		     , AUD_INF_PRSS_STA_CD = #AUD_INF_PRSS_STA_CD# /* 감사정보진행상태코드 */
+		     , BK_TRNF_DT      = #BK_TRNF_DT#        /* 이전이송일 */
+		     , BK_HNDL_DT      = #BK_HNDL_DT#        /* 이전처리일 */
+		     , BK_CMPT_DT      = #BK_CMPT_DT#        /* 이전완료일 */
+		     , BK_HNDL_PEN_CNB = #BK_HNDL_PEN_CNB#        /* 이전처리자전산번호 */
+		     , BK_HNDL_DPT_CD  = #BK_HNDL_DPT_CD#        /* 이전처리부서코드 */
+		     , BK_HNDL_ORD_CD  = #BK_HNDL_ORD_CD#        /* 이전처리지시코드 */
+		     , FNL_USR_ID      = #FNL_USR_ID#        /* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#   /* 최종거래부서코드 */
+		     , FNL_MNU_ID      = #FNL_MNU_ID#        /* 최종메뉴ID */
+		     , FNL_MDF_DH      = SYSDATE             /* 최종수정일시 */
+		     , SMT_DT = #SMT_DT2#
+		     , BLE_CHGR_CNB = #BLE_CHGR_CNB#
+		 WHERE YE = #YE#
+		   AND SRNO = #SRNO#
+	</update>
+	
+	<!-- 감사정보내역 수정 -->
+	<update id="CSPBII717EMainUpdate171L" parameterClass="paramMap">
+		UPDATE TBCSPBII171L                       
+		   SET AUD_INF_TXT       = #AUD_INF_TXT#       /* 감사정보내용 */
+		     , AUD_INF_ETC_TXT   = #AUD_INF_ETC_TXT#   /* 감사정보기타내용 */
+		     , AUD_INF_SMM_TXT   = #AUD_INF_SMM_TXT#   /* 감사정보요약내용 */
+		     , HNDL_RSLT_SMM_TXT = #HNDL_RSLT_SMM_TXT# /* 처리결과요약내용 */
+		     , FNL_USR_ID        = #FNL_USR_ID#        /* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD   = #FNL_DEAL_DPT_CD#   /* 최종거래부서코드 */
+		     , FNL_MNU_ID        = #FNL_MNU_ID#        /* 최종메뉴ID */
+		     , FNL_MDF_DH        = SYSDATE             /* 최종수정일시 */
+		     , AUD_INF_ANL_OPIN_TXT = #AUD_INF_ANL_OPIN_TXT#
+		     , AUD_INF_BLE_ANL_OPIN_TXT = #AUD_INF_BLE_ANL_OPIN_TXT#
+		 WHERE YE   = #YE#
+		   AND SRNO = #SRNO#
+	</update>
+	
+	<!-- 감사정보관련자내역 등록  -->
+	<insert id="CSPBII717EReltAudInfInsert173L" parameterClass="paramMap">
+		INSERT INTO TBCSPBII173L (
+		                          YE                /* 연도 */
+		                        , SRNO              /* 일련번호 */
+		                        , RELT_AUD_INF_YE   /* 연관감사정보연도 */
+		                        , RELT_AUD_INF_SRNO /* 연관감사정보일련번호 */		                      
+		                        , FRT_USR_ID        /* 최초사용자ID */
+		                        , FNL_USR_ID        /* 최종사용자ID */
+		                        , FNL_DEAL_DPT_CD   /* 최종거래부서코드 */
+		                        , FNL_MNU_ID        /* 최종메뉴ID */
+		                        , FRT_REGI_DH       /* 최초등록일시 */
+		                        , FNL_MDF_DH        /* 최종수정일시 */
+		                         ) 
+		                  VALUES (
+		                          #YE#
+		                        , #SRNO#
+		                        , #RELT_AUD_INF_YE#
+		                        , #RELT_AUD_INF_SRNO#      		                     		                     
+		                        , #FRT_USR_ID#
+		                        , #FNL_USR_ID#
+		                        , #FNL_DEAL_DPT_CD#
+		                        , #FNL_MNU_ID#
+		                        , SYSDATE
+		                        , SYSDATE
+				                 )
+	</insert>
+	
+	<!-- 감사정보관련자내역 수정 -->
+	<update id="CSPBII717EReltAudInfUpdate173L" parameterClass="paramMap">
+		UPDATE TBCSPBII173L                       
+		   SET RELT_AUD_INF_YE   = #RELT_AUD_INF_YE#   /* 연관감사정보연도 */
+		     , RELT_AUD_INF_SRNO = #RELT_AUD_INF_SRNO# /* 연관감사정보일련번호 */				     
+		     , FNL_USR_ID        = #FNL_USR_ID#        /* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD   = #FNL_DEAL_DPT_CD#   /* 최종거래부서코드 */
+		     , FNL_MNU_ID        = #FNL_MNU_ID#        /* 최종메뉴ID */
+		     , FNL_MDF_DH        = SYSDATE             /* 최종수정일시 */
+		 WHERE YE                = #YE#
+		   AND SRNO              = #SRNO#
+		   AND RELT_AUD_INF_YE   = #CHG_BF_RELT_AUD_INF_YE# 
+		   AND RELT_AUD_INF_SRNO = #CHG_BF_RELT_AUD_INF_SRNO#
+	</update>
+	
+	<!-- 감사정보관련자내역 삭제 -->
+	<delete id="CSPBII717EReltAudInfDelete173L" parameterClass="paramMap">
+		DELETE TBCSPBII173L
+		 WHERE YE                = #YE#
+		   AND SRNO              = #SRNO#	
+		   AND RELT_AUD_INF_YE   = #CHG_BF_RELT_AUD_INF_YE# 
+		   AND RELT_AUD_INF_SRNO = #CHG_BF_RELT_AUD_INF_SRNO#
+	</delete>
+	
+	<select id="CSPBII717AudInfPrssStaCdCheck" parameterClass="paramMap" resultClass="Integer">
+		<![CDATA[
+			SELECT	COUNT(*)
+			FROM	TBCSPBII170M
+			WHERE	YE = #strYe#
+			AND		SRNO = #strSrno#
+			AND		AUD_INF_PRSS_STA_CD IN ('05','10','13')
+		]]>
+	</select>
+	
+	<update id="CSPBII717CancleUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPBII170M
+			SET		AUD_INF_PRSS_STA_CD = '01'	/*제출작성 상태로 UPDATE*/
+					,SMT_DT = NULL	/*제출일*/
+					,ACP_DT = NULL	/*접수일*/
+					,SBM_DT = NULL	/*상신일*/
+					,APV_DOC_NO = NULL	/*결재문서번호*/
+					,BLE_CHGR_CNB = NULL
+					,DTB_DT = NULL
+					,PRE_EVL_CD = NULL
+					,PRE_EVL_FDLTY = NULL
+					,PRE_EVL_IFENE = NULL
+					,PRE_EVL_WRDO = NULL
+			WHERE	YE = #strYe#
+			AND		SRNO = #strSrno#
+		]]>
+	</update>
+	
+	<!-- 출장상황 목록 조회 -->   
+	<select id="CSPBII717PBztSituSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[       
+			SELECT ROW_NUMBER() OVER(PARTITION BY A.YE, A.SRNO ORDER BY A.BZT_STR_DT, A.BZT_END_DT) AS BZT_SITU_NO  
+				 , TO_CHAR(TO_DATE(A.BZT_STR_DT, 'YYYYMMDD'), 'MM.DD') || '~' || TO_CHAR(TO_DATE(A.BZT_END_DT, 'YYYYMMDD'), 'MM.DD') || '/'				
+				|| A.TIT_TXT || '/'
+				|| (SELECT B.ORG_NM
+				      FROM TBDCMACM015M B
+				     WHERE B.ORG_CD = A.ORG_CD) || CASE WHEN A.ORG_CNT = 0 THEN NULL
+				                                        ELSE ' 외 ' || A.ORG_CNT 
+				                                   END AS BZT_SITU			                                   
+				 , A.YE
+				 , A.SRNO
+			  FROM (SELECT C.YE
+			             , C.SRNO   
+			             , A.BZT_STR_DT
+			             , A.BZT_END_DT
+			             , B.TIT_TXT
+			             , (SELECT MIN(D.ORG_CD)
+			                  FROM TBBADDED008L D
+			                 WHERE D.BZT_YR   = A.BZT_YR
+			                   AND D.BZT_SNO  = A.BZT_SNO
+			                   AND D.TEAM_SNO = A.TEAM_SNO) AS ORG_CD
+			             , (SELECT COUNT(*) - 1
+			                  FROM TBBADDED008L D
+			                 WHERE D.BZT_YR   = A.BZT_YR
+			                   AND D.BZT_SNO  = A.BZT_SNO
+			                   AND D.TEAM_SNO = A.TEAM_SNO) AS ORG_CNT
+			          FROM TBBADDED005L A
+			             , TBBADDED002M B
+			             , TBCSPBII170M C
+			         WHERE A.BZT_YR  = B.BZT_YR
+			           AND A.BZT_SNO = B.BZT_SNO
+			           AND A.PCT_CNB = C.PRSR_CNB
+			           AND A.BZT_STR_DT >= TO_CHAR(ADD_MONTHS(TO_DATE(C.SMT_DT, 'YYYYMMDD'), -3), 'YYYYMMDD')
+			           AND A.BZT_END_DT <= C.SMT_DT
+			]]>		
+			<isEqual property="strDVSN_CD" compareValue="1">
+			           AND C.ACP_DT BETWEEN #strStrAcpDt# AND #strEndAcpDt#
+			           AND C.ACP_DH BETWEEN #strStrAcpDh# AND #strEndAcpDh#
+			</isEqual>
+			<isEqual property="strDVSN_CD" compareValue="2">
+			           AND C.DTB_DT BETWEEN #strStrAcpDt# AND #strEndAcpDt#
+			</isEqual>
+			<isNotEmpty property="strYeList">	
+			AND (c.YE, c.SRNO) IN (SELECT REGEXP_SUBSTR(#strYeList#, '[^||]+', 1, LEVEL)
+                                        , REGEXP_SUBSTR(#strSrnoList#, '[^||]+', 1, LEVEL)
+                                     FROM DUAL
+                                   CONNECT BY LEVEL &lt;= REGEXP_COUNT(#strYeList#, '[^|]+'))
+			</isNotEmpty>
+			<isNotEmpty property="strBLE_CHGR_CNB">
+				AND C.BLE_CHGR_CNB = #strBLE_CHGR_CNB#
+			</isNotEmpty>
+			<isNotEmpty property="strYe">
+				AND C.YE =  #strYe#
+			</isNotEmpty>
+			
+			<!-- 일련번호 -->
+			<isNotEmpty property="strSrno">
+				AND C.SRNO =  #strSrno#
+			</isNotEmpty>
+			           ) A
+			ORDER BY BZT_SITU_NO			           		
+		
+	</select>	
+	
+	<!-- 감사정보내역 등록  -->
+	<insert id="CSPBII717EMainInsert172L" parameterClass="paramMap">
+		INSERT INTO TBCSPBII172L (
+		                          YE                     /* 연도 */
+		                        , SRNO                   /* 일련번호 */
+		                        , DOC_TYP_CD             /* 문서유형코드 */
+		                        , DOC_ID                 /* 문서ID */
+		                        , FRT_USR_ID             /* 최초사용자ID */
+		                        , FNL_USR_ID             /* 최종사용자ID */
+		                        , FNL_DEAL_DPT_CD        /* 최종거래부서코드 */
+		                        , FNL_MNU_ID             /* 최종메뉴ID */
+		                        , FRT_REGI_DH            /* 최초등록일시 */
+		                        , FNL_MDF_DH             /* 최종수정일시 */
+		                         ) 
+		                  VALUES (
+		                          #YE#
+		                        , #SRNO#
+		                        , 'SP-II-002' <!-- [2:직원제출감사정보처리전] -->
+		                        , #DOC_ID#
+		                        , #FNL_USR_ID#
+		                        , #FNL_USR_ID#
+		                        , #FNL_DEAL_DPT_CD#
+		                        , #FNL_MNU_ID#
+		                        , SYSDATE
+		                        , SYSDATE
+				                 )
+	</insert>	
+	
+	<select id="CSPBII717ECallFromSelect" parameterClass="paramMap" resultClass="string">
+		<![CDATA[
+			SELECT REPLACE(D2.TNB,'-','')
+							FROM TBDCMACM001M D1, TBDCMACM002M D2
+							WHERE D1.DPT_CD = D2.DPT_CD
+							AND D1.USR_ID = #FNL_USR_ID#
+		]]>	
+	</select>
+	
+	<insert id="CSPBII717EMmsMsgInsert" parameterClass ="paramMap">
+		<![CDATA[
+			INSERT INTO MMS_CONTENTS_INFO 
+				 	(	CONT_SEQ
+				 		, FILE_CNT
+				 		, MMS_BODY
+				 		, MMS_SUBJECT
+				 	) 
+			VALUES (	#CONT_SEQ#
+						, 1
+						, #SMS_TXT#||''
+						, '감사원 문자통보'
+					)
+		]]>
+	</insert>	
+	
+	<insert id="CSPBII717EMsgInsert" parameterClass ="paramMap">
+		<![CDATA[
+			INSERT INTO MSG_DATA
+				 	(	MSG_SEQ
+				 		, CUR_STATE
+				 		, REQ_DATE
+				 		, CALL_TO
+				 		, CALL_FROM
+				 		, SMS_TXT
+				 		, MSG_TYPE
+				 		, CONT_SEQ
+				 	) 
+			VALUES (	MSG_DATA_SEQ.NEXTVAL
+						, 0
+						, SYSDATE
+						, REPLACE(REPLACE(REPLACE(#HOM_TNB#,' ',''),'-',''),')','')
+						, (SELECT REPLACE(D2.TNB,'-','')
+							FROM TBDCMACM001M D1, TBDCMACM002M D2
+							WHERE D1.DPT_CD = D2.DPT_CD
+							AND D1.USR_ID = #FNL_USR_ID# )
+						, ''
+						, 6
+						, #CONT_SEQ#
+					)
+		]]>
+	</insert>	
+	
+	<insert id="CSPBII717EInsertMSGSend" parameterClass="paramMap">
+		<![CDATA[
+			CALL NURI2_MESSAGE_SEND(#CALL_FROM#, #CALL_TO#, #SMS_TLT#, #SMS_TXT#)
+		]]>
+	</insert>
+	
+	<!-- 감사정보관련처분내역 등록  -->
+	<insert id="CSPBII717ERelDspInsert174L" parameterClass="paramMap">
+		INSERT INTO TBCSPBII174L (
+		                          YE                  /* 연도 */
+		                        , SRNO                /* 일련번호 */
+		                        , AUD_YR             /* 제목내용 */
+		                        , AUD_NO             /* 수집구본코드 */
+		                        , DSP_RQ_SNO         /* 출처구분코드 */
+		                        , FRT_USR_ID          /* 최초사용자ID */
+		                        , FNL_USR_ID          /* 최종사용자ID */
+		                        , FNL_DEAL_DPT_CD     /* 최종거래부서코드 */
+		                        , FNL_MNU_ID          /* 최종메뉴ID */
+		                        , FRT_REGI_DH         /* 최초등록일시 */
+		                        , FNL_MDF_DH          /* 최종수정일시 */
+		                         ) 
+		                  VALUES (
+		                          #YE#
+		                        , #SRNO#
+		                        , #AUD_YR#
+		                        , #AUD_NO#
+		                        , #DSP_RQ_SNO#
+		                        , #FRT_USR_ID#
+		                        , #FNL_USR_ID#
+		                        , #FNL_DEAL_DPT_CD#
+		                        , #FNL_MNU_ID#
+		                        , SYSDATE
+		                        , SYSDATE
+				                 )
+	</insert>	
+	
+	
+</sqlMap> 

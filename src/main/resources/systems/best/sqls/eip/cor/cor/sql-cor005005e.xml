@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.cor.cor.dao.COR005005EMapper">
+
+	<select id="COR005005EMainSelect" parameterType="paramMap"
+		resultType="egovMap">
+		/* kr.go.bai.eip.cor.cor.dao.COR005005EMapper.COR005005EMainSelect */
+		<![CDATA[
+			SELECT	A.REQ_DVSN_CD
+					,A.ACP_YR
+   					,A.CVPT_ACP_NO
+   					,A.RM_CVPT_ACP_NO
+   					,A.ACP_YR||'-부감-'||A.RM_CVPT_ACP_NO AS ACP_NO
+   					,A.TIT_NM
+   					,DECODE(A.REQR_KND_CD,'1',A.CVPTR_NM,'2',A.RPST_PEN_NM,'3',A.RPST_PEN_NM,'4',A.CVPTR_NM) AS CVPTR_NM
+   					,TO_CHAR(A.ACP_DH,'YYYY.MM.DD HH24:MI') AS ACP_DH
+			      ,CASE WHEN (SELECT  COUNT(*)
+                                FROM    TBBADDED030L S1
+                                WHERE   A.REQ_DVSN_CD = S1.TSK_KEY2
+                                AND     A.ACP_YR = S1.TSK_KEY1
+                                AND     A.CVPT_ACP_NO = S1.TSK_KEY3
+                                ) > 0 THEN 'O' ELSE 'X' END AS AUD_CNT
+                  ,CASE WHEN (SELECT  COUNT(*)
+                                FROM    TBBADEAR035L S1
+                                WHERE   A.REQ_DVSN_CD = S1.TSK_KEY2
+                                AND     A.ACP_YR = S1.TSK_KEY1
+                                AND     A.CVPT_ACP_NO = S1.TSK_KEY3
+                                ) > 0 THEN 'O' ELSE 'X' END AS DSP_CNT
+   			FROM	TBCORCOR101M A
+   					,TBCORCOR102M B
+   					,TBCORCOR201M C
+   			WHERE	1=1
+   			AND		A.REQ_DVSN_CD = '5'
+   			AND		A.REQ_DVSN_CD = B.REQ_DVSN_CD
+   			AND		A.ACP_YR = B.ACP_YR
+   			AND		A.CVPT_ACP_NO = B.CVPT_ACP_NO
+   			AND		A.REQ_DVSN_CD = C.REQ_DVSN_CD(+)
+   			AND		A.ACP_YR = C.ACP_YR(+)
+   			AND		A.CVPT_ACP_NO = C.CVPT_ACP_NO(+)
+            AND     (A.REQ_DVSN_CD, A.ACP_YR, A.CVPT_ACP_NO) IN (SELECT     TSK_KEY2, TSK_KEY1, TSK_KEY3
+                                                                   FROM     TBBADDED030L
+                                                                   UNION ALL    
+                                                                  SELECT     TSK_KEY2, TSK_KEY1, TSK_KEY3
+                                                                   FROM     TBBADEAR035L 
+                                                                   )
+		]]>
+		<if test='acpDhs != null and acpDhs != ""'>
+			AND TO_CHAR(A.ACP_DH,'YYYYMMDD') &gt;= #{acpDhs}
+		</if>
+		<if test='acpDhe != null and acpDhe != ""'>
+			AND TO_CHAR(A.ACP_DH,'YYYYMMDD') &lt;= #{acpDhe}
+		</if>
+		<if test='titNm != null and titNm != ""'>
+			AND A.TIT_NM LIKE '%'||#{titNm}||'%'
+		</if>
+		<if test='acpYr != null and acpYr != ""'>
+			AND A.ACP_YR = #{acpYr}
+		</if>
+		<if test='rmCvptAcpNo != null and rmCvptAcpNo != ""'>
+			AND A.RM_CVPT_ACP_NO = #{rmCvptAcpNo}
+		</if>
+		<if test='cvptrNm != null and cvptrNm != ""'>
+			AND (A.CVPTR_NM LIKE '%'||#{cvptrNm}||'%' OR A.RPST_PEN_NM LIKE
+			'%'||#{cvptrNm}||'%')
+		</if>
+		<![CDATA[
+			ORDER BY A.ACP_YR DESC,A.RM_CVPT_ACP_NO DESC
+		]]>
+	</select>
+
+
+	<select id="COR005005EAudSelect" parameterType="paramMap"
+		resultType="egovMap">
+		/* kr.go.bai.eip.cor.cor.dao.COR005005EMapper.COR005005EAudSelect */
+		<![CDATA[
+			SELECT  D1.AUD_YR
+			        ,D1.AUD_NO
+			        ,D1.AUD_SBJ_NM
+			        , F_MNG_KND_AUDYRNO(D1.AUD_YR, D1.AUD_NO, D1.AUD_KND_CD, '-') AS AUD_YR_N0
+			        , F_CODE_NM_YEAR('1000007', D1.AUD_KND_CD, D1.AUD_YR) AS AUD_KND_NM
+			        , F_DPT_INFO(D1.SPV_BRDV_CD,'1')	AS SPV_BRDV_NM  /*주관국과명*/
+			FROM    TBBADDED001M D1
+			        ,TBBADDED030L D2
+			WHERE   D1.AUD_YR = D2.AUD_YR
+			AND     D1.AUD_NO = D2.AUD_NO
+			AND		D2.TSK_KEY2 = #{reqDvsnCd}
+			AND		D2.TSK_KEY1 = #{acpYr}
+			AND		D2.TSK_KEY3 = #{cvptAcpNo}
+		]]>
+	</select>
+
+	<select id="COR005005EDspSelect" parameterType="paramMap"
+		resultType="egovMap">
+		/* kr.go.bai.eip.cor.cor.dao.COR005005EMapper.COR005005EDspSelect */
+		<![CDATA[
+				SELECT  D1.AUD_YR
+				        ,D1.AUD_NO
+				        ,D1.DSP_RQ_SNO
+				        ,F_MNG_KND_AUDYRNO(D1.AUD_YR, D1.AUD_NO, D3.AUD_KND_CD, '-') ||'-'|| D1.DSP_RQ_SNO AS DSP_RQ_SNO_NM
+				        , D1.TIT_TXT
+				        , F_CODE_NM('1000002',D1.DSP_RQ_KND_CD )  AS DSP_RQ_KND_NM 
+				FROM    TBBADEAR001M D1
+				        ,TBBADEAR035L D2
+				        ,TBBADDED001M D3
+				WHERE   D1.AUD_YR = D2.AUD_YR
+				AND     D1.AUD_NO = D2.AUD_NO
+				AND     D1.DSP_RQ_SNO = D2.DSP_RQ_SNO
+				AND     D1.AUD_YR = D3.AUD_YR
+				AND     D1.AUD_NO = D3.AUD_NO
+				AND		D2.TSK_KEY2 = #{reqDvsnCd}
+				AND		D2.TSK_KEY1 = #{acpYr}
+				AND		D2.TSK_KEY3 = #{cvptAcpNo}
+			]]>
+	</select>
+
+</mapper> 

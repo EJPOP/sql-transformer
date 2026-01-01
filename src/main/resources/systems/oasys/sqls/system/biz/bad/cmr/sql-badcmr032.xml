@@ -1,0 +1,306 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/cmr/032">
+
+	<resultMap class="java.util.HashMap" id="resultClob">
+		<result property="TASK_TIT_NM" column="TASK_TIT_NM" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="DPT_NM" column="DPT_NM" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="CHGR_NM" column="CHGR_NM" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="YE" column="YE" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="TASK_SNO" column="TASK_SNO" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="FIRST_HALF_MDF_DH" column="FIRST_HALF_MDF_DH" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="SECOND_HALF_MDF_DH" column="SECOND_HALF_MDF_DH" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="FIRST_HALF_MAIN_PLCY_DTL_TXT" column="FIRST_HALF_MAIN_PLCY_DTL_TXT" jdbcType="CLOB" javaType="java.lang.String" />
+		<result property="SECOND_HALF_MAIN_PLCY_DTL_TXT" column="SECOND_HALF_MAIN_PLCY_DTL_TXT" jdbcType="CLOB" javaType="java.lang.String" />
+		<result property="FIRST_DOC_ID" column="FIRST_DOC_ID" jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="SECOND_DOC_ID" column="SECOND_DOC_ID" jdbcType="VARCHAR2" javaType="java.lang.String" />
+    </resultMap>
+    
+	<!-- 모니터링 결과 탭에서 필요한 정보를 가져온다. -->
+	<select id="BADCMR032Pmainselect" parameterClass="paramMap" resultMap="resultClob">
+		<![CDATA[
+            SELECT D.TASK_TIT_NM /*과제명*/
+			     , F_DPT_INFO(D.CHR_DPT_CD, '1') AS DPT_NM /*담당부서*/
+			     , F_USR_INFO(D.CHGR_ID, '2')    AS CHGR_NM /*전담자*/
+			     , #strYe# AS YE
+				 , #strTaskSno# AS TASK_SNO  
+                 , D.FIRST_HALF_MDF_DH  /*상반기*/
+                 , D.SECOND_HALF_MDF_DH /*하반기*/
+                 , CASE WHEN D.FIRST_HALF_MDF_DH IS NOT NULL THEN (SELECT MAIN_PLCY_DTL_TXT FROM TBBADCMR019D WHERE YE = #strYe# AND TASK_SNO = #strTaskSno# AND REGI_DT =  D.FIRST_HALF_MDF_DH)
+                        ELSE NULL END FIRST_HALF_MAIN_PLCY_DTL_TXT /*상반기 주요정책상세내용*/
+                 , CASE WHEN SECOND_HALF_MDF_DH IS NOT NULL THEN (SELECT MAIN_PLCY_DTL_TXT FROM TBBADCMR019D WHERE YE = #strYe# AND TASK_SNO = #strTaskSno# AND REGI_DT =  D.SECOND_HALF_MDF_DH)
+                        ELSE NULL END SECOND_HALF_MAIN_PLCY_DTL_TXT /*상반기 주요정책상세내용*/
+                 ,FIRST_DOC_ID
+                 ,SECOND_DOC_ID
+			  FROM (		 
+					SELECT A.TASK_TIT_NM /*과제제목명*/
+					     , A.CHR_DPT_CD /*담당부서*/
+					     , A.CHGR_ID /*전담자*/
+					     , MAX(CASE WHEN B.REGI_DT BETWEEN #strYe#||'0101' AND #strYe#||'0401' THEN B.REGI_DT ELSE NULL END) AS FIRST_HALF_MDF_DH  /*상반기*/
+		                 , MAX(CASE WHEN B.REGI_DT BETWEEN #strYe#||'0402' AND #strYe#||'1001' THEN B.REGI_DT ELSE NULL END) AS SECOND_HALF_MDF_DH /*하반기*/
+		                 ,MAX(
+                                       CASE
+                                         WHEN B.REGI_DT BETWEEN #strYe#||'0101' AND #strYe#||'0401' THEN B.DOC_ID
+                                         ELSE NULL
+                                       END) AS FIRST_DOC_ID /*상반기*/
+               ,MAX(
+                                       CASE
+                                         WHEN B.REGI_DT BETWEEN #strYe#||'0402' AND #strYe#||'1001' THEN B.DOC_ID
+                                         ELSE NULL
+                                       END) AS SECOND_DOC_ID /*하반기*/
+					  FROM TBBADCMR016M A 
+					     , TBBADCMR019D B
+					 WHERE A.YE           = B.YE (+)
+					   AND A.TASK_SNO     = B.TASK_SNO (+)
+					   AND A.YE           = #strYe#
+					   AND A.TASK_SNO     = #strTaskSno#
+					 GROUP BY A.TASK_TIT_NM, A.CHR_DPT_CD, A.CHGR_ID
+			 ) D
+		]]>
+	</select>
+
+	<!-- 신규등록 전 중복 데이터가 있는지 체크한다. -->
+	<select id="BADCMR032PCntselect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[ 
+			SELECT TO_CHAR(COUNT(*)) AS CNT
+			  FROM TBBADCMR019D
+			 WHERE YE                    = #YE#
+			   AND TASK_SNO              = #TASK_SNO#
+			   AND REGI_DT               = #REGI_DT#
+		]]>
+	</select>
+	
+	<!-- 대상관리 모니터링 상세 신규 등록한다. -->
+	<insert id="BADCMR032Pmaininsert" parameterClass="paramMap" >
+		INSERT INTO TBBADCMR019D
+			(
+			  YE
+			, TASK_SNO
+			, REGI_DT
+			, MAIN_PLCY_DTL_TXT
+			, DOC_ID
+			, DOC_TYP_CD
+            , PLCY_MDF_DH
+			, FRT_USR_ID
+			, FNL_USR_ID
+			, FNL_DEAL_DPT_CD
+			, FNL_MNU_ID
+			, FRT_REGI_DH
+			, FNL_MDF_DH
+			)		
+		VALUES
+			(
+			  #YE#
+			, #TASK_SNO#
+			, #REGI_DT#
+			, #MAIN_PLCY_DTL_TXT#
+			, #DOC_ID#
+			, ''
+			, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+			, #FRT_USR_ID# 
+			, #FNL_USR_ID#
+			, #FNL_DEAL_DPT_CD#
+			, #FNL_MNU_ID#
+			, SYSDATE
+			, SYSDATE			
+			)
+	</insert> 
+	
+	<!-- 대상기관 모니터링 수정된 부분 업데이트 한다. -->
+	<update id="BADCMR032Pmainupdate" parameterClass="paramMap">
+		UPDATE TBBADCMR019D
+	       SET FNL_MDF_DH        = SYSDATE
+		     , MAIN_PLCY_DTL_TXT = #MAIN_PLCY_DTL_TXT#
+		     , DOC_ID            = #DOC_ID#
+		     , DOC_TYP_CD        = ''
+		     , PLCY_MDF_DH       = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+		<isNotEmpty prepend="," property="FNL_USR_ID">
+			FNL_USR_ID = #FNL_USR_ID#
+		</isNotEmpty>
+		<isNotEmpty prepend="," property="FNL_DEAL_DPT_CD">
+			FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+		</isNotEmpty>
+		<isNotEmpty prepend="," property="FNL_MNU_ID">
+			FNL_MNU_ID = #FNL_MNU_ID#
+		</isNotEmpty>
+		WHERE 1 = 1
+		  AND YE         = #YE#
+		  AND TASK_SNO   = #TASK_SNO#
+          AND REGI_DT    = #REGI_DT#
+	</update>
+	
+	<!-- 대상기관 모니터링 상세 삭제 -->
+	<update id="BADCMR032Pmaindelete" parameterClass="paramMap">
+		<![CDATA[   
+		   DELETE FROM TBBADCMR019D
+			WHERE 1 = 1
+			  AND YE         = #YE#
+			  AND TASK_SNO   = #TASK_SNO#
+	          AND REGI_DT    = #REGI_DT#
+		]]>
+	</update>	
+
+	<!-- 정책게시판의 입력현황을 조회한다. -->
+	<select id="BADCMR032PBoardDataselect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[ 
+			SELECT TO_CHAR(TO_DATE(SUBSTR(MAX(CASE WHEN REGI_DT BETWEEN #strYe#||'0101' AND #strYe#||'0401' THEN PLCY_MDF_DH ELSE NULL END), 0, 8), 'YYYYMMDD'), 'YYYY.MM.DD') AS FIRST_HALF_MDF_DH  /*상반기*/
+                 , TO_CHAR(TO_DATE(SUBSTR(MAX(CASE WHEN REGI_DT BETWEEN #strYe#||'0402' AND #strYe#||'1001' THEN PLCY_MDF_DH ELSE NULL END), 0, 8), 'YYYYMMDD'), 'YYYY.MM.DD') AS SECOND_HALF_MDF_DH /*하반기*/ 
+			  FROM TBBADCMR019D 
+			 WHERE YE       = #strYe#
+			   AND TASK_SNO = #strTaskSno#
+		]]>
+	</select>
+	
+	<!-- 게시판 조회 -->
+	<select id="BADCMR032PBoardselect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[ 
+			SELECT YE /*연도*/
+			     , TASK_SNO /*과제순번*/
+			     , EVL_NO /*평가번호*/
+			     , TIT_NM AS TIT_NM 
+			     , REPLACE(LPAD(' ', 5*(LEVEL-1)), ' ', '&nbsp') || DECODE(LEVEL, 1, '', '└RE: ') || TIT_NM AS SEE_TIT_NM  /*제목명*/
+			     , PLCY_EVL_TXT /*정책평가내용*/
+			     , REGN_CNB /*등록자전산번호*/
+			     , F_USR_INFO(REGN_CNB, '2') AS REGN_NM /*등록자명*/
+			     , TO_CHAR(FRT_REGI_DH, 'YYYY.MM.DD') AS FRT_REGI_DH /*최초등록일자*/
+			     , NVL(SRCH_YN, 'N') AS SRCH_YN /*조회여부*/
+			     , HIRK_EVL_NO /*상위평가번호*/
+			     , '원래의 글--------------------------------------------' || CHR(10) || TIT_NM AS RE_TIT_NM
+			     , (SELECT COUNT(*) FROM TBBADCMR020L A WHERE A.YE = BOARD.YE AND A.TASK_SNO = BOARD.TASK_SNO AND A.HIRK_EVL_NO = BOARD.EVL_NO) AS DEL_CNT /*뎃글 갯수*/
+			  FROM (            
+                SELECT YE
+                     , TASK_SNO
+                     , EVL_NO
+                     , TIT_NM
+                     , PLCY_EVL_TXT
+                     , REGN_CNB
+                     , HIRK_EVL_NO
+                     , FRT_REGI_DH
+                     , SRCH_YN
+                  FROM TBBADCMR020L
+				 WHERE YE                         = #strYe#
+				   AND TASK_SNO                   = #strTaskSno#
+				   AND SUBSTR(PLCY_REGI_DH, 1, 4) = #strYe#
+               ) BOARD
+           START WITH HIRK_EVL_NO IS NULL
+           CONNECT BY PRIOR EVL_NO = HIRK_EVL_NO
+		]]>
+	</select>
+	
+	<!-- 게시판 신규 등록시 평가번호 -->
+	<select id="BADCMR032PBoardEvlNoselect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[ 
+			SELECT TO_CHAR(NVL(MAX(EVL_NO), 0) + 1) AS EVL_NO
+			  FROM TBBADCMR020L
+			 WHERE YE       = #YE#
+			   AND TASK_SNO = #TASK_SNO#
+		]]>
+	</select>
+	
+	<!-- 정책게시판 신규 등록한다. -->
+	<insert id="BADCMR032PBoardinsert" parameterClass="paramMap" >
+		INSERT INTO TBBADCMR020L
+			(
+			  YE
+			, TASK_SNO
+			, EVL_NO
+			, TIT_NM
+			, PLCY_EVL_TXT
+			, REGN_CNB
+			, PLCY_MDF_DH
+            , PLCY_REGI_DH
+            , HIRK_EVL_NO
+            , SRCH_YN
+			, FRT_USR_ID
+			, FNL_USR_ID
+			, FNL_DEAL_DPT_CD
+			, FNL_MNU_ID
+			, FRT_REGI_DH
+			, FNL_MDF_DH
+			)		
+		VALUES
+			(
+			  #YE#
+			, #TASK_SNO#
+			, TO_NUMBER(#EVL_NO#)
+			, #TIT_NM#
+			, #PLCY_EVL_TXT#
+			, #REGN_CNB#
+			, TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+            , TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+            , #HIRK_EVL_NO#
+            , 'N'
+			, #FRT_USR_ID# 
+			, #FNL_USR_ID#
+			, #FNL_DEAL_DPT_CD#
+			, #FNL_MNU_ID#
+			, SYSDATE
+			, SYSDATE			
+			)
+	</insert> 
+	
+	<!-- 정책게시판 수정된 부분 업데이트 한다. -->
+	<update id="BADCMR032PBoardupdate" parameterClass="paramMap">
+		UPDATE TBBADCMR020L
+	       SET FNL_MDF_DH        = SYSDATE
+		     , TIT_NM            = #TIT_NM#
+		     , PLCY_EVL_TXT      = #PLCY_EVL_TXT#
+		     , PLCY_MDF_DH       = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+		<isNotEmpty prepend="," property="FNL_USR_ID">
+			FNL_USR_ID = #FNL_USR_ID#
+		</isNotEmpty>
+		<isNotEmpty prepend="," property="FNL_DEAL_DPT_CD">
+			FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+		</isNotEmpty>
+		<isNotEmpty prepend="," property="FNL_MNU_ID">
+			FNL_MNU_ID = #FNL_MNU_ID#
+		</isNotEmpty>
+		WHERE 1 = 1
+		  AND YE         = #YE#
+		  AND TASK_SNO   = #TASK_SNO#
+          AND EVL_NO     = #EVL_NO#
+	</update>
+	
+	<!-- 정책게시판 삭제 전 뎃글 있는지 체크 -->
+	<select id="BADCMR032PBoradReplayCntselect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[ 
+			SELECT TO_CHAR(COUNT(*)) AS CNT
+			  FROM TBBADCMR020L
+			 WHERE YE           = #YE#
+			   AND TASK_SNO     = #TASK_SNO#
+			   AND HIRK_EVL_NO  = #EVL_NO# 
+		]]>
+	</select>
+	
+	<!-- 정책게시판 삭제 -->
+	<update id="BADCMR032PBoarddelete" parameterClass="paramMap">
+		<![CDATA[   
+		   DELETE FROM TBBADCMR020L
+			WHERE 1 = 1
+			  AND YE        = #YE#
+			  AND TASK_SNO  = #TASK_SNO#
+	          AND EVL_NO    = #EVL_NO#
+		]]>
+	</update>
+	
+	<!-- 담당자가 들어와서 읽었다. -->
+	<update id="BADCMR032PBoardSrchYnsave" parameterClass="paramMap">
+		UPDATE TBBADCMR020L
+	       SET FNL_MDF_DH        = SYSDATE
+		     , SRCH_YN           = 'Y'
+		<isNotEmpty prepend="," property="FNL_USR_ID">
+			FNL_USR_ID = #FNL_USR_ID#
+		</isNotEmpty>
+		<isNotEmpty prepend="," property="FNL_DEAL_DPT_CD">
+			FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+		</isNotEmpty>
+		<isNotEmpty prepend="," property="FNL_MNU_ID">
+			FNL_MNU_ID = #FNL_MNU_ID#
+		</isNotEmpty>
+		WHERE 1 = 1
+		  AND YE        = #strYe#
+		  AND TASK_SNO  = #strTaskSno#
+          AND EVL_NO    = #strEvlNo#
+	</update>
+</sqlMap> 

@@ -1,0 +1,1720 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.mac.dao.AEPMAC002PMapper">
+    
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap" >
+        /*kr.go.bai.eip.aep.mac.dao.AEPMAC002PMapper.selectMainList*/
+            SELECT 
+               A.LIST_NO           /*일람표일련번호 */
+              ,A.SORT_SNO           /*정렬순번  */
+                ,A.DOC_ID           /*문서ID */
+                ,A.APVR_CD          /*결재자코드  */
+                ,A.AFF_SNO          /*사건순번 */
+                ,A.REFER_DVSN_CD    /*부의구분코드 (1000774)*/
+                ,F_CODE_NM('1000774', A.REFER_DVSN_CD) REFER_DVSN_NM /*부의구분코드명*/
+                ,A.TITLE_NM         /*제목명 */
+                ,A.QST_DOC_ISUE_YN /*질문서발부여부 */
+                ,DECODE(A.QST_DOC_ISUE_YN,'Y','발부','미발부') QST_DOC_ISUE_YN_NM /*질문서발부여부명 */
+                ,A.AUDTOR           /*감사자 */
+                ,A.AFF_CD           /*사건 코드*/
+                ,(
+                  SELECT MAX(APV_STA_CD)
+                    FROM TBBADDED103M B
+                   WHERE A.AUD_YR = B.AUD_YR
+                     AND A.AUD_NO = B.AUD_NO
+                     AND B.RPRT_CD = 'A10500200'
+                 ) AS APV_STA_CD
+                 ,(
+                  SELECT  COUNT(AUD_STEP_CD)
+                    FROM TBBADDED147M C
+                   WHERE A.AUD_YR = C.AUD_YR
+                     AND A.AUD_NO = C.AUD_NO
+                     AND C.AUD_STEP_CD = 'A1060'
+                 ) AS AUD_STEP_CD_CNT /*20170518 EUNOK 감사결과처리단계 매핑정보 존재 여부*/
+                FROM TBBADDED145M A 
+                WHERE A.AUD_YR = #{audYr}
+            <if test='audNo != null and audNo != ""'>
+                AND A.AUD_NO = #{audNo}
+            </if>
+            <if test='audStepCd != null and audStepCd != ""'>
+                AND A.AUD_STEP_CD = #{audStepCd}
+            </if>
+<!--             <if test='apvrCd != null and apvrCd != ""'> -->
+<!--                 AND A.APVR_CD = (SELECT NVL(F_USR_INFO_BY_ID(#{apvrCd}, '4'), '0010200') AS CD_NM FROM DUAL) -->
+<!--             </if> -->
+            <if test='affSno != null and affSno != ""'>
+                AND A.AFF_SNO = #{affSno}
+            </if>
+            ORDER BY A.SORT_SNO
+    </select>
+    
+    <select id="selectSubList" parameterType="paramMap" resultType="egovMap" >
+        /*kr.go.bai.eip.aep.mac.dao.AEPMAC002PMapper.selectSubList*/
+        <![CDATA[
+            SELECT A.AUD_YR 					/*감사년도 */
+		              ,A.SORT_SNO           		/*정렬순번  */
+		              ,A.AUD_NO 					/*감사번호 */
+		              ,A.AUD_STEP_CD 			/*감사단계코드*/
+		              ,A.DOC_ID 					/*문서ID */
+		              ,A.APVR_CD 					/*결재자코드*/
+		              ,A.AFF_SNO 					/*사건순번 */
+		              ,A.DSP_RQ_SNO 				/*처분요구순번*/
+		              ,CASE WHEN B.EXPT_PRB_CD IS NULL AND A.AFF_DSP_CD != 0 THEN '예상문제 없음'
+		              		    ELSE B.TITLE_NM
+		              	END 	AS TITLE_NM 		/*예상문제명*/
+		             , B.EXPT_PRB_CD			/*예상문제코드*/
+		              ,A.AUD_KND_CD 			/*감사종류코드 */
+		              ,A.AUD_GRN_NO 			/*감사부여번호 */
+		              ,A.RPRT_FILD_ID 				/*보고서필드ID */
+		              ,A.AFF_DSP_CD 				/*사건처분코드 */
+		              ,A.RLTN_ORG_CD 			/*관계기관코드 (대상기관)*/
+		              ,A.HND_ORG_CD 			/*조치기관코드 */
+		              ,A.REF_ORG_CD 				/*참조기관코드 */
+		              ,F_ORG_INFO(A.RLTN_ORG_CD, '1') AS RLTN_ORG_NM 	/*관계기관코드명*/
+		              ,F_ORG_INFO(A.HND_ORG_CD, '1') AS HND_ORG_NM 	/*조치기관코드명*/
+		              ,F_ORG_INFO(A.REF_ORG_CD, '1') AS REF_ORG_NM 		/*참조기관코드명*/
+		              ,A.DSP_RQ_CD 				/*처분요구코드 */
+		              ,A.NOP_AM_DVSN_CD 		/*인원금액구분코드*/
+		              ,A.NOP_AM 					/*인원수 */
+		              ,A.NOP_SUM 					/*금액 */
+		              ,F_CODE_NM('1000002',A. DSP_RQ_CD) AS DSP_RQ_NM  /*처분요구코드명 */
+		              ,F_CODE_NM('1000784', A.NOP_AM_DVSN_CD) AS NOP_AM_DVSN_NM /*인원금액구분코드명*/
+		              ,CASE WHEN B.EXPT_PRB_CD IS NULL AND A.AFF_DSP_CD != 0 THEN 'Y'
+		              		    ELSE 'N'
+		              	END AS NEW_YN 		/*신규입건여부*/
+		              , (SELECT COUNT(ST.CNDIDAT_SRNO) 
+		                   FROM TBBADDED146D ST 
+		                  WHERE ST.AUD_YR = A.AUD_YR 
+		                    AND ST.AUD_NO = A.AUD_NO 
+		                    AND ST.AUD_STEP_CD = A.AUD_STEP_CD 
+		                    AND ST.DOC_ID = A.DOC_ID
+		                    AND ST.APVR_CD = A.APVR_CD
+		                    AND ST.AFF_SNO = A.AFF_SNO
+		                    AND ST.DSP_RQ_SNO = A.DSP_RQ_SNO) AS CNDIDAT_CNT
+	                  ,(SELECT COUNT(DISTINCT F_MNG_KND_AUDYRNO(ST2.AUD_YR, ST2.AUD_NO, ST3.AUD_KND_CD, '-'))
+			              FROM TBBADDED146D ST
+			        INNER JOIN TBBADDED146D ST2 ON (ST2.CNDIDT_NM = ST.CNDIDT_NM AND ST2.CNDIDT_YMD = ST.CNDIDT_YMD)
+			        INNER JOIN TBBADDED001M ST3 ON (ST3.AUD_YR = ST2.AUD_YR AND ST3.AUD_NO = ST2.AUD_NO)
+			        INNER JOIN TBBADDED146M ST4 ON (ST4.AUD_YR = ST2.AUD_YR AND ST4.AUD_NO = ST2.AUD_NO AND ST4.AUD_STEP_CD = ST2.AUD_STEP_CD AND ST4.DOC_ID = ST2.DOC_ID AND ST4.APVR_CD = ST2.APVR_CD AND ST4.AFF_SNO = ST2.AFF_SNO AND ST4.DSP_RQ_SNO = ST2.DSP_RQ_SNO)
+			             WHERE ST.AUD_YR = A.AUD_YR
+			               AND ST.AUD_NO = A.AUD_NO
+			               AND ST.AUD_STEP_CD = A.AUD_STEP_CD
+			               AND ST.DOC_ID = A.DOC_ID
+			               AND ST.APVR_CD = A.APVR_CD
+			               AND ST.AFF_SNO = A.AFF_SNO
+			               AND ST.DSP_RQ_SNO = A.DSP_RQ_SNO
+			               AND (ST2.AUD_YR <> A.AUD_YR OR ST2.AUD_NO <> A.AUD_NO)
+			            ) AS REL_AUD_CNT
+			          , CASE WHEN A.DSP_RQ_CD IN ('410', '210', '620', '623') THEN 'Y'
+		                     ELSE 'N' END AS CNDIDAT_VIEW_YN           
+              FROM TBBADDED146M A
+LEFT OUTER JOIN (SELECT C.AUD_YR
+					    	  , C.AUD_NO
+					     	  , D.AFF_SNO
+					     	  , D.DSP_RQ_SNO
+					     	  , AGGR_CONCAT(C.EXPT_PRB_NM, '^c') AS TITLE_NM
+					     	  , AGGR_CONCAT(C.EXPT_PRB_CD, '^c') AS EXPT_PRB_CD
+				       FROM TBBADDED144M C 
+		        INNER JOIN TBBADDED147M D 
+				          ON C.AUD_YR = D.AUD_YR
+				         AND C.AUD_NO = D.AUD_NO
+				         AND C.EXPT_PRB_CD = SUBSTR(D.PRE_AFF_NO,-2,LENGTH(D.PRE_AFF_NO))
+				 GROUP BY C.AUD_YR
+						     , C.AUD_NO
+						     , D.AFF_SNO
+						     , D.DSP_RQ_SNO) B
+				 		 ON A.AUD_YR = B.AUD_YR
+                		AND A.AUD_NO = B.AUD_NO
+                		AND A.AFF_SNO = B.AFF_SNO
+						AND A.DSP_RQ_SNO = B.DSP_RQ_SNO             
+				]]> 
+                WHERE A.AUD_YR = #{audYr}
+            <if test='audNo != null and audNo != ""'>
+                AND A.AUD_NO = #{audNo}
+            </if>
+            <if test='audStepCd != null and audStepCd != ""'>
+                AND A.AUD_STEP_CD = #{audStepCd}
+            </if>
+<!--             <if test='apvrCd != null and apvrCd != ""'> -->
+<!--                 AND A.APVR_CD = (SELECT NVL(F_USR_INFO_BY_ID(#{apvrCd}, '4'), '0010200') AS CD_NM FROM DUAL) -->
+<!--             </if> -->
+            <if test='affSno != null and affSno != ""'>
+                AND A.AFF_SNO = #{affSno}
+            </if>
+            ORDER BY A.SORT_SNO
+    </select>
+    
+    <select id="selectMaxListNo" parameterType="paramMap" resultType="egovMap">
+        /*kr.go.bai.eip.aep.mac.dao.AEPMAC002PMapper.searchListNo*/
+        SELECT NVL(MAX(TO_NUMBER(LIST_NO)),0)+1 AS LIST_NO FROM TBBADDED145M A
+        WHERE A.AUD_YR = #{audYr}
+            <if test='audNo != null and audNo != ""'>
+                AND A.AUD_NO = #{audNo}
+            </if>
+            <if test='audStepCd != null and audStepCd != ""'>
+                AND A.AUD_STEP_CD = #{audStepCd}
+            </if>
+<!--             <if test='apvrCd != null and apvrCd != ""'> -->
+<!--                 AND A.APVR_CD = (SELECT NVL(F_USR_INFO_BY_ID(#{apvrCd}, '4'), '0010200') AS CD_NM FROM DUAL) -->
+<!--             </if> -->
+    </select>
+    
+    <select id="selectMaxAffSno" parameterType="paramMap" resultType="egovMap">
+        /*kr.go.bai.eip.aep.mac.dao.AEPMAC002PMapper.selectMaxAffSno*/
+        SELECT NVL(MAX(AFF_SNO),0)+1 AS AFF_SNO FROM TBBADDED145M A
+        WHERE A.AUD_YR = #{audYr}
+                AND A.AUD_NO = #{audNo}
+    </select>
+	
+    <insert id="TBBADDED145MInsert" parameterType="paramMap">
+    DECLARE
+    	BEGIN
+        /*kr.go.bai.eip.aep.mac.dao.AEPMAC002PMapper.TBBADDED145MInsert*/
+        INSERT INTO TBBADDED145M 
+            (
+              AUD_YR,
+              AUD_NO,
+              AUD_STEP_CD,
+              DOC_ID,
+              APVR_CD,
+              AFF_SNO,
+              AUD_KND_CD,
+              AUD_GRN_NO,
+              RPRT_FILD_ID,
+              AFF_CD,
+              LIST_NO,
+              REFER_DVSN_CD,
+              AFF_SPH,
+              TITLE_NM,
+              DP_TITLE_NM,
+              QST_DOC_ISUE_YN,  
+              QST_DOC_ISUE_DY, 
+              AUDTOR, 
+              DETL_DOC_NO,
+              MTRL_IPT_DVSN_CD,
+              SYT_TRTM_DVSN_YN,
+              SCRT_YN,
+              SORT_SNO,
+              TRTM_EXAMER_CNB,
+              FRT_USR_ID,
+              FNL_USR_ID,
+              FNL_DEAL_DPT_CD,
+              FNL_MNU_ID,
+              FRT_REGI_DH,
+              FNL_MDF_DH
+            )
+        VALUES 
+            (
+              #{audYr},
+              #{audNo},
+              #{audStepCd},
+               DECODE(
+                    (SELECT MAX(DOC_ID)  
+                          FROM TBBADDED103M
+                         WHERE AUD_YR = #{audYr}
+                           AND AUD_NO = #{audNo}
+                           AND  AUD_STEP_CD = #{audStepCd}
+                           AND RPRT_CD = 'A10500200'), NULL,
+                          (SELECT MAX(DOC_ID)  
+                                FROM TBFDMADM002M
+                               WHERE AUD_DOC_CD = 'A10500200'),
+                          (SELECT MAX(DOC_ID) 
+                                FROM TBBADDED103M
+                               WHERE AUD_YR = #{audYr}
+                                 AND AUD_NO = #{audNo}
+                                 AND  AUD_STEP_CD = #{audStepCd}
+                                 AND RPRT_CD = 'A10500200')
+                     ),
+              '0010200', /* 2017.06.28 SHC 감사관 코드로 insert */
+              #{affSno},
+              #{audKndCd},
+              #{audGrnNo},
+              #{rprtFildId},
+              '00',
+              (SELECT NVL(MAX(LIST_NO+0),0)+1 
+                 FROM TBBADDED145M
+                WHERE AUD_YR = #{audYr}
+                  AND AUD_NO = #{audNo}
+                  AND AUD_STEP_CD = #{audStepCd}
+              ),
+              #{referDvsnCd},
+              #{affSph},
+              #{titleNm},
+              #{titleNm},
+              #{qstDocIsueYn},  
+              #{qstDocIsueDy}, 
+              #{audtor}, 
+              #{detlDocNo},
+              '20',
+              #{sytTrtmDvsnYn},
+              #{scrtYn},
+              (SELECT NVL(MAX(SORT_SNO),0)+1 
+                 FROM TBBADDED145M
+                WHERE AUD_YR = #{audYr}
+                  AND AUD_NO = #{audNo}
+                  AND AUD_STEP_CD = #{audStepCd}
+              )
+              ,#{trtmExamerCnb}
+              ,#{frtUsrId}  /*최초사용자id */
+              ,#{fnlUsrId} /*최종사용자id */
+              ,#{fnlDealDptCd}    /*최종거래부서코드 */
+              ,#{fnlMnuId} /*최종메뉴id */
+              ,SYSDATE    /*최초등록일시 */
+              ,SYSDATE /*최종수정일시 */
+            )
+           ;
+           INSERT INTO TBBADDED145H
+					(
+					   HST_DVSN_CD
+					 , HST_SNO
+					 , HST_DH
+					 , HST_USR_ID	
+					 , AUD_YR			
+					 , AUD_NO			
+					 , AUD_STEP_CD	
+					 , DOC_ID			
+					 , APVR_CD		
+					 , AFF_SNO		
+					 , AUD_KND_CD		
+					 , AUD_GRN_NO		
+					 , RPRT_FILD_ID	
+					 , AFF_CD			
+					 , LIST_NO		
+					 , REFER_DVSN_CD	
+					 , AFF_SPH		
+					 , TITLE_NM		
+					 , DP_TITLE_NM	
+					 , QST_DOC_ISUE_YN
+					 , QST_DOC_ISUE_DY
+					 , AUDTOR			
+					 , DETL_DOC_NO	
+					 , MTRL_IPT_DVSN_CD
+					 , SYT_TRTM_DVSN_YN
+					 , SCRT_YN		
+					 , SORT_SNO		
+					 , TRTM_EXAMER_CNB
+					 , FNL_YN			
+					 , FRT_USR_ID		
+					 , FNL_USR_ID		
+					 , FNL_DEAL_DPT_CD
+					 , FNL_MNU_ID		
+					 , FRT_REGI_DH	
+					 , FNL_MDF_DH		
+					 , REF_DOC_ID		
+					)
+				SELECT 'C'
+				 	 , TBBADDED145H_SEQ.NEXTVAL
+				 	 , SYSDATE
+				 	 , #{frtUsrId}
+					 , AUD_YR			
+					 , AUD_NO			
+					 , AUD_STEP_CD	
+					 , DOC_ID			
+					 , APVR_CD		
+					 , AFF_SNO		
+					 , AUD_KND_CD		
+					 , AUD_GRN_NO		
+					 , RPRT_FILD_ID	
+					 , AFF_CD			
+					 , LIST_NO		
+					 , REFER_DVSN_CD	
+					 , AFF_SPH		
+					 , TITLE_NM		
+					 , DP_TITLE_NM	
+					 , QST_DOC_ISUE_YN
+					 , QST_DOC_ISUE_DY
+					 , AUDTOR			
+					 , DETL_DOC_NO	
+					 , MTRL_IPT_DVSN_CD
+					 , SYT_TRTM_DVSN_YN
+					 , SCRT_YN		
+					 , SORT_SNO		
+					 , TRTM_EXAMER_CNB
+					 , FNL_YN			
+					 , FRT_USR_ID		
+					 , FNL_USR_ID		
+					 , FNL_DEAL_DPT_CD
+					 , FNL_MNU_ID		
+					 , FRT_REGI_DH	
+					 , FNL_MDF_DH		
+					 , REF_DOC_ID
+				 FROM TBBADDED145M
+				WHERE AUD_YR = #{audYr}
+				  AND AUD_NO = #{audNo}
+				  AND AUD_STEP_CD = #{audStepCd}
+				  AND AFF_SNO = #{affSno}
+				;
+		END;
+    </insert>
+    
+    <update id="TBBADDED145MUpdate" parameterType="paramMap">
+    DECLARE
+    	BEGIN
+        /*kr.go.bai.eip.aep.mac.dao.AEPMAC002PMapper.TBBADDED145MUpdate*/
+        UPDATE TBBADDED145M
+           SET 
+             FNL_USR_ID = #{fnlUsrId} /*최종사용자ID */
+            ,FNL_DEAL_DPT_CD = #{fnlDealDptCd} /*최종거래부서코드 */
+            ,FNL_MNU_ID = #{fnlMnuId} /*최종메뉴ID */
+            ,FNL_MDF_DH = SYSDATE /*최종수정일시 */
+            <if test='referDvsnCd != null and referDvsnCd != ""'>
+                ,REFER_DVSN_CD	       =#{referDvsnCd}/*부의구분코드 */
+            </if>
+            <if test='titleNm != null and titleNm != ""'>
+                ,TITLE_NM	           =#{titleNm}/*제목명 */
+            </if>
+            <if test='qstDocIsueYn != null and qstDocIsueYn != ""'>
+                ,QST_DOC_ISUE_YN	   =#{qstDocIsueYn}/*질문서발부여부 */
+            </if>
+            <if test='sortSno != null and sortSno != ""'>
+                ,SORT_SNO = #{sortSno} /*정렬순번 */
+            </if>
+            <if test='listNo != null and listNo != ""'>
+                ,LIST_NO = #{listNo} /*일람표일련번호 */
+            </if>
+            <if test='sortSno == null or sortSno == ""'>
+                ,SORT_SNO = NULL /*정렬순번 */
+            </if>
+            <if test='listNo == null or listNo == ""'>
+                ,LIST_NO = NULL /*일람표일련번호 */
+            </if>
+
+                ,AUDTOR = #{audtor}
+
+         WHERE 1=1
+            <if test='audYr != null and audYr != ""'>
+                AND AUD_YR = #{audYr}
+            </if>
+            <if test='audNo != null and audNo != ""'>
+                AND AUD_NO = #{audNo}
+            </if>
+            <if test='audStepCd != null and audStepCd != ""'>
+                AND AUD_STEP_CD = #{audStepCd}
+            </if>
+            <if test='affSno != null and affSno != ""'>
+                AND AFF_SNO = #{affSno}
+            </if>
+            
+           ;
+           INSERT INTO TBBADDED145H
+					(
+					   HST_DVSN_CD
+					 , HST_SNO
+					 , HST_DH
+					 , HST_USR_ID	
+					 , AUD_YR			
+					 , AUD_NO			
+					 , AUD_STEP_CD	
+					 , DOC_ID			
+					 , APVR_CD		
+					 , AFF_SNO		
+					 , AUD_KND_CD		
+					 , AUD_GRN_NO		
+					 , RPRT_FILD_ID	
+					 , AFF_CD			
+					 , LIST_NO		
+					 , REFER_DVSN_CD	
+					 , AFF_SPH		
+					 , TITLE_NM		
+					 , DP_TITLE_NM	
+					 , QST_DOC_ISUE_YN
+					 , QST_DOC_ISUE_DY
+					 , AUDTOR			
+					 , DETL_DOC_NO	
+					 , MTRL_IPT_DVSN_CD
+					 , SYT_TRTM_DVSN_YN
+					 , SCRT_YN		
+					 , SORT_SNO		
+					 , TRTM_EXAMER_CNB
+					 , FNL_YN			
+					 , FRT_USR_ID		
+					 , FNL_USR_ID		
+					 , FNL_DEAL_DPT_CD
+					 , FNL_MNU_ID		
+					 , FRT_REGI_DH	
+					 , FNL_MDF_DH		
+					 , REF_DOC_ID		
+					)
+				SELECT 'U'
+				 	 , TBBADDED145H_SEQ.NEXTVAL
+				 	 , SYSDATE
+				 	 , #{frtUsrId}
+					 , AUD_YR			
+					 , AUD_NO			
+					 , AUD_STEP_CD	
+					 , DOC_ID			
+					 , APVR_CD		
+					 , AFF_SNO		
+					 , AUD_KND_CD		
+					 , AUD_GRN_NO		
+					 , RPRT_FILD_ID	
+					 , AFF_CD			
+					 , LIST_NO		
+					 , REFER_DVSN_CD	
+					 , AFF_SPH		
+					 , TITLE_NM		
+					 , DP_TITLE_NM	
+					 , QST_DOC_ISUE_YN
+					 , QST_DOC_ISUE_DY
+					 , AUDTOR			
+					 , DETL_DOC_NO	
+					 , MTRL_IPT_DVSN_CD
+					 , SYT_TRTM_DVSN_YN
+					 , SCRT_YN		
+					 , SORT_SNO		
+					 , TRTM_EXAMER_CNB
+					 , FNL_YN			
+					 , FRT_USR_ID		
+					 , FNL_USR_ID		
+					 , FNL_DEAL_DPT_CD
+					 , FNL_MNU_ID		
+					 , FRT_REGI_DH	
+					 , FNL_MDF_DH		
+					 , REF_DOC_ID
+				 FROM TBBADDED145M
+				WHERE 1=1
+            <if test='audYr != null and audYr != ""'>
+                AND AUD_YR = #{audYr}
+            </if>
+            <if test='audNo != null and audNo != ""'>
+                AND AUD_NO = #{audNo}
+            </if>
+            <if test='audStepCd != null and audStepCd != ""'>
+                AND AUD_STEP_CD = #{audStepCd}
+            </if>
+            <if test='affSno != null and affSno != ""'>
+                AND AFF_SNO = #{affSno}
+            </if>
+				;
+		END;            
+    </update>
+    
+    <select id="selectMaxDspRqSno" parameterType="paramMap" resultType="egovMap">
+        /*kr.go.bai.eip.aep.mac.dao.AEPMAC002PMapper.selectMaxDspRqSno*/
+        /*처분요구순번 MAX*/
+        SELECT NVL(MAX(DSP_RQ_SNO),0)+1 AS DSP_RQ_SNO 
+          FROM TBBADDED146M
+         WHERE AUD_YR = #{audYr}
+           AND AUD_NO = #{audNo}
+    </select>
+    
+    <select id="selectMaxSortSno" parameterType="paramMap" resultType="egovMap">
+        /*kr.go.bai.eip.aep.mac.dao.AEPMAC002PMapper.selectMaxSortSno*/
+        /*정렬순번 MAX*/
+        SELECT NVL(MAX(SORT_SNO),0)+1 AS SORT_SNO 
+          FROM TBBADDED146M
+         WHERE AUD_YR = #{audYr}
+           AND AUD_NO = #{audNo}
+           AND AUD_STEP_CD = #{audStepCd}
+           AND AFF_SNO = #{affSno}
+    </select>
+    
+    <insert id="TBBADDED146MInsert" parameterType="paramMap">
+    DECLARE
+    	BEGIN
+        /*kr.go.bai.eip.aep.mac.dao.AEPMAC002PMapper.TBBADDED146MInsert*/
+        INSERT INTO TBBADDED146M 
+            (
+                AUD_YR,
+                AUD_NO,
+                AUD_STEP_CD,
+                DOC_ID,
+                APVR_CD,
+                AFF_SNO,
+                DSP_RQ_SNO,
+                DP_DSP_RQ_SNO,
+                AUD_KND_CD,
+                AUD_GRN_NO,
+                RPRT_FILD_ID,
+                AFF_DSP_CD,
+                RLTN_ORG_CD,
+                HND_ORG_CD,
+                REF_ORG_CD,
+                DSP_RQ_CD,
+                MTRL_IPT_DVSN_CD,
+                NOP_AM_DVSN_CD, 
+                NOP_AM, 
+                NOP_SUM, 
+                SORT_SNO,
+                FRT_USR_ID,
+                FNL_USR_ID,
+                FNL_DEAL_DPT_CD,
+                FNL_MNU_ID,
+                FRT_REGI_DH,
+                FNL_MDF_DH
+            )
+            VALUES 
+            (
+                #{audYr},
+                #{audNo},
+                #{audStepCd},
+               DECODE(
+                    (SELECT MAX(DOC_ID)  
+                          FROM TBBADDED103M
+                         WHERE AUD_YR = #{audYr}
+                           AND AUD_NO = #{audNo}
+                           AND  AUD_STEP_CD = #{audStepCd}
+                           AND RPRT_CD = 'A10500200'), NULL,
+                          (SELECT MAX(DOC_ID)  
+                                FROM TBFDMADM002M
+                               WHERE AUD_DOC_CD = 'A10500200'),
+                          (SELECT MAX(DOC_ID) 
+                                FROM TBBADDED103M
+                               WHERE AUD_YR = #{audYr}
+                                 AND AUD_NO = #{audNo}
+                                 AND  AUD_STEP_CD = #{audStepCd}
+                                 AND RPRT_CD = 'A10500200')
+                     ),
+                '0010200', /* 2017.06.28 SHC 감사관 코드로 insert */
+                #{affSno},
+                #{dspRqSno},
+                #{dspRqSno},
+                #{audKndCd},
+                #{audGrnNo},
+                #{rprtFildId},
+                '00',
+                #{rltnOrgCd},
+                #{hndOrgCd},
+                #{refOrgCd},
+                #{dspRqCd},
+                '20',
+                #{nopAmDvsnCd}, 
+                #{nopAm}, 
+                #{nopSum}, 
+                (SELECT NVL(MAX(SORT_SNO),0)+1 
+                 FROM TBBADDED146M
+                WHERE AUD_YR = #{audYr}
+                  AND AUD_NO = #{audNo}
+                  AND AUD_STEP_CD = #{audStepCd}
+                  AND AFF_SNO = #{affSno}
+                )
+                ,#{frtUsrId}  /*최초사용자id */
+                ,#{fnlUsrId} /*최종사용자id */
+                ,#{fnlDealDptCd}    /*최종거래부서코드 */
+                ,#{fnlMnuId} /*최종메뉴id */
+                ,SYSDATE    /*최초등록일시 */
+                ,SYSDATE /*최종수정일시 */
+            )
+            ;
+	INSERT INTO TBBADDED146H
+			(
+			    HST_DVSN_CD
+			  , HST_SNO
+			  , HST_DH
+			  , HST_USR_ID	
+			  , AUD_YR
+			  , AUD_NO
+			  , AUD_STEP_CD 	
+			  , DOC_ID 			
+			  , APVR_CD 		
+			  , AFF_SNO 		
+			  , DSP_RQ_SNO 		
+			  , DP_DSP_RQ_SNO 	
+			  , AUD_KND_CD 		
+			  , AUD_GRN_NO 		
+			  , RPRT_FILD_ID 	
+			  , AFF_DSP_CD 		
+			  , RLTN_ORG_CD 	
+			  , HND_ORG_CD 		
+			  , REF_ORG_CD 		
+			  , DSP_RQ_CD 		
+			  , MTRL_IPT_DVSN_CD
+			  , NOP_AM_DVSN_CD 	
+			  , NOP_AM 			
+			  , SORT_SNO		
+			  , ACCN_INSP_CD	
+			  , FNL_YN 			
+			  , FRT_USR_ID 		
+			  , FNL_USR_ID 		
+			  , FNL_DEAL_DPT_CD 
+			  , FNL_MNU_ID 		
+			  , FRT_REGI_DH		
+			  , FNL_MDF_DH 		
+			  , NOP_SUM 		
+			  , HD_AUD_STEP_CD 	
+			  , HD_DOC_ID		
+			  , HD_APVR_CD		
+			  , HD_AFF_SNO 		
+			  , HD_DSP_RQ_SNO	
+			  , REF_DOC_ID 		
+			  , DF_AUD_STEP_CD 	
+			  , DF_DOC_ID 		
+			  , DF_APVR_CD 		
+			  , DF_AFF_SNO		
+			  , DF_DSP_RQ_SNO 	
+			  , KYWD1			
+			  , KYWD2 			
+			  , KYWD3 			
+			  , KYWD4			
+			  , KYWD5			
+			)
+		SELECT 'C'
+		 	 , TBBADDED146H_SEQ.NEXTVAL
+		 	 , SYSDATE
+		 	 , #{frtUsrId}
+			 , AUD_YR
+			 , AUD_NO
+			 , AUD_STEP_CD 	
+			 , DOC_ID 			
+			 , APVR_CD 		
+			 , AFF_SNO 		
+			 , DSP_RQ_SNO 		
+			 , DP_DSP_RQ_SNO 	
+			 , AUD_KND_CD 		
+			 , AUD_GRN_NO 		
+			 , RPRT_FILD_ID 	
+			 , AFF_DSP_CD 		
+			 , RLTN_ORG_CD 	
+			 , HND_ORG_CD 		
+			 , REF_ORG_CD 		
+			 , DSP_RQ_CD 		
+			 , MTRL_IPT_DVSN_CD
+			 , NOP_AM_DVSN_CD 	
+			 , NOP_AM 			
+			 , SORT_SNO		
+			 , ACCN_INSP_CD	
+			 , FNL_YN 			
+			 , FRT_USR_ID 		
+			 , FNL_USR_ID 		
+			 , FNL_DEAL_DPT_CD 
+			 , FNL_MNU_ID 		
+			 , FRT_REGI_DH		
+			 , FNL_MDF_DH 		
+			 , NOP_SUM 		
+			 , HD_AUD_STEP_CD 	
+			 , HD_DOC_ID		
+			 , HD_APVR_CD		
+			 , HD_AFF_SNO 		
+			 , HD_DSP_RQ_SNO	
+			 , REF_DOC_ID 		
+			 , DF_AUD_STEP_CD 	
+			 , DF_DOC_ID 		
+			 , DF_APVR_CD 		
+			 , DF_AFF_SNO		
+			 , DF_DSP_RQ_SNO 	
+			 , KYWD1			
+			 , KYWD2 			
+			 , KYWD3 			
+			 , KYWD4			
+			 , KYWD5
+		 FROM TBBADDED146M
+		WHERE AUD_YR = #{audYr}
+		  AND AUD_NO = #{audNo}
+		  AND AUD_STEP_CD = #{audStepCd}
+		  AND AFF_SNO = #{affSno}
+		  AND DSP_RQ_SNO = #{dspRqSno}
+		;
+	END;
+    </insert>
+    
+    <update id="TBBADDED146MUpdate" parameterType="paramMap">
+    DECLARE
+    	BEGIN
+        /*kr.go.bai.eip.aep.mac.dao.AEPMAC002PMapper.TBBADDED146MUpdate*/
+        UPDATE TBBADDED146M
+           SET 
+             FNL_USR_ID = #{fnlUsrId}           /*최종사용자ID */
+            ,FNL_DEAL_DPT_CD = #{fnlDealDptCd}  /*최종거래부서코드 */
+            ,FNL_MNU_ID = #{fnlMnuId}           /*최종메뉴ID */
+            ,FNL_MDF_DH = SYSDATE               /*최종수정일시 */
+            <if test='rltnOrgCd != null and rltnOrgCd != ""'>
+                ,RLTN_ORG_CD	 = #{rltnOrgCd}/*관계기관코드 */
+            </if>
+            <if test='hndOrgCd != null and hndOrgCd != ""'>
+                ,HND_ORG_CD	     = #{hndOrgCd}/*조치기관코드 */
+            </if>
+            <if test='refOrgCd != null and refOrgCd != ""'>
+                ,REF_ORG_CD	     = #{refOrgCd}/*참조기관코드 */
+            </if>
+            <if test='dspRqCd != null and dspRqCd != ""'>
+                ,DSP_RQ_CD	     = #{dspRqCd}/*처분요구코드 */
+            </if>
+                ,NOP_AM_DVSN_CD	 = #{nopAmDvsnCd}/*인원금액구분코드 */
+                ,NOP_AM          = #{nopAm}/*인원수 */
+                ,NOP_SUM          = #{nopSum}/*금액 */
+            <if test='sortSno != null and sortSno != ""'>
+                ,SORT_SNO = #{sortSno} /*정렬순번 */
+            </if>
+            <if test='sortSno == null or sortSno == ""'>
+                ,SORT_SNO = NULL /*정렬순번 */
+            </if>
+         WHERE 1=1
+            <if test='audYr != null and audYr != ""'>
+                AND AUD_YR = #{audYr}
+            </if>
+            <if test='audNo != null and audNo != ""'>
+                AND AUD_NO = #{audNo}
+            </if>
+            <if test='audStepCd != null and audStepCd != ""'>
+                AND AUD_STEP_CD = #{audStepCd}
+            </if>
+            <if test='affSno != null and affSno != ""'>
+                AND AFF_SNO = #{affSno}
+            </if>
+            <if test='dspRqSno != null and dspRqSno != ""'>
+                AND DSP_RQ_SNO = #{dspRqSno}
+            </if>
+			;
+		INSERT INTO TBBADDED146H
+				(
+				    HST_DVSN_CD
+				  , HST_SNO
+				  , HST_DH
+				  , HST_USR_ID	
+				  , AUD_YR
+				  , AUD_NO
+				  , AUD_STEP_CD 	
+				  , DOC_ID 			
+				  , APVR_CD 		
+				  , AFF_SNO 		
+				  , DSP_RQ_SNO 		
+				  , DP_DSP_RQ_SNO 	
+				  , AUD_KND_CD 		
+				  , AUD_GRN_NO 		
+				  , RPRT_FILD_ID 	
+				  , AFF_DSP_CD 		
+				  , RLTN_ORG_CD 	
+				  , HND_ORG_CD 		
+				  , REF_ORG_CD 		
+				  , DSP_RQ_CD 		
+				  , MTRL_IPT_DVSN_CD
+				  , NOP_AM_DVSN_CD 	
+				  , NOP_AM 			
+				  , SORT_SNO		
+				  , ACCN_INSP_CD	
+				  , FNL_YN 			
+				  , FRT_USR_ID 		
+				  , FNL_USR_ID 		
+				  , FNL_DEAL_DPT_CD 
+				  , FNL_MNU_ID 		
+				  , FRT_REGI_DH		
+				  , FNL_MDF_DH 		
+				  , NOP_SUM 		
+				  , HD_AUD_STEP_CD 	
+				  , HD_DOC_ID		
+				  , HD_APVR_CD		
+				  , HD_AFF_SNO 		
+				  , HD_DSP_RQ_SNO	
+				  , REF_DOC_ID 		
+				  , DF_AUD_STEP_CD 	
+				  , DF_DOC_ID 		
+				  , DF_APVR_CD 		
+				  , DF_AFF_SNO		
+				  , DF_DSP_RQ_SNO 	
+				  , KYWD1			
+				  , KYWD2 			
+				  , KYWD3 			
+				  , KYWD4			
+				  , KYWD5			
+				)
+			SELECT 'U'
+			 	 , TBBADDED146H_SEQ.NEXTVAL
+			 	 , SYSDATE
+			 	 , #{frtUsrId}
+				 , AUD_YR
+				 , AUD_NO
+				 , AUD_STEP_CD 	
+				 , DOC_ID 			
+				 , APVR_CD 		
+				 , AFF_SNO 		
+				 , DSP_RQ_SNO 		
+				 , DP_DSP_RQ_SNO 	
+				 , AUD_KND_CD 		
+				 , AUD_GRN_NO 		
+				 , RPRT_FILD_ID 	
+				 , AFF_DSP_CD 		
+				 , RLTN_ORG_CD 	
+				 , HND_ORG_CD 		
+				 , REF_ORG_CD 		
+				 , DSP_RQ_CD 		
+				 , MTRL_IPT_DVSN_CD
+				 , NOP_AM_DVSN_CD 	
+				 , NOP_AM 			
+				 , SORT_SNO		
+				 , ACCN_INSP_CD	
+				 , FNL_YN 			
+				 , FRT_USR_ID 		
+				 , FNL_USR_ID 		
+				 , FNL_DEAL_DPT_CD 
+				 , FNL_MNU_ID 		
+				 , FRT_REGI_DH		
+				 , FNL_MDF_DH 		
+				 , NOP_SUM 		
+				 , HD_AUD_STEP_CD 	
+				 , HD_DOC_ID		
+				 , HD_APVR_CD		
+				 , HD_AFF_SNO 		
+				 , HD_DSP_RQ_SNO	
+				 , REF_DOC_ID 		
+				 , DF_AUD_STEP_CD 	
+				 , DF_DOC_ID 		
+				 , DF_APVR_CD 		
+				 , DF_AFF_SNO		
+				 , DF_DSP_RQ_SNO 	
+				 , KYWD1			
+				 , KYWD2 			
+				 , KYWD3 			
+				 , KYWD4			
+				 , KYWD5
+			 FROM TBBADDED146M
+	         WHERE 1=1
+	            <if test='audYr != null and audYr != ""'>
+	                AND AUD_YR = #{audYr}
+	            </if>
+	            <if test='audNo != null and audNo != ""'>
+	                AND AUD_NO = #{audNo}
+	            </if>
+	            <if test='audStepCd != null and audStepCd != ""'>
+	                AND AUD_STEP_CD = #{audStepCd}
+	            </if>
+	            <if test='affSno != null and affSno != ""'>
+	                AND AFF_SNO = #{affSno}
+	            </if>
+	            <if test='dspRqSno != null and dspRqSno != ""'>
+	                AND DSP_RQ_SNO = #{dspRqSno}
+	            </if>
+			;
+		END;
+    </update>
+    
+    <delete id="TBBADDED146MDelete" parameterType="paramMap">
+    DECLARE
+    	BEGIN
+		INSERT INTO TBBADDED146H
+				(
+				    HST_DVSN_CD
+				  , HST_SNO
+				  , HST_DH
+				  , HST_USR_ID	
+				  , AUD_YR
+				  , AUD_NO
+				  , AUD_STEP_CD 	
+				  , DOC_ID 			
+				  , APVR_CD 		
+				  , AFF_SNO 		
+				  , DSP_RQ_SNO 		
+				  , DP_DSP_RQ_SNO 	
+				  , AUD_KND_CD 		
+				  , AUD_GRN_NO 		
+				  , RPRT_FILD_ID 	
+				  , AFF_DSP_CD 		
+				  , RLTN_ORG_CD 	
+				  , HND_ORG_CD 		
+				  , REF_ORG_CD 		
+				  , DSP_RQ_CD 		
+				  , MTRL_IPT_DVSN_CD
+				  , NOP_AM_DVSN_CD 	
+				  , NOP_AM 			
+				  , SORT_SNO		
+				  , ACCN_INSP_CD	
+				  , FNL_YN 			
+				  , FRT_USR_ID 		
+				  , FNL_USR_ID 		
+				  , FNL_DEAL_DPT_CD 
+				  , FNL_MNU_ID 		
+				  , FRT_REGI_DH		
+				  , FNL_MDF_DH 		
+				  , NOP_SUM 		
+				  , HD_AUD_STEP_CD 	
+				  , HD_DOC_ID		
+				  , HD_APVR_CD		
+				  , HD_AFF_SNO 		
+				  , HD_DSP_RQ_SNO	
+				  , REF_DOC_ID 		
+				  , DF_AUD_STEP_CD 	
+				  , DF_DOC_ID 		
+				  , DF_APVR_CD 		
+				  , DF_AFF_SNO		
+				  , DF_DSP_RQ_SNO 	
+				  , KYWD1			
+				  , KYWD2 			
+				  , KYWD3 			
+				  , KYWD4			
+				  , KYWD5			
+				)
+			SELECT 'D'
+			 	 , TBBADDED146H_SEQ.NEXTVAL
+			 	 , SYSDATE
+			 	 , #{frtUsrId}
+				 , AUD_YR
+				 , AUD_NO
+				 , AUD_STEP_CD 	
+				 , DOC_ID 			
+				 , APVR_CD 		
+				 , AFF_SNO 		
+				 , DSP_RQ_SNO 		
+				 , DP_DSP_RQ_SNO 	
+				 , AUD_KND_CD 		
+				 , AUD_GRN_NO 		
+				 , RPRT_FILD_ID 	
+				 , AFF_DSP_CD 		
+				 , RLTN_ORG_CD 	
+				 , HND_ORG_CD 		
+				 , REF_ORG_CD 		
+				 , DSP_RQ_CD 		
+				 , MTRL_IPT_DVSN_CD
+				 , NOP_AM_DVSN_CD 	
+				 , NOP_AM 			
+				 , SORT_SNO		
+				 , ACCN_INSP_CD	
+				 , FNL_YN 			
+				 , FRT_USR_ID 		
+				 , FNL_USR_ID 		
+				 , FNL_DEAL_DPT_CD 
+				 , FNL_MNU_ID 		
+				 , FRT_REGI_DH		
+				 , FNL_MDF_DH 		
+				 , NOP_SUM 		
+				 , HD_AUD_STEP_CD 	
+				 , HD_DOC_ID		
+				 , HD_APVR_CD		
+				 , HD_AFF_SNO 		
+				 , HD_DSP_RQ_SNO	
+				 , REF_DOC_ID 		
+				 , DF_AUD_STEP_CD 	
+				 , DF_DOC_ID 		
+				 , DF_APVR_CD 		
+				 , DF_AFF_SNO		
+				 , DF_DSP_RQ_SNO 	
+				 , KYWD1			
+				 , KYWD2 			
+				 , KYWD3 			
+				 , KYWD4			
+				 , KYWD5
+			 FROM TBBADDED146M
+	         WHERE AUD_YR = #{audYr}
+	           AND AUD_NO = #{audNo}
+	           AND AUD_STEP_CD = #{audStepCd}
+	            <if test='affSno != null and affSno != ""'>
+	                AND AFF_SNO = #{affSno}
+	            </if>
+	            <if test='dspRqSno != null and dspRqSno != ""'>
+	                AND DSP_RQ_SNO = #{dspRqSno}
+	            </if>
+			;    	
+	    	/*kr.go.bai.eip.aep.mac.dao.AEPMAC002PMapper.TBBADDED146MDelete*/
+	        DELETE 
+	          FROM TBBADDED146M
+	         WHERE AUD_YR = #{audYr}
+	           AND AUD_NO = #{audNo}
+	           AND AUD_STEP_CD = #{audStepCd}
+	            <if test='affSno != null and affSno != ""'>
+	                AND AFF_SNO = #{affSno}
+	            </if>
+	            <if test='dspRqSno != null and dspRqSno != ""'>
+	                AND DSP_RQ_SNO = #{dspRqSno}
+	            </if>
+         	;
+         	
+	        DELETE 
+	          FROM TBBADDED146D
+	         WHERE AUD_YR = #{audYr}
+	           AND AUD_NO = #{audNo}
+	           AND AUD_STEP_CD = #{audStepCd}
+	           <if test='affSno != null and affSno != ""'>
+	           AND AFF_SNO = #{affSno}
+	           </if>
+	           <if test='dspRqSno != null and dspRqSno != ""'>
+	           AND DSP_RQ_SNO = #{dspRqSno}
+	           </if>
+         	;
+         END;
+    </delete>
+    
+    <delete id="TBBADDED145MDelete" parameterType="paramMap">
+    DECLARE
+    	BEGIN
+        INSERT INTO TBBADDED145H
+			(
+			   HST_DVSN_CD
+			 , HST_SNO
+			 , HST_DH
+			 , HST_USR_ID	
+			 , AUD_YR			
+			 , AUD_NO			
+			 , AUD_STEP_CD	
+			 , DOC_ID			
+			 , APVR_CD		
+			 , AFF_SNO		
+			 , AUD_KND_CD		
+			 , AUD_GRN_NO		
+			 , RPRT_FILD_ID	
+			 , AFF_CD			
+			 , LIST_NO		
+			 , REFER_DVSN_CD	
+			 , AFF_SPH		
+			 , TITLE_NM		
+			 , DP_TITLE_NM	
+			 , QST_DOC_ISUE_YN
+			 , QST_DOC_ISUE_DY
+			 , AUDTOR			
+			 , DETL_DOC_NO	
+			 , MTRL_IPT_DVSN_CD
+			 , SYT_TRTM_DVSN_YN
+			 , SCRT_YN		
+			 , SORT_SNO		
+			 , TRTM_EXAMER_CNB
+			 , FNL_YN			
+			 , FRT_USR_ID		
+			 , FNL_USR_ID		
+			 , FNL_DEAL_DPT_CD
+			 , FNL_MNU_ID		
+			 , FRT_REGI_DH	
+			 , FNL_MDF_DH		
+			 , REF_DOC_ID		
+			)
+		SELECT 'D'
+		 	 , TBBADDED145H_SEQ.NEXTVAL
+		 	 , SYSDATE
+		 	 , #{frtUsrId}
+			 , AUD_YR			
+			 , AUD_NO			
+			 , AUD_STEP_CD	
+			 , DOC_ID			
+			 , APVR_CD		
+			 , AFF_SNO		
+			 , AUD_KND_CD		
+			 , AUD_GRN_NO		
+			 , RPRT_FILD_ID	
+			 , AFF_CD			
+			 , LIST_NO		
+			 , REFER_DVSN_CD	
+			 , AFF_SPH		
+			 , TITLE_NM		
+			 , DP_TITLE_NM	
+			 , QST_DOC_ISUE_YN
+			 , QST_DOC_ISUE_DY
+			 , AUDTOR			
+			 , DETL_DOC_NO	
+			 , MTRL_IPT_DVSN_CD
+			 , SYT_TRTM_DVSN_YN
+			 , SCRT_YN		
+			 , SORT_SNO		
+			 , TRTM_EXAMER_CNB
+			 , FNL_YN			
+			 , FRT_USR_ID		
+			 , FNL_USR_ID		
+			 , FNL_DEAL_DPT_CD
+			 , FNL_MNU_ID		
+			 , FRT_REGI_DH	
+			 , FNL_MDF_DH		
+			 , REF_DOC_ID
+		 FROM TBBADDED145M
+         WHERE AUD_YR = #{audYr}
+           AND AUD_NO = #{audNo}
+           AND AUD_STEP_CD = #{audStepCd}
+            <if test='affSno != null and affSno != ""'>
+                AND AFF_SNO = #{affSno}
+            </if>
+         ;
+    	/*kr.go.bai.eip.aep.mac.dao.AEPMAC002PMapper.TBBADDED145MDelete*/
+        DELETE 
+          FROM TBBADDED145M
+         WHERE AUD_YR = #{audYr}
+           AND AUD_NO = #{audNo}
+           AND AUD_STEP_CD = #{audStepCd}
+            <if test='affSno != null and affSno != ""'>
+                AND AFF_SNO = #{affSno}
+            </if>
+         ;
+     END;
+    </delete>
+    
+    <delete id="TBBADDED147MDelete" parameterType="paramMap">
+    DECLARE
+    	BEGIN
+   		 INSERT INTO TBBADDED147H
+        			(
+        			    HST_DVSN_CD
+					  , HST_SNO
+					  , HST_DH
+					  , HST_USR_ID	
+                      , AUD_YR
+                      , AUD_NO
+                      , AUD_STEP_CD
+                      , APVR_CD
+                      , AUD_KND_CD
+                      , PRE_AFF_NO
+                      , AFF_NO
+                      , AFF_SNO
+                      , DSP_RQ_SNO
+                      , DOC_ID
+                      , MPP_SEQ
+                      , SORT_SNO
+                      , RPRT_FILD_ID
+                      , FRT_USR_ID
+                      , FNL_USR_ID
+                      , FNL_DEAL_DPT_CD
+                      , FNL_MNU_ID
+                      , FRT_REGI_DH
+                      , FNL_MDF_DH
+                     )
+					SELECT 'D'
+						 	 , TBBADDED147H_SEQ.NEXTVAL
+						 	 , SYSDATE
+						 	 , #{frtUsrId}
+		                     , AUD_YR
+		                     , AUD_NO
+		                     , AUD_STEP_CD
+		                     , APVR_CD
+		                     , AUD_KND_CD
+		                     , PRE_AFF_NO
+		                     , AFF_NO
+		                     , AFF_SNO
+		                     , DSP_RQ_SNO
+		                     , DOC_ID
+		                     , MPP_SEQ
+		                     , SORT_SNO
+		                     , RPRT_FILD_ID
+		                     , FRT_USR_ID
+		                     , FNL_USR_ID
+		                     , FNL_DEAL_DPT_CD
+		                     , FNL_MNU_ID
+		                     , FRT_REGI_DH
+		                     , FNL_MDF_DH
+					  FROM TBBADDED147M
+			         WHERE AUD_YR = #{audYr}
+			           AND AUD_NO = #{audNo}
+			           AND AUD_STEP_CD = #{audStepCd}
+			                AND AFF_SNO = #{affSno}
+			                AND DSP_RQ_SNO = #{dspRqSno}
+		            ;    
+		    	/*kr.go.bai.eip.aep.mac.dao.AEPMAC002PMapper.TBBADDED147MDelete*/
+		        DELETE 
+		          FROM TBBADDED147M
+		         WHERE AUD_YR = #{audYr}
+		           AND AUD_NO = #{audNo}
+		           AND AUD_STEP_CD = #{audStepCd}
+		                AND AFF_SNO = #{affSno}
+		                AND DSP_RQ_SNO = #{dspRqSno}
+		           ;
+		     END;
+    </delete>
+    
+    <delete id="TBBADDED148MDelete" parameterType="paramMap">
+    DECLARE
+    	BEGIN
+   		 INSERT INTO TBBADDED148H
+        			(
+        			    HST_DVSN_CD
+					  , HST_SNO
+					  , HST_DH
+					  , HST_USR_ID	
+					  , AUD_YR 		
+					  , AUD_NO 		
+					  , AUD_STEP_CD 
+					  , DOC_ID		
+					  , APVR_CD 	
+					  , AFF_SNO 	
+					  , DSP_RQ_SNO 	
+					  , MPP_SEQ 	
+					  , AFF_DVSN_SEQ 
+					  , PRE_AFF_NO 	
+					  , AFF_NO 		
+					  , AFF_MPP_DVSN_CD
+					  , PRE_DSP_RQ_CD 
+					  , DSP_RQ_CD 	
+					  , MPP_RSN 	
+					  , FRT_USR_ID 	
+					  , FNL_USR_ID 	
+					  , FNL_DEAL_DPT_CD
+					  , FNL_MNU_ID 	
+					  , FRT_REGI_DH 
+					  , FNL_MDF_DH 	
+                     )
+					SELECT 'D'
+						 , TBBADDED148H_SEQ.NEXTVAL
+						 , SYSDATE
+						 , #{frtUsrId}
+						 , AUD_YR 		
+						 , AUD_NO 		
+						 , AUD_STEP_CD 
+						 , DOC_ID		
+						 , APVR_CD 	
+						 , AFF_SNO 	
+						 , DSP_RQ_SNO 	
+						 , MPP_SEQ 	
+						 , AFF_DVSN_SEQ 
+						 , PRE_AFF_NO 	
+						 , AFF_NO 		
+						 , AFF_MPP_DVSN_CD
+						 , PRE_DSP_RQ_CD 
+						 , DSP_RQ_CD 	
+						 , MPP_RSN 	
+						 , FRT_USR_ID 	
+						 , FNL_USR_ID 	
+						 , FNL_DEAL_DPT_CD
+						 , FNL_MNU_ID 	
+						 , FRT_REGI_DH 
+						 , FNL_MDF_DH 	
+					  FROM TBBADDED148M
+					 WHERE AUD_YR = #{audYr}
+					   AND AUD_NO = #{audNo}
+					   AND AUD_STEP_CD = #{audStepCd}
+							AND AFF_SNO = #{affSno}
+							AND DSP_RQ_SNO = #{dspRqSno}
+		            ;    
+	    	/*kr.go.bai.eip.aep.mac.dao.AEPMAC002PMapper.TBBADDED148MDelete*/
+	        DELETE 
+	          FROM TBBADDED148M
+	         WHERE AUD_YR = #{audYr}
+	           AND AUD_NO = #{audNo}
+	           AND AUD_STEP_CD = #{audStepCd}
+	                AND AFF_SNO = #{affSno}
+	                AND DSP_RQ_SNO = #{dspRqSno}
+	             ;
+	       END;
+    </delete>
+    
+    <delete id="TBBADDED147MDelete1" parameterType="paramMap">
+    DECLARE
+    	BEGIN
+   		 INSERT INTO TBBADDED147H
+        			(
+        			    HST_DVSN_CD
+					  , HST_SNO
+					  , HST_DH
+					  , HST_USR_ID	
+                      , AUD_YR
+                      , AUD_NO
+                      , AUD_STEP_CD
+                      , APVR_CD
+                      , AUD_KND_CD
+                      , PRE_AFF_NO
+                      , AFF_NO
+                      , AFF_SNO
+                      , DSP_RQ_SNO
+                      , DOC_ID
+                      , MPP_SEQ
+                      , SORT_SNO
+                      , RPRT_FILD_ID
+                      , FRT_USR_ID
+                      , FNL_USR_ID
+                      , FNL_DEAL_DPT_CD
+                      , FNL_MNU_ID
+                      , FRT_REGI_DH
+                      , FNL_MDF_DH
+                     )
+					SELECT 'D'
+						 	 , TBBADDED147H_SEQ.NEXTVAL
+						 	 , SYSDATE
+						 	 , #{frtUsrId}
+		                     , AUD_YR
+		                     , AUD_NO
+		                     , AUD_STEP_CD
+		                     , APVR_CD
+		                     , AUD_KND_CD
+		                     , PRE_AFF_NO
+		                     , AFF_NO
+		                     , AFF_SNO
+		                     , DSP_RQ_SNO
+		                     , DOC_ID
+		                     , MPP_SEQ
+		                     , SORT_SNO
+		                     , RPRT_FILD_ID
+		                     , FRT_USR_ID
+		                     , FNL_USR_ID
+		                     , FNL_DEAL_DPT_CD
+		                     , FNL_MNU_ID
+		                     , FRT_REGI_DH
+		                     , FNL_MDF_DH
+					  FROM TBBADDED147M
+			         WHERE AUD_YR = #{audYr}
+			           AND AUD_NO = #{audNo}
+			           AND AUD_STEP_CD = #{audStepCd}
+			           AND AFF_SNO IN (
+			               SELECT T1.AFF_SNO
+			                 FROM TBBADDED145M T1
+			                WHERE T1.AUD_YR = #{audYr}
+			                  AND T1.AUD_NO = #{audNo}
+			                  AND T1.AUD_STEP_CD = #{audStepCd}
+			                  AND T1.AFF_CD IN (
+			                      SELECT T2.AFF_CD
+			                        FROM TBBADDED145M T2
+			                       WHERE T2.AUD_YR = #{audYr}
+			                         AND T2.AUD_NO = #{audNo}
+			                         AND T2.AUD_STEP_CD = #{audStepCd}
+			                         AND T2.AFF_SNO = #{affSno}
+			                     )
+			              )
+		            ;
+			    /*kr.go.bai.eip.aep.mac.dao.AEPMAC002PMapper.TBBADDED147MDelete1*/
+			        DELETE 
+			          FROM TBBADDED147M
+			         WHERE AUD_YR = #{audYr}
+			           AND AUD_NO = #{audNo}
+			           AND AUD_STEP_CD = #{audStepCd}
+			           AND AFF_SNO IN (
+			               SELECT T1.AFF_SNO
+			                 FROM TBBADDED145M T1
+			                WHERE T1.AUD_YR = #{audYr}
+			                  AND T1.AUD_NO = #{audNo}
+			                  AND T1.AUD_STEP_CD = #{audStepCd}
+			                  AND T1.AFF_CD IN (
+			                      SELECT T2.AFF_CD
+			                        FROM TBBADDED145M T2
+			                       WHERE T2.AUD_YR = #{audYr}
+			                         AND T2.AUD_NO = #{audNo}
+			                         AND T2.AUD_STEP_CD = #{audStepCd}
+			                         AND T2.AFF_SNO = #{affSno}
+			                     )
+			              )
+			      ;
+		END;
+    </delete>
+    
+    <delete id="TBBADDED147MDelete2" parameterType="paramMap">
+    DECLARE
+    	BEGIN
+   		 INSERT INTO TBBADDED147H
+        			(
+        			    HST_DVSN_CD
+					  , HST_SNO
+					  , HST_DH
+					  , HST_USR_ID	
+                      , AUD_YR
+                      , AUD_NO
+                      , AUD_STEP_CD
+                      , APVR_CD
+                      , AUD_KND_CD
+                      , PRE_AFF_NO
+                      , AFF_NO
+                      , AFF_SNO
+                      , DSP_RQ_SNO
+                      , DOC_ID
+                      , MPP_SEQ
+                      , SORT_SNO
+                      , RPRT_FILD_ID
+                      , FRT_USR_ID
+                      , FNL_USR_ID
+                      , FNL_DEAL_DPT_CD
+                      , FNL_MNU_ID
+                      , FRT_REGI_DH
+                      , FNL_MDF_DH
+                     )
+					SELECT 'D'
+						 	 , TBBADDED147H_SEQ.NEXTVAL
+						 	 , SYSDATE
+						 	 , #{frtUsrId}
+		                     , AUD_YR
+		                     , AUD_NO
+		                     , AUD_STEP_CD
+		                     , APVR_CD
+		                     , AUD_KND_CD
+		                     , PRE_AFF_NO
+		                     , AFF_NO
+		                     , AFF_SNO
+		                     , DSP_RQ_SNO
+		                     , DOC_ID
+		                     , MPP_SEQ
+		                     , SORT_SNO
+		                     , RPRT_FILD_ID
+		                     , FRT_USR_ID
+		                     , FNL_USR_ID
+		                     , FNL_DEAL_DPT_CD
+		                     , FNL_MNU_ID
+		                     , FRT_REGI_DH
+		                     , FNL_MDF_DH
+					  FROM TBBADDED147M
+			         WHERE AUD_YR = #{audYr}
+			           AND AUD_NO = #{audNo}
+			           AND AUD_STEP_CD = #{audStepCd}
+			           AND AFF_SNO IN (
+			                           SELECT T1.AFF_SNO
+			                             FROM TBBADDED145M T1
+			                            WHERE T1.AUD_YR = #{audYr}
+			                              AND T1.AUD_NO = #{audNo}
+			                              AND T1.AUD_STEP_CD = #{audStepCd}
+			                              AND T1.AFF_CD = #{affCd} 
+			                          )
+		            ;    
+	   		 /*kr.go.bai.eip.aep.mac.dao.AEPMAC002PMapper.TBBADDED147MDelete2*/
+	        DELETE 
+	          FROM TBBADDED147M
+	         WHERE AUD_YR = #{audYr}
+	           AND AUD_NO = #{audNo}
+	           AND AUD_STEP_CD = #{audStepCd}
+	           AND AFF_SNO IN (
+	                           SELECT T1.AFF_SNO
+	                             FROM TBBADDED145M T1
+	                            WHERE T1.AUD_YR = #{audYr}
+	                              AND T1.AUD_NO = #{audNo}
+	                              AND T1.AUD_STEP_CD = #{audStepCd}
+	                              AND T1.AFF_CD = #{affCd} 
+	                          )
+	               	;
+	        END;
+    </delete>
+    
+    <update id="TBBADDED146MReset" parameterType="paramMap">
+    DECLARE
+    	BEGIN
+    	/*kr.go.bai.eip.aep.mac.dao.AEPMAC002PMapper.TBBADDED146MReset*/
+        UPDATE TBBADDED146M
+           SET AFF_DSP_CD = '00'
+         WHERE AUD_YR = #{audYr}
+           AND AUD_NO = #{audNo}
+           AND AUD_STEP_CD = #{audStepCd}
+           AND AFF_SNO IN (
+                           SELECT T1.AFF_SNO
+                             FROM TBBADDED145M T1
+                            WHERE T1.AUD_YR = #{audYr}
+                              AND T1.AUD_NO = #{audNo}
+                              AND T1.AUD_STEP_CD = #{audStepCd}
+                              AND T1.AFF_CD = #{affCd} 
+                          )
+		;
+		INSERT INTO TBBADDED146H
+				(
+				    HST_DVSN_CD
+				  , HST_SNO
+				  , HST_DH
+				  , HST_USR_ID	
+				  , AUD_YR
+				  , AUD_NO
+				  , AUD_STEP_CD 	
+				  , DOC_ID 			
+				  , APVR_CD 		
+				  , AFF_SNO 		
+				  , DSP_RQ_SNO 		
+				  , DP_DSP_RQ_SNO 	
+				  , AUD_KND_CD 		
+				  , AUD_GRN_NO 		
+				  , RPRT_FILD_ID 	
+				  , AFF_DSP_CD 		
+				  , RLTN_ORG_CD 	
+				  , HND_ORG_CD 		
+				  , REF_ORG_CD 		
+				  , DSP_RQ_CD 		
+				  , MTRL_IPT_DVSN_CD
+				  , NOP_AM_DVSN_CD 	
+				  , NOP_AM 			
+				  , SORT_SNO		
+				  , ACCN_INSP_CD	
+				  , FNL_YN 			
+				  , FRT_USR_ID 		
+				  , FNL_USR_ID 		
+				  , FNL_DEAL_DPT_CD 
+				  , FNL_MNU_ID 		
+				  , FRT_REGI_DH		
+				  , FNL_MDF_DH 		
+				  , NOP_SUM 		
+				  , HD_AUD_STEP_CD 	
+				  , HD_DOC_ID		
+				  , HD_APVR_CD		
+				  , HD_AFF_SNO 		
+				  , HD_DSP_RQ_SNO	
+				  , REF_DOC_ID 		
+				  , DF_AUD_STEP_CD 	
+				  , DF_DOC_ID 		
+				  , DF_APVR_CD 		
+				  , DF_AFF_SNO		
+				  , DF_DSP_RQ_SNO 	
+				  , KYWD1			
+				  , KYWD2 			
+				  , KYWD3 			
+				  , KYWD4			
+				  , KYWD5			
+				)
+			SELECT 'U'
+			 	 , TBBADDED146H_SEQ.NEXTVAL
+			 	 , SYSDATE
+			 	 , #{frtUsrId}
+				 , AUD_YR
+				 , AUD_NO
+				 , AUD_STEP_CD 	
+				 , DOC_ID 			
+				 , APVR_CD 		
+				 , AFF_SNO 		
+				 , DSP_RQ_SNO 		
+				 , DP_DSP_RQ_SNO 	
+				 , AUD_KND_CD 		
+				 , AUD_GRN_NO 		
+				 , RPRT_FILD_ID 	
+				 , AFF_DSP_CD 		
+				 , RLTN_ORG_CD 	
+				 , HND_ORG_CD 		
+				 , REF_ORG_CD 		
+				 , DSP_RQ_CD 		
+				 , MTRL_IPT_DVSN_CD
+				 , NOP_AM_DVSN_CD 	
+				 , NOP_AM 			
+				 , SORT_SNO		
+				 , ACCN_INSP_CD	
+				 , FNL_YN 			
+				 , FRT_USR_ID 		
+				 , FNL_USR_ID 		
+				 , FNL_DEAL_DPT_CD 
+				 , FNL_MNU_ID 		
+				 , FRT_REGI_DH		
+				 , FNL_MDF_DH 		
+				 , NOP_SUM 		
+				 , HD_AUD_STEP_CD 	
+				 , HD_DOC_ID		
+				 , HD_APVR_CD		
+				 , HD_AFF_SNO 		
+				 , HD_DSP_RQ_SNO	
+				 , REF_DOC_ID 		
+				 , DF_AUD_STEP_CD 	
+				 , DF_DOC_ID 		
+				 , DF_APVR_CD 		
+				 , DF_AFF_SNO		
+				 , DF_DSP_RQ_SNO 	
+				 , KYWD1			
+				 , KYWD2 			
+				 , KYWD3 			
+				 , KYWD4			
+				 , KYWD5
+			 FROM TBBADDED146M
+        	 WHERE AUD_YR = #{audYr}
+           		AND AUD_NO = #{audNo}
+           		AND AUD_STEP_CD = #{audStepCd}
+           		AND AFF_SNO IN (
+                           				SELECT T1.AFF_SNO
+                             			 FROM TBBADDED145M T1
+                            			WHERE T1.AUD_YR = #{audYr}
+                              			   AND T1.AUD_NO = #{audNo}
+                              			   AND T1.AUD_STEP_CD = #{audStepCd}
+                              			   AND T1.AFF_CD = #{affCd} 
+                          				)
+				;
+		END;		                          
+    </update>
+    
+    <update id="TBBADDED145MReset" parameterType="paramMap">
+    DECLARE
+    	BEGIN
+    	/*kr.go.bai.eip.aep.mac.dao.AEPMAC002PMapper.TBBADDED145MReset*/
+        UPDATE TBBADDED145M
+           SET AFF_CD = '00'
+         WHERE AUD_YR = #{audYr}
+           AND AUD_NO = #{audNo}
+           AND AUD_STEP_CD = #{audStepCd}
+           AND AFF_SNO IN (
+                           SELECT T1.AFF_SNO
+                             FROM TBBADDED145M T1
+                            WHERE T1.AUD_YR = #{audYr}
+                              AND T1.AUD_NO = #{audNo}
+                              AND T1.AUD_STEP_CD = #{audStepCd}
+                              AND T1.AFF_CD = #{affCd} 
+                          )
+        ;
+           INSERT INTO TBBADDED145H
+					(
+					   HST_DVSN_CD
+					 , HST_SNO
+					 , HST_DH
+					 , HST_USR_ID	
+					 , AUD_YR			
+					 , AUD_NO			
+					 , AUD_STEP_CD	
+					 , DOC_ID			
+					 , APVR_CD		
+					 , AFF_SNO		
+					 , AUD_KND_CD		
+					 , AUD_GRN_NO		
+					 , RPRT_FILD_ID	
+					 , AFF_CD			
+					 , LIST_NO		
+					 , REFER_DVSN_CD	
+					 , AFF_SPH		
+					 , TITLE_NM		
+					 , DP_TITLE_NM	
+					 , QST_DOC_ISUE_YN
+					 , QST_DOC_ISUE_DY
+					 , AUDTOR			
+					 , DETL_DOC_NO	
+					 , MTRL_IPT_DVSN_CD
+					 , SYT_TRTM_DVSN_YN
+					 , SCRT_YN		
+					 , SORT_SNO		
+					 , TRTM_EXAMER_CNB
+					 , FNL_YN			
+					 , FRT_USR_ID		
+					 , FNL_USR_ID		
+					 , FNL_DEAL_DPT_CD
+					 , FNL_MNU_ID		
+					 , FRT_REGI_DH	
+					 , FNL_MDF_DH		
+					 , REF_DOC_ID		
+					)
+				SELECT 'U'
+				 	 , TBBADDED145H_SEQ.NEXTVAL
+				 	 , SYSDATE
+				 	 , #{frtUsrId}
+					 , AUD_YR			
+					 , AUD_NO			
+					 , AUD_STEP_CD	
+					 , DOC_ID			
+					 , APVR_CD		
+					 , AFF_SNO		
+					 , AUD_KND_CD		
+					 , AUD_GRN_NO		
+					 , RPRT_FILD_ID	
+					 , AFF_CD			
+					 , LIST_NO		
+					 , REFER_DVSN_CD	
+					 , AFF_SPH		
+					 , TITLE_NM		
+					 , DP_TITLE_NM	
+					 , QST_DOC_ISUE_YN
+					 , QST_DOC_ISUE_DY
+					 , AUDTOR			
+					 , DETL_DOC_NO	
+					 , MTRL_IPT_DVSN_CD
+					 , SYT_TRTM_DVSN_YN
+					 , SCRT_YN		
+					 , SORT_SNO		
+					 , TRTM_EXAMER_CNB
+					 , FNL_YN			
+					 , FRT_USR_ID		
+					 , FNL_USR_ID		
+					 , FNL_DEAL_DPT_CD
+					 , FNL_MNU_ID		
+					 , FRT_REGI_DH	
+					 , FNL_MDF_DH		
+					 , REF_DOC_ID
+				 FROM TBBADDED145M
+		         WHERE AUD_YR = #{audYr}
+		           AND AUD_NO = #{audNo}
+		           AND AUD_STEP_CD = #{audStepCd}
+		           AND AFF_SNO IN (
+		                           SELECT T1.AFF_SNO
+		                             FROM TBBADDED145M T1
+		                            WHERE T1.AUD_YR = #{audYr}
+		                              AND T1.AUD_NO = #{audNo}
+		                              AND T1.AUD_STEP_CD = #{audStepCd}
+		                              AND T1.AFF_CD = #{affCd} 
+		                          )
+				;
+		END;            
+    </update>
+    
+    <select id="checkAffSno" parameterType="paramMap" resultType="Integer">
+        /*kr.go.bai.eip.aep.mac.dao.AEPMAC002PMapper.checkAffSno*/
+        SELECT COUNT(*) CNT FROM TBBADDED146M
+        WHERE AUD_YR = #{audYr}
+            <if test='audNo != null and audNo != ""'>
+                AND AUD_NO = #{audNo}
+            </if>
+            <if test='audStepCd != null and audStepCd != ""'>
+                AND AUD_STEP_CD = #{audStepCd}
+            </if>
+            <if test='affSno != null and affSno != ""'>
+                AND AFF_SNO = #{affSno}
+            </if>
+    </select>
+    
+    
+    <update id="TBBADDED146DDelete" parameterType="paramMap">
+    /*kr.go.bai.eip.aep.mac.dao.AEPMAC002PMapper.TBBADDED146DDelete*/
+        DELETE FROM TBBADDED146D
+         WHERE AUD_YR = #{audYr}
+	       AND AUD_NO = #{audNo}
+	       AND AUD_STEP_CD = #{audStepCd}
+	       AND AFF_SNO = #{affSno}
+	       AND DSP_RQ_SNO = #{dspRqSno} 
+    </update>
+    
+</mapper>

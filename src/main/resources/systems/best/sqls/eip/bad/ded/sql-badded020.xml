@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.bad.ded.dao.BADDED020EMapper">
+
+	<select id="selectDept" parameterType="paramMap" resultType="egovMap">
+		/*kr.go.bai.eip.bad.ded.dao.BADDED020EMapper.selectDept*/
+		<include refid="include.pageSelct" />
+		<![CDATA[
+		SELECT SITU.BZT_BRDV_CD  AS DEPT_CD,    /* 부서 코드 */
+		
+		F_DPT_INFO(SITU.BZT_BRDV_CD, '1') AS DEPT_NM , /* 부서 이름 */
+        CASE WHEN ITEM.BZT_BGT_DVSN_CD = '1' THEN '원배정' 
+        WHEN ITEM.BZT_BGT_DVSN_CD = '2' THEN '실국배정' 
+        WHEN ITEM.BZT_BGT_DVSN_CD = '3' THEN '차장배정' 
+        END AS BZT_BGT_DVSN_NM,
+		 ITEM.BZT_BGT_DVSN_CD AS BZT_BGT_DVSN_CD,
+		
+		
+		
+		
+		SUM(TE.DT_EXS)  AS DT_EXS, /* 일비 */
+		
+		
+		(SUM(TE.LDC) + SUM(NVL(TE.LODG_GVM_PUR_CRD_EXMP_AM, 0)) ) AS LDC, /* 숙박비 */
+		
+		
+		SUM(TE.FDEX)  AS FDEX, /* 식비 */
+		SUM(TE.SPM_XPN) AS SPM_XPN , /* 보충비 */
+		SUM(NVL(TE.CPRG_FR_EXS, 0)) AS CPRG_FR_EXS , /* 수도권 운임비 */
+		NVL(SUM(
+		(SELECT SUM(NVL(A.RL_FR_EXS, 0)) + SUM(NVL(A.TOLL, 0)) + SUM(NVL(A.PARKING_FEE, 0)) + SUM(NVL(A.RL_GVM_PUR_CRD_EXMP_AM, 0))
+		FROM TBBADDED017L A
+		WHERE 1=1
+		AND TE.BZT_YR = A.BZT_YR
+		AND TE.BZT_SNO = A.BZT_SNO
+		AND TE.PCT_CNB = A.PCT_CNB
+		AND TE.BZT_EXS_SNO = A.BZT_EXS_SNO
+		AND TE.FNL_YN = A.FNL_YN)), 0) AS RL_FR_EXS , /* 철도비 */
+		SUM(TE.AUD_ACTV_RCV_EXS) AS AUD_ACTV_RCV_EXS, /* 감사활동 수용비*/
+		SUM(
+              (TE.DT_EXS)+
+              (TE.LDC) + (NVL(TE.LODG_GVM_PUR_CRD_EXMP_AM, 0)) + 
+              (TE.FDEX) +
+              (TE.SPM_XPN)  +
+              (NVL(TE.CPRG_FR_EXS, 0))  +
+              NVL(((SELECT SUM(NVL(A.RL_FR_EXS, 0)) + SUM(NVL(A.TOLL, 0)) + SUM(NVL(A.PARKING_FEE, 0)) + SUM(NVL(A.RL_GVM_PUR_CRD_EXMP_AM, 0))  
+                                 FROM TBBADDED017L A
+                                WHERE 1=1
+                                  AND TE.BZT_YR = A.BZT_YR
+                                  AND TE.BZT_SNO = A.BZT_SNO
+                                  AND TE.PCT_CNB = A.PCT_CNB
+                                  AND TE.BZT_EXS_SNO = A.BZT_EXS_SNO
+                                  AND TE.FNL_YN = A.FNL_YN)), 0)  +
+              (TE.AUD_ACTV_RCV_EXS) 
+          ) AS SUM /* 총합계 */
+		FROM TBBADDED001M ITEM /* 감사사항기본 */
+		, TBBADDED002M SITU /* 출장상황기본 */
+		, TBBADDED010L TER /* 출장비수령자내역 */
+		, TBBADDED011L TE /* 출장여비내역 */
+		--, TBBADDED019H TH
+		WHERE 1=1
+		AND ITEM.AUD_YR = SITU.REL_AUD_YR
+		AND ITEM.AUD_NO = SITU.REL_AUD_NO
+		AND SITU.BZT_YR = TER.BZT_YR
+		AND SITU.BZT_SNO = TER.BZT_SNO
+		AND TER.BZT_YR = TE.BZT_YR
+		AND TER.BZT_SNO =TE.BZT_SNO
+		AND TER.PCT_CNB = TE.PCT_CNB
+		--AND TER.BZT_YR = TH.BZT_YR
+   		--AND TER.BZT_SNO = TH.BZT_SNO
+   		--AND TER.PCT_CNB = TH.PCT_CNB
+		AND TE.FNL_YN = 'Y'
+		--AND TE.CALC_YN = 'Y' /* 계산여부 */
+		
+		
+		
+		  AND 
+                (
+                    ( ITEM.MNG_DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#{cnb}, #{dptAuth}, '', #{schSpvBrdvCd})))
+                        OR  (#{schSpvBrdvCd}  = (SELECT D4.HIRK_DPT_CD FROM TBDCMACM002M D4 WHERE D4.DPT_CD  = ITEM.MNG_DPT_CD AND D4.USE_YN = 'Y') 
+                            AND ITEM.AUD_SCL_CD =  2  ) 
+                    )
+                   /* 부서권한은 없으나 출장 배정자로 등록 된 경우 감사사항 조회 가능하도록 수정 MJ */
+                   OR 1 <= (
+                        SELECT COUNT(1)
+                         FROM TBBADDED005L ST5
+                         WHERE SITU.BZT_YR = ST5.BZT_YR
+                           AND SITU.BZT_SNO = ST5.BZT_SNO
+                           AND ST5.PCT_CNB = #{cnb}
+                   )
+                )
+]]>
+            /*20170202 EUNOK 관리부서 != 감찰담당관, 감찰관,재무행정, 유지보수,구축용역이 아니면 감찰관부서의 데이터는 검색되지 않음*/
+            <if test='searchChk != "Y"'>
+               AND ITEM.MNG_DPT_CD NOT IN ('100000','100100')
+            </if>
+		
+		
+		
+		
+		
+		
+		<if test="audStrDt != null and audStrDt != '' and audEndDt != null and audEndDt != '' ">
+			AND SITU.AUD_STR_DT BETWEEN #{audStrDt} AND #{audEndDt}
+		</if>
+		
+		<if test="schAjtYnY != null and schAjtYnY != ''">
+			--AND TH.AJT_YN = #{schAjtYnY} /* 정산여부 */
+		</if>
+		<if test="schBztKndCd != null and schBztKndCd != ''">
+			AND SITU.AUD_BZT_KND_CD = #{schBztKndCd} /* 출장종류 */
+		</if>
+		
+		
+		<if test="bztBgtDvsnCd != null and bztBgtDvsnCd != ''">
+			AND ITEM.BZT_BGT_DVSN_CD = #{bztBgtDvsnCd} /*예산구분 */ 
+		</if>
+		
+		
+		
+		<if test="schSpvBrdvCd != null and schSpvBrdvCd != ''">
+	          <if test="schDeptCd == null or schDeptCd == ''">
+	         	  AND SITU.BZT_BRDV_CD LIKE SUBSTR(#{schSpvBrdvCd},0,3) || '%' /* 상세부서가 없을경우 앞세자리로 국과 검색*/
+	         </if>
+	         <if test="schDeptCd != null and schDeptCd != ''">
+	               AND SITU.BZT_BRDV_CD = #{schDeptCd} /* 상세 부서 검색 */
+	         </if>
+	     </if>
+		GROUP BY SITU.BZT_BRDV_CD, ITEM.BZT_BGT_DVSN_CD
+		ORDER BY SITU.BZT_BRDV_CD
+		<include refid="include.pageOrder" />
+	</select>
+
+
+	<select id="showUsr" parameterType="paramMap" resultType="egovMap">
+		/*kr.go.bai.eip.bad.ded.dao.BADDED020EMapper.cnbSum*/
+	SELECT 
+	F_CODE_NM('1000173', TER.PCT_RANK_CD) AS RANK_CD , /* 직급명 */
+	TER.PCT_NM AS PCT_NM, /* 성명 */
+	SUM(TE.DT_EXS) AS DT_EXS , /* 일비 */
+	(SUM(TE.LDC) + SUM(NVL(TE.LODG_GVM_PUR_CRD_EXMP_AM, 0)) ) AS LDC, /* 숙박비 */
+	SUM(TE.FDEX) AS FDEX , /* 식비 */
+	SUM(TE.SPM_XPN) AS SPM_XPN , /* 보충비 */
+	SUM(NVL(TE.CPRG_FR_EXS, 0)) AS CPRG_FR_EXS , /* 수도권 운임비 */
+	SUM(TE.AUD_ACTV_RCV_EXS) AS  AUD_ACTV_RCV_EXS, /* 감사활동 수용비*/
+	SUM(TE.BZT_DCN) AS BZT_DCN, /* 출장일수 */
+	NVL(SUM((SELECT SUM(NVL(A.RL_FR_EXS, 0)) + SUM(NVL(A.TOLL, 0)) + SUM(NVL(A.PARKING_FEE, 0)) + SUM(NVL(A.RL_GVM_PUR_CRD_EXMP_AM, 0))
+	FROM TBBADDED017L A
+	WHERE 1=1
+	AND TE.BZT_YR = A.BZT_YR
+	AND TE.BZT_SNO = A.BZT_SNO
+	AND TE.PCT_CNB = A.PCT_CNB
+	AND TE.BZT_EXS_SNO = A.BZT_EXS_SNO
+	AND TE.FNL_YN = A.FNL_YN)), 0) AS RL_FR_EXS, /* 철도비 */
+	
+	SUM(
+          (TE.DT_EXS)+
+          (TE.LDC) + (NVL(TE.LODG_GVM_PUR_CRD_EXMP_AM, 0)) + 
+          (TE.FDEX) +
+          (TE.SPM_XPN)  +
+          (NVL(TE.CPRG_FR_EXS, 0))  +
+          NVL(((SELECT SUM(NVL(A.RL_FR_EXS, 0)) + SUM(NVL(A.TOLL, 0)) + SUM(NVL(A.PARKING_FEE, 0)) + SUM(NVL(A.RL_GVM_PUR_CRD_EXMP_AM, 0))
+                             FROM TBBADDED017L A
+                            WHERE 1=1
+                              AND TE.BZT_YR = A.BZT_YR
+                              AND TE.BZT_SNO = A.BZT_SNO
+                              AND TE.PCT_CNB = A.PCT_CNB
+                              AND TE.BZT_EXS_SNO = A.BZT_EXS_SNO
+                              AND TE.FNL_YN = A.FNL_YN)), 0)  +
+          (TE.AUD_ACTV_RCV_EXS) 
+      ) AS SUM /* 총합계 */
+	FROM TBBADDED001M ITEM /* 감사사항기본 */
+	, TBBADDED002M SITU /* 출장상황기본 */
+	, TBBADDED010L TER /* 출장비수령자내역 */
+	, TBBADDED011L TE /* 출장여비내역 */
+	--, TBBADDED019H TH
+	WHERE 1=1
+	AND ITEM.AUD_YR = SITU.REL_AUD_YR
+	AND ITEM.AUD_NO = SITU.REL_AUD_NO
+	AND SITU.BZT_YR = TER.BZT_YR
+	AND SITU.BZT_SNO = TER.BZT_SNO
+	AND TER.BZT_YR = TE.BZT_YR
+	AND TER.BZT_SNO = TE.BZT_SNO
+	AND TER.PCT_CNB = TE.PCT_CNB
+	--AND TER.BZT_YR = TH.BZT_YR
+    --AND TER.BZT_SNO = TH.BZT_SNO
+    --AND TER.PCT_CNB = TH.PCT_CNB
+	AND TE.FNL_YN = 'Y'
+	--AND TE.CALC_YN = 'Y' /* 계산여부 */
+	<if test="audStrDt != null and audStrDt != '' and audEndDt != null and audEndDt != '' ">
+		AND SITU.AUD_STR_DT BETWEEN #{audStrDt} AND #{audEndDt}
+	</if>
+	
+	<if test="schAjtYnY != null and schAjtYnY != ''">
+		--AND TH.AJT_YN = #{schAjtYnY} /* 정산여부 */
+	</if>
+	<if test="schBztKndCd != null and schBztKndCd != ''">
+		AND SITU.AUD_BZT_KND_CD = #{schBztKndCd} /* 출장종류 */
+	</if>
+	
+	AND ITEM.BZT_BGT_DVSN_CD = #{bztBgtDvsnCd1} /*예산구분 */ 
+	
+	AND SITU.BZT_BRDV_CD = #{deptCd}
+	GROUP BY TER.PCT_RANK_CD , TER.PCT_NM, ITEM.BZT_BGT_DVSN_CD
+	
+	ORDER BY TER.PCT_RANK_CD 
+	</select>
+	
+	<select id="showUsrDetail" parameterType="paramMap" resultType="egovMap">
+		/*kr.go.bai.eip.bad.ded.dao.BADDED020EMapper.cnbSum*/
+	SELECT 
+	--TH.AJT_YN,
+	TE.CALC_YN,
+    CASE WHEN TE.CALC_YN = 'N' THEN '계산'
+    WHEN TE.CALC_YN = 'Y' THEN '정산'
+    END AS AJT_NM,
+	F_CODE_NM('1000173', TER.PCT_RANK_CD) AS RANK_CD , /* 직급명 */
+	TER.PCT_NM AS PCT_NM, /* 성명 */
+	SUM(TE.DT_EXS) AS DT_EXS , /* 일비 */
+	(SUM(TE.LDC) + SUM(NVL(TE.LODG_GVM_PUR_CRD_EXMP_AM, 0)) ) AS LDC, /* 숙박비 */
+	SUM(TE.FDEX) AS FDEX , /* 식비 */
+	SUM(TE.SPM_XPN) AS SPM_XPN , /* 보충비 */
+	SUM(NVL(TE.CPRG_FR_EXS, 0)) AS CPRG_FR_EXS , /* 수도권 운임비 */
+	SUM(TE.AUD_ACTV_RCV_EXS) AS  AUD_ACTV_RCV_EXS, /* 감사활동 수용비*/
+	SUM(TE.BZT_DCN) AS BZT_DCN, /* 출장일수 */
+	NVL(SUM((SELECT SUM(NVL(A.RL_FR_EXS, 0)) + SUM(NVL(A.TOLL, 0)) + SUM(NVL(A.PARKING_FEE, 0)) + SUM(NVL(A.RL_GVM_PUR_CRD_EXMP_AM, 0))
+	FROM TBBADDED017L A
+	WHERE 1=1
+	AND TE.BZT_YR = A.BZT_YR
+	AND TE.BZT_SNO = A.BZT_SNO
+	AND TE.PCT_CNB = A.PCT_CNB
+	AND TE.BZT_EXS_SNO = A.BZT_EXS_SNO
+	AND TE.FNL_YN = A.FNL_YN)), 0) AS RL_FR_EXS, /* 철도비 */
+	
+	SUM(
+          (TE.DT_EXS)+
+          (TE.LDC) + (NVL(TE.LODG_GVM_PUR_CRD_EXMP_AM, 0)) + 
+          (TE.FDEX) +
+          (TE.SPM_XPN)  +
+          (NVL(TE.CPRG_FR_EXS, 0))  +
+          NVL(((SELECT SUM(NVL(A.RL_FR_EXS, 0)) + SUM(NVL(A.TOLL, 0)) + SUM(NVL(A.PARKING_FEE, 0)) + SUM(NVL(A.RL_GVM_PUR_CRD_EXMP_AM, 0))
+                             FROM TBBADDED017L A
+                            WHERE 1=1
+                              AND TE.BZT_YR = A.BZT_YR
+                              AND TE.BZT_SNO = A.BZT_SNO
+                              AND TE.PCT_CNB = A.PCT_CNB
+                              AND TE.BZT_EXS_SNO = A.BZT_EXS_SNO
+                              AND TE.FNL_YN = A.FNL_YN)), 0)  +
+          (TE.AUD_ACTV_RCV_EXS) 
+      ) AS SUM /* 총합계 */
+	FROM TBBADDED001M ITEM /* 감사사항기본 */
+	, TBBADDED002M SITU /* 출장상황기본 */
+	, TBBADDED010L TER /* 출장비수령자내역 */
+	, TBBADDED011L TE /* 출장여비내역 */
+	--, TBBADDED019H TH
+	WHERE 1=1
+	AND ITEM.AUD_YR = SITU.REL_AUD_YR
+	AND ITEM.AUD_NO = SITU.REL_AUD_NO
+	AND SITU.BZT_YR = TER.BZT_YR
+	AND SITU.BZT_SNO = TER.BZT_SNO
+	AND TER.BZT_YR = TE.BZT_YR
+	AND TER.BZT_SNO = TE.BZT_SNO
+	AND TER.PCT_CNB = TE.PCT_CNB
+	--AND TER.BZT_YR = TH.BZT_YR
+    --AND TER.BZT_SNO = TH.BZT_SNO
+    --AND TER.PCT_CNB = TH.PCT_CNB
+	<if test="audStrDt != null and audStrDt != '' and audEndDt != null and audEndDt != '' ">
+		AND SITU.AUD_STR_DT BETWEEN #{audStrDt} AND #{audEndDt}
+	</if>
+	--AND TE.CALC_YN = 'Y' /* 계산여부 */
+	<if test="schAjtYnY != null and schAjtYnY != ''">
+		--AND TH.AJT_YN = #{schAjtYnY} /* 정산여부 */
+	</if>
+	<if test="schBztKndCd != null and schBztKndCd != ''">
+		AND SITU.AUD_BZT_KND_CD = #{schBztKndCd} /* 출장종류 */
+	</if>
+	
+	AND ITEM.BZT_BGT_DVSN_CD = #{bztBgtDvsnCd1} /*예산구분 */ 
+	
+	AND SITU.BZT_BRDV_CD = #{deptCd}
+	GROUP BY TER.PCT_RANK_CD , TER.PCT_NM, ITEM.BZT_BGT_DVSN_CD,TE.CALC_YN--, TH.AJT_YN
+	
+	ORDER BY TER.PCT_RANK_CD 
+	</select>
+</mapper> 

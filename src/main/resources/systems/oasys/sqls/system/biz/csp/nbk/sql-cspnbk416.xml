@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd" >
+<sqlMap namespace="csp/nbk/416">
+	<select id="CSPNBK416LendRtsListSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT	/* CSPNBK416LendRtsListSelect */
+				(
+					CASE
+						WHEN D1.ITR_APC_DT <= #startDt#
+						THEN #startDt#
+						ELSE D1.ITR_APC_DT
+					END
+				) AS ITR_APC_DT
+				, D1.LEND_KND_CD
+				, D1.LEND_ITR
+				, D1.ARR_ITR
+				, D1.PIA_DVD_RTS
+				, (
+					SELECT	CASE
+								WHEN MIN(D3.ITR_APC_DT) <= #endDt#
+								THEN MIN(D3.ITR_APC_DT)
+								ELSE #endDt#
+							END
+					FROM	TBCSPNBK201M D3
+					WHERE	D3.LEND_KND_CD = D1.LEND_KND_CD
+					AND		D3.ITR_APC_DT > D1.ITR_APC_DT
+				) AS END_DT
+		FROM	TBCSPNBK201M D1
+		WHERE	D1.LEND_KND_CD = #lendKndCd#
+		AND		D1.ITR_APC_DT BETWEEN ( SELECT MAX(D2.ITR_APC_DT) FROM TBCSPNBK201M D2 WHERE D2.LEND_KND_CD = #lendKndCd# AND ITR_APC_DT <= #startDt#)
+								AND ( SELECT MAX(D2.ITR_APC_DT) FROM TBCSPNBK201M D2 WHERE D2.LEND_KND_CD = #lendKndCd# AND ITR_APC_DT < #endDt#)
+		ORDER BY ITR_APC_DT
+	]]>
+	</select>
+	
+	<select id="CSPNBK416LendInterestByMouiNoSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		WITH /* CSPNBK416LendInterestByMouiNoSelect */
+		LEND_MS_DATA AS
+		(
+			SELECT	D4.LEND_KND_CD
+					, D4.MOUI_NO
+					, D4.LEND_BL
+					, D4.FNL_RPM_DT
+			FROM	TBCSPNBK202M D4
+			WHERE	D4.LEND_KND_CD = #lendKndCd#
+			AND		D4.MOUI_NO = #mouiNo#
+		)
+		, ITR_DATA AS
+		(
+			SELECT	(
+						CASE
+							WHEN D1.ITR_APC_DT <= ( SELECT D2.FNL_RPM_DT FROM LEND_MS_DATA D2 )
+							THEN ( SELECT D2.FNL_RPM_DT FROM LEND_MS_DATA D2 )
+							ELSE D1.ITR_APC_DT
+						END
+					) AS ITR_APC_DT
+					, D1.LEND_ITR
+					, D1.ARR_ITR
+					,  TO_CHAR( TO_DATE((
+											SELECT	CASE 
+														WHEN MIN(D3.ITR_APC_DT) <= #intRpmDt#
+														THEN MIN(D3.ITR_APC_DT)
+														ELSE #intRpmDt#
+													END
+											FROM	TBCSPNBK201M D3
+											WHERE	D3.LEND_KND_CD = D1.LEND_KND_CD
+											AND		D3.ITR_APC_DT > D1.ITR_APC_DT
+									), 'YYYYMMDD') , 'YYYYMMDD')
+						 AS END_DT
+			FROM	TBCSPNBK201M D1
+			WHERE	D1.LEND_KND_CD = '1'
+			AND		D1.ITR_APC_DT BETWEEN ( SELECT MAX(D2.ITR_APC_DT) FROM TBCSPNBK201M D2 WHERE D2.LEND_KND_CD = '1' AND ITR_APC_DT <= ( SELECT D2.FNL_RPM_DT FROM LEND_MS_DATA D2 ))
+									AND ( SELECT MAX(D2.ITR_APC_DT) FROM TBCSPNBK201M D2 WHERE D2.LEND_KND_CD = '1' AND ITR_APC_DT < #intRpmDt#)
+		)
+		SELECT	D5.LEND_KND_CD
+				, D5.MOUI_NO
+				, D5.LEND_BL
+				, D5.FNL_RPM_DT
+				, NVL(D6.INT, 0 ) AS INT
+		FROM	LEND_MS_DATA D5
+				, (
+					SELECT	D3.LEND_KND_CD
+							, D3.MOUI_NO
+							, CEIL( SUM((
+								SELECT	SUM(
+											CASE
+												WHEN D2.END_DT <= D3.EXPR_DT THEN D3.LEND_BL * ( D2.LEND_ITR / 100 / 365 ) * (TO_DATE(D2.END_DT, 'YYYYMMDD') - TO_DATE(D2.ITR_APC_DT, 'YYYYMMDD'))
+												WHEN D3.EXPR_DT BETWEEN D2.ITR_APC_DT AND D2.END_DT
+													THEN ( D3.LEND_BL * ( D2.LEND_ITR / 100 / 365 ) * (TO_DATE(D3.EXPR_DT, 'YYYYMMDD') - TO_DATE(D2.ITR_APC_DT, 'YYYYMMDD')) )
+													    + ( D3.LEND_BL * ( D2.ARR_ITR / 100 / 365 ) * (TO_DATE(D2.END_DT, 'YYYYMMDD') - TO_DATE(D3.EXPR_DT, 'YYYYMMDD')) )
+												WHEN D2.ITR_APC_DT >= D3.EXPR_DT THEN D3.LEND_BL * ( D2.ARR_ITR / 100 / 365 ) * (TO_DATE(D2.END_DT, 'YYYYMMDD') - TO_DATE(D2.ITR_APC_DT, 'YYYYMMDD'))
+											END
+										)
+								FROM	ITR_DATA D2
+							)) / 10 ) * 10 AS INT
+					FROM	TBCSPNBK203D D3
+					WHERE	D3.LEND_KND_CD = #lendKndCd#
+					AND		D3.MOUI_NO = #mouiNo#
+					AND		D3.LEND_BL > 0
+					AND		D3.CNL_YN = 'N'
+					GROUP BY D3.LEND_KND_CD
+							, D3.MOUI_NO
+				) D6
+		WHERE	D5.LEND_KND_CD = D6.LEND_KND_CD
+		AND		D5.MOUI_NO = D6.MOUI_NO
+	]]>
+	</select>
+</sqlMap>

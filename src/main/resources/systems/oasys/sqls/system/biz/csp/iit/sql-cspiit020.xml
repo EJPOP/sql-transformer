@@ -1,0 +1,687 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/iit/020">
+	
+	<select id="CSPIIT020QMainSelect" parameterClass="paramMap" 	resultClass="resultMap">
+		<include refid = "include.pageSelct"/>
+        <![CDATA[
+			SELECT 	A.MTRL_RQS_SNO,			/*자료요청순번*/
+					A.MTRL_RQS_DVSN_CD,		/*자료요청구분코드*/
+					A.RQS_DT,				/*요청일*/
+					D.DPT_NM AS RQS_DPT_NM,	/*요청자부서명*/
+					B.USR_NAM AS RQR_NAM,	/*요청자명*/
+					A.RQS_TIT_NM,			/*요청제목*/
+					C.USR_NAM AS HNDL_PEN_NAM,	/*처리담당자명*/
+					A.HNDL_DT,				/*처리일자*/
+					A.RQR_CNB,				/*요청자전산번호*/
+					A.HNDL_PEN_CNB,			/*처리자전산번호*/
+					A.RQS_DPT_CD,	/*요청부서코드*/
+					A.APV_DOC_NO,	/*결재문서번호*/
+                    F.APV_STA_CD,    /*결재상태코드*/
+                    A.CHF_APV_STA_CD, /*정보2과장 승인반려 상태코드*/
+                    A.OPEN_YN,
+                    (CASE WHEN A.PSN_INFO ='Y' THEN '포함' WHEN  A.PSN_INFO ='N' THEN '미포함' ELSE '' END) PSN_INFO,
+                    A.DRTR_CNB,				/*책임자전산번호*/
+					G.USR_NAM AS DRTR_NAM,	/*책임자명*/
+					A.AUD_YR,
+                    A.AUD_NO,
+                    CASE WHEN H.AUD_YR >= '2016' 
+			                THEN H.AUD_KND_CD
+			        ELSE '' 
+			        END                              AS AUD_YR_NO_KND_CD,
+                    A.AUD_SBJ_NM,
+                    H.AUD_KND_CD,
+                    H.AUD_GRN_NO
+			FROM   	TBCSPIIT018M A,			/*전산개선요청테이블*/
+					TBDCMACM001M B, 		/*사용자테이블(요청자)*/
+					TBDCMACM001M C,			/*사용자테이블(처리자)*/
+					TBDCMACM002M D,			/*부서코드(요청자)*/
+					TBDCMACM002M E,			/*부서코드(처리자)*/
+					TBDCMACM022L F,			/*결재문서내역*/
+					TBDCMACM001M G,			/*사용자테이블(책임자)*/
+					TBBADDED001M H			/*감사사항*/
+			WHERE	A.RQR_CNB = B.CNB(+)
+			AND		A.HNDL_PEN_CNB = C.CNB(+)
+			AND		A.DRTR_CNB = G.CNB(+)
+			AND		A.RQS_DPT_CD = D.DPT_CD(+)
+			AND		C.DPT_CD = E.DPT_CD(+)
+			AND		A.COPUT_BRD_DVSN_CD = '02' /*게시판구분코드 - BARON요청*/
+			AND		A.APV_DOC_NO = F.APV_DOC_NO(+)
+			AND		A.AUD_YR = H.AUD_YR(+)
+	        AND		A.AUD_NO = H.AUD_NO(+)
+			AND 	A.RQS_DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #dptAuth#, '', #strUpSpvBrdvCd#)))   /*직급이 원장일 경우 'ALL' 그외는 'DEPTLW'로 셋팅*/   		
+        ]]>
+        <dynamic>
+        	<isNotEmpty property="strRQS_DTS">
+        		AND	A.RQS_DT &gt;= #strRQS_DTS#
+        	</isNotEmpty>
+        	<isNotEmpty property="strRQS_DTE">
+        		AND	A.RQS_DT &lt;= #strRQS_DTE#
+        	</isNotEmpty>
+        	<isNotEmpty property="strSEARCH_NM">
+        		AND	(D.DPT_NM LIKE '%'||#strSEARCH_NM#||'%'
+        				OR E.DPT_NM LIKE '%'||#strSEARCH_NM#||'%'
+        				OR A.RQS_TIT_NM LIKE '%'||#strSEARCH_NM#||'%'
+        				OR A.RQS_TXT LIKE '%'||#strSEARCH_NM#||'%'
+        				OR A.HNDL_TXT LIKE '%'||#strSEARCH_NM#||'%')
+        	</isNotEmpty>
+        	<isNotEmpty property="strRQR_NAM">
+        		AND B.USR_NAM LIKE '%'||#strRQR_NAM#||'%'
+        	</isNotEmpty>
+        	<isNotEmpty property="strHNDL_PEN_NAM">
+        		AND	C.USR_NAM LIKE '%'||#strHNDL_PEN_NAM#||'%'
+        	</isNotEmpty>
+        	<isNotEmpty property="strDRTR_NAM">
+        		AND	G.USR_NAM LIKE '%'||#strDRTR_NAM#||'%'
+        	</isNotEmpty>
+        	<isEqual property="strAUTH_CD" compareValue="PERS">
+        		AND	  A.RQR_CNB = #strCNB#
+        	</isEqual>
+        	<isEqual property="strAUTH_CD" compareValue="DEPT">
+        		AND	 TO_NUMBER(A.CHF_APV_STA_CD) > CASE WHEN ((F_USR_INFO( #strCNB#,'5') = A.RQS_DPT_CD) )  THEN 0 ELSE 1 END  /*요청결재전 표시하지 않음 (요청부서  제외) */ 
+        	</isEqual>
+        	<isNotEmpty property="strCHF_APV_STA_CD">
+        		<isEqual property="strCHF_APV_STA_CD" compareValue="01">
+        			AND  A.CHF_APV_STA_CD = #strCHF_APV_STA_CD#
+	        	</isEqual>
+	        	<isEqual property="strCHF_APV_STA_CD" compareValue="02">
+	        		AND  A.CHF_APV_STA_CD <![CDATA[ >= ]]> #strCHF_APV_STA_CD#
+	        	</isEqual>
+        	</isNotEmpty>
+        	<isEqual property="strRESULT_CD" compareValue="1">
+        		AND	A.HNDL_DT IS NULL
+        	</isEqual>
+        	<isEqual property="strRESULT_CD" compareValue="2">
+        		AND	A.HNDL_DT IS NOT NULL
+        	</isEqual>
+        	<isNotEmpty property="strPSN_INFO">
+        		AND  A.PSN_INFO = #strPSN_INFO#
+        	</isNotEmpty>
+        	<isNotEmpty property="strSpvBrdvCd">	 
+			     AND A.RQS_DPT_CD = #strSpvBrdvCd#
+			</isNotEmpty>
+			<isNotEmpty property="strMTRL_RQS_DVSN_CD">	 
+			     AND A.MTRL_RQS_DVSN_CD = #strMTRL_RQS_DVSN_CD#
+			</isNotEmpty>
+        </dynamic> 
+        <include refid = "include.pageOrder"/> 
+	</select>     
+	
+	<select id="CSPIIT021EMainSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+        	SELECT	A.MTRL_RQS_SNO,		/*자료요청순번*/ 
+        			A.MTRL_RQS_DVSN_CD, 		/*자료요청구분코드*/
+        			A.RQS_DT,	/*요청일*/ 
+        			A.RQR_CNB,		/*요청자전산번호*/
+        			(SELECT USR_NAM 
+        			FROM TBDCMACM001M Z
+        			WHERE A.RQR_CNB = Z.CNB
+        			) AS RQR_NAM,		/*요청자명*/
+        			A.OPEN_YN,		/*공개여부*/ 
+        			A.RQS_TIT_NM,	/*요청제목명*/
+			 		A.RQS_TXT, 		/*요청내용*/
+			 		A.RQS_DPT_CD, 		/*요청자부서코드*/
+			 		A.HNDL_DT, 		/*처리일*/
+			 		A.HNDL_PEN_CNB, 	/*처리자전산번호*/
+			 		(SELECT USR_NAM 
+        			FROM TBDCMACM001M Z
+        			WHERE A.HNDL_PEN_CNB = Z.CNB
+        			) AS HNDL_PEN_NAM,		/*처리자명*/
+			 		A.HNDL_TXT, 		/*처리내용*/
+			 		(SELECT DOC_ID FROM TBCSPIIT019M Z 
+			 		WHERE Z.MTRL_RQS_SNO = A.MTRL_RQS_SNO 
+			 		AND	Z.COPUT_BRD_DVSN_CD = '02'
+			 		AND Z.MTRL_RQS_ATT_FL_DVSN_CD = '1') AS RQS_DOC_ID,
+			 		(SELECT DOC_ID FROM TBCSPIIT019M Z 
+			 		WHERE Z.MTRL_RQS_SNO = A.MTRL_RQS_SNO 
+			 		AND	Z.COPUT_BRD_DVSN_CD = '02'
+			 		AND Z.MTRL_RQS_ATT_FL_DVSN_CD = '2') AS HNDL_DOC_ID,
+			 		PRPS_YE,
+			 		PRPS_SLN,
+			 		NVL(SEN_YN,'N') AS SEN_YN,COPUT_BRD_DVSN_CD,
+			 		A.HNDL_PEN_CNB AS OLD_HNDL_PEN_CNB
+			 		,HNDL_ORD_TXT
+                    ,A.APV_DOC_NO
+                    ,B.APV_STA_CD
+                    ,A.CHF_APV_STA_CD
+                    ,A.PSN_INFO
+                    ,A.DRTR_CNB 	/*처리자전산번호*/
+                    ,A.AUD_YR
+                    ,A.AUD_NO
+                    ,CASE WHEN C.AUD_YR >= '2016' 
+			                THEN C.AUD_KND_CD
+			        ELSE '' 
+			        END                              AS AUD_YR_NO_KND_CD
+                    ,A.AUD_SBJ_NM
+                    ,C.AUD_KND_CD
+                    ,C.AUD_GRN_NO
+			 		,(SELECT USR_NAM 
+        			FROM TBDCMACM001M ZZ
+        			WHERE A.DRTR_CNB = ZZ.CNB
+        			) AS DRTR_NAM		/*책임자명*/
+                    ,(SELECT USR_DFN_TXT_1 FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD='1000882' AND CD='3') AS CHAR_CNB /*기본책임자전산번호*/
+                    ,(SELECT USR_DFN_TXT_2 FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD='1000882' AND CD='3') AS CHAR_NAM  /*기본책임자명*/
+                    ,FILE_DEL_YN
+        	FROM	TBCSPIIT018M A ,TBDCMACM022L B , TBBADDED001M C 
+        	WHERE 1=1 
+        	]]>
+        	<isNotEmpty property="strMTRL_RQS_SNO">
+        	 	AND A.MTRL_RQS_SNO = #strMTRL_RQS_SNO#
+        	</isNotEmpty>
+        	<isNotEmpty property="strAPV_DOC_NO">
+        	 	AND A.APV_DOC_NO = #strAPV_DOC_NO#
+        	</isNotEmpty>
+        	<![CDATA[
+        	AND		A.COPUT_BRD_DVSN_CD = '02' /*게시판구분코드 - 전산개선요청*/
+        	AND		A.APV_DOC_NO = B.APV_DOC_NO(+)
+	        AND		A.AUD_YR = C.AUD_YR(+)
+	        AND		A.AUD_NO = C.AUD_NO(+)
+		]]>
+	</select>
+	
+	<!-- 전산장애 요청 년도, 요청연번 Max값 가져오기 -->
+	<select id="CSPIIT021EKeySelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[     	
+			    SELECT (SELECT TO_CHAR(NVL(MAX(TO_NUMBER(MTRL_RQS_SNO)),0)+1) AS MTRL_RQS_SNO
+				  FROM TBCSPIIT018M
+				 WHERE 1=1
+				 AND		COPUT_BRD_DVSN_CD = '02' /*게시판구분코드 - 전산개선요청*/) as MTRL_RQS_SNO
+				 ,TO_CHAR(SYSDATE,'YYYY') AS WORK_YE
+					   ,(	SELECT 	TO_CHAR(NVL(MAX(WORK_SNO),0) +1)
+					   		FROM	TBCSPIIT018M S1
+					   		WHERE	S1.WORK_YE = TO_CHAR(SYSDATE,'YYYY')
+					   	) AS WORK_SNO
+				FROM	DUAL
+		]]>
+	</select>
+	
+	<insert id="CSPIIT021EMainInsert" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBCSPIIT018M
+        	(		COPUT_BRD_DVSN_CD,
+        			MTRL_RQS_SNO,			/*자료요청순번*/
+        			MTRL_RQS_DVSN_CD,		/*자료요청구분코드*/
+        			RQS_DT,			/*요청일*/
+        			RQR_CNB,		/*요청자전산번호*/
+        			RQS_TIT_NM,		/*요청제목명*/
+        			RQS_TXT,		/*요청내용*/
+        			OPEN_YN,		/*공개여부*/
+        			FRT_USR_ID,
+					FNL_USR_ID,
+					FNL_DEAL_DPT_CD,
+					FNL_MNU_ID,
+					FRT_REGI_DH,
+					FNL_MDF_DH,
+					RQS_DPT_CD
+					,WORK_YE
+					,WORK_SNO
+					,HNDL_ORD_TXT
+					,CHF_APV_STA_CD
+					,PSN_INFO
+					,DRTR_CNB
+					,AUD_YR
+					,AUD_NO
+					,AUD_SBJ_NM
+        	) VALUES (
+        			'02',
+	        		#MTRL_RQS_SNO#,
+	        		#MTRL_RQS_DVSN_CD#,
+	        		#RQS_DT#,
+	        		#RQR_CNB#,
+	        		#RQS_TIT_NM#,
+	        		#RQS_TXT#,
+	        		#OPEN_YN#,
+	        		#FRT_USR_ID#,
+					#FNL_USR_ID#,
+					#FNL_DEAL_DPT_CD#,
+					#FNL_MNU_ID#,
+					SYSDATE,
+					SYSDATE,
+					F_USR_INFO(#RQR_CNB#,'5')
+					,#WORK_YE#
+					,#WORK_SNO#
+					,#HNDL_ORD_TXT#
+					,'01'
+					,#PSN_INFO#
+					,#DRTR_CNB#
+					,#AUD_YR#
+					,#AUD_NO#
+					,#AUD_SBJ_NM#
+        	)
+        ]]>
+	</insert>
+	
+	<update id="CSPIIT021EMainUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE 	TBCSPIIT018M
+			SET		MTRL_RQS_DVSN_CD = #MTRL_RQS_DVSN_CD# ,	/*자료요청구분코드*/
+					RQS_DT = #RQS_DT#,			/*요청일*/
+					RQR_CNB = #RQR_CNB#,		/*요청자전산번호*/
+					RQS_TIT_NM = #RQS_TIT_NM#,	/*요청제목명*/
+					RQS_TXT = #RQS_TXT#,		/*요청내용*/
+					OPEN_YN = #OPEN_YN#, 	/*공개여부*/
+					FNL_USR_ID = #FNL_USR_ID#,
+					FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#,
+					FNL_MNU_ID = #FNL_MNU_ID#,
+					FNL_MDF_DH = SYSDATE,
+					RQS_DPT_CD = F_USR_INFO(#RQR_CNB#,'5'),
+					PSN_INFO = #PSN_INFO#,/*개인정보 포함여부*/
+					AUD_YR = #AUD_YR#,
+					AUD_NO = #AUD_NO#,
+					AUD_SBJ_NM = #AUD_SBJ_NM#,
+					CHF_APV_STA_CD = #CHF_APV_STA_CD#
+					/* 2021.12.06 최승규 수석님요청
+					HNDL_TXT = HNDL_TXT,	
+					HNDL_DT = HNDL_DT,	
+					HNDL_PEN_CNB = HNDL_PEN_CNB, 
+					HNDL_ORD_TXT = HNDL_ORD_TXT,
+					DRTR_CNB = DRTR_CNB,*/
+			WHERE	MTRL_RQS_SNO = #MTRL_RQS_SNO#
+			AND		COPUT_BRD_DVSN_CD = '02' /*게시판구분코드 - 전산개선요청*/
+		]]>
+	</update>
+	
+	<delete id="CSPIIT021EMainDelete" parameterClass="paramMap">
+		<![CDATA[
+			DELETE	
+			FROM	TBCSPIIT018M
+			WHERE	MTRL_RQS_SNO = #MTRL_RQS_SNO#
+			AND		COPUT_BRD_DVSN_CD = '02' /*게시판구분코드 - 전산개선요청*/
+		]]>
+	</delete>
+	
+	<insert id="CSPIIT021ERqsFileInsert" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBCSPIIT019M
+        	(
+        			COPUT_BRD_DVSN_CD,
+        			MTRL_RQS_SNO,			/*자료요청순번*/
+        			MTRL_RQS_ATT_FL_DVSN_CD,		/*자료요청첨부파일구분코드*/
+        			DOC_ID,			/*요청일*/
+        			FRT_USR_ID,
+        			FNL_USR_ID,
+        			FNL_DEAL_DPT_CD,
+        			FNL_MNU_ID,
+        			FRT_REGI_DH,
+        			FNL_MDF_DH
+        	) VALUES (
+        			'02',
+	        		#MTRL_RQS_SNO#,
+	        		'1',
+	        		#RQS_DOC_ID#,
+	        		#FRT_USR_ID#,
+	        		#FNL_USR_ID#,
+	        		#FNL_DEAL_DPT_CD#,
+	        		#FNL_MNU_ID#,
+	        		SYSDATE,
+	        		SYSDATE
+        	)
+        ]]>
+	</insert>
+	
+	<insert id="CSPIIT021EHndlFileInsert" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBCSPIIT019M
+        	(		COPUT_BRD_DVSN_CD,
+        			MTRL_RQS_SNO,			/*자료요청순번*/
+        			MTRL_RQS_ATT_FL_DVSN_CD,		/*자료요청첨부파일구분코드*/
+        			DOC_ID,			/*요청일*/
+        			FRT_USR_ID,
+        			FNL_USR_ID,
+        			FNL_DEAL_DPT_CD,
+        			FNL_MNU_ID,
+        			FRT_REGI_DH,
+        			FNL_MDF_DH
+        	) VALUES (
+        			'02',
+	        		#MTRL_RQS_SNO#,
+	        		'2',
+	        		#HNDL_DOC_ID#,
+	        		#FRT_USR_ID#,
+	        		#FNL_USR_ID#,
+	        		#FNL_DEAL_DPT_CD#,
+	        		#FNL_MNU_ID#,
+	        		SYSDATE,
+	        		SYSDATE
+        	)
+        ]]>
+	</insert>
+	
+	<delete id="CSPIIT021EFileDelete" parameterClass="paramMap">
+		<![CDATA[
+			DELETE	
+			FROM	TBCSPIIT019M
+			WHERE	MTRL_RQS_SNO = #MTRL_RQS_SNO#
+			AND		COPUT_BRD_DVSN_CD = '02'
+		]]>
+	</delete>
+	
+	<!-- 전산개선 및 자료요청 엑셀다운로드 -->
+	<select id="CSPIIT020QExcelExportSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+			SELECT 	/*CSPIIT020QExcelExportSelect*/
+					F_CODE_NM('1000745',A.MTRL_RQS_DVSN_CD) AS MTRL_RQS_DVSN_NM,	/*자료요청구분코드*/
+					TO_CHAR(TO_DATE(A.RQS_DT),'YYYY-MM-DD') AS RQS_DT,		/*요청일*/
+					D.DPT_NM AS RQS_DPT_NM,	/*요청자부서명*/
+					B.USR_NAM AS RQR_NAM,	/*요청자명*/
+					A.RQS_TIT_NM,			/*요청제목*/
+					C.USR_NAM AS HNDL_PEN_NAM,	/*처리담당자명*/
+					TO_CHAR(TO_DATE(A.HNDL_DT),'YYYY-MM-DD') AS HNDL_DT,	/*처리일자*/
+                    (CASE WHEN A.PSN_INFO ='Y' THEN '포함' WHEN  A.PSN_INFO ='N' THEN '미포함' ELSE '' END) PSN_INFO,
+                    F_CODE_NM('1000856',A.CHF_APV_STA_CD) AS CHF_APV_STA_NM,		    
+                    A.AUD_SBJ_NM
+			FROM   	TBCSPIIT018M A,			/*PC장비관리테이블*/
+					TBDCMACM001M B, 		/*사용자테이블(요청자)*/
+					TBDCMACM001M C,			/*사용자테이블(처리자)*/
+					TBDCMACM002M D,			/*부서코드(요청자)*/
+					TBDCMACM002M E			/*부서코드(처리자)*/
+			WHERE	A.RQR_CNB = B.CNB(+)
+			AND		A.HNDL_PEN_CNB = C.CNB(+)
+			AND		A.RQS_DPT_CD = D.DPT_CD(+)
+			AND		C.DPT_CD = E.DPT_CD(+)
+			AND		COPUT_BRD_DVSN_CD = '02'
+        ]]>
+        <dynamic>
+        	<isNotEmpty property="strRQS_DTS">
+        		AND	A.RQS_DT &gt;= #strRQS_DTS#
+        	</isNotEmpty>
+        	<isNotEmpty property="strRQS_DTE">
+        		AND	A.RQS_DT &lt;= #strRQS_DTE#
+        	</isNotEmpty>
+        	<isNotEmpty property="strSEARCH_NM">
+        		AND	(D.DPT_NM LIKE '%'||#strSEARCH_NM#||'%'
+        				OR E.DPT_NM LIKE '%'||#strSEARCH_NM#||'%'
+        				OR A.RQS_TIT_NM LIKE '%'||#strSEARCH_NM#||'%'
+        				OR A.RQS_TXT LIKE '%'||#strSEARCH_NM#||'%'
+        				OR A.HNDL_TXT LIKE '%'||#strSEARCH_NM#||'%')
+        	</isNotEmpty>
+        	<isNotEmpty property="strRQR_NAM">
+        		AND B.USR_NAM LIKE '%'||#strRQR_NAM#||'%'
+        	</isNotEmpty>
+        	<isNotEmpty property="strHNDL_PEN_NAM">
+        		AND	C.USR_NAM LIKE '%'||#strHNDL_PEN_NAM#||'%'
+        	</isNotEmpty>
+        	<isNotEmpty property="strDRTR_NAM">
+        		AND	G.USR_NAM LIKE '%'||#strDRTR_NAM#||'%'
+        	</isNotEmpty>
+        	<isEqual property="strAUTH_CD" compareValue="PERS">
+        		AND	  A.RQR_CNB = #strCNB#
+        	</isEqual>
+        	<isEqual property="strAUTH_CD" compareValue="DEPT">
+        		AND	 TO_NUMBER(A.CHF_APV_STA_CD) > CASE WHEN ((F_USR_INFO( #strCNB#,'5') = A.RQS_DPT_CD) )  THEN 0 ELSE 1 END  /*요청결재전 표시하지 않음 (요청부서  제외) */ 
+        	</isEqual>
+        	<isNotEmpty property="strCHF_APV_STA_CD">
+        		<isEqual property="strCHF_APV_STA_CD" compareValue="01">
+        			AND  A.CHF_APV_STA_CD = #strCHF_APV_STA_CD#
+	        	</isEqual>
+	        	<isEqual property="strCHF_APV_STA_CD" compareValue="02">
+	        		AND  A.CHF_APV_STA_CD <![CDATA[ >= ]]> #strCHF_APV_STA_CD#
+	        	</isEqual>
+        	</isNotEmpty>
+        	<isEqual property="strRESULT_CD" compareValue="1">
+        		AND	A.HNDL_DT IS NULL
+        	</isEqual>
+        	<isEqual property="strRESULT_CD" compareValue="2">
+        		AND	A.HNDL_DT IS NOT NULL
+        	</isEqual>
+        	<isNotEmpty property="strPSN_INFO">
+        		AND	A.PSN_INFO =  #PSN_INFO#
+        	</isNotEmpty>
+        	<isNotEmpty property="strSpvBrdvCd">	 
+			     AND A.RQS_DPT_CD = #strSpvBrdvCd#
+			</isNotEmpty>
+			<isNotEmpty property="strMTRL_RQS_DVSN_CD">	 
+			     AND A.MTRL_RQS_DVSN_CD = #strMTRL_RQS_DVSN_CD#
+			</isNotEmpty>
+        </dynamic>
+        <![CDATA[
+        	ORDER BY TO_NUMBER(A.MTRL_RQS_SNO) DESC
+        ]]>
+	</select>
+	<!-- 결재처리정보를 수정한다 -->
+	<update id="CSPIIT021EApvInfoupdate" parameterClass="paramMap">
+           UPDATE TBCSPIIT018M                    		/* 자료요청기본 */ 
+              SET APV_DOC_NO        = #APV_DOC_NO#,		/* 결재문서번호 */
+                  CHF_APV_STA_CD    = #CHF_APV_STA_CD#
+           WHERE  COPUT_BRD_DVSN_CD = '02'         		/* 전산게시판구분코드 */ 
+              AND MTRL_RQS_SNO      = #MTRL_RQS_SNO#	/* 자료요청순번 */
+              AND RQS_DT 			= #RQS_DT#
+	</update>
+	
+	<select id="CSPIIT021EUpdateSelect" parameterClass="paramMap"	resultClass="resultMap">
+        <![CDATA[
+        	SELECT	A.MTRL_RQS_SNO,		/*자료요청순번*/ 
+        			A.MTRL_RQS_DVSN_CD, /*자료요청구분코드*/ 			
+        			A.RQS_DT	/*요청일*/ 
+        	FROM	TBCSPIIT018M A 
+        	WHERE 1=1 
+        	 	AND A.APV_DOC_NO = #APV_DOC_NO#        
+        		AND	A.COPUT_BRD_DVSN_CD = '02' /*게시판구분코드 - 전산개선요청*/
+		]]>
+	</select>	
+	
+	
+	<!-- 과장승인상태코드를 업데이트한다 -->
+	<update id="CSPIIT021EChfApvStaCdupdate" parameterClass="paramMap">
+           UPDATE TBCSPIIT018M                    		/* 자료요청기본 */ 
+              SET 	CHF_APV_STA_CD    = #CHF_APV_STA_CD#,	/* 과장승인상태코드 01 승인반려전 02 승인 03 반려*/
+              		FNL_USR_ID = #FNL_USR_ID#,
+					FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#,
+					HNDL_DT = #HNDL_DT#,
+					HNDL_TXT = #HNDL_TXT#,
+					FNL_MNU_ID = #FNL_MNU_ID#,
+					FNL_MDF_DH = SYSDATE
+           WHERE  COPUT_BRD_DVSN_CD = '02'         		/* 전산게시판구분코드 */ 
+              AND MTRL_RQS_SNO      = #MTRL_RQS_SNO#	/* 자료요청순번 */
+	</update>
+	
+	<select id="CSPIIT022QMainSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<include refid = "include.pageSelct"/>
+        <![CDATA[
+			SELECT 	A.MTRL_RQS_SNO,			/*자료요청순번*/
+					A.MTRL_RQS_DVSN_CD,		/*자료요청구분코드*/
+					A.RQS_DT,				/*요청일*/
+					D.DPT_NM AS RQS_DPT_NM,	/*요청자부서명*/
+					B.USR_NAM AS RQR_NAM,	/*요청자명*/
+					A.RQS_TIT_NM,			/*요청제목*/
+					C.USR_NAM AS HNDL_PEN_NAM,	/*처리담당자명*/
+					A.HNDL_DT,				/*처리일자*/
+					A.RQR_CNB,				/*요청자전산번호*/
+					A.HNDL_PEN_CNB,			/*처리자전산번호*/
+					A.RQS_DPT_CD,	/*요청부서코드*/
+					A.APV_DOC_NO,	/*결재문서번호*/
+                    F.APV_STA_CD,    /*결재상태코드*/
+                    A.CHF_APV_STA_CD, /*과장 승인상태코드*/
+                    (CASE WHEN A.PSN_INFO ='Y' THEN '포함' WHEN  A.PSN_INFO ='N' THEN '미포함' ELSE '' END) PSN_INFO, /*개인정보포함여부*/
+                    A.AUD_YR,
+                    A.AUD_NO,
+                    CASE WHEN G.AUD_YR >= '2016' 
+			                THEN G.AUD_KND_CD
+			        ELSE '' 
+			        END                              AS AUD_YR_NO_KND_CD,
+                    A.AUD_SBJ_NM,
+                    G.AUD_KND_CD,
+                    G.AUD_GRN_NO
+			FROM   	TBCSPIIT018M A,			/*전산개선요청테이블*/
+					TBDCMACM001M B, 		/*사용자테이블(요청자)*/
+					TBDCMACM001M C,			/*사용자테이블(처리자)*/
+					TBDCMACM002M D,			/*부서코드(요청자)*/
+					TBDCMACM002M E,			/*부서코드(처리자)*/
+					TBDCMACM022L F,			/*결재문서내역*/
+					TBBADDED001M G			/*감사사항*/
+			WHERE	A.RQR_CNB = B.CNB(+)
+			AND		A.HNDL_PEN_CNB = C.CNB(+)
+			AND		A.RQS_DPT_CD = D.DPT_CD(+)
+			AND		C.DPT_CD = E.DPT_CD(+)
+			AND		A.AUD_YR = G.AUD_YR(+)
+	        AND		A.AUD_NO = G.AUD_NO(+)
+			AND		A.COPUT_BRD_DVSN_CD = '02' /*게시판구분코드 - 전산개선요청*/
+			AND		A.APV_DOC_NO = F.APV_DOC_NO(+)
+			AND     A.CHF_APV_STA_CD IS NOT NULL /*전산개선요청테이블 시스템운영과장 승인상태코드 01승인반려전 02승인 03반려*/			
+        	AND     TO_NUMBER(A.CHF_APV_STA_CD) = 2
+        ]]>
+        <dynamic>
+        	<isNotEmpty property="strRQS_DTS">
+        		AND	A.RQS_DT &gt;= #strRQS_DTS#
+        	</isNotEmpty>
+        	<isNotEmpty property="strRQS_DTE">
+        		AND	A.RQS_DT &lt;= #strRQS_DTE#
+        	</isNotEmpty>
+        	<isNotEmpty property="strSEARCH_NM">
+        		AND	(D.DPT_NM LIKE '%'||#strSEARCH_NM#||'%'
+        				OR E.DPT_NM LIKE '%'||#strSEARCH_NM#||'%'
+        				OR A.RQS_TIT_NM LIKE '%'||#strSEARCH_NM#||'%'
+        				OR A.RQS_TXT LIKE '%'||#strSEARCH_NM#||'%'
+        				OR A.HNDL_TXT LIKE '%'||#strSEARCH_NM#||'%')
+        	</isNotEmpty>
+        	<isNotEmpty property="strRQR_NAM">
+        		AND B.USR_NAM LIKE '%'||#strRQR_NAM#||'%'
+        	</isNotEmpty>
+        	<isNotEmpty property="strHNDL_PEN_NAM">
+        		AND	C.USR_NAM LIKE '%'||#strHNDL_PEN_NAM#||'%'
+        	</isNotEmpty>        	
+        	<isEqual property="strRESULT_CD" compareValue="1">
+        		AND	A.HNDL_DT IS NULL
+        	</isEqual>
+        	<isEqual property="strRESULT_CD" compareValue="2">
+        		AND	A.HNDL_DT IS NOT NULL
+        	</isEqual>
+        	<isNotEmpty property="strPSN_INFO">
+        		AND	A.PSN_INFO = #strPSN_INFO#
+        	</isNotEmpty>
+        </dynamic>
+     
+        <include refid = "include.pageOrder"/> 
+	</select> 
+	<!-- 전산개선 및 자료요청 엑셀다운로드 -->
+	<select id="CSPIIT022QExcelExportSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+			SELECT 	/*CSPIIT020QExcelExportSelect*/
+					F_CODE_NM('1000745',A.MTRL_RQS_DVSN_CD) AS MTRL_RQS_DVSN_NM,	/*자료요청구분코드*/
+					TO_CHAR(TO_DATE(A.RQS_DT),'YYYY-MM-DD') AS RQS_DT,		/*요청일*/
+					F_CODE_NM('1000856',A.CHF_APV_STA_CD) AS CHF_APV_STA_NM,
+					D.DPT_NM AS RQS_DPT_NM,	/*요청자부서명*/
+					B.USR_NAM AS RQR_NAM,	/*요청자명*/
+					A.RQS_TIT_NM,			/*요청제목*/
+					C.USR_NAM AS HNDL_PEN_NAM,	/*처리담당자명*/
+					TO_CHAR(TO_DATE(A.HNDL_DT),'YYYY-MM-DD') AS HNDL_DT,	/*처리일자*/
+                    (CASE WHEN A.PSN_INFO ='Y' THEN '포함' WHEN  A.PSN_INFO ='N' THEN '미포함' ELSE '' END) PSN_INFO,
+                    A.AUD_SBJ_NM /*감사사항명*/
+			FROM   	TBCSPIIT018M A,			/*PC장비관리테이블*/
+					TBDCMACM001M B, 		/*사용자테이블(요청자)*/
+					TBDCMACM001M C,			/*사용자테이블(처리자)*/
+					TBDCMACM002M D,			/*부서코드(요청자)*/
+					TBDCMACM002M E			/*부서코드(처리자)*/
+			WHERE	A.RQR_CNB = B.CNB(+)
+			AND		A.HNDL_PEN_CNB = C.CNB(+)
+			AND		A.RQS_DPT_CD = D.DPT_CD(+)
+			AND		C.DPT_CD = E.DPT_CD(+)
+			AND		COPUT_BRD_DVSN_CD = '02'
+			AND     A.CHF_APV_STA_CD IS NOT NULL /*전산개선요청테이블 시스템운영과장 승인상태코드 01승인반려전 02승인 03반려*/
+        	AND     TO_NUMBER(A.CHF_APV_STA_CD) = 2
+        ]]>
+        <dynamic>
+        	<isNotEmpty property="strRQS_DTS">
+        		AND	A.RQS_DT &gt;= #strRQS_DTS#
+        	</isNotEmpty>
+        	<isNotEmpty property="strRQS_DTE">
+        		AND	A.RQS_DT &lt;= #strRQS_DTE#
+        	</isNotEmpty>
+        	<isNotEmpty property="strSEARCH_NM">
+        		AND	(D.DPT_NM LIKE '%'||#strSEARCH_NM#||'%'
+        				OR E.DPT_NM LIKE '%'||#strSEARCH_NM#||'%'
+        				OR A.RQS_TIT_NM LIKE '%'||#strSEARCH_NM#||'%'
+        				OR A.RQS_TXT LIKE '%'||#strSEARCH_NM#||'%'
+        				OR A.HNDL_TXT LIKE '%'||#strSEARCH_NM#||'%')
+        	</isNotEmpty>
+        	<isNotEmpty property="strRQR_NAM">
+        		AND B.USR_NAM LIKE '%'||#strRQR_NAM#||'%'
+        	</isNotEmpty>
+        	<isNotEmpty property="strHNDL_PEN_NAM">
+        		AND	C.USR_NAM LIKE '%'||#strHNDL_PEN_NAM#||'%'
+        	</isNotEmpty>
+        	<isEqual property="strRESULT_CD" compareValue="1">
+        		AND	A.HNDL_DT IS NULL
+        	</isEqual>
+        	<isEqual property="strRESULT_CD" compareValue="2">
+        		AND	A.HNDL_DT IS NOT NULL
+        	</isEqual>
+        	<isNotEmpty property="strPSN_INFO">
+        		AND	A.PSN_INFO = #strPSN_INFO#
+        	</isNotEmpty>
+        </dynamic>
+        <![CDATA[
+        	ORDER BY TO_NUMBER(A.CHF_APV_STA_CD) ASC /*, TO_NUMBER(A.MTRL_RQS_SNO) DESC */
+        ]]>
+	</select>
+	
+	<select id="CSPIIT021ERqrUsrID" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[   
+			SELECT RQR_CNB, (SELECT USR_ID FROM TBDCMACM001M WHERE CNB = RQR_CNB) AS USR_ID FROM TBCSPIIT018M    
+        		WHERE  COPUT_BRD_DVSN_CD = '02'      		/* 전산게시판구분코드 */ 
+              	AND MTRL_RQS_SNO      = #MTRL_RQS_SNO#
+		]]>
+	</select>
+	<!-- BARON담당자전산번호 가져오기 -->
+	<select id="CSPIIT021ECnbSelect" parameterClass="paramMap"	resultClass="resultMap">
+        <![CDATA[     	
+			SELECT TO_CHAR( EXTRACT(XMLAGG(XMLELEMENT(A, ''|| USR_DFN_TXT_1) ORDER BY USR_DFN_TXT_1), '//text()') ) AS RCNT_CNB
+       			 , COUNT(USR_DFN_TXT_3) AS RCNT_CNT
+                   FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD='1000882' AND USR_DFN_TXT_3='BARON'
+		]]>
+	</select>
+	
+	<insert id="CSPIIT021EMsgInsert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO
+			TBDCMACM026L
+			(
+			  MSG_SNO
+			, TSK_CAT_CD
+			, FUNC_CAT_CD
+			, SEND_ID
+	        , MSG_TP_YN
+	  
+	        , MSG_TXT_2
+	        , RCNT_CNT
+	        , RCNT_HIS
+	        , MSG_REGI_DH
+	
+			, FRT_USR_ID
+			, FNL_USR_ID
+			, FNL_DEAL_DPT_CD
+			, FNL_MNU_ID
+			, FRT_REGI_DH
+			,
+			FNL_MDF_DH
+	
+			)
+			VALUES
+			(
+			  (SELECT NVL(MAX(MSG_SNO),0)+1 FROM TBDCMACM026L)
+			, 'SP'
+			, 'BO'
+			, #SEND_ID#
+	        , '0'
+	        , #MSG_TXT#
+	        , #RCNT_CNT#
+	        , #RCNT_CNB#
+	        , SYSDATE
+			, #FNL_USR_ID#
+			, #FNL_USR_ID#
+			, #FNL_DEAL_DPT_CD#
+			, #FNL_MNU_ID#
+			, SYSDATE
+			, SYSDATE
+	
+			);
+			
+		]]>
+	</insert>
+</sqlMap> 

@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.osm.dao.AEPOSM011PMapper">
+    
+    <select id="selectPageCnt" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.aep.osm.dao.AEPOSM011PMapper.selectPageCnt*/
+         SELECT CASE WHEN MAX(A.SBCN_SNO) IS NULL THEN (SELECT NVL(MAX(SBCN_PAGE_CNT)+1,'1') AS CNT
+                                                          FROM TBBADDED113M
+                                                         WHERE SUBSTR(SBCN_DY,1,4) = SUBSTR(REPLACE(#{cmtDy},'-'),1,4))
+                     WHEN (MAX(A.CMT_SBJ_SNO) IS NOT NULL AND MAX(A.SBCN_SNO) <![CDATA[<]]> (SELECT NVL(MAX(SBCN_PAGE_CNT)+1,'1') AS CNT
+                                                                                                FROM TBBADDED113M
+                                                                                               WHERE SUBSTR(SBCN_DY,1,4) = SUBSTR(REPLACE(#{cmtDy},'-'),1,4))) THEN (SELECT NVL(MAX(SBCN_PAGE_CNT)+1,'1') AS CNT
+                                                                                                                                                                       FROM TBBADDED113M
+                                                                                                                                                                      WHERE SUBSTR(SBCN_DY,1,4) = SUBSTR(REPLACE(#{cmtDy},'-'),1,4))
+                     ELSE MAX(A.SBCN_SNO)+1 END AS SBCN_PAGE_CNT
+           FROM TBBADDED121M AS A
+          WHERE A.CMT_DY = REPLACE(#{cmtDy},'-')
+            AND A.CMT_DVSN_CD = #{cmtDvsnCd}
+            AND A.CMT_SQ = #{cmtSq}
+    </select>
+    
+    <select id="selectRelTskList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.aep.osm.dao.AEPOSM011PMapper.selectRelTskList*/
+        SELECT * FROM (
+         <if test="relTskNm != null and relTskNm != '' and relTskNm != 'null'">
+         SELECT 
+            #{relTskNm} AS REL_TSK_NM
+            , 1 AS SEQ
+             FROM DUAL
+         UNION
+         </if>
+         SELECT 
+            TSK_KEY1||'-'||F_CODE_NM('1000742',TSK_KEY2)||'-'||TSK_KEY3 AS REL_TSK_NM
+            , ROWNUM + 1 AS SEQ
+          FROM TBBADDED030L
+         WHERE AUD_YR = #{audYr}
+              AND AUD_NO = #{audNo}
+         <if test="relTskNm != null and relTskNm != '' and relTskNm != 'null'">
+              AND TSK_KEY1||'-'||F_CODE_NM('1000742',TSK_KEY2)||'-'||TSK_KEY3 != #{relTskNm}
+         </if>
+         )
+         ORDER BY SEQ
+    </select>
+    
+    <select id="selectSbcnInfo" parameterType="paramMap" resultType="egovMap">
+    <![CDATA[
+    /*kr.go.bai.eip.aep.osm.dao.AEPOSM011PMapper.selectSbcnInfo*/
+       SELECT 
+            T1.REL_AUD_YR,
+            DECODE(T1.WORK_DVSN_CD,'D10','심사'
+                                  ,'E10','재심'
+                                  ,(SELECT F_CODE_NM('1000739',AUD_KND_CD) 
+                                      FROM TBBADDED001M ST1 
+                                     WHERE ST1.AUD_YR = T1.REL_AUD_YR
+                                       AND ST1.AUD_NO = T1.REL_AUD_NO)) AS REL_KND_NM,
+            DECODE(T1.WORK_DVSN_CD,'A10',(SELECT AUD_GRN_NO
+                                    FROM TBBADDED001M ST1 
+                                   WHERE ST1.AUD_YR = T1.REL_AUD_YR
+                                     AND ST1.AUD_NO = T1.REL_AUD_NO),T1.REL_AUD_NO) AS REL_GRN_NO,
+   	        T1.REL_AUD_NO,
+            T1.CMT_SBJ_TIT,
+            T1.REL_TSK_NM,
+            F_DPT_INFO(T1.REL_DPT_CD,'1') AS REL_DPT_NM,
+            T1.REL_DPT_CD,
+            T1.PRSS_DPT_NM,
+            T1.BFR_SBCN_CNT,
+            T1.SBCN_RPTR,
+            T1.REGI_NO,
+            T1.REL_DPT_CD,
+            T2.CMT_SBJ_DTL_SNO,
+            T2.DOC_ID,
+            T2.FILE_NM,
+            T1.WORK_DVSN_CD,
+            TO_CHAR(T2.FRT_REGI_DH,'YYYY"-"MM"-"DD hh:mm') AS REGI_DT
+          FROM TBBADDED121M T1
+               LEFT OUTER JOIN TBBADDED122M T2
+               ON (T1.CMT_DY = T2.CMT_DY
+                   AND T1.CMT_DVSN_CD = T2.CMT_DVSN_CD
+                   AND T1.CMT_SQ = T2.CMT_SQ
+                   AND T1.CMT_SBJ_DVSN_CD = T2.CMT_SBJ_DVSN_CD
+                   AND T1.CMT_SBJ_SNO = T2.CMT_SBJ_SNO)
+         WHERE 1=1
+              AND T1.CMT_DY = REPLACE(#{cmtDy},'-')
+              AND T1.CMT_DVSN_CD = #{cmtDvsnCd}
+              AND T1.CMT_SQ = #{cmtSq}
+      ]]>
+      <if test="cmtSbjDvsnCd != null and cmtSbjDvsnCd != '' and cmtSbjDvsnCd != 'null'">
+              AND T1.CMT_SBJ_DVSN_CD = #{cmtSbjDvsnCd}
+      </if>
+      <if test="cmtSbjSno != null and cmtSbjSno != '' and cmtSbjSno != 'null'">
+              AND T1.CMT_SBJ_SNO = #{cmtSbjSno}
+      </if>
+     </select>
+     
+    <insert id="insertBADDED121M" parameterType="paramMap">
+    /*kr.go.bai.eip.aep.osm.dao.AEPOSM011PMapper.insertBADDED121M*/
+        INSERT INTO TBBADDED121M(CMT_DY,
+                                 CMT_DVSN_CD,
+                                 CMT_SQ,
+                                 CMT_SBJ_DVSN_CD,
+                                 CMT_SBJ_SNO,
+                                 CMT_SBJ_TIT,
+                                 REL_DPT_CD,
+                                 CMT_ADD_YN,
+                                 REL_AUD_YR,
+                                 REL_AUD_NO,
+                                 FRT_USR_ID,
+                                 FNL_USR_ID,
+                                 FNL_DEAL_DPT_CD,
+                                 FNL_MNU_ID,
+                                 FRT_REGI_DH,
+                                 FNL_MDF_DH,
+                                 WORK_DVSN_CD,
+	                             REL_TSK_NM,
+                                 PRSS_DPT_NM,
+                                 REGI_NO,
+                                 BFR_SBCN_CNT,
+                                 SBCN_RPTR)
+                          VALUES(REPLACE(#{cmtDy},'-'),
+                                 #{cmtDvsnCd},
+                                 #{cmtSq},
+                                 '10',
+                                 (SELECT NVL(MAX(CMT_SBJ_SNO)+1,'1') FROM TBBADDED121M WHERE CMT_DY = REPLACE(#{cmtDy},'-') AND CMT_DVSN_CD = #{cmtDvsnCd} AND CMT_SQ = #{cmtSq}),
+                                 #{audSbjNm},
+                                 #{mngDptCd},
+                                 'Y',
+                                 #{audYr},
+                                 #{audNo},
+                                 #{usrId},
+                                 #{usrId},
+                                 #{dptCd},
+                                 #{menuNo},
+                                 SYSDATE,
+                                 SYSDATE,
+                                 #{workDvsnCd},
+                                 #{relTskNm},
+                                 #{prssDptNm},
+                                 #{regiNo},
+                                 #{bfrSbcnCnt},
+                                 #{sbcnRptr}
+                                 )
+    </insert>
+    
+
+    <update id="updateSbcnInfo" parameterType="paramMap">
+    /*kr.go.bai.eip.aep.osm.dao.AEPOSM011PMapper.updateSbcnInfo*/
+        UPDATE TBBADDED121M 
+               SET REL_TSK_NM = #{relTskNm},
+                      PRSS_DPT_NM = #{prssDptNm},
+                      REGI_NO = #{regiNo},
+                      BFR_SBCN_CNT= #{bfrSbcnCnt},
+                      SBCN_RPTR  = #{sbcnRptr},
+                      CMT_SBJ_TIT = #{audSbjNm},
+                      FNL_USR_ID = #{usrId},
+                      FNL_DEAL_DPT_CD = #{dptCd},
+                      FNL_MNU_ID = #{menuNo},
+                      FNL_MDF_DH = SYSDATE
+          WHERE CMT_DY = REPLACE(#{cmtDy},'-')
+               AND CMT_DVSN_CD = #{cmtDvsnCd}
+               AND CMT_SQ = #{cmtSq}
+               AND CMT_SBJ_DVSN_CD = #{cmtSbjDvsnCd}
+               AND CMT_SBJ_SNO         = #{cmtSbjSno}
+    </update>
+    
+    <insert id="saveSbcnRprt2" parameterType="paramMap">
+    /*kr.go.bai.eip.aep.osm.dao.AEPOSM011PMapper.saveSbcnRprt2*/
+        INSERT INTO TBBADDED122M(
+                                                CMT_DY,
+                                                CMT_DVSN_CD,
+                                                CMT_SQ,
+                                                CMT_SBJ_DVSN_CD,
+                                                CMT_SBJ_SNO,
+                                                CMT_SBJ_DTL_SNO,
+                                                CMT_SBJ_DTL_TIT,
+                                                DOC_ID,
+                                                FILE_NM,
+                                                FRT_USR_ID,
+                                                FNL_USR_ID,
+                                                FNL_DEAL_DPT_CD,
+                                                FNL_MNU_ID,
+                                                FRT_REGI_DH,
+                                                FNL_MDF_DH )
+                                            VALUES(
+                                                REPLACE(#{cmtDy},'-'),
+                                                 #{cmtDvsnCd},
+                                                 #{cmtSq},
+                                                 '10',
+                                                 #{cmtSbjSno},
+                                                 #{cmtSbjDtlSno},
+                                                 #{audSbjNm},
+                                                 #{docId},
+                                                 #{fileNm},
+                                                #{usrId},
+                                                #{usrId},
+                                                #{dptCd},
+                                                #{menuNo},
+                                                SYSDATE,
+                                                SYSDATE)
+    </insert>
+    
+    <insert id="saveSbcnRprt" parameterType="paramMap">
+    /*kr.go.bai.eip.aep.osm.dao.AEPOSM011PMapper.saveSbcnRprt*/
+        INSERT INTO TBBADDED122M(
+                                                CMT_DY,
+                                                CMT_DVSN_CD,
+                                                CMT_SQ,
+                                                CMT_SBJ_DVSN_CD,
+                                                CMT_SBJ_SNO,
+                                                CMT_SBJ_DTL_SNO,
+                                                CMT_SBJ_DTL_TIT,
+                                                DOC_ID,
+                                                FILE_NM,
+                                                FRT_USR_ID,
+                                                FNL_USR_ID,
+                                                FNL_DEAL_DPT_CD,
+                                                FNL_MNU_ID,
+                                                FRT_REGI_DH,
+                                                FNL_MDF_DH )
+                                            VALUES(
+                                                REPLACE(#{cmtDy},'-'),
+                                                 #{cmtDvsnCd},
+                                                 #{cmtSq},
+                                                 '10',
+                                                 (SELECT NVL(MAX(CMT_SBJ_SNO)+1,'1') 
+                                                     FROM TBBADDED121M 
+                                                   WHERE CMT_DY = REPLACE(#{cmtDy},'-') 
+                                                        AND CMT_DVSN_CD = #{cmtDvsnCd} 
+                                                        AND CMT_SQ = #{cmtSq}),
+                                                 #{cmtSbjDtlSno},
+                                                 #{audSbjNm},
+                                                 #{docId},
+                                                 #{fileNm},
+                                                #{usrId},
+                                                #{usrId},
+                                                #{dptCd},
+                                                #{menuNo},
+                                                SYSDATE,
+                                                SYSDATE)
+    </insert>
+    
+    <update id="updateSbcnRprt" parameterType="paramMap">
+    /*kr.go.bai.eip.aep.osm.dao.AEPOSM011PMapper.updateSbcnRprt*/
+        UPDATE TBBADDED122M SET DOC_ID    = #{docId},
+                                 FILE_NM = #{fileNm},
+                                 FNL_USR_ID = #{usrId},
+                                 FNL_DEAL_DPT_CD = #{dptCd},
+                                 FNL_MNU_ID = #{menuNo},
+                                 FNL_MDF_DH = SYSDATE
+                          WHERE CMT_DY = REPLACE(#{cmtDy},'-')
+                               AND CMT_DVSN_CD = #{cmtDvsnCd}
+                               AND CMT_SQ= #{cmtSq}
+                               AND CMT_SBJ_DVSN_CD= #{cmtSbjDvsnCd}
+                               AND CMT_SBJ_SNO= #{cmtSbjSno}
+                               AND CMT_SBJ_DTL_SNO= #{cmtSbjDtlSno}
+    </update>
+    
+    <select id="getSbcnRprtExistYn" parameterType="paramMap" resultType="egovMap">
+        /*kr.go.bai.eip.aep.osm.dao.AEPOSM011PMapper.getSbcnRprtExistYn*/
+        SELECT DECODE(COUNT(1),0,'N','Y') AS SBCN_RPRT_EXIST_YN
+           FROM TBBADDED122M
+         WHERE CMT_DY = REPLACE(#{cmtDy},'-')
+              AND CMT_DVSN_CD = #{cmtDvsnCd}
+              AND CMT_SQ= #{cmtSq}
+              AND CMT_SBJ_DVSN_CD= #{cmtSbjDvsnCd}
+              AND CMT_SBJ_SNO= #{cmtSbjSno}
+              AND CMT_SBJ_DTL_SNO= #{cmtSbjDtlSno}
+    </select>
+        
+    <delete id="deleteCmtDoc">
+    /*kr.go.bai.eip.aep.osm.dao.AEPOSM011PMapper.deleteCmtDoc*/
+            DELETE TBBADDED122M
+            WHERE  DOC_ID = #{docId}
+    </delete>
+    
+</mapper>

@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/lfi/001">
+
+	<select id="CSPLFI004QMainSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<![CDATA[       
+				SELECT 	C.DEPT_NM AS DEPT_NM,				/*부서명*/
+						A.CNB AS EMPLNUM,					/*전산번호*/
+				       	B.NAME AS NAME,						/*성명*/
+				       	NVL(sum(A.TAM),0) as TOT_PRICE,		/*총액*/
+						A.DDCTYM AS DEDUCTION_DATE			/*공재월*/
+				  FROM 	TBCSPLFI004L A, CM_USRINFO B, CM_DEPT C
+				 WHERE 	A.CNB = B.EMPLNUM
+				   AND  B.DEPT_CD = C.DEPT_CD
+				   AND 	A.DDCTYM = #deduction_date#
+		]]>
+			<dynamic>
+				<isNotEmpty property="emplNum">
+					AND 	A.CNB = #emplNum#
+				</isNotEmpty>
+				<isNotEmpty property="name">
+					AND  B.NAME LIKE '%'||#name#||'%'
+				</isNotEmpty>
+			</dynamic>
+		<![CDATA[  
+				GROUP BY C.DEPT_NM, A.CNB, B.NAME, A.DDCTYM
+				ORDER BY A.CNB asc
+		]]>
+        
+	</select>
+	
+	<delete id="CSPLFI004Qdelete" parameterClass="paramMap">
+        <![CDATA[       
+				DELETE FROM TBCSPLFI004L
+				 WHERE DDCTYM = #DEDUCTION_DATE#
+                   AND HNDLYN = 'N'
+        ]]>
+	</delete>
+	
+	<insert id="CSPLFI004Qinsert" parameterClass="paramMap">
+			INSERT INTO TBCSPLFI004L
+			(
+			WRITDT, 	/*작성일*/
+			SNO,		/*순서*/
+			CNB,		/*전산번호*/
+			DEALTXT,	/*거래내용*/
+			COT,		/*수량*/
+			TAM,		/*총액*/
+			ULDT,		/*업로드일*/
+			DDCTYM,		/*공제월*/
+			HNDLYN)		/*처리여부*/
+			VALUES
+			(
+			#IDATE#,
+			(SELECT NVL(MAX(SNO),0) + 1 AS SNO
+			   FROM TBCSPLFI004L 
+			  WHERE WRITDT =#IDATE# AND CNB = #EMPLNUM#),
+			#EMPLNUM#,
+			#ITEM_NAME#,
+			#VOL#,
+			#TOT_PRICE#,
+			#IDATE#,
+			#DEDUCTION_DATE#,
+			'N'
+			);
+	</insert>
+	
+<select id="CSPLFI004QexcelExport" parameterClass="paramMap"
+		resultClass="resultMap">
+		<![CDATA[       
+			SELECT '1040000' AS SALDEPTCD,			/*급여부처코드*/
+			       B.RCN AS RCN,					/*개인ID*/
+			       'Z03' AS DEDUCTIONCD,			/*공제코드*/
+			       '1' AS SEQ,						/*순번*/
+			       A.DDCTYM AS STARTDATE,			/*시작년월*/
+			       'AA' AS SALDIVCD,				/*급여구분코드*/
+			       NVL(SUM(A.TAM),0) AS TOTPRICE,	/*공제금액*/
+			       '' AS DEDUCTIONDATECD,			/*공제월구분코드*/
+			       '' AS BANKCD,					/*은행코드*/
+			       '' AS BANKNUMBER,				/*계좌번호*/
+			       A.DDCTYM AS ENDDATE,				/*종료년월*/
+			       '' AS ETC,						/*비고사항*/
+			       '' AS MODIFYID,					/*수정자ID*/
+			       '' AS MODIFYDATE					/*수정일시*/
+			  FROM TBCSPLFI004L A, CM_USRINFO B
+			 WHERE  a.CNB = b.EMPLNUM	
+			   AND DDCTYM = #deduction_date#
+		]]>
+			<dynamic>
+				<isNotEmpty property="emplNum">
+					AND 	A.CNB = #emplNum#
+				</isNotEmpty>
+				<isNotEmpty property="name">
+					AND  B.NAME LIKE '%'||#name#||'%'
+				</isNotEmpty>
+			</dynamic>
+		<![CDATA[  
+				GROUP BY b.RCN,NAME,DDCTYM
+				ORDER BY b.RCN asc;
+		]]>
+        
+	</select>
+</sqlMap> 

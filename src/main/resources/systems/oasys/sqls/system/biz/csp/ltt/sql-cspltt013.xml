@@ -1,0 +1,72 @@
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd" >
+<sqlMap namespace="csp/ltt/013">
+	
+	<!-- 함께합시다 목록 조회 -->
+	<select id="CSPLTT013QMainSelect" parameterClass="paramMap" resultClass="resultMap">
+	<include refid = "include.pageSelct"/>
+		<![CDATA[
+		SELECT T1.*, 
+			   ROWNUM AS NO
+          FROM (
+			SELECT /* csp.ltt.service.impl.CSPLTT013EServiceImpl.CSPLTT013EMainSelect */
+			       A.TK_YE    /* 생각연도 */
+			     , A.TK_SLN   /* 생각연번 */
+			     , CASE WHEN DGUARD.DECRYPT('TB_ENC','EAN', A.CNB) = '3223' THEN ''  /* 요청에 의한 하드코딩 이름숨김 */
+			     		WHEN TK_YE = '2022' AND TK_SLN IN ('1','25','38') THEN ''  /* 요청에 의한 하드코딩 이름숨김 */
+			     		WHEN NAM_OPEN_YN = 'Y' THEN F_USR_INFO(DGUARD.DECRYPT('TB_ENC','EAN', A.CNB), 2)
+			            WHEN NAM_OPEN_YN = 'N' THEN '익명'
+			            ELSE '익명'
+			             END AS USR_NM /* 등록자명 */
+			     , CASE WHEN NAM_OPEN_YN = 'Y' THEN F_DPT_INFO(DGUARD.DECRYPT('TB_ENC','EAN', A.DPT_CD), 1)
+			            WHEN NAM_OPEN_YN = 'N' THEN ''
+			            ELSE ''
+			             END AS DPT_NM /* 부서명 */
+			     , A.SMT_DT   /* 제출일 */
+			     , A.ACP_YE   /* 접수연도 */
+			     , A.ACP_NO   /* 접수번호 */
+			     , A.OPEN_YN  /* 글공개여부 */
+			     , A.OPEN_DT  /* 공개일 */
+			     , CASE WHEN A.OPEN_YN = 'Y' THEN A.TIT_NM   
+			            WHEN A.OPEN_YN = 'N' THEN '해당 생각거리는 숨김처리되었습니다.(클릭시 숨김사유 확인)'
+			            ELSE '해당 생각거리는 숨김처리되었습니다.(클릭시 숨김사유 확인)'
+			             END AS TIT_NM/* 제목명 */
+			     , CASE WHEN NVL(A.MDT_YN,'N') = 'Y' AND A.PRSS_STA_CD IN ('M', 'N') THEN F_DPT_INFO(A.MDT_DPT_CD, 1)
+			     		ELSE F_DPT_INFO(A.EXAM_DPT_CD, 1) END AS EXAM_DPT_NM      
+			     , F_CODE_NM('1000992',A.PRSS_STA_CD) AS PRSS_STA_NM
+			     , (SELECT COUNT(*) FROM TBCSPLTT003M WHERE TK_YE = A.TK_YE AND TK_SLN = A.TK_SLN AND RCMD_YN = 'Y') AS RCMR_CNT /* 추천수 */
+			     , (SELECT COUNT(*) FROM TBCSPLTT003M WHERE TK_YE = A.TK_YE AND TK_SLN = A.TK_SLN AND RCMD_YN = 'N') AS DCMR_CNT /* 비추천수 */
+			     , SRCH_CNT /* 조회수 */
+			     , (SELECT COUNT(*) FROM TBCSPLTT004M WHERE TK_YE = A.TK_YE AND TK_SLN = A.TK_SLN) AS CMMT_CNT /* 댓글수 */
+			     , DECODE(SIGN(60 - (TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')) - TO_DATE(A.OPEN_DT))),'1',60 - (TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')) - TO_DATE(A.OPEN_DT)),'0') AS DEL_DT
+			     , CASE WHEN TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')) < TO_DATE(A.OPEN_DT)+3 THEN 'Y'
+			            ELSE 'N' END AS NEW_YN
+			     , CASE WHEN (SELECT COUNT(*) FROM TBCSPLTT004M S1 WHERE (TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')) < TO_DATE(TO_CHAR(FRT_REGI_DH,'YYYYMMDD')) + 3) AND S1.TK_YE = A.TK_YE AND S1.TK_SLN = A.TK_SLN) > 0 THEN 'Y'
+			            ELSE 'N' END AS CMT_NEW_YN
+			     , CASE WHEN NVL(A.MDT_YN,'N') = 'Y' AND A.PRSS_STA_CD IN ('M', 'N') AND TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')) < TO_DATE(A.MDT_CHOS_DCS_DT)+7 THEN 'Y' 
+                        WHEN NVL(A.MDT_YN,'N') = 'Y' AND A.PRSS_STA_CD IN ('P', 'G', 'H', 'I', 'J', 'K') AND TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')) < TO_DATE(A.CHOS_DCS_DT)+7 THEN 'Y'
+                        WHEN NVL(A.MDT_YN,'N') <> 'Y' AND A.PRSS_STA_CD IN ('M', 'N') AND TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')) < TO_DATE(A.CHOS_DCS_DT)+7 THEN 'Y'
+                        ELSE 'N' END AS EXAM_NEW_YN
+			  FROM TBCSPLTT001M A
+			 WHERE OPEN_DT IS NOT NULL
+			 ]]>
+			 <isNotEmpty property="titNm" prepend="AND">
+				   A.TIT_NM LIKE '%'||#titNm#||'%'
+		     </isNotEmpty>
+			 <isNotEmpty property="strOpenDt" prepend="AND">
+				   A.OPEN_DT BETWEEN #strOpenDt# AND #endOpenDt#
+		     </isNotEmpty>
+	     ORDER BY TO_NUMBER(ACP_YE) ASC, TO_NUMBER(ACP_NO) ASC) T1		
+		<include refid = "include.pageOrder"/> 
+	</select>	
+	
+	<!-- 함께합시다 조회수 업데이트 -->
+	<update id="CSPLTT013QSrchCntUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE 	TBCSPLTT001M
+			SET		SRCH_CNT = (SELECT MAX(SRCH_CNT)+1 FROM TBCSPLTT001M WHERE TK_YE = #strTkYe# AND TK_SLN = #strTkSln#)
+			WHERE	TK_YE = #strTkYe#
+			AND		TK_SLN = #strTkSln#	
+		]]>
+	</update>	
+
+</sqlMap>

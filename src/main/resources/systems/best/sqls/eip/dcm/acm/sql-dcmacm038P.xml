@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.dcm.acm.dao.DCMACM038PMapper">
+    
+    <resultMap id="boardMap" type="egovMap" >
+        <result property="TXT" column="TXT" javaType="java.lang.String" jdbcType="CLOB" />
+    </resultMap>
+    
+    <select id="selectKey" parameterType="egovMap" resultType="String">
+        /*kr.go.bai.eip.dcm.acm.dao.DCMACM038PMapper.selectKey*/
+        SELECT NVL(MAX(SNO), 0) + 1
+          FROM TBDCMACM300M
+         WHERE 1=1
+    </select>
+
+    <select id="List" parameterType="paramMap" resultMap="boardMap">
+        /*kr.go.bai.eip.dcm.acm.dao.DCMACM038PMapper.List*/
+        SELECT T1.TSK_LAG_CAT_CD
+             , T1.TSK_MID_CAT_CD
+             , T1.TSK_SALL_CAT_CD
+             , T1.SNO
+             , T1.TIT
+             <if test='status != "Fn".toString() '>
+             , T2.TXT
+             </if>
+             , T1.FAQ_DTM_YN
+             , T1.HNDL_STA_CD
+             , TO_CHAR(T1.WRIT_DH,'YYYY-MM-DD') AS WRIT_DH
+             , T1.ATT_FL_ID AS DOC_ID
+             , F_USR_INFO_BY_ID(T1.WRIT_PEN_NM,'2') AS WRIT_PEN_NM
+          FROM TBDCMACM300M T1
+        <if test='status != "Fn".toString() '>
+              ,TBDCMACM301M T2
+        </if>
+         WHERE 1=1
+         <choose>
+            <when test='status == "Fn".toString() '>
+               AND T1.TSK_LAG_CAT_CD  = #{tskLagCatCd}
+               AND T1.TSK_MID_CAT_CD  = #{tskMidCatCd}
+               AND (T1.FAQ_DTM_YN     = 'Y'
+                OR T1.WRIT_PEN_NM    = #{usrId})
+                <if test='faqListname != null and faqListname != ""'>
+                  AND T1.TIT LIKE '%'||#{faqListname}||'%'
+                </if>
+             ORDER BY SNO DESC
+            </when>
+            <otherwise>
+              AND T1.TSK_LAG_CAT_CD  = T2.TSK_LAG_CAT_CD
+              AND T1.TSK_MID_CAT_CD  = T2.TSK_MID_CAT_CD
+              AND T1.TSK_SALL_CAT_CD = T2.TSK_SALL_CAT_CD
+              AND T1.SNO = T2.SNO
+              AND T1.SNO = #{sno}
+              AND T1.TSK_LAG_CAT_CD  = #{tskLagCatCd}
+              AND T1.TSK_MID_CAT_CD  = #{tskMidCatCd}
+              <if test='TSK_SALL_CAT_CD != null and TSK_SALL_CAT_CD != ""'>
+                AND TSK_SALL_CAT_CD = #{tskSallCatCd} /* 추후 보강을 위해서 select 시 없을 경우 조회 안하도록 */
+              </if>
+            </otherwise>
+         </choose>
+    </select>
+    
+    <update id="saveBase" parameterType="paramMap">
+        /*kr.go.bai.eip.dcm.acm.dao.DCMACM038PMapper.saveBase*/
+        MERGE INTO TBDCMACM300M T1
+             USING (SELECT '1' FROM DUAL) T2
+                ON (T1.TSK_LAG_CAT_CD  = #{tskLagCatCd}
+                AND T1.TSK_MID_CAT_CD  = #{tskMidCatCd}
+                AND T1.TSK_SALL_CAT_CD = #{tskSallCatCd}
+                AND T1.SNO             = #{sno})
+         WHEN MATCHED THEN
+       UPDATE
+          SET TIT             = #{tit}
+            , FAQ_DTM_YN      = #{faqDtmYn}
+            , HNDL_STA_CD     = #{hndlStaCd}
+            , WRIT_DH         = SYSTIMESTAMP
+            , ATT_FL_ID       = #{docId}
+            , FNL_USR_ID      = #{usrId}
+            , FNL_DEAL_DPT_CD = #{dptCd}
+            , FNL_MNU_ID      = #{menuId}
+            , FNL_MDF_DH      = SYSDATE
+         WHEN NOT MATCHED THEN
+       INSERT (
+               TSK_LAG_CAT_CD
+             , TSK_MID_CAT_CD
+             , TSK_SALL_CAT_CD
+             , SNO
+             , TIT
+             , FAQ_DTM_YN
+             , HNDL_STA_CD
+             , WRIT_PEN_NM
+             , WRIT_DH
+             , ATT_FL_ID
+             , FRT_USR_ID        
+             , FNL_USR_ID        
+             , FNL_DEAL_DPT_CD         
+             , FNL_MNU_ID
+             , FRT_REGI_DH
+             , FNL_MDF_DH
+              ) VALUES (
+               #{tskLagCatCd}
+             , #{tskMidCatCd}
+             , '00000'
+             , #{sno}
+             , #{tit}
+             , #{faqDtmYn}
+             , #{hndlStaCd}
+             , #{usrId}
+             , SYSTIMESTAMP
+             , #{docId}
+             , #{usrId}
+             , #{usrId}
+             , #{dptCd}
+             , #{menuId}
+             , SYSDATE
+             , SYSDATE
+              )
+    </update>
+    
+    
+    
+    <update id="saveDesc" parameterType="paramMap">
+        /*kr.go.bai.eip.dcm.acm.dao.DCMACM038PMapper.saveDesc*/
+        MERGE INTO TBDCMACM301M T1
+             USING (SELECT '1' FROM DUAL) T2
+                ON (T1.TSK_LAG_CAT_CD  = #{tskLagCatCd}
+                AND T1.TSK_MID_CAT_CD  = #{tskMidCatCd}
+                AND T1.TSK_SALL_CAT_CD = #{tskSallCatCd}
+                AND T1.SNO             = #{sno})
+         WHEN MATCHED THEN
+       UPDATE
+          SET TXT             = #{txt}
+            , FNL_USR_ID      = #{usrId}
+            , FNL_DEAL_DPT_CD = #{dptCd}
+            , FNL_MNU_ID      = #{menuId}
+            , FNL_MDF_DH      = SYSDATE
+         WHEN NOT MATCHED THEN
+       INSERT (
+               TSK_LAG_CAT_CD
+             , TSK_MID_CAT_CD
+             , TSK_SALL_CAT_CD
+             , SNO
+             , TXT
+             , FRT_USR_ID        
+             , FNL_USR_ID        
+             , FNL_DEAL_DPT_CD      
+             , FNL_MNU_ID
+             , FRT_REGI_DH       
+             , FNL_MDF_DH
+              ) VALUES (
+               #{tskLagCatCd}
+             , #{tskMidCatCd}
+             , '00000'
+             , #{sno}
+             , #{txt}
+             , #{usrId}
+             , #{usrId}
+             , #{dptCd} 
+             , #{menuId}
+             , SYSDATE
+             , SYSDATE
+              )
+    </update>
+    
+        <delete id="DeleteDCMACM300M" parameterType="paramMap">
+        /* kr.go.bai.eip.dcm.acm.dao.DCMACM038EMapper.DCMACM300MDelete */
+        <![CDATA[
+            DELETE
+            FROM    TBDCMACM300M
+            WHERE   1=1
+            AND TSK_LAG_CAT_CD = #{tskLagCatCd}
+            AND TSK_MID_CAT_CD = #{tskMidCatCd}
+            AND TSK_SALL_CAT_CD = #{tskSallCatCd}
+            AND     SNO = #{sno}
+        ]]>
+        </delete>
+        
+        <delete id="DeleteDCMACM301M" parameterType="paramMap">
+        /* kr.go.bai.eip.dcm.acm.dao.DCMACM038EMapper.DCMACM301MDelete */
+        <![CDATA[
+            DELETE
+            FROM    TBDCMACM301M
+            WHERE   1=1
+            AND TSK_LAG_CAT_CD = #{tskLagCatCd}
+            AND TSK_MID_CAT_CD = #{tskMidCatCd}
+            AND TSK_SALL_CAT_CD = #{tskSallCatCd}
+            AND     SNO = #{sno}
+        ]]>
+        </delete>
+        
+        <delete id="deleteFile" parameterType="paramMap">
+        /* kr.go.bai.eip.dcm.acm.dao.DCMACM038EMapper.DCMACM301MDelete */
+        <![CDATA[
+            UPDATE TBDCMACM300M
+            SET    ATT_FL_ID = NULL
+            WHERE  1=1
+            AND TSK_LAG_CAT_CD = #{tskLagCatCd}
+            AND TSK_MID_CAT_CD = #{tskMidCatCd}
+            AND TSK_SALL_CAT_CD = #{tskSallCatCd} 
+            AND    SNO = #{sno}
+        ]]>
+        </delete>
+        
+</mapper> 

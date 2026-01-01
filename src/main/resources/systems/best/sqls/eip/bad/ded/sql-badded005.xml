@@ -1,0 +1,431 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.bad.ded.dao.BADDED005EMapper">
+    
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.BADDED005EMapper.selectMainList*/
+        <include refid="include.pageSelct" />
+            <![CDATA[
+            SELECT 
+                   AUD_YR_NO
+                 , AUD_BZT_KND_NM
+                 , TIT_TXT
+                 , AUD_ST_END_DT
+                 , sum(BZT_DCN)  AS BZT_DCN
+                 , CASE WHEN (count(ORG_NM)-1) != 0 THEN MAX(ORG_NM) || ' 외 ' || (count(ORG_NM)-1) || '개'
+		                ELSE MAX(ORG_NM)
+		                 END ORG_NM
+                 , BZT_BGT_DVSN_NM
+                 , AUD_BZT_KND_NM
+                 , PCT_CNB
+                 , BZT_SNO
+                 , MNG_DPT_NM
+                 , REL_AUD_YR
+                 , REL_AUD_NO
+                 , AUD_ACTV_RCV_EXS
+                 , LEAD_EXS
+                 , sum(DT_EXS) AS DT_EXS
+                 , sum(LDC) AS LDC
+                 , sum(FDEX) AS FDEX
+                 , sum(CPRG_FR_EXS) CPRG_FR_EXS
+                 , sum(SPM_XPN) SPM_XPN
+                 , RL_FR_EXS
+                 , AUD_STR_DT
+                 , nvl(TO_CHAR((sum(DT_EXS) + sum(LDC) + sum(FDEX) + sum(CPRG_FR_EXS) + sum(SPM_XPN) + AUD_ACTV_RCV_EXS + LEAD_EXS + RL_FR_EXS),'999,999,999,999'),0) AS SUM_COST
+              FROM
+              (
+            SELECT D1.BZT_YR
+                 , D1.BZT_SNO
+                 , F_MNG_KND_AUDYRNO(D1.REL_AUD_YR, D1.REL_AUD_NO, D2.AUD_KND_CD, '-') ||'(' ||D1.AUD_STEP_SNO || ')' AS AUD_YR_NO            /*감사연번호*/
+                 , D1.REL_AUD_YR
+                 , D1.AUD_STEP_SNO
+                 , D1.REL_AUD_NO
+                 /*, D2.AUD_YR||'-'|| CASE WHEN D2.AUD_YR >= '2016' THEN SUBSTR(F_CODE_NM('1000007', D2.AUD_KND_CD),1,2) ELSE '' END ||CASE WHEN D2.AUD_YR >= '2016' THEN '-' ELSE '' END ||D2.AUD_GRN_NO||'('|| D1.AUD_STEP_SNO || ')'  AS AUD_YR_NO   감사년번호*/
+                 , CASE WHEN D2.AUD_YR >= '2016' THEN SUBSTR(D2.AUD_KND_CD,3,1)
+                        ELSE '' END                                                                                     AS AUD_YR_NO_KND_CD      /*감사연번호종류코드 추가*/
+                 , F_DPT_INFO(D2.SPV_BRDV_CD,'1')                                                                       AS SPV_BRDV_NM           /*주관부서명*/
+                 , F_DPT_INFO(D2.MNG_DPT_CD,'1')                                                                        AS MNG_DPT_NM            /*관리부서명*/
+                 , D2.MNG_DPT_CD                                                                                        AS MNG_DPT_CD            /*관리부서코드  20170125 EUNOK*/
+                 , D2.SPV_BRDV_CD                                                                                       AS SPV_BRDV_UP_CD        /*주관부서명(국)*/
+                 , D2.AUD_KND_CD                                                                                        AS AUD_KND_CD            /*감사종류코드*/
+                 , F_CODE_NM('1000007',D2.AUD_KND_CD)                                                                   AS AUD_KND_NM            /*감사종류명*/
+                 , D2.BZT_BGT_DVSN_CD                                                                                   AS BZT_BGT_DVSN_CD       /*출장예산구분 추가*/
+                 , F_CODE_NM('1000751',D2.BZT_BGT_DVSN_CD)                                                              AS BZT_BGT_DVSN_NM
+                 , D1.AUD_BZT_KND_CD                                                                                    AS AUD_BZT_KND_CD        /*감사출장종류코드*/
+                 , CASE WHEN F_CODE_NM('1000007',D2.AUD_KND_CD) like '확인%' THEN '확인출장'
+                        ELSE '감사출장'
+                         END AS AUD_BZT_KND_NM
+                 --, F_CODE_NM('1000030',D1.AUD_BZT_KND_CD)                                                               AS AUD_BZT_KND_NM        /*감사출장종류코드명*/
+                 , D1.TIT_TXT                                                                                           AS TIT_TXT               /*제목내용*/
+                 , TO_CHAR(TO_DATE(D1.AUD_STR_DT),'YYYY-MM-DD')||' ~ '|| TO_CHAR(TO_DATE(D1.AUD_END_DT),'YYYY-MM-DD')   AS AUD_ST_END_DT         /*실시기간*/
+                 , CASE WHEN D1.CALC_DTM_YN = 'Y' THEN '확정' ELSE (SELECT CASE WHEN COUNT(1)>0 THEN 'Y' ELSE 'N' END  
+                      FROM TBBADDED011L
+                     WHERE 1=1
+                       AND BZT_YR  = D1.BZT_YR
+                       AND BZT_SNO = D1.BZT_SNO)  
+                   END AS EXP_YN                /*계산여부*/
+                 , F_ORG_CNT_NM_AUD(D1.BZT_YR,D1.BZT_SNO,'BZT')                                                         AS ORG_CNT_NM
+                 , D1.AUD_STEP_SNO                                                                                      AS AUD_STEP_SNO          /*감사단계순번*/
+                 , CASE WHEN D2.AUD_YR < '2017' THEN ''
+                        ELSE D2.PRSS_STEP_CD END                                                                        AS STEP_CD               /*감사단계*/
+                , DECODE((SELECT COUNT(1)
+                      FROM TBBADDED004L ST1
+                     WHERE ST1.BZT_YR = D1.BZT_YR
+                       AND ST1.BZT_SNO = D1.BZT_SNO),0,'N','Y') BZT_TEAM_YN
+                , D5.ORG_NM						      																					         /*대상기관*/
+                , D2.AUD_SBJ_NM            																				                         /*감사사항명*/
+                , CASE WHEN F_LEAD_EXS_RCV_EXS_RCIT_CNB(D1.BZT_YR, D1.BZT_SNO) = #{cnb} THEN NVL(D7.LEAD_EXS,0)
+                        ELSE 0 END                      AS LEAD_EXS               /*지휘비*/
+                 , CASE WHEN F_LEAD_EXS_RCV_EXS_RCIT_CNB(D1.BZT_YR, D1.BZT_SNO) = #{cnb} THEN NVL(D7.AUD_ACTV_RCV_EXS,0) 
+                        ELSE 0  END                     AS AUD_ACTV_RCV_EXS       /*감사활동수용비*/
+                , D5.BZT_DCN
+                , D3.PCT_CNB
+                , D5.DT_EXS
+                , D5.LDC LDC
+                , D5.FDEX
+                , D5.CPRG_FR_EXS
+                , D5.SPM_XPN
+                , D6.RL_FR_EXS
+                , D1.AUD_STR_DT
+              FROM TBBADDED002M AS D1
+        INNER JOIN TBBADDED001M AS D2 ON D1.REL_AUD_YR = D2.AUD_YR AND D1.REL_AUD_NO = D2.AUD_NO
+   INNER JOIN (SELECT BZT_YR
+                         , BZT_SNO
+                         , PCT_CNB
+                         , TEAM_SNO 
+                         , SUM( CASE WHEN A.STF_DVSN_CD = '0' THEN 1 ELSE 0 END) AS IN_PSON_CNT  /*내부인원*/
+                         , SUM( CASE WHEN A.STF_DVSN_CD = '0' THEN 0 ELSE 1 END) AS EXT_PSON_CNT /*외부인원*/
+                     FROM (SELECT DISTINCT BZT_YR
+                                , BZT_SNO
+                                , PCT_CNB
+                                , STF_DVSN_CD
+                                , TEAM_SNO
+                             FROM TBBADDED005L
+                            WHERE PCT_CNB = #{cnb}
+                             ) AS A
+                         GROUP BY BZT_YR, BZT_SNO, PCT_CNB, TEAM_SNO 
+                          ) AS D3 ON D1.BZT_YR = D3.BZT_YR AND D1.BZT_SNO = D3.BZT_SNO
+                INNER JOIN (SELECT BZT_YR
+	                     , BZT_SNO
+	                     , PCT_CNB
+                         , ORG_NM
+	                     , max(CALC_YN) AS CALC_YN
+	                     , sum(B.DT_EXS) AS DT_EXS
+	                     , sum(B.LDC) AS LDC
+	                     , sum(B.FDEX) AS FDEX
+	                     , sum(B.CPRG_FR_EXS) AS CPRG_FR_EXS
+	                     , sum(B.SPM_XPN) AS SPM_XPN
+	                     , sum(B.BZT_DCN) AS BZT_DCN      /*출장일수*/
+                      FROM       
+		                  ( SELECT BZT_YR
+		                         , BZT_SNO
+		                         , PCT_CNB
+		                         , CALC_YN
+		                         , F_ORG_INFO(ORG_CD,'1') AS ORG_NM
+		                         , NVL(DT_EXS,0) AS DT_EXS
+		                         , NVL(LDC,0) AS LDC
+		                         , NVL(FDEX,0) AS FDEX
+		                         , NVL(CPRG_FR_EXS,0) AS CPRG_FR_EXS
+		                         , NVL(SPM_XPN,0) AS SPM_XPN                       
+		                         , NVL(BZT_DCN,0) AS BZT_DCN      /*출장일수*/
+		                      FROM 
+		                           TBBADDED011L
+		                     WHERE 
+		                           CALC_YN = 'N'
+		                       AND PCT_CNB = #{cnb} ) AS B
+		                  GROUP BY
+		                           BZT_YR
+		                         , BZT_SNO
+		                         , PCT_CNB 
+		                         , ORG_NM
+		                         , CALC_YN
+		                
+		             ) AS D5 ON D1.BZT_YR = D5.BZT_YR AND D1.BZT_SNO = D5.BZT_SNO AND D3.PCT_CNB = D5.PCT_CNB
+    LEFT OUTER JOIN (SELECT SUM(NVL(RL_FR_EXS,0)) AS RL_FR_EXS, BZT_YR, BZT_SNO, PCT_CNB FROM TBBADDED017L WHERE CALC_YN = 'N'
+                      GROUP BY BZT_YR, BZT_SNO, PCT_CNB
+  ) AS D6 ON D1.BZT_YR = D6.BZT_YR AND D1.BZT_SNO = D6.BZT_SNO AND D3.PCT_CNB = D6.PCT_CNB
+               LEFT OUTER JOIN (
+                     SELECT 
+                          BZT_YR
+                         , BZT_SNO
+                         , SUM(NVL(LEAD_EXS,0))           AS LEAD_EXS             /*지휘비*/
+                         , SUM(NVL(AUD_ACTV_RCV_EXS,0))     AS AUD_ACTV_RCV_EXS  /*감사활동수용비*/
+                      FROM TBBADDED011L 
+                     WHERE BZT_YR = #{schAudYr}
+                      AND CALC_YN = 'N'
+                     GROUP BY BZT_YR, BZT_SNO
+                  ) AS D7 ON D1.BZT_YR = D7.BZT_YR AND D1.BZT_SNO = D7.BZT_SNO   /*지휘비, 감사활동비*/
+             WHERE 1=1
+               AND D1.BZT_DVSN_CD = '1' /*감사출장*/
+               AND 
+                  (
+                     ( D2.MNG_DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#{cnb}, #{dptAuth}, '', #{schSpvBrdvCd})))
+                        OR  (#{schSpvBrdvCd}  = (SELECT D4.HIRK_DPT_CD FROM TBDCMACM002M D4 WHERE D4.DPT_CD  = D2.MNG_DPT_CD AND D4.USE_YN = 'Y') 
+                            AND D2.AUD_SCL_CD =  2  )
+                       )
+                   /* 부서권한은 없으나 출장 배정자로 등록 된 경우 감사사항 조회 가능하도록 수정 MJ */
+                   OR EXISTS (
+                        SELECT 1
+                          FROM TBBADDED002M ST4
+                         INNER JOIN TBBADDED005L ST5
+                            ON ST4.BZT_YR = ST5.BZT_YR
+                           AND ST4.BZT_SNO = ST5.BZT_SNO
+                         WHERE D2.AUD_YR = ST4.REL_AUD_YR
+                           AND D2.AUD_NO = ST4.REL_AUD_NO
+                           AND ST5.PCT_CNB = #{cnb}
+                   )
+                )
+            ]]>
+            /*20170202 EUNOK 관리부셔 != 감찰담당관, 감찰관,재무행정, 유지보수,구축용역이 아니면 감찰관부서의 데이터는 검색되지 않음*/                 
+            <if test='searchChk != "Y"'>
+               AND D2.MNG_DPT_CD NOT IN ('100000','100100')
+            </if>            
+            <if test="srchIttNm != null and srchIttNm != ''">
+               AND D5.ORG_NM like #{srchIttNm} || '%' 
+            </if>    
+            <if test="audYr != null and audYr != ''">
+               AND D1.REL_AUD_YR = #{audYr}
+            </if>
+            <if test="schAudYr != null and schAudYr != ''">
+               AND D1.REL_AUD_YR = #{schAudYr}
+            </if>
+            <if test="schAudYrKndNoCd != null and schAudYrKndNoCd != ''">
+               AND SUBSTR(D2.AUD_KND_CD,3,1) = #{schAudYrKndNoCd}
+            </if>
+            <if test="audGrnNo != null and audGrnNo != ''">
+               AND D2.AUD_GRN_NO = #{audGrnNo}
+            </if>
+            <if test="schAudGrnNo != null and schAudGrnNo != ''">
+               AND D2.AUD_GRN_NO = #{schAudGrnNo}
+            </if>
+            <if test="audNo != null and audNo != ''">
+               AND D1.REL_AUD_NO = #{audNo}
+            </if>
+            <if test="schAudNo != null and schAudNo != ''">
+               AND D1.REL_AUD_NO = #{schAudNo}
+            </if>
+            <if test="schAudSbjNm != null and schAudSbjNm != ''">
+               AND D2.AUD_SBJ_NM LIKE '%'||#{schAudSbjNm}||'%'
+            </if>
+            <if test="schCtrlYn != null and schCtrlYn != '' and schCtrlYn eq 'Y'.toString()">
+               AND D1.CTRL_YN = 'Y'
+            </if>
+            <if test="schCtrlYn != null and schCtrlYn != '' and schCtrlYn eq 'N'.toString()">
+               AND NVL(D1.CTRL_YN,'N') = 'N'
+            </if>
+            <if test="schSndYn != null and schSndYn != '' and schSndYn eq 'Y'.toString()">
+               AND D1.SND_YN = 'Y'
+            </if>
+            <if test="schSndYn != null and schSndYn != '' and schSndYn eq 'N'.toString()">
+               AND NVL(D1.SND_YN,'N') = 'N'
+            </if>
+            <if test="schDeptCd != null and schDeptCd != ''">
+               AND D2.MNG_DPT_CD  = #{schDeptCd}
+            </if>
+            <if test="schAudKndCd != null and schAudKndCd != ''">
+               AND D2.AUD_KND_CD = #{schAudKndCd}
+            </if>
+            <if test="schAudYrNoKndCd != null and schAudYrNoKndCd != ''">
+               AND D2.AUD_KND_CD = #{schAudYrNoKndCd}
+            </if>
+            <if test="schBztKndCd != null and schBztKndCd != ''">
+               AND D1.AUD_BZT_KND_CD  = #{schBztKndCd}
+            </if>
+            <if test="schAllBztKndCd != null and schAllBztKndCd != ''">
+               <choose>
+               <when test="schAllBztKndCd != '01'">
+               AND D1.AUD_BZT_KND_CD NOT IN ('05','06','07','08','18','21')
+               </when>
+               <otherwise>
+               AND D1.AUD_BZT_KND_CD IN ('05','06','07','08','18','21')
+               </otherwise>
+               </choose>
+            </if>
+            <if test="schBztSno != null and schBztSno != ''">
+               AND D1.BZT_SNO = #{schBztSno}
+            </if>
+            <if test="schBztYr != null and schBztYr != ''">
+               AND D1.BZT_YR = #{schBztYr}
+            </if>
+            <if test="schBztBgtDvsnCd != null and schBztBgtDvsnCd != ''">
+               AND D2.BZT_BGT_DVSN_CD = #{schBztBgtDvsnCd}
+             </if>             
+            <if test="schMasterYN != null and schMasterYN != '' and schMasterYN eq 'MASTER'.toString()">
+               AND D1.CTRL_TG_YN = 'Y'
+               AND D1.SND_YN = 'Y'
+            </if>
+            <if test="schTitTxt != null and schTitTxt != ''">
+               AND D1.TIT_TXT LIKE #{schTitTxt}||'%'
+            </if>
+             <if test="rankCd == '004' and pstCd == '0067400'">
+              <![CDATA[
+                    AND SUBSTR(D2.AUD_KND_CD, 3, 1) <> '5'
+                  ]]>
+            </if>
+            <if test="rankCd == '007' and pstCd == '0055700'">
+             <![CDATA[
+                    AND SUBSTR(D2.AUD_KND_CD, 3, 1) <> '5'
+                 ]]>
+            </if>
+            <if test="callPageYn != null and callPageYn != '' and callPageYn eq 'Y'.toString()">
+                <if test="audStepCd != null and audStepCd != '' and audStepCd eq 'A1010'.toString()">
+                    AND D1.AUD_BZT_KND_CD IN ('00','15') /*서면감사인 경우 확인출장(15) 조회 되도록 수정*/
+                </if>
+                <if test="audStepCd != null and audStepCd != '' and audStepCd eq 'A1020'.toString()">
+                    AND D1.AUD_BZT_KND_CD = '01'
+                </if>
+                <if test="audStepCd != null and audStepCd != '' and audStepCd eq 'A1030'.toString()">
+                    AND D1.AUD_BZT_KND_CD IN ('02','03')
+                </if>
+                <if test="audStepCd != null and audStepCd != '' and audStepCd eq 'A1040'.toString()">
+                    AND D1.AUD_BZT_KND_CD IN ('02','03')
+                </if>
+            </if> 
+                    AND D1.CALC_DTM_YN = 'Y'
+            ORDER BY D1.AUD_STR_DT DESC, D1.AUD_END_DT DESC /* 20170721 EUNOK 수정 ORDER BY D2.AUD_YR, D2.AUD_KND_CD, D2.AUD_GRN_NO DESC, D1.AUD_BZT_KND_CD */
+            )
+            
+	      GROUP BY 
+                   AUD_YR_NO
+                 , AUD_BZT_KND_NM
+                 , TIT_TXT
+                 , AUD_ST_END_DT
+                 , BZT_BGT_DVSN_NM
+                 , AUD_BZT_KND_NM
+                 , PCT_CNB
+                 , BZT_SNO
+                 , MNG_DPT_NM
+                 , REL_AUD_YR
+                 , REL_AUD_NO
+                 , RL_FR_EXS
+                 , AUD_ACTV_RCV_EXS
+                 , LEAD_EXS
+                 , AUD_STR_DT
+                 
+        ORDER BY AUD_STR_DT DESC
+              
+        <include refid="include.pageOrder" />
+    </select>
+    
+    <select id="selectDay" parameterType="paramMap" resultType="egovMap">
+    	SELECT TO_CHAR(LAST_DAY(#{srchYear}||'0101'),'yyyyMMdd') AS LDAY1
+    	     , TO_CHAR(LAST_DAY(#{srchYear}||'0201'),'yyyyMMdd') AS LDAY2
+    	     , TO_CHAR(LAST_DAY(#{srchYear}||'0301'),'yyyyMMdd') AS LDAY3
+    	     , TO_CHAR(LAST_DAY(#{srchYear}||'0401'),'yyyyMMdd') AS LDAY4
+    	     , TO_CHAR(LAST_DAY(#{srchYear}||'0501'),'yyyyMMdd') AS LDAY5
+    	     , TO_CHAR(LAST_DAY(#{srchYear}||'0601'),'yyyyMMdd') AS LDAY6
+    	     , TO_CHAR(LAST_DAY(#{srchYear}||'0701'),'yyyyMMdd') AS LDAY7
+    	     , TO_CHAR(LAST_DAY(#{srchYear}||'0801'),'yyyyMMdd') AS LDAY8
+    	     , TO_CHAR(LAST_DAY(#{srchYear}||'0901'),'yyyyMMdd') AS LDAY9
+    	     , TO_CHAR(LAST_DAY(#{srchYear}||'1001'),'yyyyMMdd') AS LDAY10
+    	     , TO_CHAR(LAST_DAY(#{srchYear}||'1101'),'yyyyMMdd') AS LDAY11
+    	     , TO_CHAR(LAST_DAY(#{srchYear}||'1201'),'yyyyMMdd') AS LDAY12
+    	  FROM 
+    	       DUAL
+    </select>
+    
+    <select id="selectBztMonthList" parameterType="paramMap" resultType="egovMap">
+		<![CDATA[
+		SELECT TIT_TXT
+		     , BZT_SNO
+		     , AUD_STEP_SNO
+		     , SUM(MONTH_DCN1)  AS MONTH_DCN1
+		     , SUM(MONTH_DCN2)  AS MONTH_DCN2
+		     , SUM(MONTH_DCN3)  AS MONTH_DCN3
+		     , SUM(MONTH_DCN4)  AS MONTH_DCN4
+		     , SUM(MONTH_DCN5)  AS MONTH_DCN5
+		     , SUM(MONTH_DCN6)  AS MONTH_DCN6
+		     , SUM(MONTH_DCN7)  AS MONTH_DCN7
+		     , SUM(MONTH_DCN8)  AS MONTH_DCN8
+		     , SUM(MONTH_DCN9)  AS MONTH_DCN9
+		     , SUM(MONTH_DCN10) AS MONTH_DCN10
+		     , SUM(MONTH_DCN11) AS MONTH_DCN11
+		     , SUM(MONTH_DCN12) AS MONTH_DCN12
+		FROM (
+			   SELECT T2.TIT_TXT
+			        , T2.BZT_SNO
+			        , T2.AUD_STEP_SNO
+				    , CASE WHEN T4.BZT_STR_DT >= #{srchYear}||'0101' and T4.BZT_STR_DT <= #{lday1}  and T4.BZT_END_DT > #{lday1} THEN #{lday1} - T4.BZT_STR_DT + 1
+					       WHEN T4.BZT_STR_DT >= #{srchYear}||'0101' and T4.BZT_STR_DT <= #{lday1}  and T4.BZT_END_DT <= #{lday1} THEN T4.BZT_END_DT - T4.BZT_STR_DT + 1
+					       ELSE 0
+					        END AS MONTH_DCN1
+					, CASE WHEN T4.BZT_STR_DT >= #{srchYear}||'0201' and T4.BZT_STR_DT <= #{lday2}  and T4.BZT_END_DT > #{lday2} THEN #{lday2} - T4.BZT_STR_DT + 1
+					       WHEN T4.BZT_STR_DT >= #{srchYear}||'0201' and T4.BZT_STR_DT <= #{lday2}  and T4.BZT_END_DT <= #{lday2} THEN T4.BZT_END_DT - T4.BZT_STR_DT + 1
+					       ELSE 0
+					        END AS MONTH_DCN2
+					, CASE WHEN T4.BZT_STR_DT >= #{srchYear}||'0301' and T4.BZT_STR_DT <= #{lday3}  and T4.BZT_END_DT > #{lday3} THEN #{lday3} - T4.BZT_STR_DT + 1
+					       WHEN T4.BZT_STR_DT >= #{srchYear}||'0301' and T4.BZT_STR_DT <= #{lday3}  and T4.BZT_END_DT <= #{lday3} THEN T4.BZT_END_DT - T4.BZT_STR_DT + 1
+					       ELSE 0
+					        END AS MONTH_DCN3
+					, CASE WHEN T4.BZT_STR_DT >= #{srchYear}||'0401' and T4.BZT_STR_DT <= #{lday4}  and T4.BZT_END_DT > #{lday4} THEN #{lday4} - T4.BZT_STR_DT + 1
+					       WHEN T4.BZT_STR_DT >= #{srchYear}||'0401' and T4.BZT_STR_DT <= #{lday4}  and T4.BZT_END_DT <= #{lday4} THEN T4.BZT_END_DT - T4.BZT_STR_DT + 1
+					       ELSE 0
+					        END AS MONTH_DCN4
+					, CASE WHEN T4.BZT_STR_DT >= #{srchYear}||'0501' and T4.BZT_STR_DT <= #{lday5}  and T4.BZT_END_DT > #{lday5} THEN #{lday5} - T4.BZT_STR_DT + 1
+					       WHEN T4.BZT_STR_DT >= #{srchYear}||'0501' and T4.BZT_STR_DT <= #{lday5}  and T4.BZT_END_DT <= #{lday5} THEN T4.BZT_END_DT - T4.BZT_STR_DT + 1
+					       ELSE 0
+					        END AS MONTH_DCN5
+					, CASE WHEN T4.BZT_STR_DT >= #{srchYear}||'0601' and T4.BZT_STR_DT <= #{lday6}  and T4.BZT_END_DT > #{lday6} THEN #{lday6} - T4.BZT_STR_DT + 1
+					       WHEN T4.BZT_STR_DT >= #{srchYear}||'0601' and T4.BZT_STR_DT <= #{lday6}  and T4.BZT_END_DT <= #{lday6} THEN T4.BZT_END_DT - T4.BZT_STR_DT + 1
+					       ELSE 0
+					        END AS MONTH_DCN6
+					, CASE WHEN T4.BZT_STR_DT >= #{srchYear}||'0701' and T4.BZT_STR_DT <= #{lday7}  and T4.BZT_END_DT > #{lday7} THEN #{lday7} - T4.BZT_STR_DT + 1
+					       WHEN T4.BZT_STR_DT >= #{srchYear}||'0701' and T4.BZT_STR_DT <= #{lday7}  and T4.BZT_END_DT <= #{lday7} THEN T4.BZT_END_DT - T4.BZT_STR_DT + 1
+					       ELSE 0
+					        END AS MONTH_DCN7
+					, CASE WHEN T4.BZT_STR_DT >= #{srchYear}||'0801' and T4.BZT_STR_DT <= #{lday8}  and T4.BZT_END_DT > #{lday8} THEN #{lday8} - T4.BZT_STR_DT + 1
+					       WHEN T4.BZT_STR_DT >= #{srchYear}||'0801' and T4.BZT_STR_DT <= #{lday8}  and T4.BZT_END_DT <= #{lday8} THEN T4.BZT_END_DT - T4.BZT_STR_DT + 1
+					       ELSE 0
+					        END AS MONTH_DCN8
+					, CASE WHEN T4.BZT_STR_DT >= #{srchYear}||'0901' and T4.BZT_STR_DT <= #{lday9}  and T4.BZT_END_DT > #{lday9} THEN #{lday9} - T4.BZT_STR_DT + 1
+					       WHEN T4.BZT_STR_DT >= #{srchYear}||'0901' and T4.BZT_STR_DT <= #{lday9}  and T4.BZT_END_DT <= #{lday9} THEN T4.BZT_END_DT - T4.BZT_STR_DT + 1
+					       ELSE 0
+					        END AS MONTH_DCN9
+					, CASE WHEN T4.BZT_STR_DT >= #{srchYear}||'1001' and T4.BZT_STR_DT <= #{lday10}  and T4.BZT_END_DT > #{lday10} THEN #{lday10} - T4.BZT_STR_DT + 1
+					       WHEN T4.BZT_STR_DT >= #{srchYear}||'1001' and T4.BZT_STR_DT <= #{lday10}  and T4.BZT_END_DT <= #{lday10} THEN T4.BZT_END_DT - T4.BZT_STR_DT + 1
+					       ELSE 0
+					        END AS MONTH_DCN10
+					, CASE WHEN T4.BZT_STR_DT >= #{srchYear}||'1101' and T4.BZT_STR_DT <= #{lday11}  and T4.BZT_END_DT > #{lday11} THEN #{lday11} - T4.BZT_STR_DT + 1
+					       WHEN T4.BZT_STR_DT >= #{srchYear}||'1101' and T4.BZT_STR_DT <= #{lday11}  and T4.BZT_END_DT <= #{lday11} THEN T4.BZT_END_DT - T4.BZT_STR_DT + 1
+					       ELSE 0
+					        END AS MONTH_DCN11
+					, CASE WHEN T4.BZT_STR_DT >= #{srchYear}||'1201' and T4.BZT_STR_DT <= #{lday12}  and T4.BZT_END_DT > #{lday12} THEN #{lday12} - T4.BZT_STR_DT + 1
+					       WHEN T4.BZT_STR_DT >= #{srchYear}||'1201' and T4.BZT_STR_DT <= #{lday12}  and T4.BZT_END_DT <= #{lday12} THEN T4.BZT_END_DT - T4.BZT_STR_DT + 1
+					       ELSE 0
+					        END AS MONTH_DCN12
+                FROM TBBADDED001M T1
+               INNER JOIN TBBADDED002M T2 ON T1.AUD_YR = T2.REL_AUD_YR AND T1.AUD_NO = T2.REL_AUD_NO
+               INNER JOIN TBBADDED005L T3 ON T2.BZT_YR = T3.BZT_YR and T2.BZT_SNO = T3.BZT_SNO
+               INNER JOIN TBBADDED011L T4 ON T2.BZT_YR = T4.BZT_YR and T2.BZT_SNO = T4.BZT_SNO AND T3.PCT_CNB = T4.PCT_CNB
+               ]]> 	
+              WHERE T3.PCT_CNB = #{schPctCnb}
+                AND T2.CALC_DTM_YN = 'Y'
+              <if test="schTitTxt != null and schTitTxt != ''">
+                AND T2.TIT_TXT LIKE #{schTitTxt}||'%'
+              </if>
+              <if test="schAllBztKndCd != null and schAllBztKndCd != ''">
+                <choose>
+                <when test="schAllBztKndCd != '01'">
+                AND T2.AUD_BZT_KND_CD NOT IN ('05','06','07','08','18','21')
+                </when>
+                <otherwise>
+                AND T2.AUD_BZT_KND_CD IN ('05','06','07','08','18','21')
+                </otherwise>
+                </choose>
+              </if>    
+              <if test="srchIttNm != null and srchIttNm != ''">
+                AND F_ORG_INFO(T4.ORG_CD,'1') like #{srchIttNm} || '%' 
+              </if>	                
+              <if test="schBztBgtDvsnCd != null and schBztBgtDvsnCd != ''">
+                AND T1.BZT_BGT_DVSN_CD = #{schBztBgtDvsnCd}
+              </if>     
+                AND T1.AUD_YR = #{srchYear}     
+                AND T4.CALC_YN = 'N'
+             ) 	
+        GROUP BY TIT_TXT, BZT_SNO, AUD_STEP_SNO
+        ORDER BY BZT_SNO ASC
+    
+    </select>    
+    
+</mapper> 

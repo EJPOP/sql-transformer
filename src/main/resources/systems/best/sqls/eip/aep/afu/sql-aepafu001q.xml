@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.afu.dao.AEPAFU001QMapper">
+
+    <select id="selectAepPrcsList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.aep.afu.dao.AEPAFU001QMapper.selectAepPrcsList*/
+        SELECT A.AUD_YR
+              ,A.AUD_NO
+              ,A.AUD_GRN_NO
+              ,A.AUD_STEP_CD
+              ,A.AUD_STEP_NM
+              ,A.STEP_CMPT_YN AS STEP_CMPT_STA
+              <if test='audStepCd != null and audStepCd != ""'>
+              ,to_date(A.CMPT_CLSNG_DY, 'yyyy/MM/dd') CMPT_CLSNG_DY
+              ,A.TSK_DESC
+              </if>
+              ,A.LINK_URL
+              ,A.NECES_YN
+          FROM TBBADDED101M A
+         WHERE 1=1
+         <if test='audYr != null and audYr != ""'>
+           AND A.AUD_YR = #{audYr}
+         </if>
+         <if test='audNo != null and audNo != ""'>
+           AND A.AUD_NO = #{audNo}
+         </if>
+         <if test='audKndCd != null and audKndCd != ""'>
+           AND A.AUD_KND_CD = #{audKndCd}
+         </if>
+         <if test='audStepCd != null and audStepCd != ""'>
+           AND A.AUD_STEP_CD = #{audStepCd}
+         </if>
+         <![CDATA[
+           AND AUD_STEP_CD <> 'A1000'
+            ORDER BY AUD_STEP_CD ASC
+         ]]>
+    </select>
+    
+    <select id="selectDocumentList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.aep.afu.dao.AEPAFU001QMapper.selectDocumentList*/
+        SELECT A.RPRT_NM                                                 /*보고서명 */
+             , A.APV_STA_CD                                              /*결재상태코드 */
+             , F_CODE_NM('1000773',NVL(A.APV_STA_CD,'10')) AS APV_STA_NM /*결재상태명 */
+             , A.SORT_SNO                                                /*보고서순번  */
+             , A.DOC_ID                                                  /*결재문서번호 */
+             , A.REF_ID                                                  /*참조ID */
+             , A.REF_DY                                                  /*참조일자 */
+             , A.APV_RQS_ID                                              /*결재요청ID */
+             , A.AUD_RPRT_DVSN_CD                                        /*감사보고서구분코드 */
+             , A.RPRT_CD                                                 /*문서종류코드 */
+             , F_USR_INFO_BY_ID(A.DOC_WRT_ID,'2') AS MAKTER_USER
+             , DECODE(A.APV_RQS_ID, NULL, 'Y','N') AS APV_YN
+             , (SELECT APV_USR_NM 
+                 FROM (
+                     SELECT 
+                        F_USR_INFO(APVR_CNB,'2') || 
+                        DECODE(APV_DH,NULL,'','('||TO_CHAR(APV_DH,'YYYY-MM-DD')||')') AS APV_USR_NM,
+                        APV_DOC_NO
+                     FROM TBDCMACM023L
+                     WHERE  
+                      APVR_KND_CD = '3'
+                     ORDER BY APV_SNO DESC)
+                 WHERE ROWNUM = 1
+                 AND APV_DOC_NO = A.APV_RQS_ID) AS APV_USR_NM
+          FROM TBBADDED103M AS A
+         WHERE A.AUD_YR = #{audYr}
+           AND A.AUD_NO = #{audNo}
+           AND A.AUD_STEP_CD = #{audStepCd}
+           AND A.AUD_KND_CD = #{audKndCd}
+           <if test="type != null and type != '' and type eq '1'.toString()">
+           AND A.RPRT_CD = 'A10400300'  /*질문서*/
+           </if>
+           <if test="type != null and type != '' and type eq '2'.toString()">
+           AND A.RPRT_CD = 'A10400706'  /*감사진행상황보고서*/
+           </if>
+      ORDER BY A.SORT_SNO
+    </select>
+    
+    <!-- 조사개시통보 조회 -->
+    <select id="selectIvstStartNotiList" parameterType="paramMap" resultType="egovMap" >
+    /*kr.go.bai.eip.aep.afu.dao.AEPAFU001QMapper.selectIvstStartNotiList*/
+        SELECT A.REGI_SRNO          -- 일련번호
+		     , A.REGI_DT			-- 등록일
+			 , A.REGI_DPT_CD	  	-- 등록부서코드
+			 , A.REGN_CNB			-- 등록자전산번호
+			 , A.BLT_ORG_CD 		-- 소속기관코드
+			 , F_ORG_INFO(A.BLT_ORG_CD,'1')  AS BLT_ORG_NM    -- 소속기관명
+			 , A.BLT_DPT_NM 		-- 소속부서명
+			 , A.RANK_NM 			-- 직급명
+			 , A.NAM 				-- 성명
+			 , A.EIN 				-- 암호화주민등록번호
+			 , TO_CHAR(TO_DATE(A.NTF_DT,'yyyyMMdd'),'yyyy-MM-dd') AS NTF_DT -- 통보일
+			 , TO_CHAR(TO_DATE(A.END_DT,'yyyyMMdd'),'yyyy-MM-dd') AS END_DT -- 종료일
+			 , A.AUD_YR				-- 감사년도
+			 , A.AUD_NO				-- 감사번호
+			 , (SELECT F_DPT_INFO(AA.REGI_DPT_CD,'1') || '(' || F_USR_INFO(AA.REGN_CNB,'2') || ')'
+                  FROM TBCSPKDE005M AA
+                 WHERE AA.NAM = A.NAM
+                   AND SUBSTR(AA.EIN,0,6) = SUBSTR(A.EIN,0,6)
+                   AND ROWNUM = 1)           AS REL_ASBM_INFO   /* 관련의원면직신청 */
+             , A.REGI_RUT           -- 등록경로
+		  FROM TBCSPKDE007M A
+		 WHERE A.AUD_YR = #{audYr}
+		   AND A.AUD_NO = #{audNo}
+		 ORDER BY 
+		       A.REGI_SRNO
+    </select>
+    
+    <!-- 조사개시통보 입력 -->
+    <insert id="insertIvstStartNotiData" parameterType="paramMap">
+        /*kr.go.bai.eip.aep.afu.dao.AEPAFU001QMapper.insertIvstStartNotiData*/
+        INSERT 
+		  INTO TBCSPKDE007M
+		     ( REGI_SRNO            -- 일련번호
+		     , REGI_DT				-- 등록일
+			 , REGI_DPT_CD	  		-- 등록부서코드
+			 , REGN_CNB				-- 등록자전산번호
+			 , BLT_ORG_CD 			-- 소속기관코드
+			 , BLT_DPT_NM 			-- 소속부서명
+			 , RANK_NM 				-- 직급명
+			 , NAM 					-- 성명
+			 , EIN 					-- 암호화주민등록번호
+			 , NTF_DT 				-- 통보일
+			 , END_DT 				-- 종료일
+			 , AUD_YR				-- 감사년도
+			 , AUD_NO				-- 감사번호
+			 , REGI_RUT	            -- 등록경로
+			 , FRT_USR_ID 			-- 최초사용자ID
+			 , FNL_USR_ID 			-- 최종사용자ID
+			 , FNL_DEAL_DPT_CD 	 	-- 최종거래부서코드
+			 , FNL_MNU_ID 			-- 최종메뉴ID
+			 , FRT_REGI_DH 			-- 최초들록일시
+			 , FNL_MDF_DH 			-- 최종수정일시
+			 )
+		VALUES 
+		     ( #{regiSrno}                 -- 일련번호
+		     , TO_CHAR(SYSDATE,'yyyyMMdd') -- 등록일
+		     , #{dptCd}	  		           -- 등록부서코드
+			 , #{cnb}  				       -- 등록자전산번호
+			 , #{bltOrgCd} 			       -- 소속기관코드
+			 , #{bltDptNm} 			       -- 소속부서명
+			 , #{rankNm} 				   -- 직급명
+			 , #{nam} 					   -- 성명
+			 , #{ein} 					   -- 암호화주민등록번호
+			 , replace(#{ntfDt},'-','')    -- 통보일
+			 , replace(#{endDt},'-','')	   -- 종료일
+			 , #{audYr}				       -- 감사년도
+			 , #{audNo}				       -- 감사번호
+			 , 'A'					       -- 등록경로
+			 , #{usrId} 			       -- 최초사용자ID
+			 , #{usrId} 		  		   -- 최종사용자ID
+			 , #{dptCd} 	 	           -- 최종거래부서코드
+			 , #{menuNo}         		   -- 최종메뉴ID
+			 , SYSDATE 			           -- 최초들록일시
+			 , SYSDATE 			           -- 최종수정일시
+		     )
+    </insert>
+    
+    <!-- 조사개시통보 수정 -->
+    <update id="updateIvstStartNotiData" parameterType="paramMap">
+    	/*kr.go.bai.eip.aep.afu.dao.AEPAFU001QMapper.updateIvstStartNotiData*/
+    	UPDATE TBCSPKDE007M 
+		   SET BLT_ORG_CD 	     = #{bltOrgCd}		-- 소속기관코드
+			 , BLT_DPT_NM 		 = #{bltDptNm}		-- 소속부서명
+			 , RANK_NM 		     = #{rankNm}		-- 직급명
+			 , NAM 				 = #{nam}			-- 성명
+			 , EIN 				 = #{ein}			-- 암호화주민등록번호
+			 , NTF_DT 			 = replace(#{ntfDt},'-','') -- 통보일
+			 , END_DT 			 = replace(#{endDt},'-','') -- 종료일
+			 , FNL_USR_ID 	     = #{usrId}			-- 최종사용자ID
+			 , FNL_DEAL_DPT_CD 	 = #{dptCd}		    -- 최종거래부서코드
+			 , FNL_MNU_ID		 = #{menuNo}        -- 최종메뉴ID
+			 , FNL_MDF_DH 		 = SYSDATE			-- 최종수정일시
+		 WHERE AUD_YR = #{audYr}
+		   AND AUD_NO = #{audNo}
+		   AND REGI_SRNO = #{regiSrno}
+    </update>
+    
+    <!-- 조사개시통보 삭제 -->
+    <delete id="deleteIvstStartNotiData" parameterType="paramMap">
+        /*kr.go.bai.eip.aep.afu.dao.AEPAFU001QMapper.deleteIvstStartNotiData*/
+        DELETE TBCSPKDE007M
+         WHERE AUD_YR = #{audYr}
+           AND AUD_NO = #{audNo}
+           AND REGI_SRNO = #{regiSrno}
+    </delete>
+    
+    <!-- 조사개시통보 채번 -->
+    <select id="selectMaxRegiSrno" parameterType="paramMap" resultType="egovMap">
+        /*kr.go.bai.eip.aep.afu.dao.AEPAFU001QMapper.selectMaxRegiSrno */
+            SELECT NVL(MAX(REGI_SRNO),0) + 1 AS REGI_SRNO 
+				  FROM TBCSPKDE007M
+				 WHERE 1=1
+    </select>
+    
+    <!-- 조사개시통보 이력 -->
+    <insert id="insertIvstStartNotiDataH" parameterType="paramMap">
+        /*kr.go.bai.eip.aep.afu.dao.AEPAFU001QMapper.insertIvstStartNotiDataH*/
+        INSERT 
+		  INTO TBCSPKDE007H
+		     ( HST_DVSN_CD          /* 이력구분코드 */
+		     , HST_SNO			    /* 이력순번 */
+		     , HST_DH				/* 이력일시 */
+		     , HST_USR_ID           /* 이력사용자ID */
+		     , REGI_SRNO			/* 일련번호 */
+		     , REGI_DT				/* 등록일 */
+		     , REGI_DPT_CD			/* 등록부서코드 */
+		     , REGN_CNB				/* 등록자전산번호 */
+		     , BLT_ORG_CD			/* 소속기관코드 */
+		     , BLT_DPT_NM			/* 소속부서명 */
+		     , RANK_NM				/* 직급명 */
+		     , NAM					/* 성명 */
+		     , EIN					/* 암호화주민등록번호 */
+		     , NTF_DT				/* 통보일 */
+		     , FRT_USR_ID			/* 최초사용자ID */
+		     , FNL_USR_ID			/* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD		/* 최종거래부서코드 */
+		     , FNL_MNU_ID			/* 최종메뉴ID */
+		     , FRT_REGI_DH			/* 최초등록일시 */
+		     , FNL_MDF_DH			/* 최종수정일시 */
+		     , AUD_YR				/* 감사년도 */
+		     , AUD_NO				/* 감사번호 */
+		     , REGI_RUT				/* 등록경로 */
+			 )
+		SELECT #{hstDvsnCd}         /* 이력구분코드 */
+		     , TBCSPKDE007H_SEQ.NEXTVAL   /* 이력순번 */
+		     , SYSDATE				/* 이력일시 */
+		     , #{usrId}             /* 이력사용자ID */
+		     , REGI_SRNO			/* 일련번호 */
+		     , REGI_DT				/* 등록일 */
+		     , REGI_DPT_CD			/* 등록부서코드 */
+		     , REGN_CNB				/* 등록자전산번호 */
+		     , BLT_ORG_CD			/* 소속기관코드 */
+		     , BLT_DPT_NM			/* 소속부서명 */
+		     , RANK_NM				/* 직급명 */
+		     , NAM					/* 성명 */
+		     , EIN					/* 암호화주민등록번호 */
+		     , NTF_DT				/* 통보일 */
+		     , FRT_USR_ID			/* 최초사용자ID */
+		     , FNL_USR_ID			/* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD		/* 최종거래부서코드 */
+		     , FNL_MNU_ID			/* 최종메뉴ID */
+		     , FRT_REGI_DH			/* 최초등록일시 */
+		     , FNL_MDF_DH			/* 최종수정일시 */
+		     , AUD_YR				/* 감사년도 */
+		     , AUD_NO				/* 감사번호 */
+		     , REGI_RUT				/* 등록경로 */
+		  FROM TBCSPKDE007M 
+		 WHERE REGI_SRNO = #{regiSrno}
+    </insert>
+</mapper>

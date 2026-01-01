@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="dcm/acm/063">
+	<select id="DCMACM063QMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT 	A.DPT_CD, NULL AS CNB , A.DPT_NM, A.HIRK_DPT_CD , A.SRT_DESC, A.CD_DESC,LVL 
+			FROM (
+					SELECT 	DISTINCT A.DPT_CD /*부서코드*/
+							, A.DPT_NM /*부서명*/
+							, CASE WHEN A.DPT_CD = A.HIRK_DPT_CD THEN NULL
+								WHEN A.DPT_CD = #strDPT_CD# THEN NULL
+							ELSE A.HIRK_DPT_CD  END AS HIRK_DPT_CD /*상위부서코드*/
+							, SYS_CONNECT_BY_PATH(LPAD(NVL(A.SRT_SNO, 0), 3, '0'), '>') AS SRT_DESC
+							, SUBSTR(SYS_CONNECT_BY_PATH(A.DPT_CD, '>'), 2) AS CD_DESC
+							, LEVEL AS LVL
+					FROM TBDCMACM002M A
+					WHERE 1=1		
+					AND USE_YN = 'Y'
+					START WITH A.DPT_CD = #strDPT_CD#
+					CONNECT BY PRIOR A.DPT_CD = HIRK_DPT_CD 
+					) A 
+			UNION ALL 
+			SELECT A.CNB AS DPT_CD, A.CNB, A.USR_NAM AS DPT_NM, A.HIRK_DPT_CD , A.SRT_DESC, A.CD_DESC,LVL FROM (
+					SELECT 	DISTINCT A.DPT_CD /*부서코드*/
+							, A.DPT_NM /*부서명*/
+							, A.DPT_CD AS HIRK_DPT_CD /*상위부서코드*/
+							, SYS_CONNECT_BY_PATH(LPAD(NVL(A.SRT_SNO, 0), 3, '0'), '>') AS SRT_DESC
+							, SUBSTR(SYS_CONNECT_BY_PATH(A.DPT_CD, '>'), 2) AS CD_DESC
+							, LEVEL AS LVL
+							,B.CNB
+							,B.USR_NAM
+					FROM 	TBDCMACM002M A
+							,TBDCMACM001M B
+					WHERE 	1=1		
+					AND 	USE_YN = 'Y'
+					AND 	A.DPT_CD =B.DPT_CD
+					AND 	B.RQS_STA_CD ='3'
+					AND		B.USR_DVSN_CD = '1'
+					AND		B.CNB < '5000'
+					START WITH A.DPT_CD = #strDPT_CD#
+					CONNECT BY PRIOR A.DPT_CD = HIRK_DPT_CD 
+					) A
+			ORDER BY SRT_DESC
+		]]>
+	</select>
+	
+	
+	<select id="DCMACM063QSubSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT	T2.DPT_NM||' '||T1.RANK_NM_2||'('||T1.RANK_SRT_SEQ_NM||') '||T1.USR_NAM AS INFO
+					,'Oasys ID : '||T1.USR_ID||' / 전산번호 : '||T1.CNB||' / 구내번호 : '||T1.TNB||' / 핸드폰 : '||T1.HOM_TNB AS SUB_INFO  
+					,T1.AD AS ADDR
+					,'입사일 : '||TO_CHAR(TO_DATE(T1.CRNT_DPT_APM_DT),'YYYY.MM.DD')
+					||'('||(TO_CHAR(SYSDATE,'YYYY')-TO_CHAR(TO_DATE(T1.CRNT_DPT_APM_DT),'YYYY'))
+					||'년) / 현직급임용일 : '||TO_CHAR(TO_DATE(T1.CRNT_RANK_APM_DT),'YYYY.MM.DD')
+					||'('||(TO_CHAR(SYSDATE,'YYYY')-TO_CHAR(TO_DATE(T1.CRNT_RANK_APM_DT),'YYYY'))||'년)' AS INSA1
+					,(	SELECT	'감사부서 : '||CEIL((COUNT(*)/12))||'년('||COUNT(*)||')'
+						FROM	TBCSPBII180L S1
+						WHERE	S1.CNB = T1.CNB
+						AND		DPT_TP_CD = 'A' AND DPT_CD NOT IN ('7777','770770'))
+					||' / '||(	SELECT	'지원부서 : '||CEIL((COUNT(*)/12))||'년('||COUNT(*)||')'
+						FROM	TBCSPBII180L S1
+						WHERE	S1.CNB = T1.CNB
+						AND		DPT_TP_CD = 'S' AND DPT_CD NOT IN ('7777','770770'))
+					||' / '||(	SELECT	'파견.휴직 : '||CEIL((COUNT(*)/12))||'년('||COUNT(*)||')'
+						FROM	TBCSPBII180L S1
+						WHERE	S1.CNB = T1.CNB
+						AND		DPT_CD IN ('7777','770770')) AS INSA2
+					,NULL AS INSA3
+					,'실지감사 '||(	SELECT COUNT(*)
+						FROM	(
+									SELECT	DISTINCT S3.AUD_YR, S3.AUD_NO
+									FROM	TBBADDED011L S1
+											,TBBADDED002M S2
+											,TBBADDED001M S3
+									WHERE	S1.PCT_CNB = #strCNB#
+									AND		S1.BZT_YR = S2.BZT_YR
+									AND		S1.BZT_SNO = S2.BZT_SNO
+									AND		S2.REL_AUD_YR = S3.AUD_YR
+									AND		S2.REL_AUD_NO = S3.AUD_NO
+									AND		SUBSTRING(S3.AUD_KND_CD,3,1) < '5'
+								) 
+						)||' 회 (주관 '
+					||(	SELECT	COUNT(*)
+						FROM	TBBADDED031L S1
+						WHERE	S1.CNB = T1.CNB
+						AND		AUDTOR_DVSN_CD = '1')
+					||'회 / 보조 '
+					||(	SELECT	COUNT(*)
+						FROM	TBBADDED031L S1
+						WHERE	S1.CNB = T1.CNB
+						AND		AUDTOR_DVSN_CD = '2')
+					||'회) / 확인출장 '
+					||(	SELECT COUNT(*)
+							FROM	(
+									SELECT	DISTINCT S3.AUD_YR, S3.AUD_NO
+									FROM	TBBADDED011L S1
+											,TBBADDED002M S2
+											,TBBADDED001M S3
+									WHERE	S1.PCT_CNB = #strCNB#
+									AND		S1.BZT_YR = S2.BZT_YR
+									AND		S1.BZT_SNO = S2.BZT_SNO
+									AND		S2.REL_AUD_YR = S3.AUD_YR
+									AND		S2.REL_AUD_NO = S3.AUD_NO
+									AND		SUBSTRING(S3.AUD_KND_CD,3,1) >= '5'
+							) 
+					)||'회' AS AUD1
+					,'' AUD2
+					,'' AUD3
+					,'' AUD4
+					,'' AS AOE
+					,'제출 : '
+					|| (	SELECT	COUNT(*)
+							FROM	TBCSPBII100M S1
+							WHERE	S1.PRSR_CNB = T1.CNB
+					)||'건 ( 입건 : '
+					||(		SELECT	COUNT(*)
+						FROM	TBCSPBII100M S1
+						WHERE	S1.PRSR_CNB = T1.CNB
+						AND		S1.HNDL_RSLT_CD IN ('31','34')
+					)||'건 / 감사활용 : '
+					||(		SELECT	COUNT(*)
+						FROM	TBCSPBII100M S1
+						WHERE	S1.PRSR_CNB = T1.CNB
+						AND		S1.HNDL_RSLT_CD = '35'
+					)||'건 / 불문 : '
+					||(		SELECT	COUNT(*)
+						FROM	TBCSPBII100M S1
+						WHERE	S1.PRSR_CNB = T1.CNB
+						AND		S1.HNDL_RSLT_CD = '36'
+					)||'건 / 낭비(감점) : '
+					||(		SELECT	COUNT(*)
+						FROM	TBCSPBII100M S1
+						WHERE	S1.PRSR_CNB = T1.CNB
+						AND		S1.HNDL_RSLT_CD = '37'
+					)||'건 / 공람완결 : '
+					||(		SELECT	COUNT(*)
+						FROM	TBCSPBII100M S1
+						WHERE	S1.PRSR_CNB = T1.CNB
+						AND		S1.HNDL_RSLT_CD = '77'
+					)||'건 / 종결 : '
+					||(		SELECT	COUNT(*)
+						FROM	TBCSPBII100M S1
+						WHERE	S1.PRSR_CNB = T1.CNB
+						AND		S1.HNDL_RSLT_CD = '88'
+					)||' )' AS BII1
+					,'' BII2
+					,'등록 : '
+					||(	SELECT	COUNT(*)
+						FROM	TBAEPGKM001M S1
+						WHERE	S1.REGN_CNB = T1.CNB)
+					||'건 (채택 : 0건)' AS GKM
+					,'제출 : '
+					||(	SELECT	COUNT(*)
+						FROM	TBCSPGSU001M S1
+						WHERE	S1.PRPS_PEN_CNB = T1.CNB
+						AND		S1.PRPS_STA_CD <> 'A')
+					||'건 (채택 : '
+					||(	SELECT	COUNT(*)
+						FROM	TBCSPGSU001M S1
+						WHERE	S1.PRPS_PEN_CNB = T1.CNB
+						AND		S1.PRPS_STA_CD = 'N')
+					||'건)' AS GSU
+					,(	SELECT	REPLACE(AGGR_CONCAT(F_CODE_NM('1000822',S1.RWD_SER_DTL_CD)||'('||TO_CHAR(TO_DATE(S1.RWD_DT),'YYYY.MM.DD')||')','//'),'//',CHR(10)) AS POSANG 
+						FROM 	TBDCMACM042M S1, TBDCMACM043D S2
+						WHERE   S1.RWD_NO = S2.RWD_NO
+						AND		S2.RWD_TG_STF_CNB = T1.CNB
+					) AS POSANG
+					,'처리 : '||(	SELECT	COUNT(*)
+						FROM	TBCSPDCP201M S1
+						WHERE	HNDL_CHGR_ID = T1.USR_ID
+					)||'건' AS ETC1
+					,'처리 : '||(	SELECT	COUNT(*)
+						FROM	TBCSPDCP813M S1
+						WHERE	HNDL_CHGR_ID = T1.USR_ID
+					)||'건' AS ETC2 
+					,'처리 : '||(	SELECT	COUNT(*)
+						FROM	TBCSPEAR001M S1
+						WHERE	HNDL_CHGR_ID = T1.USR_ID OR AUD_EXEC_DCS_CHGR_ID = T1.USR_ID
+					)||'건' AS ETC3
+					,'처리 : '||(	SELECT	COUNT(*)
+						FROM	TBBADFRE012M S1
+						WHERE	HNDL_CHGR_CD = T1.CNB
+					)||'건' AS ETC4
+					,'연구 : '||(	SELECT	COUNT(*)
+						FROM	TBCSPURA001M S1
+						WHERE	CHGR_CNB_1 = T1.CNB OR CHGR_CNB_2 = T1.CNB OR CHGR_CNB_3 = T1.CNB OR CHGR_CNB_4 = T1.CNB
+					)||'건' AS ETC5
+					,'모니터링보고서 : '||(	SELECT	COUNT(*)
+						FROM	TBBADCMR009M S1
+						WHERE	REGN_ID = T1.CNB
+					)||'건' AS ETC6
+			FROM	TBDCMACM001M T1
+					,TBDCMACM002M T2
+			WHERE	T1.DPT_CD = T2.DPT_CD
+			AND		T1.CNB = #strCNB#
+			
+			
+		]]>
+	</select>
+</sqlMap> 

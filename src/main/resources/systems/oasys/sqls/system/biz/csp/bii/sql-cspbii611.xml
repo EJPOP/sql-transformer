@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/bii/611">
+
+	<!-- 공무원 공공직원 검색  -->
+	<select id="CSPBII611QMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		SELECT A.NAM                                                 /* 성명 */
+		     , A.PART_RRN                                            /* 부분주민등록번호(뒷자리*처리) */	
+		     , A.DTIL_ORG_NM                                         /* 세부기관명 */                      
+		     , A.DTIL_RANK_NM                                        /* 세부직급명 */
+		     , A.JOCP_DT                                             /* 입사일 */
+		     , A.RSG_DT                                              /* 퇴사일 */
+		     , A.FRT_REGI_DH                                         /* 최초등록일 */
+		     , A.EIN                                                 /* 암호화주민등록번호 */	
+		     , F_CODE_NM('1000096', A.MTRL_DVSN_CD)  AS MTRL_DVSN_NM /* 자료구분명 */
+		     , F_CODE_NM('1000058', A.WRK_RANK_CD)   AS WRK_RANK_NM  /* 근무직급명 */
+		     , (SELECT B.ORG_NM
+		          FROM TBDCMACM015M B
+		         WHERE B.ORG_CD = A.BLT_ORG_CD)      AS BLT_ORG_NM   /* 소속기관명 */
+		     , (SELECT COUNT(*) 
+		          FROM TBCSPBII620L B
+		         WHERE B.EIN = A.EIN)                AS FMY_CNT      /* 가족수 */		    
+		     , MIN(RRN_SRNO) OVER (PARTITION BY EIN) AS RRN_SRNO     /* 주민등록번호일련번호 */
+		     , TOT_CNT                                               /* 총건수 */
+		  FROM (SELECT T.* 
+		             , ROWNUM AS NUM 
+		          FROM (SELECT DT.*
+		                     , COUNT(1) OVER() AS TOT_CNT 
+		         		  FROM (SELECT A.NAM                                       /* 성명 */
+		                       , SUBSTR(A.EIN,1,6)||'-*******'     AS PART_RRN     /* 부분주민등록번호(뒷자리*처리) */		                                                         
+		                       , A.MTRL_DVSN_CD                                    /* 자료구분코드 */
+		                       , A.BLT_ORG_CD                                      /* 소속기관코드 */
+		                       , A.DTIL_ORG_NM                                     /* 세부기관명 */
+		                       , A.WRK_RANK_CD                                     /* 근무직급코드 */
+		                       , A.DTIL_RANK_NM                                    /* 세부직급명 */
+		                       , A.JOCP_DT                                         /* 입사일 */
+		                       , A.RSG_DT                                          /* 퇴사일 */
+		                       , TO_CHAR(A.FRT_REGI_DH, 'YYYYMMDD') AS FRT_REGI_DH /* 최초등록일 */
+		                       , A.ORG_DVSN_CD                                     /* 기관구분코드 */
+		                       , A.EPS_MNG_DVSN_CD                                 /* 중점관리구분코드 */          						
+		                       , A.RSG_YN                                          /* 퇴직여부 */
+		                       , A.EIN                                             /* 암호화주민등록번호 */	
+		                       , A.RRN_SRNO                                        /* 주민등록번호일련번호 */	                       
+		                    FROM TBCSPBII600M A /* 공무원_공공직원 기본 */
+		                   WHERE 1=1
+		          			   
+		                   <!-- 이름 검색 -->
+		                   <isNotEmpty property="nam">
+		                    AND A.NAM LIKE #nam#||'%'
+		                   </isNotEmpty>			
+		                   
+		                   <!-- 주민번호 검색 -->
+		                   <isNotEmpty property="strEin">
+		                    AND A.EIN LIKE #strEin# || '%'
+		                   </isNotEmpty>
+		                   
+		                   <!-- 자료구분코드 검색 -->
+		                   <isNotEmpty property="mtrlDvsnCd">
+		                   	AND A.MTRL_DVSN_CD = #mtrlDvsnCd#
+		                   </isNotEmpty>
+		                   
+		                   <!-- 가족 이름 검색 -->
+		                   <isNotEmpty property="fmyNam">
+		                   	AND A.EIN IN (SELECT B.EIN
+		                   	                FROM TBCSPBII620L B
+		                   	               WHERE B.FMY_NAM LIKE '%'||#fmyNam#||'%')
+		                   	             
+		                   </isNotEmpty>
+		                   
+		                   <!-- 가족 주민번호 검색 -->
+		                   <isNotEmpty property="strFmyEin">
+		                   	AND A.EIN IN (SELECT B.EIN
+		                   	                FROM TBCSPBII620L B
+		                   	               WHERE B.FMY_EIN LIKE #strFmyEin# || '%')
+		                   </isNotEmpty>
+		                   
+		                   <!-- 소속기관 검색 -->
+		                   <isNotEmpty property="bltOrgCd">
+		                   	AND A.BLT_ORG_CD = #bltOrgCd#
+		                   </isNotEmpty>
+		                   	
+		                   <!-- 직급코드 From 검색 -->
+		                   <isNotEmpty property="strRankCd">
+		                   	AND A.WRK_RANK_CD >= #strRankCd#
+		                   </isNotEmpty>
+		                   
+		                   <!-- 직급코드 To 검색 -->
+		                   <isNotEmpty property="endRankCd">
+		                   	AND A.WRK_RANK_CD &lt;= #endRankCd#
+		                   </isNotEmpty>
+		                   
+		                   <!-- 특이사항 코드 검색 -->
+		                   <isNotEmpty property="unqCd">
+		                   	AND A.EIN IN (SELECT B.EIN
+		                   	                FROM TBCSPBII630L B
+		                   	               WHERE B.UNQ_CD = #unqCd#)
+		                   </isNotEmpty>
+		                   	
+		                   <!-- 비위점수 시작 검색 -->
+		                   <isNotEmpty property="strWrdoSc">
+		                   	AND A.EIN IN (SELECT B.EIN
+		                   	                FROM TBCSPBII630L B
+		                   	               WHERE B.WRDO_SC >= #strWrdoSc#)			                 
+		                   </isNotEmpty>
+		                   
+		                   <!-- 비위점수 종료 검색 -->
+		                   <isNotEmpty property="endWrdoSc">
+		                   	AND A.EIN IN (SELECT B.EIN
+		                   	                FROM TBCSPBII630L B
+		                   	               WHERE B.WRDO_SC &lt;= #endWrdoSc#)		
+		                   </isNotEmpty>
+		                   	
+		                   <!-- 퇴직구분 검색 -->
+		                   <isNotEmpty property="rsgYn">
+		                   	AND A.RSG_YN = #rsgYn#
+		                   </isNotEmpty>
+		                   						
+		                   <!-- 검색어 검색 -->
+		                   <isNotEmpty property="schTxt">
+		                   	AND A.EIN IN (SELECT B.EIN
+		                   	                FROM TBCSPBII600M B
+		                   		             WHERE B.NAM LIKE '%'||#schTxt#||'%'
+		                   		            UNION ALL
+		                   		            SELECT B.EIN
+		                   		              FROM TBCSPBII600M B
+		                   		             WHERE F_CODE_NM('1000058',A.WRK_RANK_CD) LIKE '%'||#schTxt#||'%'
+		                   		            UNION ALL	
+		                   		            SELECT B.EIN
+		                   		              FROM TBCSPBII600M B
+		                   		             WHERE (SELECT C.ORG_NM
+		                   		                      FROM TBDCMACM015M C
+		                   		                     WHERE C.ORG_CD = A.BLT_ORG_CD) LIKE '%'||#schTxt#||'%'
+		                   		            UNION ALL
+		                   		            SELECT C.EIN 
+		                   		              FROM TBCSPBII631C B
+		                   		                 , TBCSPBII630L C
+		                   		             WHERE B.UNQ_TXT LIKE '%'||#schTxt#||'%'
+		                   		               AND B.UNQ_CD = C.UNQ_CD)
+		                   </isNotEmpty> 
+		                  ORDER BY FRT_REGI_DH DESC, RRN_SRNO ) DT
+		          	   ) T
+		       ) A
+		 WHERE NUM BETWEEN (((#currPage#- 1) * #pageSize#) + 1) AND (#currPage# * #pageSize#)
+	</select>
+	
+	<!-- 특이사항 코드 검색  -->	
+	<select id="CSPBII611QinitSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT UNQ_CD  AS CD
+			     , UNQ_TXT AS CD_NM
+			     , STR_WRDO_SC
+			     , END_WRDO_SC 
+			  FROM TBCSPBII631C			
+			ORDER BY UNQ_CD DESC
+		]]>
+	</select>	
+	
+	<!-- 공무원 공공직원 엑셀 다운로드  -->
+	<select id="CSPBII611QExcelExportSelect" parameterClass="paramMap" resultClass="resultMap">
+		SELECT A.NAM                                                /* 성명 */
+		     , SUBSTR(A.EIN,1,6)||'-*******'        AS PART_RRN     /* 부분주민등록번호(뒷자리*처리) */	
+		     , A.EIN                                                /* 암호화주민등록번호 */
+		     , F_CODE_NM('1000096', A.MTRL_DVSN_CD) AS MTRL_DVSN_NM /* 자료구분명 */
+		     , (SELECT B.ORG_NM
+		          FROM TBDCMACM015M B
+		         WHERE B.ORG_CD = A.BLT_ORG_CD)     AS BLT_ORG_NM   /* 소속기관명 * 	                                                         		                       
+		     , A.DTIL_ORG_NM                                        /* 세부기관명 */
+		     , F_CODE_NM('1000058', A.WRK_RANK_CD)  AS WRK_RANK_NM  /* 근무직급명 */		                       
+		     , A.DTIL_RANK_NM                                       /* 세부직급명 */
+		     , A.JOCP_DT                                            /* 입사일 */
+		     , A.RSG_DT                                             /* 퇴사일 */
+		     , TO_CHAR(A.FRT_REGI_DH, 'YYYYMMDD')   AS FRT_REGI_DH  /* 최초등록일 */		                       
+		     , (SELECT COUNT(*) 
+		          FROM TBCSPBII620L B
+		         WHERE B.EIN = A.EIN)                AS FMY_CNT     /* 가족수 */		                     
+		  FROM TBCSPBII600M A /* 공무원_공공직원 기본 */
+		 WHERE 1=1
+		          			   
+		<!-- 이름 검색 -->
+		<isNotEmpty property="nam">
+		AND A.NAM LIKE #nam#||'%'
+		</isNotEmpty>			
+		
+		<!-- 주민번호 검색 -->
+		<isNotEmpty property="strEin">
+		AND A.EIN LIKE #strEin# || '%'
+		</isNotEmpty>
+		
+		<!-- 자료구분코드 검색 -->
+		<isNotEmpty property="mtrlDvsnCd">
+			AND A.MTRL_DVSN_CD = #mtrlDvsnCd#
+		</isNotEmpty>
+		
+		<!-- 가족 이름 검색 -->
+		<isNotEmpty property="fmyNam">
+			AND A.EIN IN (SELECT B.EIN
+			                FROM TBCSPBII620L B
+			               WHERE B.FMY_NAM LIKE '%'||#fmyNam#||'%')
+			             
+		</isNotEmpty>
+		
+		<!-- 가족 주민번호 검색 -->
+		<isNotEmpty property="strFmyEin">
+			AND A.EIN IN (SELECT B.EIN
+			                FROM TBCSPBII620L B
+			               WHERE B.FMY_EIN LIKE #strFmyEin# || '%')
+		</isNotEmpty>
+		
+		<!-- 소속기관 검색 -->
+		<isNotEmpty property="bltOrgCd">
+			AND A.BLT_ORG_CD = #bltOrgCd#
+		</isNotEmpty>
+			
+		<!-- 직급코드 From 검색 -->
+		<isNotEmpty property="strRankCd">
+			AND A.WRK_RANK_CD >= #strRankCd#
+		</isNotEmpty>
+		
+		<!-- 직급코드 To 검색 -->
+		<isNotEmpty property="endRankCd">
+			AND A.WRK_RANK_CD &lt;= #endRankCd#
+		</isNotEmpty>
+		
+		<!-- 특이사항 코드 검색 -->
+		<isNotEmpty property="unqCd">
+			AND A.EIN IN (SELECT B.EIN
+			                FROM TBCSPBII630L B
+			               WHERE B.UNQ_CD = #unqCd#)
+		</isNotEmpty>
+			
+		<!-- 비위점수 시작 검색 -->
+		<isNotEmpty property="strWrdoSc">
+			AND A.EIN IN (SELECT B.EIN
+			                FROM TBCSPBII630L B
+			               WHERE B.WRDO_SC >= #strWrdoSc#)			                 
+		</isNotEmpty>
+		
+		<!-- 비위점수 종료 검색 -->
+		<isNotEmpty property="endWrdoSc">
+			AND A.EIN IN (SELECT B.EIN
+			                FROM TBCSPBII630L B
+			               WHERE B.WRDO_SC &lt;= #endWrdoSc#)		
+		</isNotEmpty>
+			
+		<!-- 퇴직구분 검색 -->
+		<isNotEmpty property="rsgYn">
+			AND A.RSG_YN = #rsgYn#
+		</isNotEmpty>
+								
+		<!-- 검색어 검색 -->
+		<isNotEmpty property="schTxt">
+			AND A.EIN IN (SELECT B.EIN
+			                FROM TBCSPBII600M B
+				             WHERE B.NAM LIKE '%'||#schTxt#||'%'
+				            UNION ALL
+				            SELECT B.EIN
+				              FROM TBCSPBII600M B
+				             WHERE F_CODE_NM('1000058',A.WRK_RANK_CD) LIKE '%'||#schTxt#||'%'
+				            UNION ALL	
+				            SELECT B.EIN
+				              FROM TBCSPBII600M B
+				             WHERE (SELECT C.ORG_NM
+				                      FROM TBDCMACM015M C
+				                     WHERE C.ORG_CD = A.BLT_ORG_CD) LIKE '%'||#schTxt#||'%'
+				            UNION ALL
+				            SELECT C.EIN 
+				              FROM TBCSPBII631C B
+				                 , TBCSPBII630L C
+				             WHERE B.UNQ_TXT LIKE '%'||#schTxt#||'%'
+				               AND B.UNQ_CD = C.UNQ_CD)
+		</isNotEmpty> 
+		ORDER BY FRT_REGI_DH DESC, RRN_SRNO
+	</select>
+	
+	<!-- 검색로그내역 등록  -->
+	<insert id="CSPBII611QinsertSchLog" parameterClass="paramMap">
+		INSERT INTO TBCSPBII690L (
+		                          SCH_DT          /* 검색일 */		   
+		                        , SRNO            /* 일련번호 */		                        
+		                        , CNB             /* 전산번호 */
+		                        , SCH_CND_NAM     /* 검색조건성명 */
+		                        , SCH_CND_EIN     /* 검색조건암호화주민등록번호 */
+		                        , SCH_CND_ETC_TXT /* 검색조건기타내용 */
+		                        , FRT_USR_ID      /* 최초사용자ID */
+		                        , FNL_USR_ID      /* 최종사용자ID */
+		                        , FNL_DEAL_DPT_CD /* 최종거래부서코드 */
+		                        , FNL_MNU_ID      /* 최종메뉴ID */
+		                        , FRT_REGI_DH     /* 최초등록일시 */
+		                        , FNL_MDF_DH      /* 최종수정일시 */
+		                         ) 
+		                  VALUES (
+		                          TO_CHAR(SYSDATE, 'YYYYMMDD')
+		                        , (SELECT NVL(MAX(SRNO), 0) + 1
+		                             FROM TBCSPBII690L
+		                            WHERE SCH_DT = TO_CHAR(SYSDATE, 'YYYYMMDD'))		                        
+		                        , #CNB#
+		                        , #nam#	<!-- 화면에서 requstKey로 받아오는 값이므로 파라미터가 소문자 -->
+		                        , #SCH_CND_EIN#
+		                        , #strSrchCndList#                        
+		                        , #FRT_USR_ID#
+		                        , #FNL_USR_ID#
+		                        , #FNL_DEAL_DPT_CD#
+		                        , #FNL_MNU_ID#
+		                        , SYSDATE
+		                        , SYSDATE
+				                 )
+	</insert>	
+</sqlMap> 

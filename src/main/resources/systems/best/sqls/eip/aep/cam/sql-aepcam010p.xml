@@ -1,0 +1,304 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.go.bai.eip.aep.cam.dao.AEPCAM010PMapper">
+    
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.aep.cam.dao.AEPCAM010PMapper.selectMainList*/
+			SELECT
+				A.DPT_CD
+               , A.DPT_NM
+               , E.RPRT_CD
+               , E.RPRT_NM
+               , F.DOC_ID AS SND_DOC_ID
+               , E.DOC_ID
+               , (CASE WHEN F.DOC_ID IS NOT NULL THEN '발신완료(' || TO_CHAR(F.SND_DH, 'YYYY-MM-DD') || ')' 
+                       WHEN A.DPT_CD = '510000' AND G.CHF_CMTR_CNB IS NULL THEN '발신불가'
+                       ELSE 'Y'
+                       END) AS SND_INFO 
+               , (CASE WHEN A.DPT_CD = '510000' AND G.CHF_CMTR_CNB IS NULL THEN '주심위원 지정전' ELSE '' END) AS ETC 
+               , A.AUD_YR
+               , A.AUD_NO
+               , B.RECEV_DY || '-소명-' || B.GRN_SRNO AS MFEX_NO  /*소명자료 관리번호*/
+               , (CASE WHEN B.IMMUN_REQ_YN = 'Y' THEN B.RECEV_DY || '-면책-' || B.IMMUN_SRNO ELSE '' END ) AS IMMUN_NO		/*적극행정면책관리번호*/
+               , (SELECT AUD_SBJ_NM 
+                    FROM TBBADDED001M INT1
+                   WHERE INT1.AUD_YR = A.AUD_YR
+                     AND INT1.AUD_NO = A.AUD_NO) AUD_SBJ_NM
+               , (SELECT DISTINCT 'Y' FROM TBBADDED103M T1, TBDCMACM023L T2
+                                  WHERE T1.APV_RQS_ID = T2.APV_DOC_NO
+                                    AND T1.AUD_YR = A.AUD_YR
+                                    AND T1.AUD_NO = A.AUD_NO
+                                    AND T1.AUD_YR = #{audYr}
+                                    AND T1.AUD_NO = #{audNo}
+                                    AND T1.AUD_STEP_CD = 'A1060'
+                                    AND T1.RPRT_CD = 'A10600200'
+                                    AND T1.AUD_RPRT_DVSN_CD = '10'
+                                    AND T2.APVR_PST_CD = '0055700'
+                                    AND T2.APVR_STA_CD IN ('202','203') ) AS APV_YN /* 개별처리안 사무총장 결재 여부 */ 
+               , (SELECT T1.ADV_COMMIT_END_YN FROM TBCSPKDE109M T1 
+                                                WHERE T1.ADV_COMMIT_YY = (SELECT MAX(ADV_COMMIT_YY) FROM TBCSPKDE103M WHERE AUD_YR = #{audYr} AND AUD_NO = #{audNo} AND SRNO = #{srno})  
+                                                  AND T1.ADV_COMMIT_SRNO = (SELECT MAX(ADV_COMMIT_SRNO) FROM TBCSPKDE103M WHERE AUD_YR = #{audYr} AND AUD_NO = #{audNo} AND SRNO = #{srno}) ) AS ADV_YN
+               , (SELECT COUNT(*)
+                    FROM TBBADDED103M A 
+                       , TBDCMACM023L B
+                  WHERE A.APV_RQS_ID = B.APV_DOC_NO
+                    AND A.AUD_YR = #{audYr}
+                    AND A.AUD_NO = #{audNo}
+                    AND A.AUD_STEP_CD = 'A1060'
+                    AND A.RPRT_CD = 'A10600200'
+                    AND A.AUD_RPRT_DVSN_CD = '10'
+                    AND B.APVR_STA_CD IN ('202')
+                    AND B.APVR_PST_CD IN ('0013600', '0015800', '0055600', '0045900')
+                    AND EXISTS (SELECT 1
+                                 FROM TBBADDED103M
+                                WHERE AUD_YR = #{audYr}
+                                  AND AUD_NO = #{audNo}
+                                  AND DOC_ID = #{docId}
+                                  AND RPRT_CD = 'A10601000')) AS RCNT_CNT 
+               , (SELECT AGGR_CONCAT(APVR_CNB, '')
+                    FROM TBBADDED103M A 
+                       , TBDCMACM023L B
+                  WHERE A.APV_RQS_ID = B.APV_DOC_NO
+                    AND A.AUD_YR = #{audYr}
+                    AND A.AUD_NO = #{audNo}
+                    AND A.AUD_STEP_CD = 'A1060'
+                    AND A.RPRT_CD = 'A10600200'
+                    AND A.AUD_RPRT_DVSN_CD = '10'
+                    AND B.APVR_STA_CD IN ('202')
+                    AND B.APVR_PST_CD IN ('0013600', '0015800', '0055600', '0045900')
+                    AND EXISTS (SELECT 1
+                                 FROM TBBADDED103M
+                                WHERE AUD_YR = #{audYr}
+                                  AND AUD_NO = #{audNo}
+                                  AND DOC_ID = #{docId}
+                                  AND RPRT_CD = 'A10601000')) AS RCNT_HIS 
+			FROM
+	            (SELECT DPT_CD
+	                         , DPT_NM 
+	                         , #{audYr} AS AUD_YR
+	                         , #{audNo} AS AUD_NO
+	                         , #{srno} AS SRNO
+	            FROM TBDCMACM002M) A
+	            INNER JOIN TBCSPKDE103M B
+					ON (A.AUD_YR = B.AUD_YR
+					AND A.AUD_NO = B.AUD_NO
+					AND A.SRNO = B.SRNO)
+	            INNER JOIN TBBADDED103M E
+	            	ON (E.AUD_YR = B.AUD_YR
+		            AND E.AUD_NO = B.AUD_NO
+		            AND E.RPRT_CD = #{rprtCd}
+		            AND E.DOC_ID = #{docId})
+	            LEFT OUTER JOIN TBBADDED111M F 
+		            ON (F.AUD_YR = A.AUD_YR 
+		            AND F.AUD_NO = A.AUD_NO 
+		            AND F.RCPT_DPT_CD = A.DPT_CD 
+		            AND SUBSTR(F.LINK_URL,-36) = E.DOC_ID
+		            AND F.RPRT_CD = 'A10601000' 
+		            AND F.REF_ID = E.REF_ID 
+		            AND NVL(F.REF_DY, '99999') = NVL(E.REF_DY, '99999'))
+	            LEFT OUTER JOIN TBBADDED116L G ON (G.AUD_YR = E.AUD_YR 
+	                                          AND G.AUD_NO = E.AUD_NO 
+	                                          AND G.TASK_DVSN_CD = '9' 
+	                                          --AND G.DOC_ID = D.DOC_ID 
+	                                          AND G.SRNO = (SELECT MAX(SRNO) 
+	                                                          FROM TBBADDED116L 
+	                                                         WHERE AUD_YR = G.AUD_YR 
+	                                                           AND AUD_NO = G.AUD_NO 
+	                                                           AND TASK_DVSN_CD = '9' 
+	                                                           AND DOC_ID = G.DOC_ID))
+			WHERE A.DPT_CD IN ('180130','510000')
+              AND A.AUD_YR = #{audYr}
+              AND A.AUD_NO = #{audNo}
+              AND A.SRNO = #{srno}
+    </select>
+    
+    <select id="selectMainList2" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.aep.cam.dao.AEPCAM010PMapper.selectMainList2*/
+          SELECT C.DPT_CD
+			     , C.DPT_NM
+			     , B.RPRT_CD
+			     , B.RPRT_NM
+			     , D.DOC_ID AS SND_DOC_ID
+			     , B.DOC_ID
+			     , (CASE WHEN D.DOC_ID IS NOT NULL                           THEN '발신완료(' || TO_CHAR(D.SND_DH, 'YYYY-MM-DD') || ')' 
+			             WHEN C.DPT_CD = '510000' AND E.CHF_CMTR_CNB IS NULL THEN '발신불가'
+			                                                                 ELSE 'Y'
+			         END) AS SND_INFO
+			     , (CASE WHEN C.DPT_CD = '510000' AND E.CHF_CMTR_CNB IS NULL THEN '주심위원 지정전' ELSE '' END) AS ETC
+			     , A.AUD_YR
+			     , A.AUD_NO
+			  FROM TBCSPKDE103M_VIEW A
+			 INNER JOIN 
+			       TBBADDED103M B
+			    ON B.AUD_YR = A.AUD_YR
+			   AND B.AUD_NO = A.AUD_NO
+			   AND B.RPRT_CD = #{rprtCd}
+			   AND B.DOC_ID = #{docId}
+			   AND ((#{rprtCd} = 'A10700900' AND (B.REF_ID = A.SRNO || A.MFEX_DVSN_CD OR B.REF_ID IN (SELECT AA.AFF_SNO
+																							   	        FROM TBCSPKDE106M AA
+																							           WHERE AA.AUD_YR = A.AUD_YR
+																								         AND AA.AUD_NO = A.AUD_NO
+																								         AND AA.SRNO = A.SRNO )) ) OR
+			        (#{rprtCd} != 'A10700900' AND (B.REF_DY = A.SRNO || A.MFEX_DVSN_CD OR B.REF_DY IN (SELECT AA.AFF_SNO
+																							   	         FROM TBCSPKDE106M AA
+																							            WHERE AA.AUD_YR = A.AUD_YR
+																								          AND AA.AUD_NO = A.AUD_NO
+																								          AND AA.SRNO = A.SRNO )) ))
+			 INNER JOIN
+			       (SELECT AA.DPT_CD
+			             , AA.DPT_NM 
+			          FROM TBDCMACM002M AA
+			         WHERE AA.DPT_CD IN ('180130','510000')) C
+			    ON (1=1)
+			 LEFT OUTER JOIN 
+			      TBBADDED111M D 
+			   ON D.AUD_YR = A.AUD_YR 
+			  AND D.AUD_NO = A.AUD_NO 
+			  AND D.RCPT_DPT_CD = C.DPT_CD 
+			  AND D.RPRT_CD = #{rprtCd}
+			  AND NVL(D.REF_ID, '99999') = NVL(B.REF_ID, '99999') 
+			  AND NVL(D.REF_DY, '99999') = NVL(B.REF_DY, '99999')
+			 LEFT OUTER JOIN 
+			      TBBADDED116L E 
+			   ON E.AUD_YR = A.AUD_YR 
+			  AND E.AUD_NO = A.AUD_NO 
+			  AND E.TASK_DVSN_CD = '9'
+			  AND E.SRNO = (SELECT MAX(SRNO) 
+			                  FROM TBBADDED116L 
+			                 WHERE AUD_YR = A.AUD_YR 
+			                   AND AUD_NO = A.AUD_NO 
+			                   AND TASK_DVSN_CD = '9')
+			 WHERE A.AUD_YR = #{audYr}
+			   AND A.AUD_NO = #{audNo}
+			   AND ((#{rprtCd} = 'A10700900' AND B.REF_ID = #{affSno} ) OR
+			        (#{rprtCd} != 'A10700900' AND B.REF_DY = #{affSno}))
+    </select>
+    
+        <insert id="insertSendDoc" parameterType="paramMap">
+        /*kr.go.bai.eip.aep.cam.dao.AEPCAM010PMapper.insertSendDoc*/
+            INSERT INTO TBBADDED111M (
+                   AUD_YR
+                  ,AUD_NO
+                  ,AUD_STEP_CD
+                  ,DOC_ID
+                  ,SR_DOC_SNO
+                  ,AUD_KND_CD
+                  ,AUD_GRN_NO
+                  ,RPRT_NM
+                  ,RPRT_CD
+                  ,LINK_URL
+                  ,DOC_STA_CD
+                  ,SND_DPT_CD
+                  ,SNDR_ID
+                  ,SND_DH
+                  ,RCPT_DPT_CD
+                  ,RCNT_ID
+                  ,RCPT_DH
+                  ,AUD_RPRT_DVSN_CD
+                  ,DOC_KND_CD
+                  ,REF_ID
+                  ,REF_DY
+                  ,SORT_SNO
+                  ,FRT_USR_ID
+                  ,FNL_USR_ID
+                  ,FNL_DEAL_DPT_CD
+                  ,FNL_MNU_ID
+                  ,FRT_REGI_DH
+                  ,FNL_MDF_DH )
+           (SELECT AUD_YR
+                  ,AUD_NO
+                  ,AUD_STEP_CD
+                  ,NVL(#{newDocId}, DOC_ID)
+                  ,(
+                    SELECT NVL(MAX(SR_DOC_SNO), 0) + 1
+                      FROM TBBADDED111M T2
+                     WHERE T2.AUD_YR = T1.AUD_YR
+                       AND T2.AUD_NO = T1.AUD_NO
+                       AND T2.DOC_ID = T1.DOC_ID
+                   )
+                  ,AUD_KND_CD
+                  ,AUD_GRN_NO
+                  ,RPRT_NM
+                  ,RPRT_CD
+                  ,LINK_URL
+                  ,'20'
+                  ,#{dptCd}
+                  ,#{usrId}
+                  ,SYSDATE
+                  ,#{rcptDptCd}
+                  ,''
+                  ,SYSDATE
+                  ,AUD_RPRT_DVSN_CD
+                  ,DOC_KND_CD
+                  ,REF_ID
+                  ,REF_DY
+                  ,SORT_SNO
+                  ,#{usrId}
+                  ,#{usrId}
+                  ,#{dptCd}
+                  ,#{mnuId}
+                  ,SYSDATE
+                  ,SYSDATE 
+              FROM TBBADDED103M T1
+             WHERE T1.AUD_YR = #{audYr}
+               AND T1.AUD_NO = #{audNo}
+               AND T1.DOC_ID = #{docId}
+               AND T1.RPRT_CD = #{rprtCd}
+             )
+    </insert>
+    
+    
+    <update id="updateEdtAuthYn" parameterType="paramMap">
+        /*kr.go.bai.eip.aep.cam.dao.AEPCAM010PMapper.updateEdtAuthYn*/
+        UPDATE TBBADDED103M 
+           SET EDT_AUTH = #{edtAuth}
+         WHERE AUD_YR = #{audYr}
+           AND AUD_NO = #{audNo}
+           AND RPRT_CD = #{rprtCd}
+           AND DOC_ID = #{docId}
+    </update>
+    
+    <insert id="insertSendMessage">
+        /* kr.go.bai.eip.aep.mar.dao.AEPCAM010PMapper.insertSendMessage */
+		 INSERT INTO TBDCMACM026L
+		            (
+			              MSG_SNO
+			            , TSK_CAT_CD
+			            , FUNC_CAT_CD
+			            , SEND_ID
+			            , MSG_TP_YN
+			            , MSG_TXT_2
+			            , RCNT_CNT
+			            , RCNT_HIS
+			            , MSG_REGI_DH
+			            , FRT_USR_ID
+			            , FNL_USR_ID
+			            , FNL_DEAL_DPT_CD
+			            , FNL_MNU_ID
+			            , FRT_REGI_DH
+			            , FNL_MDF_DH    
+		            )
+			VALUES
+		            (
+			              (SELECT NVL(MAX(MSG_SNO),'0')+1 AS MSG_SNO FROM TBDCMACM026L)
+			            , 'CM'
+			            , 'CM'
+			            , 'OASYS'
+			            , '0'
+			            , #{audSbjNm}||', '||'소명자료 '||#{mfexNo}
+			            <if test="immunNo != null and immunNo != ''">
+			              || '('||#{immunNo}||')'
+          				</if>
+          				||' 관련 감사권익보호관의 검토의견서 열람이 가능합니다.'
+			            , #{rcntCnt}
+			            , #{rcntHis}
+			            , SYSDATE 
+			            , #{usrId}
+			            , #{usrId}
+			            , #{dptCd}
+			            , 'AEPCAM003E'
+			            , SYSDATE
+			            , SYSDATE 
+		            )
+    </insert>
+</mapper> 

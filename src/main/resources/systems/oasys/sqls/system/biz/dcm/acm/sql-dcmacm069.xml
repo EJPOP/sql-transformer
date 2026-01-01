@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="dcm/acm/069">
+
+	<!-- 조회-->
+	<select id="DCMACM069Egrx1Select" parameterClass="paramMap" resultClass="resultMap">	
+	    WITH BASE AS (
+		    SELECT '1' AS DVSN_CD, '예산액' AS DVSN_NM, NVL((SELECT SPRT_AM FROM TBDCMACM067M WHERE YR = #strYr# AND DVSN_CD = '1'),0) AS COL1, NVL((SELECT SPRT_AM FROM TBDCMACM067M WHERE YR = #strYr# AND DVSN_CD = '2'),0) AS COL2 FROM DUAL
+		    UNION ALL 
+		    SELECT '2' AS DVSN_CD, '누적 신청액' AS DVSN_NM,(SELECT NVL(SUM(PMT_AM),0) FROM TBDCMACM065M WHERE YR = #strYr# AND HNDL_STEP IN ('2','3','6','7')) AS COL1, (SELECT NVL(SUM(PMT_AM),0) FROM TBFAACAV074M WHERE YR = #strYr# AND HNDL_STEP IN ('2','3','6','7')) AS COL2 FROM DUAL
+		    UNION ALL 
+		    SELECT '3' AS DVSN_CD, '누적 확정액' AS DVSN_NM,(SELECT NVL(SUM(PMT_AM),0) FROM TBDCMACM065M WHERE YR = #strYr# AND HNDL_STEP = '7') AS COL1, (SELECT NVL(SUM(PMT_AM),0) FROM TBFAACAV074M WHERE YR = #strYr# AND HNDL_STEP = '7') AS COL2 FROM DUAL
+		)
+		
+		SELECT DVSN_NM, COL1, COL2 FROM BASE
+		UNION ALL 
+		SELECT '집행률(확정액/예산액)' AS DVSN_NM, 
+			   DECODE((SELECT COL1 FROM BASE WHERE DVSN_CD = '1'),0,0,ROUND((SELECT COL1 FROM BASE WHERE DVSN_CD = '3') / (SELECT COL1 FROM BASE WHERE DVSN_CD = '1'),2) * 100) AS COL1, 
+			   DECODE((SELECT COL2 FROM BASE WHERE DVSN_CD = '1'),0,0,ROUND((SELECT COL2 FROM BASE WHERE DVSN_CD = '3') / (SELECT COL2 FROM BASE WHERE DVSN_CD = '1'),2) * 100) AS COL2 
+	      FROM DUAL
+		UNION ALL 
+		SELECT '잔액(예산액-누적 신청액)' AS DVSN_NM, 
+		       (SELECT COL1 FROM BASE WHERE DVSN_CD = '1') - (SELECT COL1 FROM BASE WHERE DVSN_CD = '2') AS COL1, 
+		       (SELECT COL2 FROM BASE WHERE DVSN_CD = '1') - (SELECT COL2 FROM BASE WHERE DVSN_CD = '2') AS COL2 
+		  FROM DUAL
+		UNION ALL
+		SELECT '잔액(예산액-누적 확정액)' AS DVSN_NM, 
+			   (SELECT COL1 FROM BASE WHERE DVSN_CD = '1') - (SELECT COL1 FROM BASE WHERE DVSN_CD = '3') AS COL1, 
+			   (SELECT COL2 FROM BASE WHERE DVSN_CD = '1') - (SELECT COL2 FROM BASE WHERE DVSN_CD = '3') AS COL2 
+		  FROM DUAL
+	</select>
+
+	<select id="DCMACM069Egrx2Select" parameterClass="paramMap" resultClass="resultMap">	
+		WITH BASE AS (   
+		    SELECT '1' AS DVSN_CD, 
+		           '신청액' AS DVSN_NM,
+		           (SELECT NVL(SUM(PMT_AM),0) FROM TBDCMACM065M WHERE YR = #strYr# AND HNDL_STEP IN ('2','3','6','7') AND SPH IN ('01','08')) AS COL1, 
+		           (SELECT NVL(SUM(PMT_AM),0) FROM TBDCMACM065M WHERE YR = #strYr# AND HNDL_STEP IN ('2','3','6','7') AND SPH IN ('02','06','07')) AS COL2, 
+		           (SELECT NVL(SUM(PMT_AM),0) FROM TBDCMACM065M WHERE YR = #strYr# AND HNDL_STEP IN ('2','3','6','7') AND SPH = '03') AS COL3,
+		           (SELECT NVL(SUM(PMT_AM),0) FROM TBDCMACM065M WHERE YR = #strYr# AND HNDL_STEP IN ('2','3','6','7') AND SPH = '04') AS COL4,
+		           (SELECT NVL(SUM(PMT_AM),0) FROM TBDCMACM065M WHERE YR = #strYr# AND HNDL_STEP IN ('2','3','6','7')) AS TOTAL
+		      FROM DUAL
+		    UNION ALL 
+		    SELECT '2' AS DVSN_CD, 
+		           '확정액' AS DVSN_NM,
+		           (SELECT NVL(SUM(PMT_AM),0) FROM TBDCMACM065M WHERE YR = #strYr# AND HNDL_STEP = '7' AND SPH IN ('01','08')) AS COL1, 
+		           (SELECT NVL(SUM(PMT_AM),0) FROM TBDCMACM065M WHERE YR = #strYr# AND HNDL_STEP = '7' AND SPH IN ('02','06','07')) AS COL2,
+		           (SELECT NVL(SUM(PMT_AM),0) FROM TBDCMACM065M WHERE YR = #strYr# AND HNDL_STEP = '7' AND SPH = '03') AS COL3,
+		           (SELECT NVL(SUM(PMT_AM),0) FROM TBDCMACM065M WHERE YR = #strYr# AND HNDL_STEP = '7' AND SPH = '04') AS COL4,
+		           (SELECT NVL(SUM(PMT_AM),0) FROM TBDCMACM065M WHERE YR = #strYr# AND HNDL_STEP = '7') AS TOTAL
+		      FROM DUAL
+		)
+		
+		SELECT DVSN_NM, COL1, COL2, COL3, COL4 FROM BASE
+		UNION ALL
+		SELECT '집행률(각 항목 확정액/전체 확정액)' AS DVSN_NM,        
+		       ROUND((SELECT DECODE(NVL(TOTAL,0),0,0, NVL(COL1,0) / TOTAL) FROM BASE WHERE DVSN_CD = '2'),2) * 100 AS COL1,
+		       ROUND((SELECT DECODE(NVL(TOTAL,0),0,0, NVL(COL2,0) / TOTAL) FROM BASE WHERE DVSN_CD = '2'),2) * 100 AS COL2,
+		       ROUND((SELECT DECODE(NVL(TOTAL,0),0,0, NVL(COL3,0) / TOTAL) FROM BASE WHERE DVSN_CD = '2'),2) * 100 AS COL3,
+		       ROUND((SELECT DECODE(NVL(TOTAL,0),0,0, NVL(COL4,0) / TOTAL) FROM BASE WHERE DVSN_CD = '2'),2) * 100 AS COL4
+		  FROM DUAL
+	</select>
+	
+	<select id="DCMACM069Egrx3Select" parameterClass="paramMap" resultClass="resultMap">
+		WITH BASE AS (   
+		    SELECT '1' AS DVSN_CD, 
+		           '신청액' AS DVSN_NM,
+		           (SELECT NVL(SUM(PMT_AM),0) FROM TBFAACAV074M WHERE YR = #strYr# AND HNDL_STEP IN ('2','3','6','7') AND SPH = '01') AS COL1, 
+		           (SELECT NVL(SUM(PMT_AM),0) FROM TBFAACAV074M WHERE YR = #strYr# AND HNDL_STEP IN ('2','3','6','7') AND SPH = '03') AS COL2,            
+		           (SELECT NVL(SUM(PMT_AM),0) FROM TBFAACAV074M WHERE YR = #strYr# AND HNDL_STEP IN ('2','3','6','7')) AS TOTAL
+		      FROM DUAL
+		    UNION ALL 
+		    SELECT '2' AS DVSN_CD, 
+		           '확정액' AS DVSN_NM,
+		           (SELECT NVL(SUM(PMT_AM),0) FROM TBFAACAV074M WHERE YR = #strYr# AND HNDL_STEP = '7' AND SPH = '01') AS COL1, 
+		           (SELECT NVL(SUM(PMT_AM),0) FROM TBFAACAV074M WHERE YR = #strYr# AND HNDL_STEP = '7' AND SPH = '03') AS COL2,           
+		           (SELECT NVL(SUM(PMT_AM),0) FROM TBFAACAV074M WHERE YR = #strYr# AND HNDL_STEP = '7') AS TOTAL
+		      FROM DUAL
+		)
+		
+		SELECT DVSN_NM, COL1, COL2 FROM BASE
+		UNION ALL
+		SELECT '집행률(각 항목 확정액/전체 확정액)' AS DVSN_NM,        
+		       ROUND((SELECT DECODE(NVL(TOTAL,0),0,0, NVL(COL1,0) / TOTAL) FROM BASE WHERE DVSN_CD = '2'),2) * 100 AS COL1,
+		       ROUND((SELECT DECODE(NVL(TOTAL,0),0,0, NVL(COL2,0) / TOTAL) FROM BASE WHERE DVSN_CD = '2'),2) * 100 AS COL2
+		  FROM DUAL
+	</select>
+	
+	<select id="DCMACM069EExistCheck" parameterClass="paramMap" resultClass="Integer">
+		SELECT COUNT(*) FROM TBDCMACM067M WHERE YR = #strYr# AND DVSN_CD = #DVSN_CD#
+	</select>
+	
+	<insert id="DCMACM069EInsert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO	TBDCMACM067M
+				(
+					  YR 
+					, DVSN_CD 
+					, SPRT_AM 
+					, FRT_USR_ID
+					, FNL_USR_ID
+					, FNL_MNU_ID
+					, FRT_REGI_DH
+					, FNL_MDF_DH
+				)
+			VALUES	(
+						  #strYr#
+						, #DVSN_CD#
+						, #SPRT_AM#
+						, #FNL_USR_ID#
+						, #FNL_USR_ID#
+						, #FNL_MNU_ID#
+						, SYSDATE
+						, SYSDATE
+					)
+	]]>
+	</insert>
+	
+	<update id="DCMACM069EUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBDCMACM067M
+			SET		SPRT_AM = #SPRT_AM#
+					,FNL_MDF_DH = SYSDATE
+					,FNL_USR_ID = #FNL_USR_ID#
+					,FNL_MNU_ID = #FNL_MNU_ID#
+			WHERE	YR = #strYr#
+			  AND   DVSN_CD = #DVSN_CD#
+			
+		]]>
+	</update>				
+			
+</sqlMap> 

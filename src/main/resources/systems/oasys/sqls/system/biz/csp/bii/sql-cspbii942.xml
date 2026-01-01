@@ -1,0 +1,697 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/bii/942">
+
+	
+	<select id="CSPBII942EDeptselect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+			select DEPT_CD, DEPT_NM
+			  from ebaiusr.CM_DEPT
+			 where 1=1
+         AND DEPT_CD like '%00'
+			   and USE_YN = 'Y'
+			 order by DEPT_CD 
+        ]]>
+	</select>
+
+
+
+<!--감사사항관리 조회 -->
+	<select id="CSPBII942EMainSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<include refid = "include.pageSelct"/>
+        <![CDATA[     
+	    SELECT ROWNUM,TT.* FROM 
+	    (SELECT T1.AUD_YR           		AS AUD_YR           		/*감사년도*/
+	         , T1.AUD_NO           		AS AUD_NO           		/*감사번호*/
+       		 , T1.AUD_YR_NO             AS AUD_YR_NO 
+	         , T1.AUD_GRN_NO       		AS AUD_GRN_NO         		/*감사부여번호 - 2016.05.25 yyh*/
+	         , T1.AUD_YR_NO_KND_CD      AS AUD_YR_NO_KND_CD         /*감사연번호종류코드*/
+	         , T1.AUD_YR_NO_KND_NM      AS AUD_YR_NO_KND_NM         /*감사연번호종류코드명*/
+	         , T1.AUD_DTL_NO    		AS AUD_DTL_NO    		    /*세부연번호*/
+	         , T1.AUD_TASK_CD      		AS AUD_TASK_CD      		/*감사과제코드*/
+             , T1.AUD_TASK_NM      		AS AUD_TASK_NM      		
+	         , T1.ORG_DVSN_CD      		AS ORG_DVSN_CD      		/*기관구분코드*/
+	         , T1.AUD_KND_CD       		AS AUD_KND_CD       		/*감사종류코드*/
+             , T1.AUD_KND_NM       		AS AUD_KND_NM       		
+	         , T1.SPV_BRDV_CD      		AS SPV_BRDV_CD      		/*주관국과코드*/
+	         , T1.SPV_BRDV_NM  			AS SPV_BRDV_NM  			/*주관국과명*/
+	         , T1.AUD_WAY_CD       		AS AUD_WAY_CD       		/*감사방법코드*/
+             , T1.AUD_WAY_NM       		AS AUD_WAY_NM       		
+	         , T1.AUD_SBJ_NM       		AS AUD_SBJ_NM       		/*감사사항명*/
+	         , T1.AUD_SCL_CD       		AS AUD_SCL_CD       		/*감사규모코드*/
+	         , T1.TSK_CAT_CD       		AS TSK_CAT_CD       		/*업무분류코드*/
+	         , T1.TSK_CAT_NM       		AS TSK_CAT_NM       		
+	         , T1.AUD_RPST_ORG_CD  		AS AUD_RPST_ORG_CD  		/*감사대표기관코드*/
+	         , T1.AUD_RPST_ORG_NM  		AS AUD_RPST_ORG_NM  		
+	         , T1.MNG_DPT_CD       		AS MNG_DPT_CD       		/*관리부서코드*/
+	         , T1.MNG_DPT_NM			AS MNG_DPT_NM			    		      
+             , T1.PRSS_STEP_CD          AS PRSS_STEP_CD             /*진행단계코드*/
+			 , F_CODE_NM('1000785',T1.PRSS_STEP_CD)  
+		       || 
+		       (CASE WHEN T1.BZT_BGT_DVSN_CD = '1' AND T1.PRSS_STEP_CD = '02'
+		                 THEN 
+						     (SELECT '/'|| F_CODE_NM('1000030',AUD_BZT_KND_CD)
+						        FROM TBBADDED002M 
+						       WHERE BZT_YR || BZT_SNO = (SELECT MAX(BZT_YR || BZT_SNO)
+												            FROM TBBADDED002M
+												           WHERE REL_AUD_YR = T1.AUD_YR
+												             AND REL_AUD_NO = T1.AUD_NO
+												          )
+							 )
+				   END) AS PRSS_STEP_NM     		                /*진행단계코드명*/
+			 , T1.AUD_STR_DT, T1.AUD_END_DT /* 실지감사 시작일, 종료일 - 2017.11.08 EUNOK */
+			 , T1.FLD_AUD_END_DT AS FLD_AUD_END_DT  /* 종료보고일- 2017.10.31 EUNOK */
+		     , CASE WHEN T1.APV_STA_CD = '30' THEN T1.RPRT_NM ELSE NULL END AS RPRT_NM
+		     , TO_CHAR(T1.FNL_APV_DH,'YYYYMMDD') AS FNL_APV_DH
+		     , T1.APV_STA_CD
+		     , CASE WHEN T1.APV_STA_CD = '30' THEN T1.DOC_LIST ELSE NULL END AS DOC_LIST
+		     , CASE WHEN T1.APV_STA_CD = '30' THEN TO_CHAR(T1.APV_A1050_DT,'YYYYMMDD') ELSE NULL END AS APV_A1050_DT
+          FROM (
+          
+			    SELECT D1.AUD_YR                   	AS AUD_YR           /*감사년도*/
+			         , D1.AUD_NO                   	AS AUD_NO           /*감사번호*/
+			         , D1.AUD_GRN_NO                AS AUD_GRN_NO       /*감사부여번호*/
+			         , F_MNG_KND_AUDYRNO(D1.AUD_YR, D1.AUD_NO, D1.AUD_KND_CD, '-')
+			                                        AS AUD_YR_NO        /*감사년번호 - 수정(2015.12.17-yyh)*/
+			         , CASE WHEN D1.AUD_YR >= '2016' 
+			                     THEN D1.AUD_KND_CD
+			                ELSE '' 
+			            END                         AS AUD_YR_NO_KND_CD /*감사연번호종류코드 추가 - 2015.12.18 yyh*/
+			         , CASE WHEN D1.AUD_YR >= '2016' 
+			                     THEN F_CODE_NM('1000739',D1.AUD_KND_CD)   
+			                ELSE '-' 
+			            END                         AS AUD_YR_NO_KND_NM /*감사연번호종류코드명 추가 - 2015.12.22 yyh*/			            
+			         , D1.AUD_YR||'-'||SUBSTR(D1.AUD_TASK_CD,-1)||'-'||D1.ORG_DVSN_CD||'-'||SUBSTR(D1.AUD_KND_CD,-1)
+			         ||'-'||SUBSTR(D1.SPV_BRDV_CD,1,2)||SUBSTR(D1.SPV_BRDV_CD,4,2)||'-'||SUBSTR(D1.AUD_WAY_CD,-1)||'-'||D1.AUD_NO AS AUD_DTL_NO    /*세부연번호*/
+			         , D1.AUD_TASK_CD              	AS AUD_TASK_CD      /*감사과제코드*/
+                     , F_CODE_NM_YEAR('1000008', D1.AUD_TASK_CD, D1.AUD_YR) AS AUD_TASK_NM 
+			         , D1.ORG_DVSN_CD              	AS ORG_DVSN_CD      /*기관구분코드*/
+			         , D1.AUD_KND_CD               	AS AUD_KND_CD       /*감사종류코드*/
+                     , F_CODE_NM_YEAR('1000007', D1.AUD_KND_CD, D1.AUD_YR) AS AUD_KND_NM 
+			         , D1.SPV_BRDV_CD              	AS SPV_BRDV_CD      /*주관국과코드*/
+			         , F_DPT_INFO(D1.SPV_BRDV_CD,'1')	AS SPV_BRDV_NM  /*주관국과명*/
+			         , D1.AUD_WAY_CD               	AS AUD_WAY_CD       /*감사방법코드*/
+                     , F_CODE_NM_YEAR('1000009', D1.AUD_WAY_CD, D1.AUD_YR) AS AUD_WAY_NM 
+			         , D1.AUD_SBJ_NM               	AS AUD_SBJ_NM       /*감사사항명*/
+			         , D1.AUD_SCL_CD               	AS AUD_SCL_CD       /*감사규모코드*/
+			         , D1.TSK_CAT_CD               	AS TSK_CAT_CD       /*업무분류코드*/
+			         , F_CODE_NM('1000120',D1.TSK_CAT_CD) AS TSK_CAT_NM
+			         , D1.AUD_RPST_ORG_CD          	AS AUD_RPST_ORG_CD  /*감사대표기관코드*/
+			         , F_ORG_INFO(D1.AUD_RPST_ORG_CD,'1')  AS AUD_RPST_ORG_NM 
+			         , D1.MNG_DPT_CD               	AS MNG_DPT_CD       /*관리부서코드*/
+			         , F_DPT_INFO(D1.MNG_DPT_CD,'1') 		AS MNG_DPT_NM			   
+ 					 , D1.PRSS_STEP_CD                          AS PRSS_STEP_CD   /*진행단계코드*/         
+				     
+				   , D1.BZT_BGT_DVSN_CD	
+				   ,(SELECT MIN(AUD_STR_DT)  FROM TBBADDED002M A 
+				   		WHERE REL_AUD_YR = D1.AUD_YR AND REL_AUD_NO = D1.AUD_NO AND AUD_BZT_KND_CD IN ('02','03')) AS AUD_STR_DT /* 감사착수일 02:실지감사, 03:실지감사연장- 2017.11.14 EUNOK */
+				   ,(SELECT MAX(AUD_END_DT)  FROM TBBADDED002M A 
+				   		WHERE REL_AUD_YR = D1.AUD_YR AND REL_AUD_NO = D1.AUD_NO AND AUD_BZT_KND_CD IN ('02','03')) AS AUD_END_DT /* 감사종료일 02:실지감사, 03:실지감사연장- 2017.11.07 EUNOK */ 
+				   , D3.FLD_AUD_END_DT  /* 종료보고일 - 2017.10.31 EUNOK */
+				   , D4.DOC_LIST, D4.RPRT_NM ,D4.APV_STA_CD ,D4.APV_A1050_DT, D5.FNL_APV_DH
+				FROM TBBADDED001M D1
+			       , TBCSPDCP101M D2
+      			   , TBBADDED003M D3
+                   ,(SELECT A1.AUD_YR ,A1.AUD_NO, MAX (A1.APV_STA_CD) AS APV_STA_CD, MAX (FNL_MDF_DH) AS APV_A1050_DT 
+                   			,SUBSTR(XMLAGG(XMLELEMENT(X,'||',DOC_ID) ORDER BY AUD_YR,AUD_NO,AUD_STEP_CD,doc_ID).EXTRACT('//text()'),3) DOC_LIST 
+                            ,SUBSTR(XMLAGG(XMLELEMENT(X,'||',RPRT_NM) ORDER BY AUD_YR,AUD_NO,AUD_STEP_CD,doc_ID).EXTRACT('//text()'),3) RPRT_NM 
+                    	FROM TBBADDED103M A1
+                		WHERE A1.AUD_STEP_CD = 'A1050'
+                  		AND A1.RPRT_CD = 'A10500500'
+           ]]>
+						AND  A1.APV_STA_CD  <![CDATA[ <= ]]> '30' 
+                        GROUP BY A1.AUD_YR ,A1.AUD_NO ) D4 
+                         
+                    ,(SELECT AA.AUD_YR ,AA.AUD_NO,BB.APV_DH AS FNL_APV_DH
+                    	FROM TBBADDED103M AA,TBDCMACM023L BB
+                   		WHERE AA.AUD_STEP_CD = 'A1050' 
+                        		AND AA.RPRT_CD  = 'A10500200' 
+                        		AND AA.APV_RQS_ID = BB.APV_DOC_NO
+                               AND AA.APV_STA_CD <![CDATA[ <= ]]>   '30' 
+						       AND BB.APVR_PST_CD = (SELECT APVR_PST_CD FROM TBDCMACM023L 
+                                        WHERE APV_SNO = (SELECT MAX(APV_SNO) FROM TBDCMACM023L WHERE APV_DOC_NO = BB.APV_DOC_NO)  
+                                        AND APV_DOC_NO = BB.APV_DOC_NO)  
+                   			   AND BB.APVR_PST_CD IN ('0067400','0055700')  /* 최종결재자 원장이나 사무총장인경우 */  
+					
+			 <![CDATA[
+			   			GROUP BY AA.AUD_YR ,AA.AUD_NO,AA.APV_RQS_ID,AA.RPRT_CD,BB.APV_DH) D5	
+			   WHERE 1=1
+			     AND D1.ACP_YR        = D2.ACP_YR(+)
+			     AND D1.CVPT_ACP_NO   = D2.CVPT_ACP_NO(+)
+			     AND D1.REQ_DVSN_CD   = D2.REQ_DVSN_CD(+)
+			     AND D1.AUD_YR 		  = D3.AUD_YR(+)
+			     AND D1.AUD_NO 		  = D3.AUD_NO(+)
+			     AND D1.AUD_YR 		  = D4.AUD_YR(+)
+			     AND D1.AUD_NO 		  = D4.AUD_NO(+)
+			     AND D1.AUD_YR 		  = D5.AUD_YR(+)
+			     AND D1.AUD_NO 		  = D5.AUD_NO(+)
+			     
+		         /*AND D1.AUD_NO NOT LIKE '9%' 서면모니터링을 걸러내야하므로*/
+		         AND D1.AUD_KND_CD NOT LIKE '175'  /* 확인출장 제외 */
+		         AND D1.SPV_BRDV_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #dptAuth#, '', #strUpSpvBrdvCd#)))   /*직급이 원장일 경우 'ALL' 그외는 'DEPTLW'로 셋팅*/   		
+		 ]]>   
+		<isNotEmpty property="strAudYr">	 
+			     AND D1.AUD_YR      = #strAudYr#    
+		</isNotEmpty>
+		
+		<isNotNull property="strAudYrNoKndCd">
+			<isNotEmpty property="strAudYrNoKndCd">	 	
+	                 /* 감사연번종류코드 - 2015.12.17 yyh */
+				     AND SUBSTR(D1.AUD_KND_CD,3,1) = SUBSTR(#strAudYrNoKndCd#,3,1) 
+			</isNotEmpty>
+		</isNotNull>
+		
+		<isNotEmpty property="strAudNo">
+				AND D1.AUD_GRN_NO = #strAudNo#
+		</isNotEmpty>
+		<isNotEmpty property="strAudSbjNm">	 	   
+			     AND D1.AUD_SBJ_NM LIKE '%'||#strAudSbjNm#||'%'
+		</isNotEmpty>
+		
+		<isNotEmpty property="strPrssStepCd">	 
+                 AND D1.PRSS_STEP_CD = #strPrssStepCd#
+		</isNotEmpty>
+		
+		<isNotEmpty property="strAudKndCd">	 
+			     AND D1.AUD_KND_CD  = #strAudKndCd#
+		</isNotEmpty>
+		<isNotEmpty property="strSpvBrdvCd">	 
+			     AND D1.SPV_BRDV_CD = #strSpvBrdvCd#
+		</isNotEmpty>
+		<isNotEmpty property="strReqDvsnCd">	 
+			     AND D1.REQ_DVSN_CD = #strReqDvsnCd#
+		</isNotEmpty>
+		<isNotEmpty property="strIsPop">
+			 <![CDATA[  
+			     /*감사사항검색팝업의 경우 서면/모니터링 감사의 경우 통제가 해제된 건에 대해서만 조회되어야 한다. */
+				 AND NOT EXISTS (
+		                        SELECT 1
+		                          FROM TBBADDED001M 
+		                         WHERE 1=1
+		                           AND AUD_YR = D1.AUD_YR
+		                           AND AUD_NO = D1.AUD_NO
+		                           AND SUBSTR(AUD_KND_CD,3,1) = '9' 
+		                           AND NVL(SUBSTR(AUD_WAY_CD,3,1),' ') <> '4'
+		                       )  
+			]]>
+		</isNotEmpty>
+		
+		
+		
+        <![CDATA[ 
+        	) T1
+        	WHERE 1=1
+        	AND T1.AUD_STR_DT >= '20170908' AND T1.AUD_STR_DT  <= TO_CHAR(SYSDATE,'YYYYMMDD') /*실지감사 시작일이 20170908 이후 이고, 실지감사 시작한 감사사항*/         	
+        	]]>
+        	        <isNotEmpty property="strInformReport">	
+					<isEqual property="strInformReport" compareValue="1">
+						/*정보보고서  1: 보고 , 2:미보고 */ 
+						 AND T1.APV_STA_CD = '30' 
+					</isEqual>
+					<isEqual property="strInformReport" compareValue="2">
+						 AND (T1.APV_STA_CD != '30' OR T1.APV_STA_CD IS NULL)
+					</isEqual>
+					</isNotEmpty>
+					<isNotEmpty property="strEndReportDt">	
+					<isEqual property="strEndReportDt" compareValue="1">
+						/*종료보고일  1: 도래 , 2:미도래 */ 
+						AND T1.FNL_APV_DH IS NOT NULL
+					</isEqual>
+					<isEqual property="strEndReportDt" compareValue="2">
+						AND T1.FNL_APV_DH IS NULL 
+					</isEqual>
+					</isNotEmpty>
+         <![CDATA[ 	
+ 			ORDER BY T1.AUD_NO DESC )TT
+        ]]>
+        
+        <include refid = "include.pageOrder"/> 
+	</select>
+
+
+<!-- 감사사항 조회 팝업 - 2016.05.25 yyh -->
+	<select id="CSPBII942EPopInqMainSelect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[     
+	    SELECT T1.AUD_YR           		AS AUD_YR           		/*감사년도*/
+	         , T1.AUD_NO           		AS AUD_NO           		/*감사번호*/
+	         , T1.AUD_GRN_NO       		AS AUD_GRN_NO         		/*감사부여번호*/
+	         , T1.AUD_YR_NO        		AS AUD_YR_NO        		/*감사년번호*/
+	         , T1.AUD_YR_NO_KND_CD      AS AUD_YR_NO_KND_CD         /*감사연번호종류코드*/
+	         , T1.AUD_YR_NO_KND_NM      AS AUD_YR_NO_KND_NM         /*감사연번호종류코드명*/
+	         , T1.AUD_TASK_CD      		AS AUD_TASK_CD      		/*감사과제코드*/
+             , T1.AUD_TASK_NM      		AS AUD_TASK_NM      		
+	         , T1.ORG_DVSN_CD      		AS ORG_DVSN_CD      		/*기관구분코드*/
+	         , T1.AUD_KND_CD       		AS AUD_KND_CD       		/*감사종류코드*/
+             , T1.AUD_KND_NM       		AS AUD_KND_NM       		
+	         , T1.SPV_BRDV_CD      		AS SPV_BRDV_CD      		/*주관국과코드*/
+	         , T1.SPV_BRDV_NM  			AS SPV_BRDV_NM  			/*주관국과명*/
+	         , T1.AUD_WAY_CD       		AS AUD_WAY_CD       		/*감사방법코드*/
+             , T1.AUD_WAY_NM       		AS AUD_WAY_NM       		
+	         , T1.AUD_SBJ_NM       		AS AUD_SBJ_NM       		/*감사사항명*/
+	         , T1.AUD_SCL_CD       		AS AUD_SCL_CD       		/*감사규모코드*/
+	         , T1.TSK_CAT_CD       		AS TSK_CAT_CD       		/*업무분류코드*/
+	         , T1.TSK_CAT_NM       		AS TSK_CAT_NM       		
+	         , T1.EPS_TASK_CD      		AS EPS_TASK_CD      		/*중점과제코드*/
+             , T1.EPS_TASK_NM      		AS EPS_TASK_NM      		
+	         , T1.AUD_TOT_DRTR_CNB 		AS AUD_TOT_DRTR_CNB 		/*감사총책임자전산번호*/
+	         , T1.TOT_DRTR_RANK_CD 		AS TOT_DRTR_RANK_CD 		/*총책임자직급코드*/
+	         , T1.TOT_DRTR_BRDV_CD 		AS TOT_DRTR_BRDV_CD 		/*총책임자국과코드*/
+	         , T1.AUD_RPST_ORG_CD  		AS AUD_RPST_ORG_CD  		/*감사대표기관코드*/
+	         , T1.AUD_RPST_ORG_NM  		AS AUD_RPST_ORG_NM  		
+	         , T1.SPVR_CNB         		AS SPVR_CNB         		/*주관자전산번호*/
+	         , T1.SPVR_BRDV_CD     		AS SPVR_BRDV_CD     		/*주관자국과코드*/
+	         , T1.SPVR_RANK_CD     		AS SPVR_RANK_CD     		/*주관자직급코드*/
+	         , T1.AST_CNB          		AS AST_CNB          		/*보조자전산번호*/    
+	         , T1.AST_BRDV_CD      		AS AST_BRDV_CD      		/*보조자국과코드*/
+	         , T1.AST_RANK_CD      		AS AST_RANK_CD      		/*보조자직급코드*/
+	         , T1.MNG_DPT_CD       		AS MNG_DPT_CD       		/*관리부서코드*/
+	         , T1.MNG_DPT_NM			AS MNG_DPT_NM			    		         
+		     , T1.ACP_YR 				AS ACP_YR 				    /*청구연도*/
+		     , T1.CVPT_ACP_NO 			AS CVPT_ACP_NO 			    /*청구일련번호*/
+		     , T1.REQ_DVSN_CD 			AS REQ_DVSN_CD 			    /*청구구분코드*/
+		     , T1.TIT_NM 				AS TIT_NM 				    /*청구제목*/
+             , T1.PRSS_STEP_CD          AS PRSS_STEP_CD             /*진행단계코드*/
+             , T1.AUD_CTRL_CD           AS AUD_CTRL_CD              /*감사통제코드*/
+             , T1.AUD_CTRL_NM           AS AUD_CTRL_NM              /*감사통제코드명*/
+             , T1.BZT_BGT_DVSN_CD       AS BZT_BGT_DVSN_CD          /*예산구분코드*/
+             , T1.BZT_BGT_DVSN_NM       AS BZT_BGT_DVSN_NM          /*예산구분명*/
+             
+          FROM (
+          
+			    SELECT D1.AUD_YR                   	AS AUD_YR           /*감사년도*/
+			         , D1.AUD_NO                   	AS AUD_NO           /*감사번호*/
+			         , D1.AUD_GRN_NO                AS AUD_GRN_NO       /*감사부여번호*/
+			         , F_MNG_KND_AUDYRNO(D1.AUD_YR, D1.AUD_NO, D1.AUD_KND_CD, '-')
+			                                        AS AUD_YR_NO       /*감사년번호 - 수정(2015.12.17-yyh)*/
+			         , CASE WHEN D1.AUD_YR >= '2016' 
+			                     THEN D1.AUD_KND_CD
+			                ELSE '' 
+			            END                         AS AUD_YR_NO_KND_CD /*감사연번호종류코드 추가 - 2015.12.18 yyh*/
+			         , CASE WHEN D1.AUD_YR >= '2016' 
+			                     THEN F_CODE_NM('1000739',D1.AUD_KND_CD)   
+			                ELSE '-' 
+			            END                         AS AUD_YR_NO_KND_NM /*감사연번호종류코드명 추가 - 2015.12.22 yyh*/			            
+			         , D1.AUD_TASK_CD              	AS AUD_TASK_CD      /*감사과제코드*/
+                     , F_CODE_NM_YEAR('1000008', D1.AUD_TASK_CD, D1.AUD_YR) AS AUD_TASK_NM 
+			         , D1.ORG_DVSN_CD              	AS ORG_DVSN_CD      /*기관구분코드*/
+			         , D1.AUD_KND_CD               	AS AUD_KND_CD       /*감사종류코드*/
+                     , F_CODE_NM_YEAR('1000007', D1.AUD_KND_CD, D1.AUD_YR) AS AUD_KND_NM 
+			         , D1.SPV_BRDV_CD              	AS SPV_BRDV_CD      /*주관국과코드*/
+			         , F_DPT_INFO(D1.SPV_BRDV_CD,'1')	AS SPV_BRDV_NM  /*주관국과명*/
+			         , D1.AUD_WAY_CD               	AS AUD_WAY_CD       /*감사방법코드*/
+                     , F_CODE_NM_YEAR('1000009', D1.AUD_WAY_CD, D1.AUD_YR) AS AUD_WAY_NM 
+			         , D1.AUD_SBJ_NM               	AS AUD_SBJ_NM       /*감사사항명*/
+			         , D1.AUD_SCL_CD               	AS AUD_SCL_CD       /*감사규모코드*/
+			         , D1.TSK_CAT_CD               	AS TSK_CAT_CD       /*업무분류코드*/
+			         , F_CODE_NM('1000120',D1.TSK_CAT_CD) AS TSK_CAT_NM
+			         , D1.EPS_TASK_CD             	AS EPS_TASK_CD      /*중점과제코드*/
+                     , F_CODE_NM_YEAR('1000005', D1.EPS_TASK_CD, D1.AUD_YR) AS EPS_TASK_NM 
+			         , D1.AUD_TOT_DRTR_CNB         	AS AUD_TOT_DRTR_CNB /*감사총책임자전산번호*/
+			         , D1.TOT_DRTR_RANK_CD         	AS TOT_DRTR_RANK_CD /*총책임자직급코드*/
+			         , D1.TOT_DRTR_BRDV_CD         	AS TOT_DRTR_BRDV_CD /*총책임자국과코드*/
+			         , D1.AUD_RPST_ORG_CD          	AS AUD_RPST_ORG_CD  /*감사대표기관코드*/
+			         , F_ORG_INFO(D1.AUD_RPST_ORG_CD,'1')  AS AUD_RPST_ORG_NM
+			         , D1.SPVR_CNB                 	AS SPVR_CNB         /*주관자전산번호*/
+			         , D1.SPVR_BRDV_CD             	AS SPVR_BRDV_CD     /*주관자국과코드*/
+			         , D1.SPVR_RANK_CD            	AS SPVR_RANK_CD     /*주관자직급코드*/
+			         , D1.AST_CNB                  	AS AST_CNB          /*보조자전산번호*/    
+			         , D1.AST_BRDV_CD              	AS AST_BRDV_CD      /*보조자국과코드*/
+			         , D1.AST_RANK_CD              	AS AST_RANK_CD      /*보조자직급코드*/
+			         , D1.MNG_DPT_CD               	AS MNG_DPT_CD       /*관리부서코드*/
+			         , F_DPT_INFO(D1.MNG_DPT_CD,'1') 		AS MNG_DPT_NM			         
+				     , D1.ACP_YR 					AS ACP_YR 			/*청구연도*/
+				     , D1.CVPT_ACP_NO 				AS CVPT_ACP_NO 		/*청구일련번호*/
+				     , D1.REQ_DVSN_CD 				AS REQ_DVSN_CD 		/*청구구분코드*/
+				     , D2.TIT_NM  					AS TIT_NM 			/*청구제목*/
+			         , D1.AUD_CTRL_CD                          AS AUD_CTRL_CD      /*감사통제코드 - 2016.06.03 yyh */
+			         , F_CODE_NM('1000753',D1.AUD_CTRL_CD)     AS AUD_CTRL_NM      /*감사통제코드명 - 2016.06.03 yyh */
+			         
+                	 /* 예산구분 추가 - 2016.06.16 yyh */
+                	 , D1.BZT_BGT_DVSN_CD                      AS BZT_BGT_DVSN_CD
+                	 , F_CODE_NM('1000751',D1.BZT_BGT_DVSN_CD) AS BZT_BGT_DVSN_NM			         
+ 					 , D1.PRSS_STEP_CD                         AS PRSS_STEP_CD    /*진행단계코드*/         
+				FROM TBBADDED001M D1
+			       , TBCSPDCP101M D2
+      			   , TBBADDED003M D3
+			   WHERE 1=1
+			     AND D1.ACP_YR        = D2.ACP_YR(+)
+			     AND D1.CVPT_ACP_NO   = D2.CVPT_ACP_NO(+)
+			     AND D1.REQ_DVSN_CD   = D2.REQ_DVSN_CD(+)
+			     AND D1.AUD_YR 		  = D3.AUD_YR(+)
+			     AND D1.AUD_NO 		  = D3.AUD_NO(+)	     
+			     
+		         /*AND D1.AUD_NO NOT LIKE '9%' 서면모니터링을 걸러내야하므로*/
+		         AND D1.SPV_BRDV_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #dptAuth#, '', #strUpSpvBrdvCd#)))   /*직급이 원장일 경우 'ALL' 그외는 'DEPTLW'로 셋팅*/   		
+		]]>
+		<isNotEmpty property="strAudYr">	 
+			     AND D1.AUD_YR      = #strAudYr#    
+		</isNotEmpty>
+		
+		<isNotEmpty property="strAudYrNoKndCd">	 	
+		     	 AND SUBSTR(D1.AUD_KND_CD,3,1) = SUBSTR(#strAudYrNoKndCd#,3,1) 
+		</isNotEmpty>
+		
+		<isNotEmpty property="strAudNo">	 	
+			     AND D1.AUD_GRN_NO = #strAudNo#
+		</isNotEmpty>
+		<isNotEmpty property="strAudSbjNm">	 	   
+			     AND D1.AUD_SBJ_NM LIKE '%'||#strAudSbjNm#||'%'
+		</isNotEmpty>
+		
+		<isNotEmpty property="strAudKndCd">	 
+			     AND D1.AUD_KND_CD  = #strAudKndCd#
+		</isNotEmpty>
+		<isNotEmpty property="strSpvBrdvCd">	 
+			     AND D1.SPV_BRDV_CD = #strSpvBrdvCd#
+		</isNotEmpty>
+		
+		<isNotEmpty property="strAudCtrlYn">	 
+			<isEqual property="strAudCtrlYn" compareValue="Y">
+		         /*감사통제코드가 1:-(해당없음), 2:Y(통제)*/
+			     AND D1.AUD_CTRL_CD IN ('1','2') 
+			</isEqual>
+		</isNotEmpty>
+		
+        <![CDATA[ 
+        	) T1      
+ 			ORDER BY DECODE(SUBSTR(T1.AUD_GRN_NO,1,1),'9',2,1),T1.AUD_GRN_NO DESC 
+        ]]>
+	</select>
+
+
+
+<!--감사사항관리 페이징 조회 2016.01.05 yyh-->
+	<select id="CSPBII942EMainSelectPaging" parameterClass="paramMap" resultClass="resultMap">
+		<include refid="include.pageSelct" />
+	
+        <![CDATA[     
+	    SELECT T1.AUD_YR           		AS AUD_YR           		/*감사년도*/
+	         , T1.AUD_NO           		AS AUD_NO           		/*감사번호*/
+	         , T1.AUD_GRN_NO       		AS AUD_GRN_NO         		/*감사부여번호 - 2016.05.25 yyh*/	         
+	         , T1.AUD_YR_NO        		AS AUD_YR_NO        		/*감사년번호*/
+	         , T1.AUD_YR_NO_KND_CD      AS AUD_YR_NO_KND_CD         /*감사연번호종류코드*/
+	         , T1.AUD_YR_NO_KND_NM      AS AUD_YR_NO_KND_NM         /*감사연번호종류코드명*/
+	         , T1.AUD_DTL_NO    		AS AUD_DTL_NO    		    /*세부연번호*/
+	         , T1.AUD_TASK_CD      		AS AUD_TASK_CD      		/*감사과제코드*/
+             , T1.AUD_TASK_NM      		AS AUD_TASK_NM      		
+	         , T1.ORG_DVSN_CD      		AS ORG_DVSN_CD      		/*기관구분코드*/
+	         , T1.AUD_KND_CD       		AS AUD_KND_CD       		/*감사종류코드*/
+             , T1.AUD_KND_NM       		AS AUD_KND_NM       		
+	         , T1.SPV_BRDV_CD      		AS SPV_BRDV_CD      		/*주관국과코드*/
+	         , T1.SPV_BRDV_NM  			AS SPV_BRDV_NM  			/*주관국과명*/
+	         , T1.AUD_WAY_CD       		AS AUD_WAY_CD       		/*감사방법코드*/
+             , T1.AUD_WAY_NM       		AS AUD_WAY_NM       		
+	         , T1.AUD_SBJ_NM       		AS AUD_SBJ_NM       		/*감사사항명*/
+	         , T1.AUD_SCL_CD       		AS AUD_SCL_CD       		/*감사규모코드*/
+	         , T1.TSK_CAT_CD       		AS TSK_CAT_CD       		/*업무분류코드*/
+	         , T1.TSK_CAT_NM       		AS TSK_CAT_NM       		
+	         , T1.EPS_TASK_CD      		AS EPS_TASK_CD      		/*중점과제코드*/
+             , T1.EPS_TASK_NM      		AS EPS_TASK_NM      		
+	         , T1.AUD_TOT_DRTR_CNB 		AS AUD_TOT_DRTR_CNB 		/*감사총책임자전산번호*/
+	         , T1.TOT_DRTR_RANK_CD 		AS TOT_DRTR_RANK_CD 		/*총책임자직급코드*/
+	         , T1.TOT_DRTR_BRDV_CD 		AS TOT_DRTR_BRDV_CD 		/*총책임자국과코드*/
+	         , T1.AUD_RPST_ORG_CD  		AS AUD_RPST_ORG_CD  		/*감사대표기관코드*/
+	         , T1.AUD_RPST_ORG_NM  		AS AUD_RPST_ORG_NM  		
+	         , T1.SPVR_CNB         		AS SPVR_CNB         		/*주관자전산번호*/
+	         , T1.SPVR_BRDV_CD     		AS SPVR_BRDV_CD     		/*주관자국과코드*/
+	         , T1.SPVR_RANK_CD     		AS SPVR_RANK_CD     		/*주관자직급코드*/
+	         , T1.AST_CNB          		AS AST_CNB          		/*보조자전산번호*/    
+	         , T1.AST_BRDV_CD      		AS AST_BRDV_CD      		/*보조자국과코드*/
+	         , T1.AST_RANK_CD      		AS AST_RANK_CD      		/*보조자직급코드*/
+	         , T1.MNG_DPT_CD       		AS MNG_DPT_CD       		/*관리부서코드*/
+	         , T1.MNG_DPT_NM			AS MNG_DPT_NM			    		         
+		     , T1.ACP_YR 				AS ACP_YR 				    /*청구연도*/
+		     , T1.CVPT_ACP_NO 			AS CVPT_ACP_NO 			    /*청구일련번호*/
+		     , T1.REQ_DVSN_CD 			AS REQ_DVSN_CD 			    /*청구구분코드*/
+		     , T1.TIT_NM 				AS TIT_NM 				    /*청구제목*/
+	         , T1.AUD_TOT_DRTR_NM       AS AUD_TOT_DRTR_NM          
+	         , T1.AUD_TOT_DRTR_BRDV_NM  AS AUD_TOT_DRTR_BRDV_NM     
+	         , T1.AUD_TOT_DRTR_RANK_NM  AS AUD_TOT_DRTR_RANK_NM  
+             , T1.BZT_BGT_DVSN_CD       AS BZT_BGT_DVSN_CD          /*예산구분코드*/
+             , T1.BZT_BGT_DVSN_NM       AS BZT_BGT_DVSN_NM          /*예산구분명*/	         
+	         
+	         /* 주석처리 - 2016.04.14 yyh
+	         , T1.SPVR_NM               AS SPVR_NM                  
+	         , T1.SPVR_BRDV_NM          AS SPVR_BRDV_NM             
+	         , T1.SPVR_RANK_NM          AS SPVR_RANK_NM             
+	         , T1.AST_NM                AS AST_NM                   
+	         , T1.AST_BRDV_NM           AS AST_BRDV_NM              
+	         , T1.AST_RANK_NM           AS AST_RANK_NM              
+             */
+             , T1.PRSS_STEP_CD          AS PRSS_STEP_CD             /*진행단계코드*/
+			 , F_CODE_NM('1000785',T1.PRSS_STEP_CD)  
+		       || 
+		       (CASE WHEN T1.BZT_BGT_DVSN_CD = '1' AND T1.PRSS_STEP_CD = '02'
+		                 THEN 
+						     (SELECT '/'|| F_CODE_NM('1000030',AUD_BZT_KND_CD)
+						        FROM TBBADDED002M 
+						       WHERE BZT_YR || BZT_SNO = (SELECT MAX(BZT_YR || BZT_SNO)
+												            FROM TBBADDED002M
+												           WHERE REL_AUD_YR = T1.AUD_YR
+												             AND REL_AUD_NO = T1.AUD_NO
+												          )
+							 )
+				   END) AS PRSS_STEP_NM     		                /*진행단계코드명*/
+		     , T1.GKM_CNT 				         AS GKM_CNT 		/*감사지식갯수*/
+		     , T1.BZT_CNT			             AS BZT_CNT         /*출장수*/
+		     , T1.DVS_AUD_YR                     AS DVS_AUD_YR      /*분할감사년도 - 2015.07.13 yyh*/
+		     , T1.DVS_AUD_NO                     AS DVS_AUD_NO      /*분할감사번호 - 2015.07.13 yyh*/
+		     , (SELECT AUD_GRN_NO
+		          FROM TBBADDED001M
+		         WHERE AUD_YR = T1.DVS_AUD_YR
+		           AND AUD_NO = T1.DVS_AUD_NO)   AS DVS_AUD_GRN_NO  /*분할감사부여번호 - 2016.05.26 yyh*/
+		     , T1.DVS_AUD_SBJ_NM                 AS DVS_AUD_SBJ_NM  /*분할감사사항명 - 2015.07.13 yyh*/
+		     , T1.REF_AUD_INFO                   AS REF_AUD_INFO    /*해당건을 분리전 감사사항으로 사용하는 건 - 2015.07.13 yyh */
+		     
+		     , T1.ITGT_AUD_YR                    AS ITGT_AUD_YR     /*통합감사년도 - 2015.09.15 yyh*/
+		     , T1.ITGT_AUD_NO                    AS ITGT_AUD_NO     /*통합감사번호 - 2015.09.15 yyh*/
+		     , (SELECT AUD_GRN_NO
+		          FROM TBBADDED001M
+		         WHERE AUD_YR = T1.ITGT_AUD_YR
+		           AND AUD_NO = T1.ITGT_AUD_NO)  AS ITGT_AUD_GRN_NO /*통합감사부여번호 - 2016.05.26 yyh*/
+		     , T1.ITGT_AUD_SBJ_NM                AS ITGT_AUD_SBJ_NM /*통합감사사항명 - 2015.09.15 yyh*/
+		     , T1.ITGT_AUD_INFO                  AS ITGT_AUD_INFO   /*해당건을 통합 감사사항으로 사용하는 건 - 2015.09.15 yyh*/
+		     
+		     , T1.DVS_AUD_YR_NO_KND_CD  AS DVS_AUD_YR_NO_KND_CD
+		     , T1.ITGT_AUD_YR_NO_KND_CD AS ITGT_AUD_YR_NO_KND_CD
+		     
+		     , T1.AUD_CTRL_CD                    AS AUD_CTRL_CD      /*감사통제코드 - 2016.06.03 yyh */
+			 , T1.AUD_CTRL_NM                    AS AUD_CTRL_NM      /*감사통제코드명 - 2016.06.03 yyh */	
+			 , T1.FLD_AUD_END_DT AS FLD_AUD_END_DT  /* 종료보고일- 2017.10.31 EUNOK 	*/
+			 , T1.DOC_LIST  
+			 , T1.RPRT_NM  
+          FROM (
+          
+			    SELECT D1.AUD_YR                   	AS AUD_YR           /*감사년도*/
+			         , D1.AUD_NO                   	AS AUD_NO           /*감사번호*/
+	                 , D1.AUD_GRN_NO       		    AS AUD_GRN_NO       /*감사부여번호*/			         
+			         , F_MNG_KND_AUDYRNO(D1.AUD_YR, D1.AUD_NO, D1.AUD_KND_CD, '-')
+			                                        AS AUD_YR_NO        /*감사년번호 - 수정(2015.12.17-yyh)*/
+			         , CASE WHEN D1.AUD_YR >= '2016' 
+			                     THEN D1.AUD_KND_CD
+			                ELSE '' 
+			            END                         AS AUD_YR_NO_KND_CD /*감사연번호종류코드 추가 - 2015.12.18 yyh*/
+			         , CASE WHEN D1.AUD_YR >= '2016' 
+			                     THEN F_CODE_NM('1000739',D1.AUD_KND_CD)   
+			                ELSE '-' 
+			            END                         AS AUD_YR_NO_KND_NM /*감사연번호종류코드명 추가 - 2015.12.22 yyh*/			            
+			         , D1.AUD_YR||'-'||SUBSTR(D1.AUD_TASK_CD,-1)||'-'||D1.ORG_DVSN_CD||'-'||SUBSTR(D1.AUD_KND_CD,-1)
+			         ||'-'||SUBSTR(D1.SPV_BRDV_CD,1,2)||SUBSTR(D1.SPV_BRDV_CD,4,2)||'-'||SUBSTR(D1.AUD_WAY_CD,-1)||'-'||D1.AUD_NO AS AUD_DTL_NO    /*세부연번호*/
+			         , D1.AUD_TASK_CD              	AS AUD_TASK_CD      /*감사과제코드*/
+                     , F_CODE_NM_YEAR('1000008', D1.AUD_TASK_CD, D1.AUD_YR) AS AUD_TASK_NM 
+			         , D1.ORG_DVSN_CD              	AS ORG_DVSN_CD      /*기관구분코드*/
+			         , D1.AUD_KND_CD               	AS AUD_KND_CD       /*감사종류코드*/
+                     , F_CODE_NM_YEAR('1000007', D1.AUD_KND_CD, D1.AUD_YR) AS AUD_KND_NM 
+			         , D1.SPV_BRDV_CD              	AS SPV_BRDV_CD      /*주관국과코드*/
+			         , F_DPT_INFO(D1.SPV_BRDV_CD,'1')	AS SPV_BRDV_NM  /*주관국과명*/
+			         , D1.AUD_WAY_CD               	AS AUD_WAY_CD       /*감사방법코드*/
+                     , F_CODE_NM_YEAR('1000009', D1.AUD_WAY_CD, D1.AUD_YR) AS AUD_WAY_NM 
+			         , D1.AUD_SBJ_NM               	AS AUD_SBJ_NM       /*감사사항명*/
+			         , D1.AUD_SCL_CD               	AS AUD_SCL_CD       /*감사규모코드*/
+			         , D1.TSK_CAT_CD               	AS TSK_CAT_CD       /*업무분류코드*/
+			         , F_CODE_NM('1000120',D1.TSK_CAT_CD) AS TSK_CAT_NM
+			         , D1.EPS_TASK_CD             	AS EPS_TASK_CD      /*중점과제코드*/
+                     , F_CODE_NM_YEAR('1000005', D1.EPS_TASK_CD, D1.AUD_YR) AS EPS_TASK_NM 
+			         , D1.AUD_TOT_DRTR_CNB         	AS AUD_TOT_DRTR_CNB /*감사총책임자전산번호*/
+			         , D1.TOT_DRTR_RANK_CD         	AS TOT_DRTR_RANK_CD /*총책임자직급코드*/
+			         , D1.TOT_DRTR_BRDV_CD         	AS TOT_DRTR_BRDV_CD /*총책임자국과코드*/
+			         , D1.AUD_RPST_ORG_CD          	AS AUD_RPST_ORG_CD  /*감사대표기관코드*/
+			         , F_ORG_INFO(D1.AUD_RPST_ORG_CD,'1')  AS AUD_RPST_ORG_NM
+			         , D1.SPVR_CNB                 	AS SPVR_CNB         /*주관자전산번호*/
+			         , D1.SPVR_BRDV_CD             	AS SPVR_BRDV_CD     /*주관자국과코드*/
+			         , D1.SPVR_RANK_CD            	AS SPVR_RANK_CD     /*주관자직급코드*/
+			         , D1.AST_CNB                  	AS AST_CNB          /*보조자전산번호*/    
+			         , D1.AST_BRDV_CD              	AS AST_BRDV_CD      /*보조자국과코드*/
+			         , D1.AST_RANK_CD              	AS AST_RANK_CD      /*보조자직급코드*/
+			         , D1.MNG_DPT_CD               	AS MNG_DPT_CD       /*관리부서코드*/
+			         , F_DPT_INFO(D1.MNG_DPT_CD,'1') 		AS MNG_DPT_NM			         
+				     , D1.ACP_YR 					AS ACP_YR 			/*청구연도*/
+				     , D1.CVPT_ACP_NO 				AS CVPT_ACP_NO 		/*청구일련번호*/
+				     , D1.REQ_DVSN_CD 				AS REQ_DVSN_CD 		/*청구구분코드*/
+				     , D2.TIT_NM  					AS TIT_NM 			/*청구제목*/
+			         , F_USR_INFO(D1.AUD_TOT_DRTR_CNB,'2')		AS AUD_TOT_DRTR_NM
+			         , F_DPT_INFO(D1.TOT_DRTR_BRDV_CD,'1')		AS AUD_TOT_DRTR_BRDV_NM  
+			         , F_CODE_NM('1000173',D1.TOT_DRTR_RANK_CD)	AS AUD_TOT_DRTR_RANK_NM
+			         
+			         /* 주석처리 - 2016.04.14 yyh
+			         , F_USR_INFO(D1.SPVR_CNB,'2')              AS SPVR_NM
+			         , F_DPT_INFO(D1.SPVR_BRDV_CD,'1')          AS SPVR_BRDV_NM
+			         , F_CODE_NM('1000173',D1.SPVR_RANK_CD)     AS SPVR_RANK_NM
+			         , F_USR_INFO(D1.AST_CNB,'2')             	AS AST_NM
+			         , F_DPT_INFO(D1.AST_BRDV_CD,'1')         	AS AST_BRDV_NM
+			         , F_CODE_NM('1000173',D1.AST_RANK_CD)      AS AST_RANK_NM
+			         */
+			         
+ 					 ,D1.PRSS_STEP_CD                           AS PRSS_STEP_CD    /*진행단계코드 - 로직제거 2016.10.04 yyh*/         
+				     
+				   , (SELECT COUNT(1) CNT  
+					    FROM TBAEPGKM001M
+					   WHERE 1=1
+					     AND AUD_YR = D1.AUD_YR
+					     AND AUD_NO = D1.AUD_NO
+					  )                               AS GKM_CNT /*감사지식갯수*/
+					  
+				   , (SELECT COUNT(1)
+				        FROM TBBADDED002M 
+				       WHERE REL_AUD_YR = D1.AUD_YR
+				         AND REL_AUD_NO = D1.AUD_NO
+				      )                               AS BZT_CNT
+				      
+				   , D1.DVS_AUD_YR                    AS DVS_AUD_YR      /* 분할감사년도 - 2015.07.13 yyh */
+				   , D1.DVS_AUD_NO                    AS DVS_AUD_NO      /* 분할감사번호 - 2015.07.13 yyh */
+				   , (SELECT CASE WHEN MAX(AUD_YR) >= '2016' 
+				                       THEN SUBSTR(MAX(AUD_KND_CD),3,1)
+				                  ELSE ''
+				              END 
+				        FROM TBBADDED001M
+				       WHERE AUD_YR = D1.DVS_AUD_YR
+				         AND AUD_NO = D1.DVS_AUD_NO)  AS DVS_AUD_YR_NO_KND_CD /* 분리전 감사사항 감사연번호종류코드 - 2015.12.28 yyh */
+				   , (SELECT MAX(AUD_SBJ_NM)
+				        FROM TBBADDED001M 
+				       WHERE AUD_YR = D1.DVS_AUD_YR
+				         AND AUD_NO = D1.DVS_AUD_NO)  AS DVS_AUD_SBJ_NM  /* 분할감사사항명 - 2015.07.13 yyh */
+				   , (SELECT MAX('(' || AUD_YR || '-' || AUD_NO || ')' || AUD_SBJ_NM) 
+				        FROM TBBADDED001M 
+				       WHERE DVS_AUD_YR = D1.AUD_YR
+				         AND DVS_AUD_NO = D1.AUD_NO)  AS REF_AUD_INFO  /* 해당건을 분리전 감사사항으로 사용하는 건 - 2015.07.13 yyh */
+				         
+				         
+				   , D1.ITGT_AUD_YR                   AS ITGT_AUD_YR     /* 통합감사년도 - 2015.09.15 yyh */
+				   , D1.ITGT_AUD_NO                   AS ITGT_AUD_NO     /* 통합감사번호 - 2015.09.15 yyh */	
+				   , (SELECT CASE WHEN MAX(AUD_YR) >= '2016' 
+				                       THEN SUBSTR(MAX(AUD_KND_CD),3,1)
+				                  ELSE ''
+				              END 
+				        FROM TBBADDED001M
+				       WHERE AUD_YR = D1.ITGT_AUD_YR
+				         AND AUD_NO = D1.ITGT_AUD_NO)  AS ITGT_AUD_YR_NO_KND_CD /* 통합처리 감사사항 감사연번호종류코드 - 2015.12.28 yyh */				   
+				   , (SELECT MAX(AUD_SBJ_NM)
+				        FROM TBBADDED001M 
+				       WHERE AUD_YR = D1.ITGT_AUD_YR
+				         AND AUD_NO = D1.ITGT_AUD_NO)  AS ITGT_AUD_SBJ_NM  /* 통합감사사항명 - 2015.09.15 yyh */
+				   , (SELECT MAX('(' || AUD_YR || '-' || AUD_NO || ')' || AUD_SBJ_NM) 
+				        FROM TBBADDED001M 
+				       WHERE ITGT_AUD_YR = D1.AUD_YR
+				         AND ITGT_AUD_NO = D1.AUD_NO)  AS ITGT_AUD_INFO  /* 해당건을 통합전 감사사항으로 사용하는 건 - 2015.09.15 yyh */	   
+				   , D1.AUD_CTRL_CD                          AS AUD_CTRL_CD
+			       , F_CODE_NM('1000753',D1.AUD_CTRL_CD)     AS AUD_CTRL_NM      /*감사통제코드명 - 2016.06.03 yyh */		
+			       
+                   /* 예산구분 추가 - 2016.06.16 yyh */
+                   , D1.BZT_BGT_DVSN_CD                      AS BZT_BGT_DVSN_CD
+                   , F_CODE_NM('1000751',D1.BZT_BGT_DVSN_CD) AS BZT_BGT_DVSN_NM
+				   , D3.FLD_AUD_END_DT  /* 종료보고일 - 2017.10.31 EUNOK */	
+				   , D4.DOC_LIST
+				   , D4.RPRT_NM
+				FROM TBBADDED001M D1
+			       , TBCSPDCP101M D2
+      			   , TBBADDED003M D3
+      			   ,(SELECT AUD_YR
+                                              ,AUD_NO 
+                                              ,SUBSTR(XMLAGG(XMLELEMENT(X,'||',DOC_ID) ORDER BY AUD_YR,AUD_NO,AUD_STEP_CD,doc_ID).EXTRACT('//text()'),3) DOC_LIST 
+                                              ,SUBSTR(XMLAGG(XMLELEMENT(X,'||',RPRT_NM) ORDER BY AUD_YR,AUD_NO,AUD_STEP_CD,doc_ID).EXTRACT('//text()'),3) RPRT_NM 
+                                         FROM TBBADDED103M
+                                        WHERE AUD_STEP_CD = 'A1050'
+                                          AND RPRT_CD     = 'A10500500'
+                 ]]>			
+                 						<isNotEmpty property="strInformReport">	
+										<isEqual property="strInformReport" compareValue="1">
+									         /*정보보고서  1: 보고 , 2:미보고 */ 
+										     AND APV_STA_CD IS NOT NULL AND APV_STA_CD  <![CDATA[ > ]]> '10' 
+										</isEqual>
+										<isEqual property="strInformReport" compareValue="2">
+										     AND APV_STA_CD IS  NULL OR APV_STA_CD  ='10'
+										</isEqual>
+										</isNotEmpty>   
+			 <![CDATA[   			
+                                        GROUP BY AUD_YR
+                                                ,AUD_NO) D4 
+			   WHERE 1=1
+			     AND D1.ACP_YR        = D2.ACP_YR(+)
+			     AND D1.CVPT_ACP_NO   = D2.CVPT_ACP_NO(+)
+			     AND D1.REQ_DVSN_CD   = D2.REQ_DVSN_CD(+)
+			     AND D1.AUD_YR 		  = D3.AUD_YR(+)
+			     AND D1.AUD_NO 		  = D3.AUD_NO(+)
+                 AND D1.AUD_YR = D4.AUD_YR(+)
+                 AND D1.AUD_NO = D4.AUD_NO(+)    
+		         /*AND D1.AUD_NO NOT LIKE '9%' 서면모니터링을 걸러내야하므로*/ 
+		         AND D1.AUD_KND_CD NOT LIKE '175'  /* 확인출장 제외 */
+		         AND D3.FLD_AUD_STR_DT >= '20170908' 
+		         /*  AND D3.FLD_AUD_STR_DT <= TO_CHAR(SYSDATE,'YYYYMMDD') 실지감사 시작일이 20170908 이후 이고, 실지감사 시작한 감사사항*/
+		         
+		         AND D1.MNG_DPT_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #dptAuth#, '', #strUpSpvBrdvCd#)))   /*직급이 원장일 경우 'ALL' 그외는 'DEPTLW'로 셋팅*/   		
+		]]>
+		<isNotEmpty property="strAudYr">	 
+			     AND D1.AUD_YR      = #strAudYr#    
+		</isNotEmpty>
+		
+		<isNotNull property="strAudYrNoKndCd">
+			<isNotEmpty property="strAudYrNoKndCd">	 	
+	                 /* 감사연번종류코드 - 2015.12.17 yyh */
+				     AND SUBSTR(D1.AUD_KND_CD,3,1) = SUBSTR(#strAudYrNoKndCd#,3,1) 
+			</isNotEmpty>
+		</isNotNull>
+		
+		<isNotEmpty property="strAudNo">	 	
+			     AND D1.AUD_GRN_NO = #strAudNo#
+		</isNotEmpty>
+		<isNotEmpty property="strAudSbjNm">	 	   
+			     AND D1.AUD_SBJ_NM LIKE '%'||#strAudSbjNm#||'%'
+		</isNotEmpty>
+		
+		<isNotEmpty property="strPrssStepCd">	 
+                 AND D1.PRSS_STEP_CD = #strPrssStepCd#
+		</isNotEmpty>
+		
+		<isNotEmpty property="strAudKndCd">	 
+			     AND D1.AUD_KND_CD  = #strAudKndCd#
+		</isNotEmpty>
+		<isNotEmpty property="strSpvBrdvCd">	 
+			     AND D1.MNG_DPT_CD = #strSpvBrdvCd#
+		</isNotEmpty>   
+		<isNotEmpty property="strReqDvsnCd">	 
+			     AND D1.REQ_DVSN_CD = #strReqDvsnCd#
+		</isNotEmpty>  
+		
+		<isNotEmpty property="strEndReportDt">	
+			<isEqual property="strEndReportDt" compareValue="1">
+		         /*종료보고일  1: 도래 , 2: 미도래 */ 
+			     AND D3.FLD_AUD_END_DT  <![CDATA[ <=]]> TO_CHAR(SYSDATE, 'YYYYMMDD')
+			</isEqual>
+			<isEqual property="strEndReportDt" compareValue="2">
+			     AND D3.FLD_AUD_END_DT  <![CDATA[ > ]]>TO_CHAR(SYSDATE, 'YYYYMMDD')
+			</isEqual>
+		</isNotEmpty>
+		
+		   
+        <![CDATA[ 
+        	) T1      
+        ]]>
+        
+        <include refid="include.pageOrder" />
+	</select>	
+	
+	
+</sqlMap>

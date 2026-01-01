@@ -1,0 +1,55 @@
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd" >
+<sqlMap namespace="csp/bii/724">
+	
+	<!-- 감사정보 접수 목록 조회 -->
+	<select id="CSPBII724QMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT /* csp.bii.service.impl.CSPBII724QServiceImpl.CSPBII724QMainSelect */
+			       A.YE || '-' || A.SRNO                                           AS INF_NO      /* 정보번호[연도-일련번호] */
+			     , (SELECT B.USR_NAM
+			          FROM TBDCMACM001M B
+			         WHERE B.CNB = A.PRSR_CNB)                                     AS PRSR_NAM    /* 제출자성명 */
+			     , CASE WHEN SUBSTR(F_CODE_NM('1000097', A.INF_DVSN_CD), 1, 2) is not null THEN '(' || SUBSTR(F_CODE_NM('1000097', A.INF_DVSN_CD), 1, 2) || ')' || A.TIT_TXT
+			            ELSE A.TIT_TXT
+			             END AS TIT_TXT
+			     , A.TRNF_DT                                                                      /* 이송일자 */		
+			     , (SELECT B.ORG_NM
+			          FROM TBDCMACM015M B
+			         WHERE B.ORG_CD = A.REL_ORG_CD)                                AS REL_ORG_NM  /* 관련기관명 */	     
+			     , F_CODE_NM('1000039', A.HNDL_ORD_CD)                             AS HNDL_ORD_NM /* 처리지시명 */			     
+			     , A.AUD_INF_PRSS_STA_CD			                                              /* 감사정보진행상태코드 */
+			     , A.YE                                                                           /* 연도 */
+			     , A.SRNO                                                                         /* 일련번호 */
+			  FROM TBCSPBII170M A
+			 WHERE A.HNDL_DPT_CD         = #strDptCd# 
+			   AND A.AUD_INF_PRSS_STA_CD = '15' /* 감사정보진행상태코드[15:이송완료] */
+			ORDER BY A.YE
+			       , A.SRNO
+		]]>
+	</select>	
+	
+	<!-- 감사정보진행상태코드 조회 -->
+	<select id="CSPBII724QPrssStaCdSelect" parameterClass="paramMap" resultClass="String">
+		<![CDATA[
+			SELECT /* csp.bii.service.impl.CSPBII724QServiceImpl.CSPBII724QPrssStaCdSelect */
+			       A.AUD_INF_PRSS_STA_CD /* 감사정보진행상태코드 */
+			  FROM TBCSPBII170M A
+			 WHERE A.YE   = #YE#
+			   AND A.SRNO = #SRNO#
+		]]>
+	</select>	
+	
+	<!-- 감사정보기본 테이블 진행상태코드 업데이트   -->
+	<update id="CSPBII724QMainUpdate" parameterClass="paramMap">
+		/* csp.bii.service.impl.CSPBII724QServiceImpl.CSPBII724QMainUpdate */
+		UPDATE TBCSPBII170M                       
+		   SET TRNF_ACP_DT         = TO_CHAR(SYSDATE, 'YYYYMMDD') /* 이송접수일 */		     
+		     , AUD_INF_PRSS_STA_CD = #AUD_INF_PRSS_STA_CD#        /* 감사정보진행상태코드[20:이송접수] */		     
+		     , FNL_USR_ID          = #FNL_USR_ID#                 /* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD     = #FNL_DEAL_DPT_CD#            /* 최종거래부서코드 */
+		     , FNL_MNU_ID          = #FNL_MNU_ID#                 /* 최종메뉴ID */
+		     , FNL_MDF_DH          = SYSDATE                      /* 최종수정일시 */
+		 WHERE YE   = #YE#
+		   AND SRNO = #SRNO#		   
+	</update>	
+</sqlMap>

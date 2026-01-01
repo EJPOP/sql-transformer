@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.fer.dao.AEPFER003QMapper">
+    
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.aep.fer.dao.AEPFER003QMapper.selectMainList */
+		SELECT T1.AUD_YR
+		      ,T1.AUD_NO
+		      ,T1.DOC_ID
+		      ,T1.AFF_SNO
+		      ,T2.TITLE_NM
+		      ,DECODE(T3.AFF_DSP_CD, '00', '', F_MNG_KND_AUDYRNO(T2.AUD_YR, T2.AUD_NO, T2.AUD_KND_CD, '-')||'-'||T2.AFF_CD||'-'||T3.AFF_DSP_CD) AS DSP_RQ_SNO_NM
+		      ,CASE WHEN RLTN_ORG_CD IS NOT NULL THEN F_ORG_INFO(RLTN_ORG_CD,'1')ELSE '' END COPT_OFI_NM
+		      ,F_CODE_NM('1000002',T3.DSP_RQ_CD ) AS DSP_RQ_NM
+		      ,TO_CHAR(TO_DATE(SBCN_DY),'YYYY"-"MM"-"DD') AS SBCN_DY
+		      ,F_CODE_NM('1000785', 'A1070') AS AUD_STEP_NM
+		  FROM TBBADDED113M T1
+		      ,TBBADDED145M T2
+		      ,TBBADDED146M T3
+		 WHERE 1=1
+		   AND T1.AUD_YR     = T2.AUD_YR
+		   AND T1.AUD_NO     = T2.AUD_NO
+		   AND T1.DOC_ID     = T2.DOC_ID
+		   AND T1.APVR_CD    = T2.APVR_CD
+		   AND T1.AFF_SNO    = T2.AFF_SNO
+		   AND T1.AUD_YR     = T3.AUD_YR
+		   AND T1.AUD_NO     = T3.AUD_NO
+		   AND T1.DOC_ID     = T3.DOC_ID
+		   AND T1.APVR_CD    = T3.APVR_CD
+		   AND T1.AFF_SNO    = T3.AFF_SNO
+		   AND T1.DSP_RQ_SNO = T3.DSP_RQ_SNO
+		   AND T1.AUD_YR     = #{audYr}
+		   AND T1.AUD_NO     = #{audNo}
+		   AND T1.SBCN_VT_CD = '90'
+		 ORDER BY T2.AFF_CD, T3.AFF_DSP_CD
+    </select>
+    
+    <select id="selectSubList1" parameterType="paramMap" resultType="egovMap" >
+        SELECT
+             AUD_YR
+            , AUD_NO
+            , DOC_ID
+            , DECODE(GWA_APV, NULL, '0', '1') 
+                + DECODE(GUK_APV, NULL, '0', '1') 
+                + DECODE(CHA_APV, NULL, '0', '1') 
+                + DECODE(CHONG_APV, NULL, '0', '1') 
+                + DECODE(WI_APV, NULL, '0', '1')
+                + DECODE(SBCN_DY, NULL, '0', '1') 
+                + DECODE(ENF_DT, NULL, '0', '1') AS CNT
+            , RPRT_NM
+            , GWA_APV
+            , GUK_APV
+            , CHA_APV
+            , CHONG_APV
+            , WI_APV
+            , SBCN_DY
+            , ENF_DT
+            , REFER_DVSN_CNT
+          FROM (SELECT 
+                    AUD_YR
+                    , AUD_NO
+                    , DOC_ID
+                    , F_CODE_NM('1000788',MAX(AUD_RPRT_DVSN_CD))||' 처리안('||MAX(T1.RPRT_NM)||')' AS RPRT_NM
+                    , MAX(DECODE(T2.APVR_PST_CD,'0013600',TO_CHAR(T2.APV_DH,'YYYY"-"MM"-"DD'),'')) AS GWA_APV     --과장결재일
+                    , MAX(DECODE(T2.APVR_PST_CD,'0015800',TO_CHAR(T2.APV_DH,'YYYY"-"MM"-"DD'),
+                              DECODE(T2.APVR_PST_CD,'0035100',TO_CHAR(T2.APV_DH,'YYYY"-"MM"-"DD'),
+                              DECODE(T2.APVR_PST_CD,'0058100',TO_CHAR(T2.APV_DH,'YYYY"-"MM"-"DD'),'')))) AS GUK_APV     --국장결재일
+                    , MAX(DECODE(T2.APVR_PST_CD,'0055600',TO_CHAR(T2.APV_DH,'YYYY"-"MM"-"DD'),
+                              DECODE(T2.APVR_PST_CD,'0045900',TO_CHAR(T2.APV_DH,'YYYY"-"MM"-"DD'),''))) AS CHA_APV     --사무차장결재일    /* 0045900 : 본부장 추가 */
+                    , MAX(DECODE(T2.APVR_PST_CD,'0055700',TO_CHAR(T2.APV_DH,'YYYY"-"MM"-"DD'),'')) AS CHONG_APV   --사무총장결재일
+                    , (SELECT MAX(TO_CHAR(ST2.APV_DH,'YYYY"-"MM"-"DD'))
+                         FROM TBBADDED103M ST1
+                              INNER JOIN TBDCMACM023L ST2
+                              ON (ST1.APV_RQS_ID = ST2.APV_DOC_NO)
+                        WHERE ST1.AUD_YR = T1.AUD_YR
+                          AND ST1.AUD_NO = T1.AUD_NO
+                          AND ST1.REF_ID = T1.DOC_ID
+                          AND ST1.RPRT_CD = 'A10700100'
+                          AND ST1.APV_STA_CD = '30') AS WI_APV
+                    , (SELECT MIN(TO_CHAR(TO_DATE(ST1.SBCN_DY),'YYYY"-"MM"-"DD'))
+                         FROM TBBADDED113M ST1
+                        WHERE ST1.AUD_YR = T1.AUD_YR
+                          AND ST1.AUD_NO = T1.AUD_NO
+                          AND ST1.DOC_ID = T1.DOC_ID) AS SBCN_DY
+                    , (SELECT MIN(TO_CHAR(TO_DATE(ST2.ENF_DT),'YYYY"-"MM"-"DD'))
+                         FROM TBBADDED146M ST1
+                              INNER JOIN TBBADEAR002D ST2
+                              ON (ST1.AUD_YR = ST2.AUD_YR 
+                                 AND ST1.AUD_NO = ST2.AUD_NO
+                                 AND ST1.DSP_RQ_SNO = ST2.DSP_RQ_SNO)
+                        WHERE ST1.AUD_YR = T1.AUD_YR
+                          AND ST1.AUD_NO = T1.AUD_NO
+                          AND ST1.DOC_ID = T1.DOC_ID
+                          AND ST1.FNL_YN = 'Y') AS ENF_DT
+                    , (SELECT '부의'||SUM(DECODE(ST1.REFER_DVSN_CD,'D10',1,0))||',위임'||SUM(DECODE(ST1.REFER_DVSN_CD,'E10',1,0))     
+                         FROM TBBADDED145M ST1
+                              INNER JOIN TBBADDED146M ST2
+                              ON (ST1.AUD_YR = ST2.AUD_YR
+                                  AND ST1.AUD_NO = ST2.AUD_NO
+                                  AND ST1.AUD_STEP_CD = ST2.AUD_STEP_CD
+                                  AND ST1.DOC_ID = ST2.DOC_ID
+                                  AND ST1.APVR_CD = ST2.APVR_CD
+                                  AND ST1.AFF_SNO = ST2.AFF_SNO)
+                        WHERE ST1.FNL_YN = 'Y' AND ST2.FNL_YN = 'Y'
+                          AND ST1.AUD_YR = T1.AUD_YR
+                          AND ST1.AUD_NO = T1.AUD_NO
+                          AND ST1.DOC_ID = T1.DOC_ID
+                        GROUP BY ST1.AUD_YR, ST1.AUD_NO, ST1.DOC_ID) AS REFER_DVSN_CNT
+                  FROM TBBADDED103M T1
+                       INNER JOIN TBDCMACM023L T2
+                       ON (T1.APV_RQS_ID = T2.APV_DOC_NO)
+                 WHERE 1=1
+                   AND RPRT_CD = 'A10600200'
+                   AND AUD_RPRT_DVSN_CD != '10'
+                   AND T1.AUD_YR = #{audYr}
+                   AND T1.AUD_NO = #{audNo}
+                 GROUP BY AUD_YR, AUD_NO, DOC_ID
+                 ) T1
+    	/*select
+            decode(d2, null, '0', '1') + decode(d3, null, '0', '1') + decode(d4, null, '0', '1') + decode(d5, null, '0', '1') + decode(d6, null, '0', '1') + decode(d7, null, '0', '1') + decode(d8, null, '0', '1') as cnt
+		    , d1 
+		    , d2
+		    , d3
+		    , d4
+		    , d5
+		    , d6
+		    , d7
+		    , d8
+		    , rslt
+		from (
+			select 
+				'별도 처리안' d1
+			    ,'2016-09-11' d2
+			    ,'2016-09-13' d3
+			    ,'2016-09-17' d4
+			    ,'2016-09-23' d5
+			    ,'2016-09-27' d6
+			    ,'' d7
+			    ,'' d8
+			    ,'부의10, 위임10' rslt
+			from dual
+		) where 1 = 2*/
+	</select>
+    
+    <select id="selectSubList2" parameterType="paramMap" resultType="egovMap" >
+        SELECT
+                 T1.AUD_YR 
+                , T1.AUD_NO 
+                , T2.TITLE_NM
+                , F_MNG_KND_AUDYRNO(T1.AUD_YR, T1.AUD_NO, T1.AUD_KND_CD, '-')||'-'||T1.AFF_CD AS DSP_RQ_SNO_NM
+                , T1.SBMT_REL_CON AS COPT_OFI_NM
+                , AGGR_CONCAT(T3.DSP_RQ_NM||DECODE(T3.DSP_RQ_CNT,1,'',T3.DSP_RQ_CNT), ',')  AS DSP_RQ_NM
+                , NVL(TO_CHAR(TO_DATE(T1.SBMT_FIX_DT),'YYYY"-"MM"-"DD'),'미정') AS SSBCN_DY
+                , T6.DOC_ID
+                , T6.RPRT_NM
+              FROM TBBADDED114M T1
+                   INNER JOIN TBBADDED145M T2
+                   ON (T1.AUD_YR = T2.AUD_YR
+                       AND T1.AUD_NO = T2.AUD_NO
+                       AND T1.AUD_STEP_CD = T2.AUD_STEP_CD
+                       AND T1.DOC_ID = T2.DOC_ID
+                       AND T1.APVR_CD = T2.APVR_CD
+                       AND T1.AFF_SNO = T2.AFF_SNO)
+                   INNER JOIN ( SELECT 
+                                    AUD_YR
+                                    , AUD_NO
+                                    , AUD_STEP_CD
+                                    , DOC_ID
+                                    , APVR_CD
+                                    , AFF_SNO
+                                    , F_CODE_NM('1000002', DSP_RQ_CD) AS DSP_RQ_NM
+                                    , COUNT(DSP_RQ_CD) AS DSP_RQ_CNT
+                                  FROM TBBADDED146M T2
+                                 GROUP BY AUD_YR, AUD_NO, AUD_STEP_CD, DOC_ID, APVR_CD, AFF_SNO, DSP_RQ_CD) T3
+                   ON (T1.AUD_YR = T3.AUD_YR
+                       AND T1.AUD_NO = T3.AUD_NO
+                       AND T1.AUD_STEP_CD = T3.AUD_STEP_CD
+                       AND T1.DOC_ID = T3.DOC_ID
+                       AND T1.APVR_CD = T3.APVR_CD
+                       AND T1.AFF_SNO = T3.AFF_SNO)
+                   INNER JOIN TBBADDED112M T4
+                   ON (T1.AUD_YR = T4.AUD_YR
+                       AND T1.AUD_NO = T4.AUD_NO)
+                   INNER JOIN TBBADDED001M T5
+                   ON (T1.AUD_YR = T5.AUD_YR
+                       AND T1.AUD_NO = T5.AUD_NO)
+                   LEFT OUTER JOIN TBBADDED103M T6
+                   ON (T1.AUD_YR = T6.AUD_YR
+                       AND T1.AUD_NO = T6.AUD_NO
+                       AND T6.RPRT_CD = 'A10700300'
+                       AND T6.REF_DY = T1.SBMT_FIX_DT)
+             WHERE 1=1
+               AND SBMT_REQ_DT IS NOT NULL
+               AND T1.AUD_YR = #{audYr}
+               AND T1.AUD_NO = #{audNo}
+               GROUP BY T1.AUD_YR 
+                , T1.AUD_NO 
+                , T2.TITLE_NM
+                , T1.AUD_KND_CD,T1.AFF_CD 
+                , T1.SBMT_REL_CON
+                , T1.SBMT_FIX_DT
+                , T6.DOC_ID
+                , T6.RPRT_NM
+             ORDER BY SBMT_FIX_DT DESC
+           
+        /*
+	    select 
+	    	'담배세 횡령' d1
+		    ,'2017-특정-001-03-01' d2
+		    ,'서울시' d3
+		    ,'판정' d4
+		    ,'2016-08-01' d5
+		    ,'Y' d6
+		from dual
+		where 1 = 2*/
+    </select>
+    
+    <select id="selectSubList3" parameterType="paramMap" resultType="egovMap" >
+	    select 
+	    	'담배세 횡령' d1
+		    ,'2017-특정-001-03' d2
+		    ,'2016-08-15' d3
+		    ,'홍길동' d4
+		    ,'Y' d5
+		    ,'Y' d6
+		from dual
+		where 1 = 2
+    </select>
+    
+    <select id="selectSubList4" parameterType="paramMap" resultType="egovMap" >
+	    select 
+	    	'담배세 횡령' d1
+		    ,'2017-특정-001-03' d2
+		    ,'서울시' d3
+		    ,'고발' d4
+		    ,'Y' d5
+		    ,'Y' d6
+		from dual
+		where 1 = 2
+    </select>
+    
+    <select id="selectSubList5" parameterType="paramMap" resultType="egovMap" >
+	    select 
+	    	'담배세 횡령' d1
+		    ,'2017-특정-001-03' d2
+		    ,'서울시' d3
+		    ,'징계' d4
+		    ,'2016-08-01' d5
+		    ,'홍길동 외 3' d6
+		from dual
+		where 1 = 2
+    </select>
+    
+    <select id="selectSubList6" parameterType="paramMap" resultType="egovMap" >
+	    select 
+	    	'담배세 횡령' d1
+		    ,'2017-특정-001-03' d2
+		    ,'서울시' d3
+		    ,'2016-08-01' d4
+		    ,'홍길동 외 3' d5
+		    ,'50' d6
+		from dual
+		where 1 = 2
+    </select>
+</mapper> 

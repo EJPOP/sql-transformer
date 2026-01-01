@@ -1,0 +1,1418 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/ded/017">
+
+	<!-- 조회조건 데이터 조회  -->
+	<select id="BADDED017QSearchBoxselect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+		       SELECT F_MNG_KND_AUDYRNO(T1.AUD_YR, T1.AUD_NO, T1.AUD_KND_CD, ' - ') || '(' || AUD_STEP_SNO || ')'  AS AUD_YR_NO_SNO /*감사연번호*/
+		            , CASE WHEN AUD_STR_DT IS NOT NULL THEN SUBSTR(AUD_STR_DT, 0, 4) || '.' || SUBSTR(AUD_STR_DT, 5, 2) || '.' || SUBSTR(AUD_STR_DT, 7, 2) ELSE '' END
+		              || ' ~ ' ||
+		              CASE WHEN AUD_END_DT IS NOT NULL THEN SUBSTR(AUD_END_DT, 0, 4) || '.' || SUBSTR(AUD_END_DT, 5, 2) || '.' || SUBSTR(AUD_END_DT, 7, 2) ELSE '' END
+		              || CASE WHEN AUD_DCN IS NOT NULL THEN '(' || AUD_DCN || '일)' ELSE '' END AS SITU_AUD_DT /*출장기간*/
+		            , TIT_TXT || ' (' ||  F_CODE_NM('1000030', AUD_BZT_KND_CD) ||')' AS TIT_TXT /*출장상황명*/
+		            , F_DPT_INFO(BZT_BRDV_CD, '1') || ' (' || BZT_BRDV_CD || ')' AS BZT_BRDV_NM /*출장부서*/
+		            , F_DPT_INFO(BZT_TL_BRDV_CD, '1') || ' ' || F_CODE_NM('1000173', BZT_TL_RANK_CD) || ' ' || F_USR_INFO(BZT_TL_CNB, '2') || '( ' || BZT_TL_CNB || ' )' AS BZT_TL_BRDV_INFO 
+		            , REL_AUD_YR /*관련감사년도*/
+		            , REL_AUD_NO /*관련감사번호*/
+		            , AUD_STEP_SNO /*감사단계순번*/
+		            , BZT_YR /*출장년도*/
+		            , BZT_SNO /*출장순번*/
+		        FROM TBBADDED002M
+		            ,TBBADDED001M T1 
+		       WHERE REL_AUD_YR   = #strAudYr#
+		         AND REL_AUD_NO   = #strAudNo#
+		         AND AUD_STEP_SNO = #strAudStepSno#
+		         AND REL_AUD_YR   = T1.AUD_YR
+		         AND REL_AUD_NO   = T1.AUD_NO
+        ]]>
+	</select>
+	
+	<!-- #################################### 감사출장여비 계산 목록 조회 시작 ################################# -->
+	
+	<select id="BADDED017Qselect1" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT SITU.BZT_YR,
+			       SITU.BZT_SNO,
+			       F_MNG_KND_AUDYRNO(AUD.AUD_YR, AUD.AUD_NO, AUD.AUD_KND_CD, '-') ||'('||SITU.AUD_STEP_SNO || ')'  AS AUD_YR_SNO,  /*감사연번호*/
+			       F_CODE_NM('1000007',AUD.AUD_KND_CD) AS AUD_EXEC_DVSN_CD_NM,  /*감사종류명*/
+			       SITU.TIT_TXT, /*감사사항*/
+			       PSON.AUD_STR_DT, /*감사기간 FROM*/
+			       PSON.AUD_END_DT, /*감사기간 TO*/
+			       PSON.AUD_DCN,   /*감사일수*/
+			       PSON.MAN_DAY,   /*연인원*/
+			       PSON.PSON_CNT,   /*감사인원*/
+			       F_CODE_NM('1000751',AUD.BZT_BGT_DVSN_CD) AS BZT_BGT_DVSN_NM,     /* 예산구분명 추가 - 2016.06.22 yyh */
+			       F_CODE_NM('1000030',SITU.AUD_BZT_KND_CD) AS AUD_BZT_KND_NM,   	/*감사출장종류명 - 2018.01.17 yyh */
+                   F_CODE_NM('1000027',AUD.AUD_SCL_CD) AS AUD_SCL_NM    	        /*감사규모 - 2018.01.17 yyh */ 
+			  FROM TBBADDED001M AUD,
+			       TBBADDED002M SITU,
+			       (SELECT BZT_YR,
+			               BZT_SNO,
+			               MIN(AUD_STR_DT) AS AUD_STR_DT,
+			               MAX(AUD_END_DT) AS AUD_END_DT,
+			               MAX(AUD_DCN) AS AUD_DCN,
+			               SUM(AUD_DCN) AS MAN_DAY,
+			               COUNT(*) AS PSON_CNT
+			          FROM (SELECT TMA.BZT_YR,
+			                       TMA.BZT_SNO,
+			                       TMA.PCT_CNB,
+			                       MIN(PTD.AUD_STR_DT) AS AUD_STR_DT,
+			                       MAX(PTD.AUD_END_DT) AS AUD_END_DT,
+			                       SUM(PTD.AUD_DCN) AS AUD_DCN
+			                  FROM TBBADDED005L TMA,
+			                       TBBADDED006L PTD
+			                 WHERE PTD.BZT_YR = TMA.BZT_YR
+			                   AND PTD.BZT_SNO = TMA.BZT_SNO
+			                   AND PTD.TEAM_SNO = TMA.TEAM_SNO
+			                   AND PTD.PCT_ALC_SNO = TMA.PCT_ALC_SNO
+			                   AND PTD.BZT_YR  = #strBztYr#
+			                   AND PTD.BZT_SNO = #strBztSno#
+			                 GROUP BY TMA.BZT_YR,
+			                       TMA.BZT_SNO,
+			                       TMA.PCT_CNB) PTD1
+			         GROUP BY BZT_YR,
+			               BZT_SNO ) PSON
+			 WHERE SITU.BZT_YR  = #strBztYr#
+			   AND SITU.BZT_SNO = #strBztSno#
+			   AND AUD.AUD_YR = SITU.REL_AUD_YR
+			   AND AUD.AUD_NO = SITU.REL_AUD_NO
+			   AND PSON.BZT_YR = SITU.BZT_YR
+			   AND PSON.BZT_SNO = SITU.BZT_SNO 
+        ]]>
+	</select>	
+	
+	<select id="BADDED017Qselect1-1" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT TER.BZT_YR,
+			       TER.BZT_SNO,
+			       TER.PCT_CNB, /*전산번호*/
+			       TER.PCT_NM, /*성명*/     
+			       F_CODE_NM('1000173',TER.PCT_RANK_CD) AS POS_CLASS_NM,  /*직급*/
+			       F_DPT_INFO(BL.BLT_BRDV_CD,'4') BLT_BRDV_NM,  /*소속*/
+			       NVL(TE.FDEX, 0) FDEX, /*식비*/
+			       NVL(TE.DT_EXS, 0) DT_EXS, /*일비*/
+			       NVL(TE.LDC, 0) LDC, /*숙박비*/  
+			       NVL(TE.CPRG_FR_EXS, 0) CPRG_FR_EXS, /*수도권운임 - 2015.05.06 yyh*/  
+			       NVL(TE.IN_EXP, 0) IN_EXP, /*국내여비*/
+			       NVL(TE.SPM_XPN, 0) AS SPM_XPN, /*현장보충경비*/
+			       NVL(TE.BZT_DCN, 0) BZT_DCN, /*출장일수*/
+			       NVL(TFD.RL_FR_EXS, 0) + NVL(TE.CPRG_FR_EXS, 0) AS RL_FR_EXS, /*교통비(철도임) + 수도권운임비*/
+			       (
+			         CASE
+			           WHEN SITU.BZT_TL_CNB = TER.PCT_CNB THEN TER2.LEAD_EXS
+			           ELSE 0
+			         END) AS LEAD_EXS, /*지휘비*/
+			       (
+			         CASE
+			           WHEN SITU.BZT_TL_CNB = TER.PCT_CNB THEN TER2.AUD_ACTV_RCV_EXS
+			           ELSE 0
+			         END) AS AUD_ACTV_RCV_EXS, /*감사활동수용비*/
+			       NVL(TFD.RL_FR_EXS, 0) + NVL(TE.CPRG_FR_EXS, 0) + NVL(TE.IN_EXP, 0) + NVL(TE.SPM_XPN, 0) + 
+			       (
+			         CASE
+			           WHEN SITU.BZT_TL_CNB = TER.PCT_CNB THEN TER2.LEAD_EXS + TER2.AUD_ACTV_RCV_EXS
+			           ELSE 0
+			         END) AS SUM_ALL, /*합계*/
+			       (
+			         CASE
+			           WHEN SITU.BZT_TL_CNB = TER.PCT_CNB THEN '0' + TER.PCT_CNB
+			           ELSE '1'+TER.PCT_CNB
+			         END) AS SORTER
+			         
+                  , NVL(TE.FDEX, 0) + NVL(TE.DT_EXS, 0)                                          AS IN_EXP_1     /* 식비 + 일비 추가 - 2018.01.17 yyh */
+                  , NVL(TE.FDEX, 0) + NVL(TE.DT_EXS, 0) + NVL(TE.LDC, 0) + NVL(TFD.RL_FR_EXS, 0) AS IN_EXP_SUM   /* 숙박비 + 식비 + 일비 + 교통비 추가 - 2018.01.19 yyh */			         
+			         
+			  FROM TBBADDED010L TER,
+			       TBBADDED002M SITU,
+			       (SELECT BZT_YR,
+			               BZT_SNO,
+			               PCT_CNB,
+			               NVL(SUM(TE0.FDEX), 0) AS FDEX,
+			               NVL(SUM(TE0.DT_EXS), 0) AS DT_EXS,
+			               NVL(SUM(TE0.LDC), 0) AS LDC,
+			               NVL(SUM(TE0.CPRG_FR_EXS), 0) AS CPRG_FR_EXS, /*수도권운임 - 2015.05.06 yyh*/
+			               SUM(TE0.SPM_XPN) AS SPM_XPN,
+			               NVL(SUM(TE0.FDEX), 0) + NVL(SUM(TE0.DT_EXS), 0) + NVL(SUM(TE0.LDC), 0) AS IN_EXP,
+			               NVL(SUM(TE0.BZT_DCN), 0) AS BZT_DCN
+			          FROM TBBADDED011L TE0
+			         WHERE BZT_YR = #strBztYr#
+			           AND BZT_SNO = #strBztSno#
+			           AND CALC_YN = 'Y'
+			         GROUP BY BZT_YR,
+			               BZT_SNO,
+			               PCT_CNB) TE,
+			       (SELECT BZT_YR,
+			               BZT_SNO,
+			               SUM(NVL(LEAD_EXS, 0)) AS LEAD_EXS ,
+			               SUM(NVL(AUD_ACTV_RCV_EXS, 0)) AS AUD_ACTV_RCV_EXS
+			          FROM TBBADDED011L
+			         WHERE BZT_YR = #strBztYr#
+			           AND BZT_SNO = #strBztSno#
+			           AND CALC_YN = 'Y'
+			         GROUP BY BZT_YR,
+			               BZT_SNO) TER2,
+			       (SELECT BZT_YR,
+			               BZT_SNO,
+			               PCT_CNB,
+			               SUM(RL_FR_EXS) AS RL_FR_EXS
+			          FROM TBBADDED017L
+			         WHERE BZT_YR = #strBztYr#
+			           AND BZT_SNO = #strBztSno#
+			           AND CALC_YN = 'Y'
+			         GROUP BY BZT_YR,
+			               BZT_SNO,
+			               PCT_CNB ) TFD,
+			       (SELECT BZT_YR,
+			               BZT_SNO,
+			               PCT_CNB,
+			               MAX(BLT_BRDV_CD) AS BLT_BRDV_CD
+			          FROM TBBADDED005L
+			         WHERE BZT_YR = #strBztYr#
+			           AND BZT_SNO = #strBztSno#
+			         GROUP BY BZT_YR,
+			               BZT_SNO,
+			               PCT_CNB) BL
+			 WHERE TER.BZT_YR = #strBztYr#
+			   AND TER.BZT_SNO = #strBztSno#
+			   AND TE.BZT_YR(+) = TER.BZT_YR
+			   AND TE.BZT_SNO(+) = TER.BZT_SNO
+			   AND TE.PCT_CNB(+) = TER.PCT_CNB
+			   AND TFD.BZT_YR(+) = TER.BZT_YR
+			   AND TFD.BZT_SNO(+) = TER.BZT_SNO
+			   AND TFD.PCT_CNB(+) = TER.PCT_CNB
+			   AND TER2.BZT_YR = TER.BZT_YR
+			   AND TER2.BZT_SNO = TER.BZT_SNO
+			   AND SITU.BZT_YR = TER.BZT_YR
+			   AND SITU.BZT_SNO = TER.BZT_SNO
+			   AND BL.BZT_YR(+) = TER.BZT_YR
+			   AND BL.BZT_SNO(+) = TER.BZT_SNO
+			   AND BL.PCT_CNB(+) = TER.PCT_CNB
+			 ORDER BY SORTER
+        ]]>
+	</select>	
+	
+	<!-- #################################### 감사출장여비 계산 목록 조회 끝 ################################# -->
+	
+	<!-- #################################### 정산 내역표 시작 ################################# -->
+	<select id="BADDED017Qselect2" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT F_MNG_KND_AUDYRNO(AUD.AUD_YR, AUD.AUD_NO, AUD.AUD_KND_CD, '-') ||'('||SITU.AUD_STEP_SNO || ')' AS AUD_YR_SNO,  /*감사연번호*/
+			       F_CODE_NM('1000007',AUD.AUD_KND_CD) AS AUD_EXEC_DVSN_CD_NM,  /*감사종류명*/
+			       F_DPT_INFO(SITU.BZT_BRDV_CD,'1') DPT_NM,  /*소속*/
+			       F_CODE_NM('1000751',AUD.BZT_BGT_DVSN_CD) AS BZT_BGT_DVSN_NM /* 예산구분명 추가 - 2016.06.22 yyh */
+			  FROM TBBADDED001M AUD,
+			       TBBADDED002M SITU
+			 WHERE SITU.BZT_YR  = #strBztYr#
+			   AND SITU.BZT_SNO = #strBztSno#
+			   AND AUD.AUD_YR = SITU.REL_AUD_YR
+			   AND AUD.AUD_NO = SITU.REL_AUD_NO
+        ]]>
+	</select>
+	
+	<select id="BADDED017Qselect2-1" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT ECD.CD_NM, /*구분*/
+			       (NVL(AFT.MAN_DAY, 0 ) - NVL(BEFORE.MAN_DAY, 0)) AS MAN_DAY, /*연인원*/
+			       (NVL(AFT.LEAD_EXS, 0) - NVL(BEFORE.LEAD_EXS, 0)) AS LEAD_EXS, /*지휘비*/
+			       (NVL(AFT.AUD_ACTV_RCV_EXS, 0) - NVL(BEFORE.AUD_ACTV_RCV_EXS, 0)) AS AUD_ACTV_RCV_EXS, /*감사활동수용비*/
+			       (NVL(AFT.SPM_XPN, 0) - NVL(BEFORE.SPM_XPN, 0)) AS SPM_XPN, /*보충경비*/
+			       (NVL(AFT.SUM_ALL, 0) - NVL(BEFORE.SUM_ALL, 0)) AS SUM_ALL /*계*/
+			  FROM TBDCMACM013C ECD,
+			       (SELECT RGN_DVSN_CD,
+			               SUM(BZT_DCN) AS MAN_DAY,
+			               SUM(NVL(LEAD_EXS, 0)) LEAD_EXS,
+			               SUM(NVL(AUD_ACTV_RCV_EXS, 0)) AUD_ACTV_RCV_EXS,
+			               SUM(SPM_XPN) AS SPM_XPN,
+			               SUM(NVL(LEAD_EXS, 0)) + SUM(NVL(AUD_ACTV_RCV_EXS, 0)) + SUM(SPM_XPN) AS SUM_ALL
+			          FROM TBBADDED011L
+			         WHERE BZT_YR  = #strBztYr#
+			           AND BZT_SNO = #strBztSno#
+			           AND CALC_YN = 'N'
+			         GROUP BY RGN_DVSN_CD) BEFORE,
+			       (SELECT RGN_DVSN_CD,
+			               SUM(BZT_DCN) AS MAN_DAY,
+			               SUM(NVL(LEAD_EXS, 0)) LEAD_EXS,
+			               SUM(NVL(AUD_ACTV_RCV_EXS, 0)) AUD_ACTV_RCV_EXS,
+			               SUM(SPM_XPN) AS SPM_XPN,
+			               SUM(NVL(LEAD_EXS, 0)) + SUM(NVL(AUD_ACTV_RCV_EXS, 0)) + SUM(SPM_XPN) AS SUM_ALL
+			          FROM TBBADDED011L
+			         WHERE BZT_YR = #strBztYr#
+			           AND BZT_SNO = #strBztSno#
+			           AND CALC_YN = 'Y'
+			         GROUP BY RGN_DVSN_CD) AFT
+			 WHERE ECD.CMM_CD_DVSN_CD='1000023'
+			   AND ECD.CD IN ('1', '2', '3', '4', '5', '6')
+			   AND BEFORE.RGN_DVSN_CD(+) = ECD.CD
+			   AND AFT.RGN_DVSN_CD(+) = ECD.CD 
+        ]]>
+	</select>
+	
+	<select id="BADDED017Qselect2-2" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT AUD.AUD_YR ,
+			       AUD.AUD_NO,
+			       CASE WHEN AUD.AUD_YR >= '2016' 
+			                 THEN F_CODE_NM('1000739',SUBSTR(AUD.AUD_KND_CD,3,1))
+			            ELSE '-' 
+			        END                                        AS AUD_YR_NO_KND_NM,			       
+			       SITU.AUD_STEP_SNO,
+			       F_CODE_NM('1000007',AUD.AUD_KND_CD) AS AUD_EXEC_DVSN_CD_NM,  /*감사종류명*/
+			       F_DPT_INFO(SITU.BZT_BRDV_CD,'1') DPT_NM  /*소속*/
+			  FROM TBBADDED001M AUD,
+			       TBBADDED002M SITU
+			 WHERE SITU.BZT_YR  = #strBztYr#
+			   AND SITU.BZT_SNO = #strBztSno#
+			   AND AUD.AUD_YR = SITU.REL_AUD_YR
+			   AND AUD.AUD_NO = SITU.REL_AUD_NO
+        ]]>
+	</select>
+	
+	<select id="BADDED017Qselect2-3" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT ECD.CD_NM, /*구분*/
+			       (NVL(AFT.MAN_DAY, 0 ) - NVL(BEFORE.MAN_DAY, 0)) AS MAN_DAY, /*연인원*/
+			       (NVL(AFT.IN_EXP, 0) - NVL(BEFORE.IN_EXP, 0)) AS IN_EXP, /*여비*/
+			       (NVL(AFT.RL_FR_EXS, 0) - NVL(BEFORE.RL_FR_EXS, 0)) AS RL_FR_EXS, /*철도임*/
+			       (NVL(AFT.SUM_ALL, 0) - NVL(BEFORE.SUM_ALL, 0)) AS SUM_ALL /*계*/
+			  FROM TBDCMACM013C ECD,
+			       (SELECT RGN_DVSN_CD,
+			               SUM(TE.BZT_DCN) AS MAN_DAY,
+			               SUM(TE.FDEX)+ SUM(TE.DT_EXS) + SUM(TE.LDC) AS IN_EXP,
+			               NVL(SUM(TFD.RL_FR_EXS), 0) + NVL(SUM(TE.CPRG_FR_EXS),0) AS RL_FR_EXS, /*2015.05.11 - 수도권운임추가 yyh*/
+			               SUM(TE.FDEX)+ SUM(TE.DT_EXS) + SUM(TE.LDC) + NVL(SUM(TFD.RL_FR_EXS), 0) + NVL(SUM(TE.CPRG_FR_EXS),0) AS SUM_ALL
+			          FROM TBBADDED011L TE,
+			               (SELECT BZT_YR,
+			                       BZT_SNO,
+			                       PCT_CNB,
+			                       BZT_EXS_SNO,
+			                       CALC_YN,
+			                       SUM(RL_FR_EXS) AS RL_FR_EXS
+			                  FROM TBBADDED017L
+			                 WHERE BZT_YR  = #strBztYr#
+			                   AND BZT_SNO = #strBztSno#
+			                 GROUP BY BZT_YR,
+			                       BZT_SNO,
+			                       PCT_CNB,
+			                       BZT_EXS_SNO,
+			                       CALC_YN ) TFD
+			         WHERE TE.BZT_YR  = #strBztYr#
+			           AND TE.BZT_SNO = #strBztSno#
+			           AND TE.CALC_YN = 'N'
+			           AND TFD.BZT_YR(+) = TE.BZT_YR
+			           AND TFD.BZT_SNO(+) = TE.BZT_SNO
+			           AND TFD.PCT_CNB(+) = TE.PCT_CNB
+			           AND TFD.BZT_EXS_SNO(+) = TE.BZT_EXS_SNO
+			           AND TFD.CALC_YN(+) = TE.CALC_YN
+			         GROUP BY TE.RGN_DVSN_CD) BEFORE,
+			       (SELECT RGN_DVSN_CD,
+			               SUM(TE.BZT_DCN) AS MAN_DAY,
+			               SUM(TE.FDEX)+ SUM(TE.DT_EXS) + SUM(TE.LDC) AS IN_EXP,
+			               NVL(SUM(TFD.RL_FR_EXS), 0) + NVL(SUM(TE.CPRG_FR_EXS),0) AS RL_FR_EXS,    /*2015.05.11 - 수도권운임추가 yyh*/
+			               SUM(TE.FDEX)+ SUM(TE.DT_EXS) + SUM(TE.LDC) +NVL(SUM(TFD.RL_FR_EXS), 0) + NVL(SUM(TE.CPRG_FR_EXS),0) AS SUM_ALL    /*2015.05.11 - 수도권운임추가 yyh*/
+			          FROM TBBADDED011L TE,
+			               (SELECT BZT_YR,
+			                       BZT_SNO,
+			                       PCT_CNB,
+			                       BZT_EXS_SNO,
+			                       CALC_YN,
+			                       SUM(RL_FR_EXS) AS RL_FR_EXS
+			                  FROM TBBADDED017L
+			                 WHERE BZT_YR = #strBztYr#
+			                   AND BZT_SNO = #strBztSno#
+			                 GROUP BY BZT_YR,
+			                       BZT_SNO,
+			                       PCT_CNB,
+			                       BZT_EXS_SNO,
+			                       CALC_YN ) TFD
+			         WHERE TE.BZT_YR = #strBztYr#
+			           AND TE.BZT_SNO = #strBztSno#
+			           AND TE.CALC_YN = 'Y'
+			           AND TFD.BZT_YR(+) = TE.BZT_YR
+			           AND TFD.BZT_SNO(+) = TE.BZT_SNO
+			           AND TFD.PCT_CNB(+) = TE.PCT_CNB
+			           AND TFD.BZT_EXS_SNO(+) = TE.BZT_EXS_SNO
+			           AND TFD.CALC_YN(+) = TE.CALC_YN
+			         GROUP BY TE.RGN_DVSN_CD) AFT
+			 WHERE ECD.CMM_CD_DVSN_CD ='1000023'
+			   AND ECD.CD IN ('1', '2', '3', '4', '5', '6')
+			   AND BEFORE.RGN_DVSN_CD(+) = ECD.CD
+			   AND AFT.RGN_DVSN_CD(+) = ECD.CD 
+        ]]>
+	</select>
+	<!-- #################################### 정산 내역표 끝 ################################# -->
+	
+	<!-- ####################################  정산명세서(국내여비 등) 조회 시작 ################################# -->
+	<select id="BADDED017Qselect3-1" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT SITU.BZT_YR,
+			       SITU.BZT_SNO,
+			       F_MNG_KND_AUDYRNO(AUD.AUD_YR, AUD.AUD_NO, AUD.AUD_KND_CD, '-') ||'('||  SITU.AUD_STEP_SNO || ')'  AS  AUD_NO,  /*감사연번호*/
+			       F_CODE_NM('1000007',AUD.AUD_KND_CD) AS AUD_EXEC_DVSN_CD_NM,  /*감사종류명*/
+			       F_CODE_NM('1000173',SITU.BZT_TL_RANK_CD) AS TRIP_LEADER_POS_CLASS_NM,  /*감사반장 직급*/
+			       F_USR_INFO(SITU.BZT_TL_CNB,'2') AS TRIP_LEADER_NM,  /*감사반장 이름*/
+			       SITU.TIT_TXT,  /*감사사항*/
+			       PSON.BZT_STR_DT,  /*출장기간 FROM*/
+			       PSON.BZT_END_DT,  /*출장기간 TO*/
+			       PSON.BZT_DCN,   /*출장일수*/
+			       PSON.PSON_CNT, /*출장인원*/
+			       F_DPT_INFO(SITU.BZT_BRDV_CD,'1') DPT_NM,  /*주관국과*/
+			       F_CODE_NM('1000751',AUD.BZT_BGT_DVSN_CD) AS BZT_BGT_DVSN_NM /* 예산구분명 추가 - 2016.06.22 yyh */
+			  FROM TBBADDED001M AUD,
+			       TBBADDED002M SITU,
+			       (SELECT BZT_YR,
+			               BZT_SNO,
+			               MIN(BZT_STR_DT) AS BZT_STR_DT,
+			               MAX(BZT_END_DT) AS BZT_END_DT,
+			               MAX(BZT_DCN) AS BZT_DCN,
+			               COUNT(*) AS PSON_CNT
+			          FROM (SELECT TMA.BZT_YR,
+			                       TMA.BZT_SNO,
+			                       TMA.PCT_CNB,
+			                       MIN(PTD.BZT_STR_DT) AS BZT_STR_DT,
+			                       MAX(PTD.BZT_END_DT) AS BZT_END_DT,
+			                       SUM(PTD.BZT_DCN) AS BZT_DCN
+			                  FROM TBBADDED005L TMA,
+			                       TBBADDED006L PTD
+			                 WHERE PTD.BZT_YR = TMA.BZT_YR
+			                   AND PTD.BZT_SNO = TMA.BZT_SNO
+			                   AND PTD.TEAM_SNO = TMA.TEAM_SNO
+			                   AND PTD.PCT_ALC_SNO = TMA.PCT_ALC_SNO
+			                   AND PTD.BZT_YR = #strBztYr#
+			                   AND PTD.BZT_SNO = #strBztSno#
+			                 GROUP BY TMA.BZT_YR,
+			                       TMA.BZT_SNO,
+			                       TMA.PCT_CNB) PTD1
+			         GROUP BY BZT_YR,
+			               BZT_SNO ) PSON
+			 WHERE SITU.BZT_YR = #strBztYr#
+			   AND SITU.BZT_SNO = #strBztSno#
+			   AND AUD.AUD_YR = SITU.REL_AUD_YR
+			   AND AUD.AUD_NO = SITU.REL_AUD_NO
+			   AND PSON.BZT_YR = SITU.BZT_YR
+			   AND PSON.BZT_SNO = SITU.BZT_SNO     
+        ]]>
+	</select>
+	
+	<select id="BADDED017Qselect3-2" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT AGGR.*
+			  FROM (SELECT TER.BZT_YR,
+			               TER.BZT_SNO,
+			               TER.PCT_CNB,  /*전산번호*/
+			               TER.PCT_NM,  /*성명*/ 
+			               F_CODE_NM('1000173',TER.PCT_RANK_CD) AS POS_CLASS_NM,  /*직급*/
+			               F_DPT_INFO(BL.BLT_BRDV_CD,'4') DPT_NM,  /*소속*/      
+			               TE.IN_EXP,  /*여비*/
+			               TE.BZT_DCN,  /*일수*/
+			               NVL(TFD.RL_FR_EXS, 0) + NVL(TE.CPRG_FR_EXS,0) RL_FR_EXS,  /*철도임 + 수도권운임비*/
+			               NVL(TFD.RL_FR_EXS, 0) + TE.IN_EXP + NVL(TE.CPRG_FR_EXS,0) AS SUM_ALL,  /*지급액*/
+			               TE.BZT_STR_DT, /*출장기간FROM*/
+			               TE.BZT_END_DT, /*출장기간TO*/
+			               '' RECIPIENT  /*영수인*/
+			          FROM TBBADDED010L TER,
+			               TBBADDED002M SITU,
+			               (SELECT BZT_YR,
+			                       BZT_SNO,
+			                       PCT_CNB,
+			                       SUM(
+			                           CASE
+			                             WHEN TE0.CALC_YN='Y' THEN TE0.FDEX + TE0.DT_EXS + TE0.LDC  
+			                             ELSE 0
+			                           END) 
+			                      - SUM(
+			                           CASE
+			                             WHEN TE0.CALC_YN='N' THEN TE0.FDEX + TE0.DT_EXS + TE0.LDC 
+			                             ELSE 0
+			                           END) AS IN_EXP,
+			                       
+			                       /* 수도권운임 추가 - 2015.05.06 yyh*/    
+			                       SUM(
+			                           CASE
+			                             WHEN TE0.CALC_YN='Y' THEN NVL(TE0.CPRG_FR_EXS,0)  
+			                             ELSE 0
+			                           END) 
+			                      - SUM(
+			                           CASE
+			                             WHEN TE0.CALC_YN='N' THEN NVL(TE0.CPRG_FR_EXS,0) 
+			                             ELSE 0
+			                           END) AS CPRG_FR_EXS,
+			                           			                           
+			                       SUM(
+			                           CASE
+			                             WHEN TE0.CALC_YN='Y' THEN TE0.BZT_DCN
+			                             ELSE 0
+			                           END) - SUM(
+			                           CASE
+			                             WHEN TE0.CALC_YN='N' THEN TE0.BZT_DCN
+			                             ELSE 0
+			                           END) AS BZT_DCN,
+			                       MIN(BZT_STR_DT) AS BZT_STR_DT,
+			                       MAX(BZT_END_DT) AS BZT_END_DT
+			                  FROM TBBADDED011L TE0
+			                 WHERE BZT_YR = #strBztYr#
+			                   AND BZT_SNO = #strBztSno#
+			                 GROUP BY BZT_YR,
+			                       BZT_SNO,
+			                       PCT_CNB) TE,
+			               (SELECT BZT_YR,
+			                       BZT_SNO,
+			                       PCT_CNB,
+			                       SUM(
+			                           CASE
+			                             WHEN CALC_YN='Y' THEN RL_FR_EXS
+			                             ELSE 0
+			                           END) - SUM(
+			                           CASE
+			                             WHEN CALC_YN='N' THEN RL_FR_EXS
+			                             ELSE 0
+			                           END) AS RL_FR_EXS
+			                  FROM TBBADDED017L
+			                 WHERE BZT_YR = #strBztYr#
+			                   AND BZT_SNO = #strBztSno#
+			                 GROUP BY BZT_YR,
+			                       BZT_SNO,
+			                       PCT_CNB ) TFD,
+			               (SELECT BZT_YR,
+			                       BZT_SNO,
+			                       PCT_CNB,
+			                       MAX(BLT_BRDV_CD) AS BLT_BRDV_CD
+			                  FROM TBBADDED005L
+			                 WHERE BZT_YR = #strBztYr#
+			                   AND BZT_SNO = #strBztSno#
+			                 GROUP BY BZT_YR,
+			                       BZT_SNO,
+			                       PCT_CNB) BL
+			         WHERE TER.BZT_YR = #strBztYr#
+			           AND TER.BZT_SNO = #strBztSno#
+			           AND TE.BZT_YR = TER.BZT_YR
+			           AND TE.BZT_SNO = TER.BZT_SNO
+			           AND TE.PCT_CNB = TER.PCT_CNB
+			           AND TFD.BZT_YR(+) = TER.BZT_YR
+			           AND TFD.BZT_SNO(+) = TER.BZT_SNO
+			           AND TFD.PCT_CNB(+) = TER.PCT_CNB
+			           AND SITU.BZT_YR = TER.BZT_YR
+			           AND SITU.BZT_SNO = TER.BZT_SNO
+			           AND BL.BZT_YR(+) = TER.BZT_YR
+			           AND BL.BZT_SNO(+) = TER.BZT_SNO
+			           AND BL.PCT_CNB(+) = TER.PCT_CNB) AGGR
+			 WHERE AGGR.SUM_ALL != 0      
+        ]]>
+	</select>
+	
+	<select id="BADDED017Qselect3-3" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT BZT_YR,
+			       BZT_SNO,
+			       PCT_CNB,  
+			       F_CODE_NM('1000001',TE.RGN_CD) AS LCL_NM,  /* 기존지역*/
+			       BZT_STR_DT,   /*시작일*/
+			       BZT_END_DT,   /*종료일*/
+			       BZT_DCN,      /*일수*/
+			       LODG_DCN      /*숙박*/
+			  FROM TBBADDED011L TE
+			 WHERE TE.BZT_YR  = #strBztYr#
+			   AND TE.BZT_SNO = #strBztSno#
+			   AND TE.CALC_YN = 'N'
+			   AND TE.PCT_CNB = #MASTER_PCT_CNB#
+        ]]>
+	</select>
+	
+	<select id="BADDED017Qselect3-4" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT BZT_YR,
+			       BZT_SNO,
+			       PCT_CNB,  
+			       F_CODE_NM('1000001',TE.RGN_CD) AS LCL_NM,  /*기존지역*/
+			       BZT_STR_DT,   /*시작일*/
+			       BZT_END_DT,   /*종료일*/
+			       BZT_DCN,      /*일수*/
+			       LODG_DCN      /*숙박*/
+			  FROM TBBADDED011L TE
+			 WHERE TE.BZT_YR  = #strBztYr#
+			   AND TE.BZT_SNO = #strBztSno#
+			   AND TE.CALC_YN = 'Y'
+			   AND TE.PCT_CNB = #MASTER_PCT_CNB#   
+        ]]>
+	</select>
+	<!-- ####################################   정산명세서(국내여비 등) 끝 ################################# -->
+	
+	<!-- ####################################  정산명세서(현장보충경비 등) 시작 ################################# -->
+	<select id="BADDED017Qselect4-1" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT SITU.BZT_YR,
+			       SITU.BZT_SNO,
+			       F_MNG_KND_AUDYRNO(AUD.AUD_YR, AUD.AUD_NO, AUD.AUD_KND_CD, '-') ||'('||  SITU.AUD_STEP_SNO || ')'  AS  AUD_NO,  /*감사연번호*/
+			       F_CODE_NM('1000007',AUD.AUD_KND_CD) AS AUD_EXEC_DVSN_CD_NM,  /*감사종류명*/
+			       F_CODE_NM('1000173',SITU.BZT_TL_RANK_CD) AS TRIP_LEADER_POS_CLASS_NM,  /*감사반장 직급*/
+			       F_USR_INFO(SITU.BZT_TL_CNB,'2') AS TRIP_LEADER_NM,  /*감사반장 이름*/
+			       SITU.TIT_TXT,  /*감사사항*/
+			       PSON.BZT_STR_DT, /*출장기간 FROM*/
+			       PSON.BZT_END_DT, /*출장기간 TO*/
+			       PSON.BZT_DCN,    /*출장일수*/
+			       PSON.PSON_CNT,   /*출장인원*/
+			       F_DPT_INFO(SITU.BZT_BRDV_CD,'1') DPT_NM,  /*주관국과*/
+			       F_CODE_NM('1000751',AUD.BZT_BGT_DVSN_CD) AS BZT_BGT_DVSN_NM /* 예산구분명 추가 - 2016.06.22 yyh */
+			  FROM TBBADDED001M AUD,
+			       TBBADDED002M SITU,
+			       (SELECT BZT_YR,
+			               BZT_SNO,
+			               MIN(BZT_STR_DT) AS BZT_STR_DT,
+			               MAX(BZT_END_DT) AS BZT_END_DT,
+			               MAX(BZT_DCN) AS BZT_DCN,
+			               COUNT(*) AS PSON_CNT
+			          FROM (SELECT TMA.BZT_YR,
+			                       TMA.BZT_SNO,
+			                       TMA.PCT_CNB,
+			                       MIN(PTD.BZT_STR_DT) AS BZT_STR_DT,
+			                       MAX(PTD.BZT_END_DT) AS BZT_END_DT,
+			                       SUM(PTD.BZT_DCN) AS BZT_DCN
+			                  FROM TBBADDED005L TMA,
+			                       TBBADDED006L PTD
+			                 WHERE PTD.BZT_YR = TMA.BZT_YR
+			                   AND PTD.BZT_SNO = TMA.BZT_SNO
+			                   AND PTD.TEAM_SNO = TMA.TEAM_SNO
+			                   AND PTD.PCT_ALC_SNO = TMA.PCT_ALC_SNO
+			                   AND PTD.BZT_YR  = #strBztYr#
+			                   AND PTD.BZT_SNO = #strBztSno#
+			                 GROUP BY TMA.BZT_YR,
+			                       TMA.BZT_SNO,
+			                       TMA.PCT_CNB) PTD1
+			         GROUP BY BZT_YR,
+			               BZT_SNO ) PSON
+			 WHERE SITU.BZT_YR  = #strBztYr#
+			   AND SITU.BZT_SNO = #strBztSno#
+			   AND AUD.AUD_YR = SITU.REL_AUD_YR
+			   AND AUD.AUD_NO = SITU.REL_AUD_NO
+			   AND PSON.BZT_YR = SITU.BZT_YR
+			   AND PSON.BZT_SNO = SITU.BZT_SNO      
+        ]]>
+	</select>
+	
+	<select id="BADDED017Qselect4-2" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT AGGR.*
+			  FROM (SELECT TER.BZT_YR,
+			               TER.BZT_SNO,
+			               TER.PCT_CNB,  /*전산번호*/
+			               TER.PCT_NM,   /*성명*/
+			               TER.PCT_RANK_CD ,
+			               F_CODE_NM('1000173',TER.PCT_RANK_CD) AS POS_CLASS_NM,  /*직급*/
+			               F_DPT_INFO(BL.BLT_BRDV_CD,'4') DPT_NM,  /*소속*/ 
+			               TER.STF_DVSN_CD,
+			               TER.DEP_RGN_CD,
+			               TE.SPM_XPN,  /*보충경비*/
+			               TE.BZT_DCN,  /*일수*/
+			               TE.BZT_STR_DT,  /*출장기간FROM*/
+			               TE.BZT_END_DT,  /*출장기간TO*/
+			               '' RECIPIENT,  /*영수인*/
+			               (
+			                   CASE
+			                     WHEN SITU.BZT_TL_CNB = TER.PCT_CNB THEN TER2.LEAD_EXS
+			                     ELSE 0
+			                   END) AS LEAD_EXS,  /*지휘비*/
+			               (
+			                   CASE
+			                     WHEN SITU.BZT_TL_CNB = TER.PCT_CNB THEN TER2.AUD_ACTV_RCV_EXS
+			                     ELSE 0
+			                   END) AS AUD_ACTV_RCV_EXS,  /*감사활동수용비*/
+			               TE.SPM_XPN + (
+			                               CASE
+			                                 WHEN SITU.BZT_TL_CNB = TER.PCT_CNB THEN TER2.LEAD_EXS + TER2.AUD_ACTV_RCV_EXS
+			                                 ELSE 0
+			                               END) AS SUM_ALL  /*지급액*/
+			          FROM TBBADDED010L TER,
+			               TBBADDED002M SITU,
+			               (SELECT BZT_YR,
+			                       BZT_SNO,
+			                       PCT_CNB,
+			                       SUM(
+			                           CASE
+			                             WHEN TE0.CALC_YN='Y' THEN TE0.SPM_XPN
+			                             ELSE 0
+			                           END) - SUM(
+			                           CASE
+			                             WHEN TE0.CALC_YN='N' THEN TE0.SPM_XPN
+			                             ELSE 0
+			                           END) AS SPM_XPN,
+			                       SUM(
+			                           CASE
+			                             WHEN TE0.CALC_YN='Y' THEN TE0.BZT_DCN
+			                             ELSE 0
+			                           END) - SUM(
+			                           CASE
+			                             WHEN TE0.CALC_YN='N' THEN TE0.BZT_DCN
+			                             ELSE 0
+			                           END) AS BZT_DCN,
+			                       MIN(BZT_STR_DT) AS BZT_STR_DT,
+			                       MAX(BZT_END_DT) AS BZT_END_DT
+			                  FROM TBBADDED011L TE0
+			                 WHERE BZT_YR = #strBztYr#
+			                   AND BZT_SNO = #strBztSno#
+			                 GROUP BY BZT_YR,
+			                       BZT_SNO,
+			                       PCT_CNB) TE,
+			               (SELECT BZT_YR,
+			                       BZT_SNO,
+			                       SUM(
+			                           CASE
+			                             WHEN CALC_YN='Y' THEN LEAD_EXS
+			                             ELSE 0
+			                           END) - SUM(
+			                           CASE
+			                             WHEN CALC_YN='N' THEN LEAD_EXS
+			                             ELSE 0
+			                           END) AS LEAD_EXS,
+			                       SUM(
+			                           CASE
+			                             WHEN CALC_YN='Y' THEN AUD_ACTV_RCV_EXS
+			                             ELSE 0
+			                           END) - SUM(
+			                           CASE
+			                             WHEN CALC_YN='N' THEN AUD_ACTV_RCV_EXS
+			                             ELSE 0
+			                           END) AS AUD_ACTV_RCV_EXS
+			                  FROM TBBADDED011L
+			                 WHERE BZT_YR = #strBztYr#
+			                   AND BZT_SNO = #strBztSno#
+			                 GROUP BY BZT_YR,
+			                       BZT_SNO) TER2,
+			               (SELECT BZT_YR,
+			                       BZT_SNO,
+			                       PCT_CNB,
+			                       MAX(BLT_BRDV_CD) AS BLT_BRDV_CD
+			                  FROM TBBADDED005L
+			                 WHERE BZT_YR = #strBztYr#
+			                   AND BZT_SNO = #strBztSno#
+			                 GROUP BY BZT_YR,
+			                       BZT_SNO,
+			                       PCT_CNB) BL
+			         WHERE TER.BZT_YR = #strBztYr#
+			           AND TER.BZT_SNO = #strBztSno#
+			           AND TE.BZT_YR = TER.BZT_YR
+			           AND TE.BZT_SNO = TER.BZT_SNO
+			           AND TE.PCT_CNB = TER.PCT_CNB
+			           AND TER2.BZT_YR = TER.BZT_YR
+			           AND TER2.BZT_SNO = TER.BZT_SNO
+			           AND SITU.BZT_YR = TER.BZT_YR
+			           AND SITU.BZT_SNO = TER.BZT_SNO
+			           AND BL.BZT_YR(+) = TER.BZT_YR
+			           AND BL.BZT_SNO(+) = TER.BZT_SNO
+			           AND BL.PCT_CNB(+) = TER.PCT_CNB) AGGR
+			 WHERE AGGR.SUM_ALL !=0      
+        ]]>
+	</select>
+	<!-- ####################################  정산명세서(현장보충경비 등) 끝 ################################# -->
+
+	<!-- ####################################  정산집계표_ 감사출장여비계산목록  ################################# -->
+	<select id="BADDED017Qselect1-1-1" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+        SELECT BZT_YR
+		     , BZT_SNO
+		     , PCT_CNB
+		     , PCT_NM
+		     , RANK_NM AS POS_CLASS_NM
+		     , BLT_BRDV_NM AS BLT_BRDV_NM
+		     , FDEX
+		     , DT_EXS
+		     , LDC
+		     , CPRG_FR_EXS
+		     , NVL(FDEX, 0) + NVL(DT_EXS, 0) + NVL(LDC, 0) AS IN_EXP
+		     , SPM_XPN
+		     , BZT_DCN
+		     , RL_FR_EXS
+		     , LEAD_EXS
+		     , AUD_ACTV_RCV_EXS
+		     , ALL_COST AS SUM_ALL
+		     , '' AS SORTER
+		     , NVL(FDEX, 0) + NVL(DT_EXS, 0)                                   AS IN_EXP_1     /* 식비 + 일비 추가 - 2018.01.17 yyh */
+		     , NVL(FDEX, 0) + NVL(DT_EXS, 0) + NVL(LDC, 0) + NVL(RL_FR_EXS, 0) AS IN_EXP_SUM   /* 숙박비 + 식비 + 일비 + 교통비 추가 - 2018.01.19 yyh */
+  		  FROM (
+			SELECT D1.BZT_YR							  		  AS BZT_YR
+			     , D1.BZT_SNO									  AS BZT_SNO
+			     , D1.PCT_CNB									  AS PCT_CNB
+			     , D1.PCT_NM									  AS PCT_NM
+			     , D1.RANK_NM									  AS RANK_NM
+			     , F_DPT_INFO(D1.BLT_BRDV_CD, '4') 				  AS BLT_BRDV_NM
+			     , NVL(D1.DT_EXS,0) - NVL(D2.DT_EXS,0)            AS DT_EXS           /*일비*/
+			     , NVL(D1.LDC,0) - NVL(D2.LDC,0)                  AS LDC              /*숙박비*/              
+			     , NVL(D1.FDEX,0) - NVL(D2.FDEX,0)                AS FDEX             /*식비*/
+			     , NVL(D1.CPRG_FR_EXS,0) - NVL(D2.CPRG_FR_EXS,0)  AS CPRG_FR_EXS      /*수도권운임 - 2015.05.06 yyh*/			     
+			     , NVL(D1.SPM_XPN,0) - NVL(D2.SPM_XPN,0)          AS SPM_XPN          /*보충경비*/
+			     , NVL(D1.BZT_DCN,0) - NVL(D2.BZT_DCN,0)          AS BZT_DCN          /*출장일수*/
+			     , NVL(D1.RL_FR_EXS,0) - NVL(D2.RL_FR_EXS,0)      AS RL_FR_EXS        /*철도운임비*/
+			     , NVL(D1.LEAD_EXS,0) - NVL(D2.LEAD_EXS,0)        AS LEAD_EXS         /*지휘비*/
+			     , NVL(D1.AUD_ACTV_RCV_EXS,0) - NVL(D2.AUD_ACTV_RCV_EXS,0) AS AUD_ACTV_RCV_EXS   /*감사활동수용비*/
+			     , NVL(D1.SUM_COST,0) - NVL(D2.SUM_COST,0)        AS SUM_COST         /*국내여비*/
+			     , NVL(D1.ALL_COST,0) - NVL(D2.ALL_COST,0)        AS ALL_COST         /*합계*/
+			     , '' 											  AS AJT_YN 		  /*정산완료처리에 flag로 사용*/
+			     , D1.MAX_SNO									  AS MAX_SNO		  /*이력변경번호*/
+			     , D1.AJT_CHG_RSN								  AS AJT_CHG_RSN	  /*정산사유*/
+			  FROM (
+			        SELECT D2.*
+			             , MAX_SNO
+			             , AJT_CHG_RSN 
+			          FROM (
+			                    SELECT BZT_YR
+			                         , BZT_SNO
+			                         , PCT_CNB
+			                         , MAX(BZT_AJT_SNO) MAX_SNO
+			                         , MAX(AJT_CHG_RSN) AJT_CHG_RSN
+			                      FROM TBBADDED019H
+			                     WHERE BZT_YR  = #strBztYr#
+			                       AND BZT_SNO = #strBztSno#
+			                       AND NVL(AJT_YN,'N') = 'N'
+			                     GROUP BY BZT_YR , BZT_SNO , PCT_CNB  
+			              ) D1
+			            , VADED001 D2
+			         WHERE 1=1
+			           AND D1.BZT_YR  = D2.BZT_YR
+			           AND D1.BZT_SNO = D2.BZT_SNO
+			           AND D1.PCT_CNB = D2.PCT_CNB
+			           AND D1.MAX_SNO = D2.BZT_AJT_SNO 
+			           AND D1.BZT_YR  = #strBztYr#
+			           AND D1.BZT_SNO = #strBztSno#
+			      ) D1
+			    , (
+			        SELECT D2.* 
+			          FROM (
+			                    SELECT BZT_YR
+			                         , BZT_SNO
+			                         , PCT_CNB
+			                         , MAX(BZT_AJT_SNO) MAX_SNO
+			                      FROM TBBADDED019H
+			                     WHERE BZT_YR  = #strBztYr#
+			                       AND BZT_SNO = #strBztSno#
+			                       AND NVL(AJT_YN,'N') = 'Y'
+			                     GROUP BY BZT_YR , BZT_SNO , PCT_CNB  
+			              ) D1
+			            , VADED001 D2
+			         WHERE 1=1
+			           AND D1.BZT_YR  = D2.BZT_YR
+			           AND D1.BZT_SNO = D2.BZT_SNO
+			           AND D1.PCT_CNB = D2.PCT_CNB
+			           AND D1.MAX_SNO = D2.BZT_AJT_SNO 
+			           AND D1.BZT_YR  = #strBztYr#
+			           AND D1.BZT_SNO = #strBztSno#
+			      ) D2
+			WHERE 1=1
+			  AND D1.BZT_YR  = D2.BZT_YR(+)
+			  AND D1.BZT_SNO = D2.BZT_SNO(+)
+			  AND D1.PCT_CNB = D2.PCT_CNB(+)
+			) 	
+			WHERE 1=1
+  			  AND DT_EXS <>0 OR LDC<>0 OR FDEX<>0 OR SPM_XPN<>0 OR BZT_DCN<>0 OR RL_FR_EXS<>0 OR LEAD_EXS<>0 OR AUD_ACTV_RCV_EXS<>0 OR SUM_COST<>0 OR ALL_COST<>0
+  			      OR CPRG_FR_EXS <> 0
+ 	  	    ORDER BY PCT_CNB 
+               
+        ]]>
+	</select>	
+	<!-- ####################################  정산집계표_ 감사출장여비계산목록 끝 ################################# -->	
+	
+	
+	
+	<select id="BADDED017Qselect2-1-1" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT ECD.CD_NM, /*구분*/
+			       (NVL(AFT.MAN_DAY, 0 ) - NVL(BEFORE.MAN_DAY, 0)) AS MAN_DAY, /*연인원*/
+			       (NVL(AFT.LEAD_EXS, 0) - NVL(BEFORE.LEAD_EXS, 0)) AS LEAD_EXS, /*지휘비*/
+			       (NVL(AFT.AUD_ACTV_RCV_EXS, 0) - NVL(BEFORE.AUD_ACTV_RCV_EXS, 0)) AS AUD_ACTV_RCV_EXS, /*감사활동수용비*/
+			       (NVL(AFT.SPM_XPN, 0) - NVL(BEFORE.SPM_XPN, 0)) AS SPM_XPN, /*보충경비*/
+			       (NVL(AFT.SUM_ALL, 0) - NVL(BEFORE.SUM_ALL, 0)) AS SUM_ALL /*계*/
+			  FROM TBDCMACM013C ECD,
+			       (  
+			          SELECT RGN_DVSN_CD,
+			       			 SUM(BZT_DCN) AS MAN_DAY,
+			                 SUM(NVL(LEAD_EXS, 0)) LEAD_EXS,
+			                 SUM(NVL(AUD_ACTV_RCV_EXS, 0)) AUD_ACTV_RCV_EXS,
+			                 SUM(SPM_XPN) AS SPM_XPN,
+			                 SUM(NVL(LEAD_EXS, 0)) + SUM(NVL(AUD_ACTV_RCV_EXS, 0)) + SUM(SPM_XPN) AS SUM_ALL
+                          FROM (SELECT BZT_YR ,
+                                       BZT_SNO ,
+                                       PCT_CNB ,
+                                       MAX(BZT_AJT_SNO) MAX_SNO ,
+                                       MAX(AJT_CHG_RSN) AJT_CHG_RSN
+                                  FROM TBBADDED019H
+                                 WHERE BZT_YR = #strBztYr#
+                                   AND BZT_SNO = #strBztSno#
+                                   AND NVL(AJT_YN, 'N') = 'N'
+                                 GROUP BY BZT_YR ,
+                                       BZT_SNO ,
+                                       PCT_CNB) D1
+                              , TBBADDED019H TE
+                         WHERE 1=1
+                           AND D1.BZT_YR  = TE.BZT_YR
+                           AND D1.BZT_SNO = TE.BZT_SNO
+                           AND D1.PCT_CNB = TE.PCT_CNB
+                           AND D1.MAX_SNO = TE.BZT_AJT_SNO
+                           AND D1.BZT_YR  = #strBztYr#
+                           AND D1.BZT_SNO = #strBztSno#
+                        GROUP BY TE.RGN_DVSN_CD    
+                	) AFT,
+			       (
+                       SELECT RGN_DVSN_CD,
+			       			 SUM(BZT_DCN) AS MAN_DAY,
+			                 SUM(NVL(LEAD_EXS, 0)) LEAD_EXS,
+			                 SUM(NVL(AUD_ACTV_RCV_EXS, 0)) AUD_ACTV_RCV_EXS,
+			                 SUM(SPM_XPN) AS SPM_XPN,
+			                 SUM(NVL(LEAD_EXS, 0)) + SUM(NVL(AUD_ACTV_RCV_EXS, 0)) + SUM(SPM_XPN) AS SUM_ALL
+                          FROM (SELECT BZT_YR ,
+                                       BZT_SNO ,
+                                       PCT_CNB ,
+                                       MAX(BZT_AJT_SNO) MAX_SNO ,
+                                       MAX(AJT_CHG_RSN) AJT_CHG_RSN
+                                  FROM TBBADDED019H
+                                 WHERE BZT_YR = #strBztYr#
+                                   AND BZT_SNO = #strBztSno#
+                                   AND NVL(AJT_YN, 'N') = 'Y'
+                                 GROUP BY BZT_YR ,
+                                       BZT_SNO ,
+                                       PCT_CNB) D1
+                              , TBBADDED019H TE
+                         WHERE 1=1
+                           AND D1.BZT_YR  = TE.BZT_YR
+                           AND D1.BZT_SNO = TE.BZT_SNO
+                           AND D1.PCT_CNB = TE.PCT_CNB
+                           AND D1.MAX_SNO = TE.BZT_AJT_SNO
+                           AND D1.BZT_YR  = #strBztYr#
+                           AND D1.BZT_SNO = #strBztSno#
+                        GROUP BY TE.RGN_DVSN_CD     
+			       ) BEFORE
+			 WHERE ECD.CMM_CD_DVSN_CD='1000023'
+			   AND ECD.CD IN ('1', '2', '3', '4', '5', '6')
+			   AND BEFORE.RGN_DVSN_CD(+) = ECD.CD
+			   AND AFT.RGN_DVSN_CD(+) = ECD.CD 
+        ]]>
+	</select>	
+	
+
+
+	<!-- 여비와 운임비 오류로 수정 - 2017.02.13 yyh -->
+	<select id="BADDED017Qselect2-3-1" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[     
+			SELECT ECD.CD_NM                                                                         AS CD_NM     /*구분*/
+			      ,NVL(AFT.MAN_DAY,0)   - NVL(BEFORE.MAN_DAY,0)                                      AS MAN_DAY   /*연인원*/
+                  ,NVL(AFT.IN_EXP,0)    - NVL(BEFORE.IN_EXP,0)                                       AS IN_EXP    /*여비*/
+                  ,NVL(AFT.RL_FR_EXS,0) - NVL(BEFORE.RL_FR_EXS,0)                                    AS RL_FR_EXS /*철도 + 수도권 운임비*/
+                  ,NVL(AFT.IN_EXP + AFT.RL_FR_EXS,0) - NVL(BEFORE.IN_EXP + BEFORE.RL_FR_EXS,0)       AS SUM_ALL   /*계*/
+			  FROM TBDCMACM013C ECD,
+			       (  
+			          SELECT RGN_DVSN_CD                                                      AS RGN_DVSN_CD,
+			       			 NVL(SUM(BZT_DCN),0)                                              AS MAN_DAY,
+                             NVL(SUM(TE.FDEX),0) + NVL(SUM(TE.DT_EXS),0) + NVL(SUM(TE.LDC),0) AS IN_EXP,
+                             NVL(SUM(
+                                      (SELECT SUM(RL_FR_EXS)
+				                         FROM TBBADDED020H Z1
+                                        WHERE TE.BZT_YR       = Z1.BZT_YR
+                                          AND TE.BZT_SNO      = Z1.BZT_SNO
+                                          AND TE.PCT_CNB      = Z1.PCT_CNB
+                                          AND TE.BZT_EXS_SNO  = Z1.BZT_EXS_SNO
+                                          AND TE.BZT_AJT_SNO  = Z1.BZT_AJT_SNO) 
+                                    ),0) + NVL(SUM(TE.CPRG_FR_EXS),0)                         AS RL_FR_EXS
+                          FROM (SELECT BZT_YR ,
+                                       BZT_SNO ,
+                                       PCT_CNB ,
+                                       MAX(BZT_AJT_SNO) MAX_SNO ,
+                                       MAX(AJT_CHG_RSN) AJT_CHG_RSN
+                                  FROM TBBADDED019H
+                                 WHERE BZT_YR = #strBztYr#
+                                   AND BZT_SNO = #strBztSno#
+                                   AND NVL(AJT_YN, 'N') = 'N'
+                                 GROUP BY BZT_YR ,
+                                       BZT_SNO ,
+                                       PCT_CNB) D1
+                              , TBBADDED019H TE
+                         WHERE 1=1
+                           AND D1.BZT_YR  = TE.BZT_YR
+                           AND D1.BZT_SNO = TE.BZT_SNO
+                           AND D1.PCT_CNB = TE.PCT_CNB
+                           AND D1.MAX_SNO = TE.BZT_AJT_SNO
+                           AND D1.BZT_YR  = #strBztYr#
+                           AND D1.BZT_SNO = #strBztSno#
+                        GROUP BY TE.RGN_DVSN_CD    
+                	) AFT,
+			       (
+			          SELECT RGN_DVSN_CD                                                      AS RGN_DVSN_CD,
+			       			 NVL(SUM(BZT_DCN),0)                                              AS MAN_DAY,
+                             NVL(SUM(TE.FDEX),0) + NVL(SUM(TE.DT_EXS),0) + NVL(SUM(TE.LDC),0) AS IN_EXP,
+                             NVL(SUM(
+                                      (SELECT SUM(RL_FR_EXS)
+				                         FROM TBBADDED020H Z1
+                                        WHERE TE.BZT_YR       = Z1.BZT_YR
+                                          AND TE.BZT_SNO      = Z1.BZT_SNO
+                                          AND TE.PCT_CNB      = Z1.PCT_CNB
+                                          AND TE.BZT_EXS_SNO  = Z1.BZT_EXS_SNO
+                                          AND TE.BZT_AJT_SNO  = Z1.BZT_AJT_SNO) 
+                                    ),0) + NVL(SUM(TE.CPRG_FR_EXS),0)                         AS RL_FR_EXS                             
+                          FROM (SELECT BZT_YR ,
+                                       BZT_SNO ,
+                                       PCT_CNB ,
+                                       MAX(BZT_AJT_SNO) MAX_SNO ,
+                                       MAX(AJT_CHG_RSN) AJT_CHG_RSN
+                                  FROM TBBADDED019H
+                                 WHERE BZT_YR = #strBztYr#
+                                   AND BZT_SNO = #strBztSno#
+                                   AND NVL(AJT_YN, 'N') = 'Y'
+                                 GROUP BY BZT_YR ,
+                                       BZT_SNO ,
+                                       PCT_CNB) D1
+                              , TBBADDED019H TE
+                         WHERE 1=1
+                           AND D1.BZT_YR  = TE.BZT_YR
+                           AND D1.BZT_SNO = TE.BZT_SNO
+                           AND D1.PCT_CNB = TE.PCT_CNB
+                           AND D1.MAX_SNO = TE.BZT_AJT_SNO
+                           AND D1.BZT_YR  = #strBztYr#
+                           AND D1.BZT_SNO = #strBztSno#
+                        GROUP BY TE.RGN_DVSN_CD     
+			       ) BEFORE
+			 WHERE ECD.CMM_CD_DVSN_CD='1000023'
+			   AND ECD.CD IN ('1', '2', '3', '4', '5', '6')
+			   AND BEFORE.RGN_DVSN_CD(+) = ECD.CD
+			   AND AFT.RGN_DVSN_CD(+) = ECD.CD 
+        ]]>
+	</select>	
+
+	<!-- ####################################   정산집계표_정산명세서(국내여비 등)시작 ################################# -->	
+	
+	<select id="BADDED017Qselect3-2-1" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT TER.BZT_YR,
+			       TER.BZT_SNO,
+			       TER.PCT_CNB,  /*전산번호*/
+			       TER.PCT_NM,  /*성명*/ 
+			       F_CODE_NM('1000173',TER.PCT_RANK_CD) AS POS_CLASS_NM,  /*직급*/
+			       F_DPT_INFO(TER.BLT_BRDV_CD,'4') DPT_NM,  /*소속*/      
+			       NVL(BEF.IN_EXP,0) - NVL(AFT.IN_EXP,0) AS IN_EXP,  /*여비*/
+			       NVL(BEF.BZT_DCN,0) - NVL(AFT.BZT_DCN,0) AS BZT_DCN,  /*일수*/
+			       NVL(BEF.RL_FR_EXS, 0)  - NVL(AFT.RL_FR_EXS, 0) RL_FR_EXS,  /*철도임*/
+			       (NVL(BEF.RL_FR_EXS, 0) + NVL(BEF.IN_EXP,0)) - ( NVL(AFT.RL_FR_EXS, 0) + NVL(AFT.IN_EXP,0)) AS SUM_ALL,  /*지급액*/
+			       BEF.BZT_STR_DT, /*출장기간FROM*/
+			       BEF.BZT_END_DT, /*출장기간TO*/
+			       '' RECIPIENT  /*영수인*/ 
+			       , BEF.MAX_SNO AS BEF_MAX_SNO 	/*정산안된거*/
+			       , AFT.MAX_SNO AS AFT_MAX_SNO		/*정산된거 */
+			  FROM TBBADDED010L TER,
+			       TBBADDED002M SITU,
+			       ( 
+			            SELECT D1.BZT_YR
+			                 , D1.BZT_SNO
+			                 , D1.PCT_CNB
+			                 , MIN(TE.BZT_STR_DT) AS BZT_STR_DT
+			                 , MAX(TE.BZT_END_DT) AS BZT_END_DT
+			                 , SUM(NVL(TE.FDEX,0) + NVL(TE.DT_EXS,0) + NVL(TE.LDC,0)) AS IN_EXP /*수도권운임비추가 - 2015.05.06 yyh*/
+			                 , SUM(NVL(TE.BZT_DCN,0)) AS BZT_DCN
+			                 , SUM(NVL(TE.RL_FR_EXS,0) + NVL(TE.CPRG_FR_EXS,0)) AS RL_FR_EXS
+			                 , MAX(NVL(D1.MAX_SNO,0)) AS MAX_SNO
+			              FROM (SELECT BZT_YR ,
+			                           BZT_SNO ,
+			                           PCT_CNB ,
+			                           MAX(BZT_AJT_SNO) MAX_SNO ,
+			                           MAX(AJT_CHG_RSN) AJT_CHG_RSN
+			                      FROM TBBADDED019H
+			                     WHERE BZT_YR  = #strBztYr#
+			                       AND BZT_SNO = #strBztSno#
+			                       AND NVL(AJT_YN, 'N') = 'N'
+			                     GROUP BY BZT_YR ,
+			                           BZT_SNO ,
+			                           PCT_CNB) D1
+			                  , (			                  
+				                   SELECT TE.*
+				                        , TFD.RL_FR_EXS
+				                      FROM TBBADDED019H TE
+				                          , (SELECT BZT_YR ,
+				                                   BZT_SNO ,
+				                                   PCT_CNB ,
+				                                   BZT_EXS_SNO, 
+				                                   BZT_AJT_SNO, 
+				                                   SUM( RL_FR_EXS ) RL_FR_EXS
+				                              FROM TBBADDED020H
+				                             GROUP BY BZT_YR ,
+				                                   BZT_SNO ,
+				                                   PCT_CNB ,
+				                                   BZT_EXS_SNO, 
+				                                   BZT_AJT_SNO
+				                             ) TFD
+				                    WHERE 1=1
+				                      AND TE.BZT_YR        = TFD.BZT_YR(+)
+				                      AND TE.BZT_SNO        = TFD.BZT_SNO(+)
+				                      AND TE.PCT_CNB        = TFD.PCT_CNB(+)
+				                      AND TE.BZT_EXS_SNO    = TFD.BZT_EXS_SNO(+)
+				                      AND TE.BZT_AJT_SNO    = TFD.BZT_AJT_SNO(+)
+			                  ) TE
+			             WHERE 1=1
+			               AND D1.BZT_YR  = TE.BZT_YR
+			               AND D1.BZT_SNO = TE.BZT_SNO
+			               AND D1.PCT_CNB = TE.PCT_CNB
+			               AND D1.MAX_SNO = TE.BZT_AJT_SNO
+			               AND D1.BZT_YR  = #strBztYr#
+			               AND D1.BZT_SNO = #strBztSno#
+			             GROUP BY D1.BZT_YR
+			                    , D1.BZT_SNO
+			                    , D1.PCT_CNB        
+			        ) BEF,
+			        ( 
+			            SELECT D1.BZT_YR
+			                 , D1.BZT_SNO
+			                 , D1.PCT_CNB
+			                 , MIN(TE.BZT_STR_DT) AS BZT_STR_DT
+			                 , MAX(TE.BZT_END_DT) AS BZT_END_DT
+			                 , SUM(NVL(TE.FDEX,0) + NVL(TE.DT_EXS,0) + NVL(TE.LDC,0)) AS IN_EXP /*수도권운임비추가 - 2015.05.06 yyh*/
+			                 , SUM(NVL(TE.BZT_DCN,0)) AS BZT_DCN
+			                 , SUM(NVL(TE.RL_FR_EXS,0) + NVL(TE.CPRG_FR_EXS,0)) AS RL_FR_EXS
+			                 , MAX(NVL(D1.MAX_SNO,0)) AS MAX_SNO
+			              FROM (SELECT BZT_YR ,
+			                           BZT_SNO ,
+			                           PCT_CNB ,
+			                           MAX(BZT_AJT_SNO) MAX_SNO ,
+			                           MAX(AJT_CHG_RSN) AJT_CHG_RSN
+			                      FROM TBBADDED019H
+			                     WHERE BZT_YR = #strBztYr#
+			                       AND BZT_SNO = #strBztSno#
+			                       AND NVL(AJT_YN, 'N') = 'Y'
+			                     GROUP BY BZT_YR ,
+			                           BZT_SNO ,
+			                           PCT_CNB) D1
+			                  , (			                  
+				                   SELECT TE.*
+				                        , TFD.RL_FR_EXS
+				                      FROM TBBADDED019H TE
+				                          , (SELECT BZT_YR ,
+				                                   BZT_SNO ,
+				                                   PCT_CNB ,
+				                                   BZT_EXS_SNO, 
+				                                   BZT_AJT_SNO, 
+				                                   SUM( RL_FR_EXS ) RL_FR_EXS
+				                              FROM TBBADDED020H
+				                             GROUP BY BZT_YR ,
+				                                   BZT_SNO ,
+				                                   PCT_CNB ,
+				                                   BZT_EXS_SNO, 
+				                                   BZT_AJT_SNO
+				                             ) TFD
+				                    WHERE 1=1
+				                      AND TE.BZT_YR        = TFD.BZT_YR(+)
+				                      AND TE.BZT_SNO        = TFD.BZT_SNO(+)
+				                      AND TE.PCT_CNB        = TFD.PCT_CNB(+)
+				                      AND TE.BZT_EXS_SNO    = TFD.BZT_EXS_SNO(+)
+				                      AND TE.BZT_AJT_SNO    = TFD.BZT_AJT_SNO(+)
+			                  ) TE
+			             WHERE 1=1
+			               AND D1.BZT_YR  = TE.BZT_YR
+			               AND D1.BZT_SNO = TE.BZT_SNO
+			               AND D1.PCT_CNB = TE.PCT_CNB
+			               AND D1.MAX_SNO = TE.BZT_AJT_SNO
+			               AND D1.BZT_YR  = #strBztYr#
+			               AND D1.BZT_SNO = #strBztSno#
+			             GROUP BY D1.BZT_YR
+			                    , D1.BZT_SNO
+			                    , D1.PCT_CNB
+			        ) AFT
+			  WHERE 1=1
+			    AND TER.BZT_YR  = SITU.BZT_YR
+			    AND TER.BZT_SNO = SITU.BZT_SNO
+			    AND TER.BZT_YR  = BEF.BZT_YR
+			    AND TER.BZT_SNO = BEF.BZT_SNO
+			    AND TER.PCT_CNB = BEF.PCT_CNB
+			    AND TER.BZT_YR  = AFT.BZT_YR(+)
+			    AND TER.BZT_SNO = AFT.BZT_SNO(+)     
+			    AND TER.PCT_CNB = AFT.PCT_CNB(+)
+			    AND TER.BZT_YR  =#strBztYr#
+			    AND TER.BZT_SNO = #strBztSno#
+			    AND (NVL(BEF.RL_FR_EXS, 0) + NVL(BEF.IN_EXP,0)) - ( NVL(AFT.RL_FR_EXS, 0) + NVL(AFT.IN_EXP,0)) <> 0
+			  ORDER BY PCT_CNB			    
+        ]]>
+	</select>	
+
+	<select id="BADDED017Qselect3-3-1" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT BZT_YR,
+			       BZT_SNO,
+			       PCT_CNB,  
+			       F_CODE_NM('1000001',TE.RGN_CD) AS LCL_NM,  /* 기존지역*/
+			       BZT_STR_DT,   /*시작일*/
+			       BZT_END_DT,   /*종료일*/
+			       BZT_DCN,      /*일수*/
+			       LODG_DCN      /*숙박*/
+			  FROM TBBADDED019H TE
+			 WHERE TE.BZT_YR  = #strBztYr#
+			   AND TE.BZT_SNO = #strBztSno#
+			   AND TE.PCT_CNB = #MASTER_PCT_CNB#
+               AND TE.BZT_AJT_SNO = #AFT_MAX_SNO#
+        ]]>
+	</select>
+	
+	<select id="BADDED017Qselect3-4-1" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT BZT_YR,
+			       BZT_SNO,
+			       PCT_CNB,  
+			       F_CODE_NM('1000001',TE.RGN_CD) AS LCL_NM,  /* 기존지역*/
+			       BZT_STR_DT,   /*시작일*/
+			       BZT_END_DT,   /*종료일*/
+			       BZT_DCN,      /*일수*/
+			       LODG_DCN      /*숙박*/
+			  FROM TBBADDED019H TE
+			 WHERE TE.BZT_YR  = #strBztYr#
+			   AND TE.BZT_SNO = #strBztSno#
+			   AND TE.PCT_CNB = #MASTER_PCT_CNB#
+               AND TE.BZT_AJT_SNO = #BEF_MAX_SNO#
+        ]]>
+	</select>
+	<!-- ####################################   정산집계표_정산명세서(국내여비 등) 끝 ################################# -->	
+
+
+
+	<!-- ####################################  정산명세서(현장보충경비 등) 시작 ################################# -->
+	<select id="BADDED017Qselect4-1-1" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT SITU.BZT_YR,
+			       SITU.BZT_SNO,
+			       F_MNG_KND_AUDYRNO(AUD.AUD_YR, AUD.AUD_NO, AUD.AUD_KND_CD, '-') ||'('||  SITU.AUD_STEP_SNO || ')' AS  AUD_NO,  /*감사연번호*/
+			       F_CODE_NM('1000007',AUD.AUD_KND_CD) AS AUD_EXEC_DVSN_CD_NM,  /*감사종류명*/
+			       F_CODE_NM('1000173',SITU.BZT_TL_RANK_CD) AS TRIP_LEADER_POS_CLASS_NM,  /*감사반장 직급*/
+			       F_USR_INFO(SITU.BZT_TL_CNB,'2') AS TRIP_LEADER_NM,  /*감사반장 이름*/
+			       SITU.TIT_TXT,  /*감사사항*/
+			       PSON.BZT_STR_DT, /*출장기간 FROM*/
+			       PSON.BZT_END_DT, /*출장기간 TO*/
+			       PSON.BZT_DCN,    /*출장일수*/
+			       PSON.PSON_CNT,   /*출장인원*/
+			       F_DPT_INFO(SITU.BZT_BRDV_CD,'1') DPT_NM,  /*주관국과*/
+			       F_CODE_NM('1000751',AUD.BZT_BGT_DVSN_CD) AS BZT_BGT_DVSN_NM /* 예산구분명 추가 - 2016.06.22 yyh */
+			  FROM TBBADDED001M AUD,
+			       TBBADDED002M SITU,
+			       (SELECT BZT_YR,
+			               BZT_SNO,
+			               MIN(BZT_STR_DT) AS BZT_STR_DT,
+			               MAX(BZT_END_DT) AS BZT_END_DT,
+			               MAX(BZT_DCN) AS BZT_DCN,
+			               COUNT(*) AS PSON_CNT
+			          FROM (SELECT TMA.BZT_YR,
+			                       TMA.BZT_SNO,
+			                       TMA.PCT_CNB,
+			                       MIN(PTD.BZT_STR_DT) AS BZT_STR_DT,
+			                       MAX(PTD.BZT_END_DT) AS BZT_END_DT,
+			                       SUM(PTD.BZT_DCN) AS BZT_DCN
+			                  FROM TBBADDED005L TMA,
+			                       TBBADDED006L PTD
+			                 WHERE PTD.BZT_YR = TMA.BZT_YR
+			                   AND PTD.BZT_SNO = TMA.BZT_SNO
+			                   AND PTD.TEAM_SNO = TMA.TEAM_SNO
+			                   AND PTD.PCT_ALC_SNO = TMA.PCT_ALC_SNO
+			                   AND PTD.BZT_YR  = #strBztYr#
+			                   AND PTD.BZT_SNO = #strBztSno#
+			                 GROUP BY TMA.BZT_YR,
+			                       TMA.BZT_SNO,
+			                       TMA.PCT_CNB) PTD1
+			         GROUP BY BZT_YR,
+			               BZT_SNO ) PSON
+			 WHERE SITU.BZT_YR  = #strBztYr#
+			   AND SITU.BZT_SNO = #strBztSno#
+			   AND AUD.AUD_YR = SITU.REL_AUD_YR
+			   AND AUD.AUD_NO = SITU.REL_AUD_NO
+			   AND PSON.BZT_YR = SITU.BZT_YR
+			   AND PSON.BZT_SNO = SITU.BZT_SNO      
+        ]]>
+	</select>
+	
+	<select id="BADDED017Qselect4-2-1" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT AGGR.*
+			  FROM (SELECT TER.BZT_YR,
+			               TER.BZT_SNO,
+			               TER.PCT_CNB,  /*전산번호*/
+			               TER.PCT_NM,   /*성명*/
+			               TER.PCT_RANK_CD ,
+			               F_CODE_NM('1000173',TER.PCT_RANK_CD) AS POS_CLASS_NM,  /*직급*/
+			               F_DPT_INFO(TER.BLT_BRDV_CD,'4') DPT_NM,  /*소속*/ 
+			               TER.STF_DVSN_CD,
+			               TER.DEP_RGN_CD,
+			               NVL(BEF.SPM_XPN,0) - NVL(AFT.SPM_XPN,0) AS SPM_XPN,  /*보충경비*/
+			               NVL(BEF.BZT_DCN,0) - NVL(AFT.BZT_DCN,0) AS BZT_DCN,  /*일수*/
+			               BEF.BZT_STR_DT,  /*출장기간FROM*/
+			               BEF.BZT_END_DT,  /*출장기간TO*/
+			               '' RECIPIENT,  /*영수인*/
+			               NVL(BEF.LEAD_EXS,0) - NVL(AFT.LEAD_EXS,0) AS LEAD_EXS,  /*지휘비*/
+			               NVL(BEF.AUD_ACTV_RCV_EXS,0) - NVL(AFT.AUD_ACTV_RCV_EXS,0) AS AUD_ACTV_RCV_EXS,  /*감사활동 수용비*/
+			               NVL(BEF.SPM_XPN,0) - NVL(AFT.SPM_XPN,0)
+			                + NVL(BEF.LEAD_EXS,0) - NVL(AFT.LEAD_EXS,0) 
+			                + NVL(BEF.AUD_ACTV_RCV_EXS,0) - NVL(AFT.AUD_ACTV_RCV_EXS,0) AS SUM_ALL  /*지급액*/
+			          FROM TBBADDED010L TER,
+			               TBBADDED002M SITU,
+			               (
+					            SELECT D1.BZT_YR
+					                 , D1.BZT_SNO
+					                 , D1.PCT_CNB
+		                             , SUM(NVL(TE.SPM_XPN,0)) AS SPM_XPN
+		                             , SUM(NVL(TE.BZT_DCN,0)) AS BZT_DCN
+		                             , MIN(TE.BZT_STR_DT) AS BZT_STR_DT
+		                             , MAX(TE.BZT_END_DT) AS BZT_END_DT
+		                             , CASE WHEN D1.PCT_CNB = F_LEAD_EXS_RCV_EXS_RCIT_CNB(D1.BZT_YR, D1.BZT_SNO) 
+		                                    THEN MAX(NVL(D5.LEAD_EXS,0)) ELSE 0 END AS LEAD_EXS
+		                             , CASE WHEN D1.PCT_CNB = F_LEAD_EXS_RCV_EXS_RCIT_CNB(D1.BZT_YR, D1.BZT_SNO) 
+		                                    THEN MAX(NVL(D5.AUD_ACTV_RCV_EXS,0)) ELSE 0 END  AUD_ACTV_RCV_EXS     
+					              FROM (SELECT BZT_YR ,
+					                           BZT_SNO ,
+					                           PCT_CNB ,
+					                           MAX(BZT_AJT_SNO) MAX_SNO ,
+					                           MAX(AJT_CHG_RSN) AJT_CHG_RSN
+					                      FROM TBBADDED019H
+					                     WHERE BZT_YR  = #strBztYr#
+					                       AND BZT_SNO = #strBztSno#
+					                       AND NVL(AJT_YN, 'N') = 'N'
+					                     GROUP BY BZT_YR ,
+					                           BZT_SNO ,
+					                           PCT_CNB) D1
+				                      , (
+				                           SELECT TE.*
+				                                , TFD.RL_FR_EXS
+				                              FROM TBBADDED019H TE
+				                                  , (SELECT BZT_YR ,
+				                                           BZT_SNO ,
+				                                           PCT_CNB ,
+				                                           BZT_EXS_SNO, 
+				                                           BZT_AJT_SNO, 
+				                                           SUM( RL_FR_EXS ) RL_FR_EXS
+				                                      FROM TBBADDED020H
+				                                     GROUP BY BZT_YR ,
+				                                           BZT_SNO ,
+				                                           PCT_CNB ,
+				                                           BZT_EXS_SNO, 
+				                                           BZT_AJT_SNO
+				                                     ) TFD
+				                            WHERE 1=1
+				                              AND TE.BZT_YR        = TFD.BZT_YR(+)
+				                              AND TE.BZT_SNO        = TFD.BZT_SNO(+)
+				                              AND TE.PCT_CNB        = TFD.PCT_CNB(+)
+				                              AND TE.BZT_EXS_SNO    = TFD.BZT_EXS_SNO(+)
+				                              AND TE.BZT_AJT_SNO    = TFD.BZT_AJT_SNO(+)
+				                       
+				                       ) TE 
+		                              , (
+		                                    SELECT D1.BZT_YR
+		                                         , D1.BZT_SNO 
+		                                         , D1.BZT_AJT_SNO
+		                                         , SUM(NVL(D1.LEAD_EXS ,0)) AS LEAD_EXS
+		                                         , SUM(NVL(D1.AUD_ACTV_RCV_EXS ,0)) AUD_ACTV_RCV_EXS
+		                                      FROM TBBADDED019H D1
+		                                     WHERE 1=1
+		                                       AND D1.BZT_YR  = #strBztYr#
+		                                       AND D1.BZT_SNO = #strBztSno#
+		                                     GROUP BY D1.BZT_YR
+		                                            , D1.BZT_SNO
+		                                            , D1.BZT_AJT_SNO
+		                               ) D5 
+					             WHERE 1=1
+					               AND D1.BZT_YR  = TE.BZT_YR(+)
+					               AND D1.BZT_SNO = TE.BZT_SNO(+)
+					               AND D1.PCT_CNB = TE.PCT_CNB(+)
+					               AND D1.MAX_SNO = TE.BZT_AJT_SNO(+)
+					               AND D1.BZT_YR  = D5.BZT_YR(+)
+					               AND D1.BZT_SNO = D5.BZT_SNO(+)
+					               AND D1.MAX_SNO = D5.BZT_AJT_SNO(+)
+					               AND D1.BZT_YR  = #strBztYr#
+					               AND D1.BZT_SNO = #strBztSno#
+					             GROUP BY D1.BZT_YR
+					                    , D1.BZT_SNO
+					                    , D1.PCT_CNB			               
+			               ) BEF, 
+			              (
+					            SELECT D1.BZT_YR
+					                 , D1.BZT_SNO
+					                 , D1.PCT_CNB
+					                 , MIN(TE.BZT_STR_DT) AS BZT_STR_DT
+					                 , MAX(TE.BZT_END_DT) AS BZT_END_DT
+		                             , SUM(NVL(TE.SPM_XPN,0)) AS SPM_XPN
+		                             , SUM(NVL(TE.BZT_DCN,0)) AS BZT_DCN
+		                             , MIN(TE.BZT_STR_DT) AS BZT_STR_DT
+		                             , MAX(TE.BZT_END_DT) AS BZT_END_DT
+		                             , CASE WHEN D1.PCT_CNB = F_LEAD_EXS_RCV_EXS_RCIT_CNB(D1.BZT_YR, D1.BZT_SNO) 
+		                                    THEN MAX(NVL(D5.LEAD_EXS,0)) ELSE 0 END AS LEAD_EXS
+		                             , CASE WHEN D1.PCT_CNB = F_LEAD_EXS_RCV_EXS_RCIT_CNB(D1.BZT_YR, D1.BZT_SNO) 
+		                                    THEN MAX(NVL(D5.AUD_ACTV_RCV_EXS,0)) ELSE 0 END  AUD_ACTV_RCV_EXS     
+					              FROM (SELECT BZT_YR ,
+					                           BZT_SNO ,
+					                           PCT_CNB ,
+					                           MAX(BZT_AJT_SNO) MAX_SNO ,
+					                           MAX(AJT_CHG_RSN) AJT_CHG_RSN
+					                      FROM TBBADDED019H
+					                     WHERE BZT_YR  = #strBztYr#
+					                       AND BZT_SNO = #strBztSno#
+					                       AND NVL(AJT_YN, 'N') = 'Y'
+					                     GROUP BY BZT_YR ,
+					                           BZT_SNO ,
+					                           PCT_CNB) D1
+				                      , (
+				                           SELECT TE.*
+				                                , TFD.RL_FR_EXS
+				                              FROM TBBADDED019H TE
+				                                  , (SELECT BZT_YR ,
+				                                           BZT_SNO ,
+				                                           PCT_CNB ,
+				                                           BZT_EXS_SNO, 
+				                                           BZT_AJT_SNO, 
+				                                           SUM( RL_FR_EXS ) RL_FR_EXS
+				                                      FROM TBBADDED020H
+				                                     GROUP BY BZT_YR ,
+				                                           BZT_SNO ,
+				                                           PCT_CNB ,
+				                                           BZT_EXS_SNO, 
+				                                           BZT_AJT_SNO
+				                                     ) TFD
+				                            WHERE 1=1
+				                              AND TE.BZT_YR        = TFD.BZT_YR(+)
+				                              AND TE.BZT_SNO        = TFD.BZT_SNO(+)
+				                              AND TE.PCT_CNB        = TFD.PCT_CNB(+)
+				                              AND TE.BZT_EXS_SNO    = TFD.BZT_EXS_SNO(+)
+				                              AND TE.BZT_AJT_SNO    = TFD.BZT_AJT_SNO(+)
+				                       
+				                       ) TE 
+		                              , (
+		                                    SELECT D1.BZT_YR
+		                                         , D1.BZT_SNO 
+		                                         , D1.BZT_AJT_SNO
+		                                         , SUM(NVL(D1.LEAD_EXS ,0)) AS LEAD_EXS
+		                                         , SUM(NVL(D1.AUD_ACTV_RCV_EXS ,0)) AUD_ACTV_RCV_EXS
+		                                      FROM TBBADDED019H D1
+		                                     WHERE 1=1
+		                                       AND D1.BZT_YR  = #strBztYr#
+		                                       AND D1.BZT_SNO = #strBztSno#
+		                                     GROUP BY D1.BZT_YR
+		                                            , D1.BZT_SNO
+		                                            , D1.BZT_AJT_SNO
+		                               ) D5 
+					             WHERE 1=1
+					               AND D1.BZT_YR  = TE.BZT_YR(+)
+					               AND D1.BZT_SNO = TE.BZT_SNO(+)
+					               AND D1.PCT_CNB = TE.PCT_CNB(+)
+					               AND D1.MAX_SNO = TE.BZT_AJT_SNO(+)
+					               AND D1.BZT_YR  = D5.BZT_YR(+)
+					               AND D1.BZT_SNO = D5.BZT_SNO(+)
+					               AND D1.MAX_SNO = D5.BZT_AJT_SNO(+)
+					               AND D1.BZT_YR  = #strBztYr#
+					               AND D1.BZT_SNO = #strBztSno#
+					             GROUP BY D1.BZT_YR
+					                    , D1.BZT_SNO
+					                    , D1.PCT_CNB	
+			              ) AFT 
+			         WHERE 1=1
+			           AND SITU.BZT_YR  = TER.BZT_YR
+			           AND SITU.BZT_SNO = TER.BZT_SNO
+			           AND TER.BZT_YR   = BEF.BZT_YR(+)
+		               AND TER.BZT_SNO  = BEF.BZT_SNO(+)
+		               AND TER.PCT_CNB  = BEF.PCT_CNB(+) 
+			           AND TER.BZT_YR   = AFT.BZT_YR(+)
+		               AND TER.BZT_SNO  = AFT.BZT_SNO(+)
+		               AND TER.PCT_CNB  = AFT.PCT_CNB(+) 
+			           AND TER.BZT_YR   = #strBztYr#
+			           AND TER.BZT_SNO  = #strBztSno#
+			           
+			           ) AGGR
+			 WHERE AGGR.SUM_ALL !=0      
+        ]]>
+	</select>
+	<!-- ####################################  정산명세서(현장보충경비 등) 끝 ################################# -->
+	
+</sqlMap> 
+

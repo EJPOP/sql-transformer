@@ -1,0 +1,137 @@
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd" >
+<sqlMap namespace="csp/bii/175">
+
+	<!-- 마일리지내역 조회-->
+	<select id="CSPBII175QMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT A.YE                         /* 연도 */
+			     , A.SRNO                       /* 일련번호 */
+			     , A.INF_DVSN_CD                /* 정보구분코드 */
+			     , '3'           AS HNDL_ORD_CD /* 처리지시코드[3:감사대상] */
+			     , A.HNDL_DPT_CD                /* 처리부서코드 */			     
+			     , nvl(A.FDLTY_SC,0) AS FDLTY_SC /* 신뢰성 */
+			     , nvl(A.RIBLY_SC,0) AS RIBLY_SC /* 충실성 */
+			     , nvl(A.UTL_SC,0)   AS UTL_SC   /* 활용가능성 */			   			     
+			     , TO_CHAR(TO_DATE(SMT_DT),'YYYY.MM.DD') AS SMT_DT
+			     , (SELECT	B.HOM_TNB
+			     	FROM	TBDCMACM001M B
+			     	WHERE A.PRSR_CNB = B.CNB ) AS HOM_TNB
+			     ,A.TIT_TXT
+			     ,(SELECT	B.RANK_CD
+			     	FROM	TBDCMACM001M B
+			     	WHERE A.PRSR_CNB = B.CNB ) AS RANK_CD
+			     	,(SELECT	B.USR_NAM
+			     	FROM	TBDCMACM001M B
+			     	WHERE A.PRSR_CNB = B.CNB ) AS USR_NAM
+			     	,F_USR_INFO(BLE_CHGR_CNB,'2') AS BLE_CHGR_NAM
+			     , nvl(A.FDLTY_MNAG_SC,0) AS FDLTY_MNAG_SC    /* 충실성행위주체점수 */
+			     , nvl(A.FDLTY_TIME_SC,0) AS FDLTY_TIME_SC    /* 충실성행위시기점수 */
+			     , nvl(A.FDLTY_TG_SC,0)   AS FDLTY_TG_SC      /* 충실성행위대상점수 */
+			     , nvl(A.FDLTY_TXT_SC,0)  AS FDLTY_TXT_SC     /* 충실성행위대상점수 */
+			     , nvl(A.FDLTY_BAS_SC,0)  AS FDLTY_BAS_SC     /* 충실성법적근거점수 */
+			     , nvl(A.RIBLY_EVI_SC,0)  AS RIBLY_EVI_SC     /* 신뢰성증거자료점수 */
+			     , nvl(A.RIBLY_IVTG_SC,0) AS RIBLY_IVTG_SC    /* 신뢰성탐문정보점수 */
+			     , nvl(A.UTL_INSP_SC,0)   AS UTL_INSP_SC      /* 활용가능성감찰정보점수 */
+			     , nvl(A.UTL_SPCF_SC,0)   AS UTL_SPCF_SC      /* 활용가능성특정정보점수 */		
+			     , nvl(A.FDLTY_MNAG_SC,0) + nvl(A.FDLTY_TIME_SC,0) + nvl(A.FDLTY_TG_SC,0) + nvl(A.FDLTY_TXT_SC,0) + nvl(A.FDLTY_BAS_SC,0) AS FDLTY_TOT_SC
+			     , nvl(A.RIBLY_EVI_SC,0) + nvl(A.RIBLY_IVTG_SC,0) AS RIBLY_TOT_SC
+			     , nvl(A.UTL_INSP_SC,0) + nvl(A.UTL_SPCF_SC,0) AS UTL_TOT_SC	
+			     , A.OPEN_YN
+				 , (SELECT B.DPT_NM
+			          FROM TBDCMACM002M B
+			         WHERE B.DPT_CD = A.HNDL_DPT_CD) AS HNDL_DPT_NM /* 처리(소관)부서명 */
+			     , A.TRNF_APV_DOC_NO
+			     , F_CODE_NM('1000085', A.AUD_INF_PRSS_STA_CD) AS TRNF_APV_STA_NM  /* 감사정보진행상태명 */
+			  FROM TBCSPBII100M A
+			 WHERE A.ACP_DT BETWEEN #strStrAcpDt# AND #strEndAcpDt#
+		]]>
+			<isNotEmpty property="strBLE_CHGR_CNB">
+				AND A.BLE_CHGR_CNB = #strBLE_CHGR_CNB#
+			</isNotEmpty>
+			<isEqual property="strApvStaCd" compareValue="1">
+				AND A.AUD_INF_PRSS_STA_CD IN ('10','13')
+			</isEqual>
+			<isEqual property="strApvStaCd" compareValue="2">
+				AND A.AUD_INF_PRSS_STA_CD = '16'
+			</isEqual>
+			<isEqual property="strApvStaCd" compareValue="3">
+				AND A.AUD_INF_PRSS_STA_CD = '18'
+			</isEqual>			
+		<![CDATA[
+			ORDER BY CASE WHEN FDLTY_TOT_SC >0 THEN 1
+						  WHEN RIBLY_TOT_SC >0 THEN 1
+						  WHEN UTL_TOT_SC >0 THEN 1
+		       		 END ,A.YE ,A.SRNO
+		]]>
+		
+	</select>	
+	
+	<!-- 일괄이송시 감사기본정보 수정 -->
+	<!-- 일괄이송시 소관부서 변경이 없을시 처리부서, 공개여부 업데이트를 치지 않는다. -->
+	<update id="CSPBII175ETrnfMainUpdate" parameterClass="paramMap">
+		UPDATE TBCSPBII100M                       
+		   SET INF_DVSN_CD         = #INF_DVSN_CD#                                                          /* 정보구분코드*/
+		     , HNDL_ORD_CD         = #HNDL_ORD_CD#                                                          /* 처리지시코드 */
+		     , FDLTY_MNAG_SC       = nvl(#FDLTY_MNAG_SC#,0)                                                 /* 충실성행위주체점수 */
+		     , FDLTY_TIME_SC       = nvl(#FDLTY_TIME_SC#,0)                                                 /* 충실성행위시기점수 */
+		     , FDLTY_TG_SC         = nvl(#FDLTY_TG_SC#,0)                                                   /* 충실성행위대상점수 */
+		     , FDLTY_TXT_SC        = nvl(#FDLTY_TXT_SC#,0)                                                  /* 충실성행위대상점수 */
+		     , FDLTY_BAS_SC        = nvl(#FDLTY_BAS_SC#,0)                                                  /* 충실성법적근거점수 */
+		     , RIBLY_EVI_SC        = nvl(#RIBLY_EVI_SC#,0)                                                  /* 신뢰성증거자료점수 */
+		     , RIBLY_IVTG_SC       = nvl(#RIBLY_IVTG_SC#,0)                                                 /* 신뢰성탐문정보점수 */
+		     , UTL_INSP_SC         = nvl(#UTL_INSP_SC#,0)                                                   /* 활용가능성감찰정보점수 */
+		     , UTL_SPCF_SC         = nvl(#UTL_SPCF_SC#,0)                                                   /* 활용가능성특정정보점수 */
+		     , TRNF_DT             = TO_CHAR(SYSDATE, 'YYYYMMDD')                                           /* 이송일 */
+		     , AUD_INF_PRSS_STA_CD = DECODE(#HNDL_ORD_CD#, '7', '99', '15')                                 /* 감사정보진행상태코드 처리지시코드가[7:폐기]일 경우 [99:완료] 그 외[15:이송완료] */
+		     , TRNF_ACP_DT         = DECODE(#HNDL_ORD_CD#, '7', TO_CHAR(SYSDATE, 'YYYYMMDD'), TRNF_ACP_DT)  /* 처리지시코드가[7:폐기]일 경우 이송접수일 수정  */
+		     , CMPT_DT             = DECODE(#HNDL_ORD_CD#, '7', TO_CHAR(SYSDATE, 'YYYYMMDD'), CMPT_DT)      /* 처리지시코드가[7:폐기]일 경우 완료일 수정*/
+		     , HNDL_RSLT_CD        = DECODE(#HNDL_ORD_CD#, '7', '88', HNDL_RSLT_CD)                         /* 처리지시코드가[7:폐기]일 경우 처리결과코드[88:종결] 수정*/
+		     , FNL_USR_ID          = #FNL_USR_ID#                                                           /* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD     = #FNL_DEAL_DPT_CD#                                                      /* 최종거래부서코드 */
+		     , FNL_MNU_ID          = #FNL_MNU_ID#                                                           /* 최종메뉴ID */
+		     , FNL_MDF_DH          = SYSDATE      
+		     <dynamic>
+				<isNotEmpty property="HNDL_DPT_CD">
+					, HNDL_DPT_CD     = #HNDL_DPT_CD#                            /* 처리부서코드  */
+				</isNotEmpty>	
+				<isNotEmpty property="OPEN_YN">
+					, OPEN_YN         = #OPEN_YN#                                /* 공개여부  */
+				</isNotEmpty>     
+		     </dynamic>                                                          /* 최종수정일시 */
+		 WHERE YE   = #YE#
+		   AND SRNO = #SRNO#
+	</update>
+	
+	<!-- 일괄이송시 감사기본정보 수정 -->
+	<!-- 일괄이송시 소관부서 변경이 없을시 처리부서, 공개여부 업데이트를 치지 않는다. -->
+	<update id="CSPBII175EMainUpdate" parameterClass="paramMap">
+		UPDATE TBCSPBII100M                       
+		   SET INF_DVSN_CD         = #INF_DVSN_CD#                                                          /* 정보구분코드*/
+		     , HNDL_ORD_CD         = #HNDL_ORD_CD#                                                          /* 처리지시코드 */
+		     , FDLTY_MNAG_SC       = nvl(#FDLTY_MNAG_SC#,0)                                                 /* 충실성행위주체점수 */
+		     , FDLTY_TIME_SC       = nvl(#FDLTY_TIME_SC#,0)                                                 /* 충실성행위시기점수 */
+		     , FDLTY_TG_SC         = nvl(#FDLTY_TG_SC#,0)                                                   /* 충실성행위대상점수 */
+		     , FDLTY_TXT_SC        = nvl(#FDLTY_TXT_SC#,0)                                                  /* 충실성행위대상점수 */
+		     , FDLTY_BAS_SC        = nvl(#FDLTY_BAS_SC#,0)                                                  /* 충실성법적근거점수 */
+		     , RIBLY_EVI_SC        = nvl(#RIBLY_EVI_SC#,0)                                                  /* 신뢰성증거자료점수 */
+		     , RIBLY_IVTG_SC       = nvl(#RIBLY_IVTG_SC#,0)                                                 /* 신뢰성탐문정보점수 */
+		     , UTL_INSP_SC         = nvl(#UTL_INSP_SC#,0)                                                   /* 활용가능성감찰정보점수 */
+		     , UTL_SPCF_SC         = nvl(#UTL_SPCF_SC#,0)                                                   /* 활용가능성특정정보점수 */
+		     , HNDL_RSLT_CD        = DECODE(#HNDL_ORD_CD#, '7', '88', HNDL_RSLT_CD)                         /* 처리지시코드가[7:폐기]일 경우 처리결과코드[88:종결] 수정*/
+		     , FNL_USR_ID          = #FNL_USR_ID#                                                           /* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD     = #FNL_DEAL_DPT_CD#                                                      /* 최종거래부서코드 */
+		     , FNL_MNU_ID          = #FNL_MNU_ID#                                                           /* 최종메뉴ID */
+		     , FNL_MDF_DH          = SYSDATE      
+		     <dynamic>
+				<isNotEmpty property="HNDL_DPT_CD">
+					, HNDL_DPT_CD     = #HNDL_DPT_CD#                            /* 처리부서코드  */
+				</isNotEmpty>	
+				<isNotEmpty property="OPEN_YN">
+					, OPEN_YN         = #OPEN_YN#                                /* 공개여부  */
+				</isNotEmpty>     
+		     </dynamic>                                                          /* 최종수정일시 */
+		 WHERE YE   = #YE#
+		   AND SRNO = #SRNO#
+	</update>	
+	
+</sqlMap>

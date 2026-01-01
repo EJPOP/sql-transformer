@@ -1,0 +1,1433 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--   -->
+<mapper namespace="kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper">
+
+	<!-- 첨부파일 그룹 조회 -->
+	<select id="selectEviDocbList" parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.selectEviDocbList */
+		SELECT A.ACP_YR || '-' || DECODE(A.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || DECODE(A.ORG_ACP_SRNO, null, A.ACP_SRNO, A.ORG_ACP_SRNO) AS ACP_NO /* 분류번호 */
+		    ,A.REQR_NM /* 청구인명 */
+		    ,A.TIT_NM /* 청구내용 */
+            ,A.ACP_YR  /*감사년도 */
+            ,A.ACP_SRNO /*감사번호 */
+            --,B.EVI_DCMB_SNO   /*감사서류함순번 */
+            ,A.ACP_DVSN_CD /*감사종류코드 */
+            --,B.ACP_GRN_NO /*감사부여코드 */
+            --,B.FOLDER_NM  /*폴더명 */
+            --,B.SORT_SNO   /*정렬순번 */
+            --,B.FRT_USR_ID  /*최초사용자ID */
+            ,F_USR_INFO_BY_ID(A.FRT_USR_ID,'2') AS FRT_USR_NM /*최초사용자ID명 */
+            ,TO_CHAR(A.FRT_REGI_DH,'YYYY-MM-DD') FRT_REGI_DH  /*최초등록일시 */
+            ,(SELECT COUNT(*) FROM TBBADFRE108D D
+               WHERE A.ACP_YR = D.ACP_YR
+                 AND A.ACP_DVSN_CD = D.ACP_DVSN_CD
+                 AND A.ACP_SRNO = D.ACP_SRNO) AS CNT
+            ,CASE WHEN (A.ACP_YR = A.MG_ACP_YR AND A.ACP_DVSN_CD = A.MG_ACP_DVSN_CD AND A.ACP_SRNO = A.MG_ACP_SRNO) THEN '대표'
+			        WHEN A.MG_DIV_CD IS NULL AND A.MG_ACP_YR IS NULL THEN '대표'
+			        WHEN A.MG_DIV_CD IS NULL THEN '대표'
+			        WHEN A.MG_DIV_CD = '10' THEN '병합'
+			        WHEN A.MG_DIV_CD = '20' THEN '병행'
+			 END AS MG_DIV_NM /* 병합병행구분명 */
+            FROM TBBADFRE012M A
+          WHERE 1=1
+            AND A.DEL_YN IS NULL
+        <if test='acpYr != null and acpYr != ""'>
+            AND A.ACP_YR = #{acpYr}
+        </if>
+        <if test='acpDvsnCd != null and acpDvsnCd != ""'>
+            AND A.ACP_DVSN_CD = #{acpDvsnCd}
+        </if>
+        <if test='acpSrno != null and acpSrno != ""'>
+            AND A.ACP_SRNO = #{acpSrno}
+        </if>
+        <if test='mgAcpYr != null and mgAcpYr != ""'>
+		    AND A.MG_ACP_YR 		= #{mgAcpYr}
+		</if>
+		<if test='mgAcpDvsnCd != null and mgAcpDvsnCd != ""'>
+		    AND A.MG_ACP_DVSN_CD 	= #{mgAcpDvsnCd}
+		</if>
+		<if test='mgAcpSrno != null and mgAcpSrno != ""'>
+		    AND A.MG_ACP_SRNO 		= #{mgAcpSrno}
+		</if>
+        <if test='usrId != null and usrId != ""'>
+             AND A.DCMB_CRE_ID = #{usrId}
+        </if>
+        ORDER BY MG_DIV_NM ASC
+	</select>
+
+	<!-- 첨부파일 상세 조회 -->
+	<select id="selectEviDocList" parameterType="paramMap" resultType="egovMap" >
+        /*kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.selectEviDocList*/
+        /*증거서류*/
+       SELECT B.ACP_DCM_DOC_ID /*감사서류문서ID */
+			   , B.EVI_DCMB_SNO /*감사서류함순번 */
+			   , B.EVI_DCM_DVSN_CD /*증거서류구분코드 */
+            <if test='acpDvsnCd == "1"'>
+               , F_CODE_NM('1000810', B.EVI_DCM_DVSN_CD) AS EVI_DCM_DVSN_NM	/*증거서류구분코드 */
+            </if>
+            <if test='acpDvsnCd == "2"'>
+               , F_CODE_NM('1000811', B.EVI_DCM_DVSN_CD) AS EVI_DCM_DVSN_NM	/*증거서류구분코드 */
+            </if>
+              , B.FILE_NM	        /*파일명 */
+              , TO_CHAR(TO_DATE(ISUE_DY,'YYYY-MM-DD'),'YYYY-MM-DD') AS ISUE_DY /*발부일자*/
+              , B.SORT_SNO           /*정렬순번 */
+              , B.FRT_USR_ID         /*최초사용자ID */
+              , F_USR_INFO_BY_ID(B.FRT_USR_ID,'2') AS FRT_USR_NM /*최초사용자ID명 */
+              , TO_CHAR(B.FRT_REGI_DH,'YYYY-MM-DD') FRT_REGI_DH  /*최초등록일시 */
+            FROM TBBADFRE108D B
+          WHERE 1=1
+            <if test='acpYr != null and acpYr != ""'>
+                AND B.ACP_YR = #{acpYr}
+            </if>
+            <if test='acpDvsnCd != null and acpDvsnCd != ""'>
+                AND B.ACP_DVSN_CD = #{acpDvsnCd}
+            </if>
+            <if test='acpSrno != null and acpSrno != ""'>
+                AND B.ACP_SRNO = #{acpSrno}
+            </if>
+            <if test='eviDcmDvsnCdList != null and eviDcmDvsnCdList != ""'>
+			   AND EVI_DCM_DVSN_CD IN
+				 <foreach item="item" index="index" collection="eviDcmDvsnCdList" open="(" close=")" separator=",">
+			            #{item}
+			    </foreach>
+			</if>
+             ORDER BY SORT_SNO
+    </select>
+
+	<!-- 원처분과 발신문서함 -->
+	<select id="BADFRE012MDspRqSendSelect" parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.BADFRE012MDspRqSendSelect */
+		SELECT A.ACP_YR
+               , A.ACP_DVSN_CD
+               , A.ACP_SRNO
+               , A.AUD_YR
+               , A.AUD_NO
+               , A.ACP_NO
+               , A.DSP_RQ_SNO_NM
+               , A.DSP_RQ_SNO
+               , A.ENF_DT
+               , A.ENF_BRDV_CD
+               , A.ENF_BRDV_NM
+               , A.AUD_ORG_CNT
+               , A.TIT_TXT
+               , A.DTM_STA_NM
+               , A.BAI_DSP_DIV_CD
+               , A.BAI_DSP_DIV_NM
+               , CASE WHEN A.ORG_DSP_KWA_OPIN_SRCH_STEP_CD <![CDATA[>]]> 1 THEN '접수완료' ELSE '' END AS ORG_DSP_KWA_OPIN_SRCH_STEP_NM
+               , to_char(to_date(T2.ORG_DSP_KWA_OPIN_SRCH_DT), 'YYYY-MM-DD') AS ORG_DSP_KWA_OPIN_SRCH_DT /* 발신일 */
+               , to_char(to_date(T2.ORG_DSP_KWA_OPIN_RCPT_DT), 'YYYY-MM-DD') AS ORG_DSP_KWA_OPIN_RCPT_DT /* 수신일 */
+               , T2.DOC_ID
+               , T2.ACP_YR AS DOC_ACP_YR
+               , T2.ACP_DVSN_CD AS DOC_ACP_DVSN_CD
+               , T2.ACP_SRNO AS DOC_ACP_SRNO
+               , T2.ACP_STEP_CD
+               , T2.RPRT_CD
+               , T2.LINK_URL
+               , T2.REF_ID
+               , A.MG_ACP_YR
+               , A.MG_ACP_SRNO
+               , A.MG_ACP_DVSN_CD
+               , A.MG_DIV_CD
+               , F_OPEN_EDIT(T2.LINK_URL) AS DOC_TYPE
+               , A.ORG_DSP_KWA_OPIN_DDLN_DT
+         FROM (
+	            SELECT  A.ACP_YR AS ACP_YR  /* 접수년도 */
+			         , A.ACP_DVSN_CD AS ACP_DVSN_CD  /* 구분코드 */
+			         , A.ACP_SRNO AS ACP_SRNO  /* 접수번호 */
+	                 , T1.AUD_YR AS AUD_YR
+	                 , T1.AUD_NO AS AUD_NO
+			         , A.ACP_YR || '-' || DECODE(A.ACP_DVSN_CD, '1', '심사', '2', '재심', '3', '재심판정') || '-' || DECODE(A.ORG_ACP_SRNO, null, A.ACP_SRNO, A.ORG_ACP_SRNO) AS ACP_NO /* 분류번호 */
+				     , F_MNG_KND_AUDYRNO(T1.AUD_YR, T1.AUD_NO, T1.AUD_KND_CD, '-') || '-' || D1.DSP_RQ_SNO AS DSP_RQ_SNO_NM /*처분요구순번DISP*/
+				     , D1.DSP_RQ_SNO AS DSP_RQ_SNO
+	                 , to_char(to_date(D2.ENF_DT), 'YYYY-MM-DD') AS ENF_DT /*시행일*/
+				     , D2.ENF_BRDV_CD AS ENF_BRDV_CD /*시행국과코드*/
+					 , (SELECT DPT_NM FROM TBDCMACM002M WHERE DPT_CD = D2.ENF_BRDV_CD) AS ENF_BRDV_NM /*시행국과명*/
+				     , (SELECT F_ORG_CNT_NM_AUD(D1.AUD_YR,D1.AUD_NO,'AUD') FROM DUAL ) AS AUD_ORG_CNT /*기관명*/
+				     , D1.TIT_TXT AS TIT_TXT /*제목내용*/
+				     , F_CODE_NM('1000017',D2.DTM_STA_CD ) AS DTM_STA_NM /*결재상태명*/
+				     , A.BAI_DSP_DIV_CD AS BAI_DSP_DIV_CD /* 원처분과코드 */
+				     , (SELECT DPT_NM FROM TBDCMACM002M WHERE DPT_CD = A.BAI_DSP_DIV_CD) AS BAI_DSP_DIV_NM /* 원처분과명 */
+				     , A.ORG_DSP_KWA_OPIN_SRCH_STEP_CD
+				     , A.ORG_DSP_KWA_OPIN_SRCH_DT
+				     , A.ORG_DSP_KWA_OPIN_RCPT_DT 
+				     , A.MG_ACP_YR
+                     , A.MG_ACP_SRNO
+                     , A.MG_ACP_DVSN_CD
+                     , A.MG_DIV_CD
+                     , TO_CHAR(TO_DATE(A.ORG_DSP_KWA_OPIN_DDLN_DT),'YYYY-MM-DD') AS ORG_DSP_KWA_OPIN_DDLN_DT
+				FROM  TBBADFRE012M A
+				      , TBBADEAR001M D1
+				      , TBBADEAR002D D2
+				      , TBBADDED001M T1
+
+	    		WHERE 1=1
+				AND A.AUD_YR = D1.AUD_YR
+				AND A.AUD_NO = D1.AUD_NO
+				AND A.DSP_RQ_SNO = D1.DSP_RQ_SNO
+				AND D1.AUD_YR = D2.AUD_YR
+				AND D1.AUD_NO = D2.AUD_NO
+				AND D1.DSP_RQ_SNO = D2.DSP_RQ_SNO
+				AND D1.AUD_YR = T1.AUD_YR
+				AND D1.AUD_NO = T1.AUD_NO
+
+				AND A.DEL_YN IS NULL
+			<if test='acpYr != null and acpYr != ""'>
+	           	AND A.ACP_YR = #{acpYr}
+	        </if>
+	        <if test='acpDvsnCd != null and acpDvsnCd != ""'>
+	           	AND A.ACP_DVSN_CD = #{acpDvsnCd}
+	        </if>
+	        <if test='acpSrno != null and acpSrno != ""'>
+	           	AND A.ACP_SRNO = #{acpSrno}
+	        </if>
+	        <if test='mgAcpYr != null and mgAcpYr != ""'>
+			   	AND A.MG_ACP_YR = #{mgAcpYr}
+			</if>
+			<if test='mgAcpDvsnCd != null and mgAcpDvsnCd != ""'>
+			   	AND A.MG_ACP_DVSN_CD = #{mgAcpDvsnCd}
+			</if>
+			<if test='mgAcpSrno != null and mgAcpSrno != ""'>
+			   	AND A.MG_ACP_SRNO = #{mgAcpSrno}
+			</if>
+		) A
+        INNER JOIN TBBADFRE103M T2 ON (   T2.ACP_YR           = A.ACP_YR
+                                                AND T2.ACP_DVSN_CD = A.ACP_DVSN_CD
+                                                AND T2.ACP_SRNO    = A.ACP_SRNO
+                                                AND T2.REF_ID      = A.AUD_YR||'-'||A.AUD_NO||'-'||A.DSP_RQ_SNO   --
+                                                AND ( T2.RPRT_CD     	= 'D10100100'
+                                                      OR T2.RPRT_CD     = 'E10100100' )
+                                                AND T2.ORG_DSP_KWA_OPIN_SRCH_DT IS NOT NULL
+                                                AND T2.ORG_DSP_KWA_OPIN_RCPT_DT IS NOT NULL 
+                                           )
+		UNION ALL
+        SELECT A.ACP_YR
+               , A.ACP_DVSN_CD
+               , A.ACP_SRNO
+               , A.AUD_YR
+               , A.AUD_NO
+               , A.ACP_NO
+               , A.DSP_RQ_SNO_NM
+               , A.DSP_RQ_SNO
+               , A.ENF_DT
+               , A.ENF_BRDV_CD
+               , A.ENF_BRDV_NM
+               , A.AUD_ORG_CNT
+               , A.TIT_TXT
+               , A.DTM_STA_NM
+               , A.BAI_DSP_DIV_CD
+               , A.BAI_DSP_DIV_NM
+               , CASE WHEN A.ORG_DSP_KWA_OPIN_SRCH_STEP_CD <![CDATA[>]]> 1 THEN '접수완료' ELSE '' END AS ORG_DSP_KWA_OPIN_SRCH_STEP_NM
+               , to_char(to_date(A.ORG_DSP_KWA_OPIN_SRCH_DT), 'YYYY-MM-DD') AS ORG_DSP_KWA_OPIN_SRCH_DT /* 발신일 */
+               , to_char(to_date(A.ORG_DSP_KWA_OPIN_RCPT_DT), 'YYYY-MM-DD') AS ORG_DSP_KWA_OPIN_RCPT_DT /* 수신일 */
+               , '' AS DOC_ID
+               , '' AS DOC_ACP_YR
+               , '' AS DOC_ACP_DVSN_CD
+               , 0 AS DOC_ACP_SRNO
+               , '' AS ACP_STEP_CD
+               , '' AS RPRT_CD
+               , '' AS LINK_URL
+               , '' AS REF_ID
+               , A.MG_ACP_YR
+               , A.MG_ACP_SRNO
+               , A.MG_ACP_DVSN_CD
+               , A.MG_DIV_CD
+               , F_OPEN_EDIT('') AS DOC_TYPE
+               , A.ORG_DSP_KWA_OPIN_DDLN_DT
+         FROM (
+	            SELECT  A.ACP_YR AS ACP_YR  /* 접수년도 */
+			         , A.ACP_DVSN_CD AS ACP_DVSN_CD  /* 구분코드 */
+			         , A.ACP_SRNO AS ACP_SRNO  /* 접수번호 */
+	                 , T1.AUD_YR AS AUD_YR
+	                 , T1.AUD_NO AS AUD_NO
+			         , A.ACP_YR || '-' || DECODE(A.ACP_DVSN_CD, '1', '심사', '2', '재심', '3', '재심판정') || '-' || DECODE(A.ORG_ACP_SRNO, null, A.ACP_SRNO, A.ORG_ACP_SRNO) AS ACP_NO /* 분류번호 */
+				     , F_MNG_KND_AUDYRNO(T1.AUD_YR, T1.AUD_NO, T1.AUD_KND_CD, '-') || '-' || D1.DSP_RQ_SNO AS DSP_RQ_SNO_NM /*처분요구순번DISP*/
+				     , D1.DSP_RQ_SNO AS DSP_RQ_SNO
+	                 , to_char(to_date(D2.ENF_DT), 'YYYY-MM-DD') AS ENF_DT /*시행일*/
+				     , D2.ENF_BRDV_CD AS ENF_BRDV_CD /*시행국과코드*/
+					 , (SELECT DPT_NM FROM TBDCMACM002M WHERE DPT_CD = D2.ENF_BRDV_CD) AS ENF_BRDV_NM /*시행국과명*/
+				     , (SELECT F_ORG_CNT_NM_AUD(D1.AUD_YR,D1.AUD_NO,'AUD') FROM DUAL ) AS AUD_ORG_CNT /*기관명*/
+				     , D1.TIT_TXT AS TIT_TXT /*제목내용*/
+				     , F_CODE_NM('1000017',D2.DTM_STA_CD ) AS DTM_STA_NM /*결재상태명*/
+				     , A.BAI_DSP_DIV_CD AS BAI_DSP_DIV_CD /* 원처분과코드 */
+				     , (SELECT DPT_NM FROM TBDCMACM002M WHERE DPT_CD = A.BAI_DSP_DIV_CD) AS BAI_DSP_DIV_NM /* 원처분과명 */
+				     , A.ORG_DSP_KWA_OPIN_SRCH_STEP_CD
+				     , A.ORG_DSP_KWA_OPIN_SRCH_DT
+				     , A.ORG_DSP_KWA_OPIN_RCPT_DT 
+				     , A.MG_ACP_YR
+                     , A.MG_ACP_SRNO
+                     , A.MG_ACP_DVSN_CD
+                     , A.MG_DIV_CD
+                     , TO_CHAR(TO_DATE(A.ORG_DSP_KWA_OPIN_DDLN_DT),'YYYY-MM-DD') AS ORG_DSP_KWA_OPIN_DDLN_DT
+				FROM  TBBADFRE012M A
+				      , TBBADEAR001M D1
+				      , TBBADEAR002D D2
+				      , TBBADDED001M T1
+
+	    		WHERE 1=1
+				AND A.AUD_YR = D1.AUD_YR
+				AND A.AUD_NO = D1.AUD_NO
+				AND A.DSP_RQ_SNO = D1.DSP_RQ_SNO
+				AND D1.AUD_YR = D2.AUD_YR
+				AND D1.AUD_NO = D2.AUD_NO
+				AND D1.DSP_RQ_SNO = D2.DSP_RQ_SNO
+				AND D1.AUD_YR = T1.AUD_YR
+				AND D1.AUD_NO = T1.AUD_NO
+
+				AND A.DEL_YN IS NULL
+				AND ORG_DSP_KWA_OPIN_RCPT_DT IS NULL
+			<if test='acpYr != null and acpYr != ""'>
+	           	AND A.ACP_YR = #{acpYr}
+	        </if>
+	        <if test='acpDvsnCd != null and acpDvsnCd != ""'>
+	           	AND A.ACP_DVSN_CD = #{acpDvsnCd}
+	        </if>
+	        <if test='acpSrno != null and acpSrno != ""'>
+	           	AND A.ACP_SRNO = #{acpSrno}
+	        </if>
+	        <if test='mgAcpYr != null and mgAcpYr != ""'>
+			   	AND A.MG_ACP_YR = #{mgAcpYr}
+			</if>
+			<if test='mgAcpDvsnCd != null and mgAcpDvsnCd != ""'>
+			   	AND A.MG_ACP_DVSN_CD = #{mgAcpDvsnCd}
+			</if>
+			<if test='mgAcpSrno != null and mgAcpSrno != ""'>
+			   	AND A.MG_ACP_SRNO = #{mgAcpSrno}
+			</if>
+             ) A
+             ORDER BY ORG_DSP_KWA_OPIN_SRCH_DT ASC, REF_ID ASC, ACP_YR ASC, ACP_SRNO ASC 
+	</select>
+
+	<!-- 원처분과 발신문서함 의견서 확인 업데이트 -->
+	<update id="BADFRE012MDspRqSendUpdate" parameterType="paramMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.BADFRE012MDspRqSendUpdate */
+		UPDATE TBBADFRE012M
+		     SET ORG_DSP_KWA_OPIN_SRCH_STEP_CD = #{orgDspKwaOpinSrchStepCd} /* 원처분과의견조회단계코드: 1(의견조회일자), 2(의견조회접수), 3(의견서발신) */
+		     <if test='orgDspKwaOpinSrchStepCd == "1"'>
+		        , ORG_DSP_KWA_OPIN_SRCH_DT = to_char(to_date(SYSDATE), 'YYYYMMDD') /* 원처분과의견조회일자 (심사청구과 발신일) */
+		        , ORG_DSP_KWA_OPIN_RCPT_DT = NULL
+		     </if>
+		     <if test='orgDspKwaOpinSrchStepCd == "3"'>
+		        , ORG_DSP_KWA_OPIN_RCPT_DT  = to_char(to_date(SYSDATE), 'YYYYMMDD') /* 원처분과의견발신일 (심사청구과 수신일) */
+		     </if>
+			    , FNL_USR_ID   = #{fnlUsrId}  /*최종사용자ID*/
+                , FNL_DEAL_DPT_CD  = #{fnlDealDptCd} /*최종거래부서코드*/
+                , FNL_MNU_ID  = #{fnlMnuId}      /*최종메뉴ID*/
+                , FNL_MDF_DH  = SYSDATE      /*최종수정일시*/
+		 WHERE (NVL(MG_ACP_YR, ACP_YR), NVL(MG_ACP_DVSN_CD, ACP_DVSN_CD), NVL(MG_ACP_SRNO, ACP_SRNO)) 
+            IN (
+                SELECT NVL(MG_ACP_YR, ACP_YR), NVL(MG_ACP_DVSN_CD, ACP_DVSN_CD), NVL(MG_ACP_SRNO, ACP_SRNO)
+                FROM TBBADFRE012M
+                WHERE ACP_YR = #{acpYr}
+		    	AND ACP_DVSN_CD = #{acpDvsnCd}
+		    	AND ACP_SRNO = #{acpSrno}
+            )
+            AND AUD_YR = #{audYr}
+         	AND AUD_NO = #{audNo}
+         	AND DSP_RQ_SNO = #{dspRqSno}
+	</update>
+
+	<!-- 사무처위임처리 업데이트 -->
+	<update id="BADFRE012MReferEntUpdate" parameterType="paramMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE312Mapper.BADFRE012MReferEntUpdate */
+		UPDATE TBBADFRE012M
+		     SET REFER_ENT = #{referEnt} /* 부의위임여부 Y,N */
+		        , REFER_ENT_RSN = #{referEntRsn}
+		        , PRE_REFER_ENT = #{preReferEnt}
+			    , FNL_USR_ID   = #{fnlUsrId}  /*최종사용자ID*/
+                , FNL_DEAL_DPT_CD  = #{fnlDealDptCd} /*최종거래부서코드*/
+                , FNL_MNU_ID  = #{fnlMnuId}      /*최종메뉴ID*/
+                , FNL_MDF_DH  = SYSDATE      /*최종수정일시*/
+                <if test='acpHndlStaCd != null and acpHndlStaCd != ""'>
+		            , ACP_HNDL_STA_CD = CASE WHEN #{acpHndlStaCd} > '300' THEN #{acpHndlStaCd} ELSE '310' END
+	            </if>
+		 WHERE NVL(MG_ACP_YR, ACP_YR) = #{acpYr}
+		    AND NVL(MG_ACP_DVSN_CD, ACP_DVSN_CD) = #{acpDvsnCd}
+		    AND NVL(MG_ACP_SRNO, ACP_SRNO) = #{acpSrno}
+	</update>
+	
+	<!-- 사무처위임처리 시 주 프로세스 보이기 업데이트 -->
+	<update id="BADFRE312RefViewYnUpdate" parameterType="paramMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE312Mapper.BADFRE312RefViewYnUpdate */
+		UPDATE TBBADFRE101M
+		     SET NECES_YN = #{refViewYn} /* 필수여부 Y,N */
+		 WHERE ACP_YR = #{acpYr}
+		    AND ACP_DVSN_CD = #{acpDvsnCd}
+		    AND ACP_SRNO = #{acpSrno}
+		    AND ACP_STEP_CD = 'D1030'
+	</update>
+
+	<!-- 문서함 테이블에서 조건에 맞는 DOC_ID 가져오기 -->
+	<select id="BADFRE103MDocIdSelect" parameterType="paramMap" resultType="String">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.BADFRE103MDocIdSelect */
+		SELECT DOC_ID
+		 FROM TBBADFRE103M
+		WHERE ACP_YR = #{acpYr}
+		    AND ACP_DVSN_CD = #{acpDvsnCd}
+		    AND ACP_SRNO = #{acpSrno}
+		    AND ACP_STEP_CD = #{acpStepCd}
+		    AND RPRT_CD = #{rprtCd}
+		    <if test="rprtCd == 'D10300200'">
+		    AND REF_DOC_ID = (SELECT DOC_ID FROM TBBADFRE103M WHERE ACP_YR = #{acpYr} AND ACP_DVSN_CD = #{acpDvsnCd} AND ACP_SRNO = #{acpSrno} AND RPRT_CD = 'D10200200')
+		    </if>
+		    <if test="rprtCd == 'E10500200'">
+		    AND REF_DOC_ID = (SELECT DOC_ID FROM TBBADFRE103M WHERE ACP_YR = #{acpYr} AND ACP_DVSN_CD = #{acpDvsnCd} AND ACP_SRNO = #{acpSrno} AND RPRT_CD = 'E10400200')
+		    </if>
+		    <if test="refDy != '' and refDy != null">
+		    AND REF_DY = #{refDy}
+		    </if>
+	</select>
+	
+	<!-- 문서함 테이블에서 조건에 맞는 DOC_TYPE 가져오기 -->
+	<select id="BADFRE103MDocTypeSelect" parameterType="paramMap" resultType="String">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.BADFRE103MDocTypeSelect */
+		SELECT F_OPEN_EDIT(LINK_URL) AS DOC_TYPE
+		 FROM TBBADFRE103M
+		WHERE ACP_YR = #{acpYr}
+		    AND ACP_DVSN_CD = #{acpDvsnCd}
+		    AND ACP_SRNO = #{acpSrno}
+		    AND ACP_STEP_CD = #{acpStepCd}
+		    AND RPRT_CD = #{rprtCd}
+		    <if test="rprtCd == 'D10300200'">
+		    AND REF_DOC_ID = (SELECT DOC_ID FROM TBBADFRE103M WHERE ACP_YR = #{acpYr} AND ACP_DVSN_CD = #{acpDvsnCd} AND ACP_SRNO = #{acpSrno} AND RPRT_CD = 'D10200200')
+		    </if>
+		    <if test="rprtCd == 'E10500200'">
+		    AND REF_DOC_ID = (SELECT DOC_ID FROM TBBADFRE103M WHERE ACP_YR = #{acpYr} AND ACP_DVSN_CD = #{acpDvsnCd} AND ACP_SRNO = #{acpSrno} AND RPRT_CD = 'E10400200')
+		    </if>
+		    <if test="refDy != '' and refDy != null">
+		    AND REF_DY = #{refDy}
+		    </if>
+	</select>
+	
+	<!-- 문서함 테이블에서 조건에 맞는 TAMPLATE_DOC_ID 가져오기 -->
+	<select id="BADFRE103MTmpDocIdSelect" parameterType="paramMap" resultType="String">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.BADFRE103MTmpDocIdSelect */
+		SELECT TEMPLATE_DOC_ID
+		 FROM TBBADFRE103M
+		WHERE ACP_YR = #{acpYr}
+		    AND ACP_DVSN_CD = #{acpDvsnCd}
+		    AND ACP_SRNO = #{acpSrno}
+		    AND ACP_STEP_CD = #{acpStepCd}
+		    AND RPRT_CD = #{rprtCd}
+	</select>
+	
+	<!-- 문서함 테이블에서 조건에 맞는  결재코드 가져오기 -->
+	<select id="BADFRE103MDocIdCodeSelect" parameterType="paramMap" resultType="String">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.BADFRE103MDocIdCodeSelect */
+		SELECT APV_STA_CD
+		 FROM TBBADFRE103M
+		WHERE ACP_YR = #{acpYr}
+		    AND ACP_DVSN_CD = #{acpDvsnCd}
+		    AND ACP_SRNO = #{acpSrno}
+		    AND ACP_STEP_CD = #{acpStepCd}
+		    AND RPRT_CD = #{rprtCd}
+	</select>
+	
+	<!-- 문서함 결제 완료 여부 체크 -->
+	<select id="selectBadFre103MApckDocId" parameterType="paramMap" resultType="String">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.selectBadFre103MApckDocId */
+		SELECT DOC_ID
+		 FROM TBBADFRE103M
+		WHERE ACP_YR = #{acpYr}
+		    AND ACP_DVSN_CD = #{acpDvsnCd}
+		    AND ACP_SRNO = #{acpSrno}
+		    AND ACP_STEP_CD = #{acpStepCd}
+		    AND RPRT_CD = #{rprtCd}
+		    AND APV_STA_CD = '30'
+		    <if test="rprtCd == 'D10300200'">
+		    AND REF_DOC_ID = (SELECT DOC_ID FROM TBBADFRE103M WHERE ACP_YR = #{acpYr} AND ACP_DVSN_CD = #{acpDvsnCd} AND ACP_SRNO = #{acpSrno} AND RPRT_CD = 'D10200200')
+		    </if>
+		    <if test="rprtCd == 'E10500200'">
+		    AND REF_DOC_ID = (SELECT DOC_ID FROM TBBADFRE103M WHERE ACP_YR = #{acpYr} AND ACP_DVSN_CD = #{acpDvsnCd} AND ACP_SRNO = #{acpSrno} AND RPRT_CD = 'E10400200')
+		    </if>
+	</select>
+	
+	<!-- 문서함 결제 완료 여부 체크 -->
+	<select id="selectBadFre103MCkCmp" parameterType="paramMap" resultType="String">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.selectBadFre103MCkCmp */
+		SELECT DOC_ID
+		 FROM TBBADFRE103M
+		WHERE ACP_YR = #{acpYr}
+		    AND ACP_DVSN_CD = #{acpDvsnCd}
+		    AND ACP_SRNO = #{acpSrno}
+		    AND ACP_STEP_CD = #{acpStepCd}
+		    AND RPRT_CD = #{rprtCd}
+		    AND APV_STA_CD = '10'
+	</select>
+	
+	<!-- 문서함 테이블에서 조건에 맞는 DOC_ID 가져오기 (결정문 작성여부)-->
+	<select id="BADFRE103MDocIdSelect2" parameterType="paramMap" resultType="String">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.BADFRE103MDocIdSelect2 */
+		SELECT B.DOC_ID
+		 FROM TBBADFRE012M A LEFT OUTER JOIN TBBADFRE103M B 
+		 	ON (A.ACP_YR = B.ACP_YR
+               	AND A.ACP_DVSN_CD 	= B.ACP_DVSN_CD
+               	AND A.ACP_SRNO 		= B.ACP_SRNO
+	         	AND B.RPRT_CD 		= #{rprtCd}) --결정문
+		    WHERE 1=1
+			  AND A.MG_ACP_YR 		= #{acpYr}
+			  AND A.MG_ACP_DVSN_CD 	= #{acpDvsnCd}
+			  AND A.MG_ACP_SRNO 	= #{acpSrno}
+	</select>
+	
+	<!-- 문서함 테이블에서 조건에 맞는 DOC_ID 가져오기(소위원회) -->
+	<select id="BADFRE103MDocIdSbmtSelect" parameterType="paramMap" resultType="String">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.BADFRE103MDocIdSbmtSelect */
+		SELECT DOC_ID
+		 FROM TBBADFRE103M
+		WHERE ACP_YR = #{acpYr}
+		    AND ACP_DVSN_CD = #{acpDvsnCd}
+		    AND ACP_SRNO = #{acpSrno}
+		    AND ACP_STEP_CD = #{acpStepCd}
+		    AND RPRT_CD = #{rprtCd}
+		    AND REF_ID = #{sbmtSeq}
+	</select>
+	
+	<!-- 문서함 테이블에서 조건에 맞는 DOC_ID 가져오기(소위원회-심의안작성) -->
+	<select id="BADFRE103MDocIdSimSelect" parameterType="paramMap" resultType="String">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.BADFRE103MDocIdSimSelect */
+		SELECT DOC_ID
+		 FROM TBBADFRE103M
+		WHERE ACP_YR = #{acpYr}
+		    AND ACP_DVSN_CD = #{acpDvsnCd}
+		    AND ACP_SRNO = #{acpSrno}
+		    AND ACP_STEP_CD = #{acpStepCd}
+		    AND RPRT_CD = #{rprtCd}
+		    AND REF_DOC_ID = #{docId}
+	</select>
+	
+	<!-- 문서함 테이블에서 조건에 맞는REF_ID 가져오기 -->
+	<select id="BADFRE103MRefIdSelect" parameterType="paramMap" resultType="String">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.BADFRE103MRefIdSelect */
+		SELECT REF_ID
+		 FROM TBBADFRE103M
+		WHERE ACP_YR = #{acpYr}
+		    AND ACP_DVSN_CD = #{acpDvsnCd}
+		    AND ACP_SRNO = #{acpSrno}
+		    AND ACP_STEP_CD = #{acpStepCd}
+		    AND RPRT_CD = #{rprtCd}
+            AND NVL(REF_DY,'999999') = (SELECT NVL(MAX(REF_DY),'999999')
+                          FROM TBBADFRE103M 
+                          WHERE ACP_YR = #{acpYr}
+                          AND ACP_DVSN_CD = #{acpDvsnCd}
+                          AND ACP_SRNO = #{acpSrno}
+                          AND ACP_STEP_CD = #{acpStepCd}
+                          AND RPRT_CD = #{rprtCd});
+	</select>
+	
+	<!-- 문서함 테이블에서 조건에 맞는REF_ID 가져오기 -->
+	<select id="BADFRE103MTmpRefIdSelect" parameterType="paramMap" resultType="String">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.BADFRE103MTmpRefIdSelect */
+		SELECT TEMPLATE_DOC_ID
+		 FROM TBBADFRE103M
+		WHERE ACP_YR = #{acpYr}
+		    AND ACP_DVSN_CD = #{acpDvsnCd}
+		    AND ACP_SRNO = #{acpSrno}
+		    AND ACP_STEP_CD = #{acpStepCd}
+		    AND RPRT_CD = DECODE(#{rprtCd},'D10200200','D10200100'
+		                                  ,'E10200200','E10200100'
+		                                  ,'E10400200','E10400100')
+	</select>
+	
+	<!-- 문서함 테이블에서 조건에 맞는REF_ID 가져오기 -->
+	<select id="BADFRE103MRefDocIdSelect" parameterType="paramMap" resultType="String">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.BADFRE103MRefDocIdSelect */
+		SELECT REF_ID
+		 FROM TBBADFRE103M
+		WHERE ACP_YR = #{acpYr}
+		    AND ACP_DVSN_CD = #{acpDvsnCd}
+		    AND ACP_SRNO = #{acpSrno}
+		    AND ACP_STEP_CD = #{acpStepCd}
+		    AND DOC_ID = #{docId}
+	</select>
+
+	<!-- 문서 템플릿 테이블에서 조건에 맞는 DOC_ID 가져오기 -->
+	<select id="FDMADM002MDocIdSelect" parameterType="paramMap" resultType="String">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.FDMADM002MDocIdSelect */
+		SELECT DECODE(#{docType},'hancom', HWP_DOC_ID ,DOC_ID) AS DOC_ID
+		 FROM TBFDMADM002M
+		WHERE AUD_DOC_CD = #{rprtCd}
+	</select>
+	
+	<!-- 문서 템플릿 테이블에서 조건에 맞는 DOC_TYPE 가져오기 -->
+	<select id="FDMADM002MDocTypeSelect" parameterType="paramMap" resultType="String">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.FDMADM002MDocIdSelect */
+		SELECT F_CODE_NM('1000894', DOC_WRIT_KND_CD) AS DOC_TYPE
+		 FROM TBBADFRE012M
+		WHERE ACP_YR = #{acpYr}
+		  AND ACP_DVSN_CD = #{acpDvsnCd}
+		  AND ACP_SRNO = #{acpSrno}
+	</select>
+	
+	<!-- 문서함(시행문) 목록 조회 -->
+	<select id="DocumentListSelect" parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.DocumentListSelect */
+		<![CDATA[
+		SELECT   ACP_NO
+			      , MG_DIV_NM
+			      , ACP_YR
+			      , ACP_DVSN_CD
+			      , ACP_SRNO
+                  , REQR_NM
+                  , RPRT_CD
+			      , RPRT_NM
+			      , APV_STA_CD
+			      , APV_STA_NM
+			      , APV_RQS_ID
+			      , DOC_ID
+			      , CON_PGM_CD
+			      , APV_WAY_CD
+                  , APV_USR_NM
+                  , SND_DOC_YN
+                  , (SELECT DECODE(COUNT(1), 0, 'N', 'Y') FROM TBDCMACM023H ST1 WHERE ST1.APV_DOC_NO = APV_RQS_ID AND ST1.APVR_STA_CD NOT IN ('301', '201')) AS APV_HIS_YN
+		  FROM (
+		     SELECT ACP_NO
+		          , MG_DIV_NM
+		          , ACP_YR
+		          , ACP_DVSN_CD
+		          , ACP_SRNO
+		          , RPRT_CD
+		          , CASE WHEN RPRT_CD = 'D10400300' THEN CNTR_ADMNSTMACH_NAM
+		                   WHEN RPRT_CD = 'D10400400' THEN REQR_NM
+		            ELSE REQR_NM END AS REQR_NM
+		          , RPRT_NM
+		          , APV_STA_CD
+		          , F_CODE_NM('1000773',APV_STA_CD) AS APV_STA_NM    /*결재상태코드 */
+		          , APV_RQS_ID
+		          , DOC_ID
+		          , CON_PGM_CD
+		          , APV_WAY_CD
+                  , APV_USR_NM
+                  , SND_DOC_YN
+			      FROM (
+			           SELECT  A.ACP_YR || '-' || DECODE(A.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || DECODE(A.ORG_ACP_SRNO, null, A.ACP_SRNO, A.ORG_ACP_SRNO) AS ACP_NO /* 분류번호 */
+			                 , CASE WHEN (A.ACP_YR = A.MG_ACP_YR AND A.ACP_DVSN_CD = A.MG_ACP_DVSN_CD AND A.ACP_SRNO = A.MG_ACP_SRNO) THEN '대표'
+						            WHEN A.MG_DIV_CD IS NULL AND A.MG_ACP_YR IS NULL THEN '대표'
+						            WHEN A.MG_DIV_CD IS NULL THEN '대표'
+						            WHEN A.MG_DIV_CD = '10' THEN '병합'
+						            WHEN A.MG_DIV_CD = '20' THEN '병행'
+						       END AS MG_DIV_NM /* 병합병행구분명 */
+			                 , A.ACP_YR
+			                 , A.ACP_DVSN_CD
+			                 , A.ACP_SRNO
+			                 , A.CNTR_ADMNSTMACH_NAM
+                             , A.REQR_NM
+			                 , B.ACP_STEP_CD
+			                 , B.RPRT_CD        /*보고서코드 */
+			                 , B.RPRT_NM       /*보고서명 */
+			                 , B.APV_STA_CD    /*결재상태코드 */
+			                 , B.DOC_ID        /*결재문서번호 */
+			                 , B.APV_RQS_ID    /*결재요청ID */
+			                 , B.CON_PGM_CD    /*연계프로그램코드*/
+			                 , B.APV_WAY_CD    /*결재방법코드*/
+			                 , B.SND_DOC_YN    /*발송여부*/
+                             , (SELECT
+                                                       CASE
+                                                         WHEN APV_STA_CD = '2' THEN '결재중 ( '||(SELECT F_USR_INFO(APVR_CNB, '2')
+                                  FROM TBDCMACM023L S2
+                                 WHERE S1.APV_DOC_NO = S2.APV_DOC_NO
+                                   AND S2.APVR_STA_CD = '103')||' )'
+                                                         WHEN APV_STA_CD = '3' THEN '결재완료 ('||F_USR_INFO(S1.FNL_APV_CNB, '2')||', '||TO_CHAR(S1.FNL_APV_DH, 'YYYY-MM-DD')||' )'
+                                                         WHEN APV_STA_CD = '4' THEN '반려 ( '||(SELECT F_USR_INFO(APVR_CNB, '2')||', '|| TO_CHAR(S2.APV_DH, 'YYYY-MM-DD')
+                                  FROM TBDCMACM023L S2
+                                 WHERE S1.APV_DOC_NO = S2.APV_DOC_NO
+                                   AND S2.APVR_STA_CD = '401')||' )'
+                                                         WHEN APV_STA_CD = '4' THEN '상신취소'
+                                                         ELSE ''
+                                                       END
+                          FROM TBDCMACM022L S1
+                         WHERE S1.APV_DOC_NO = B.APV_RQS_ID ) AS APV_USR_NM
+			             FROM TBBADFRE012M A,
+			                  TBBADFRE103M B
+			                  WHERE A.ACP_YR = B.ACP_YR
+			                    AND A.ACP_DVSN_CD = B.ACP_DVSN_CD
+			                    AND A.ACP_SRNO = B.ACP_SRNO
+		]]>
+			                    <if test='acpYr != null and acpYr != ""'>
+					            AND A.ACP_YR = #{acpYr}
+					            </if>
+					            <if test='acpDvsnCd != null and acpDvsnCd != ""'>
+					            AND A.ACP_DVSN_CD = #{acpDvsnCd}
+					            </if>
+					            <if test='acpSrno != null and acpSrno != ""'>
+					            AND A.ACP_SRNO = #{acpSrno}
+					            </if>
+					            <if test='mgAcpYr != null and mgAcpYr != ""'>
+							    AND A.MG_ACP_YR 		= #{mgAcpYr}
+							    </if>
+							    <if test='mgAcpDvsnCd != null and mgAcpDvsnCd != ""'>
+							    AND A.MG_ACP_DVSN_CD 	= #{mgAcpDvsnCd}
+							    </if>
+							    <if test='mgAcpSrno != null and mgAcpSrno != ""'>
+							    AND A.MG_ACP_SRNO 		= #{mgAcpSrno}
+							    </if>
+							    <if test='currentStepCd != null and currentStepCd != ""'>
+							    AND B.ACP_STEP_CD 		= #{currentStepCd}
+							    </if>
+							    <if test='rprtCdList != null and rprtCdList != ""'>
+								AND B.RPRT_CD IN
+									 <foreach item="item" index="index" collection="rprtCdList" open="(" close=")" separator=",">
+								            #{item}
+								    </foreach>
+								</if>
+			                  ORDER BY B.SORT_SNO))
+              GROUP BY ACP_NO, MG_DIV_NM, ACP_YR, ACP_DVSN_CD, ACP_SRNO, REQR_NM, RPRT_CD, RPRT_NM, APV_STA_CD, APV_RQS_ID, APV_STA_NM, DOC_ID, CON_PGM_CD, APV_WAY_CD, APV_USR_NM, SND_DOC_YN
+	</select>
+
+	<!-- 문서함(시행문) 목록 조회 -->
+	<select id="DocumentListSelect2" parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.DocumentListSelect2 */
+		SELECT *
+		 FROM (
+		           SELECT A.ACP_YR || '-' || DECODE(A.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || DECODE(A.ORG_ACP_SRNO, null, A.ACP_SRNO, A.ORG_ACP_SRNO) AS ACP_NO /* 분류번호 */
+		                    ,(SELECT DOC_ID
+		                       FROM TBFDMADM002M
+		                      WHERE AUD_DOC_CD = 'D10400300') AS T_DOC_ID
+		                    ,(SELECT DOC_ID
+		                      FROM TBBADFRE103M
+		                    WHERE ACP_YR = A.ACP_YR
+				               AND ACP_DVSN_CD = A.ACP_DVSN_CD
+				               AND ACP_SRNO = A.ACP_SRNO
+				               AND RPRT_CD = 'D10400300') AS DOC_ID
+				            ,'D10400300' AS RPRT_CD
+		                    ,NVL((SELECT RPRT_NM
+		                            FROM TBBADFRE103M
+				                   WHERE ACP_YR = A.ACP_YR
+				                      AND ACP_DVSN_CD = A.ACP_DVSN_CD
+				                      AND ACP_SRNO = A.ACP_SRNO
+				                      AND RPRT_CD = 'D10400300'), '시행문(중앙부처)') AS RPRT_NM
+					        ,A.ACP_YR
+					        ,A.ACP_DVSN_CD
+					        ,A.ACP_SRNO
+					        ,A.MG_ACP_YR
+					        ,A.MG_ACP_DVSN_CD
+					        ,A.MG_ACP_SRNO
+		            FROM TBBADFRE012M A
+                   UNION ALL
+                   SELECT A.ACP_YR || '-' || DECODE(A.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || DECODE(A.ORG_ACP_SRNO, null, A.ACP_SRNO, A.ORG_ACP_SRNO) AS ACP_NO /* 분류번호 */
+					        ,(SELECT DOC_ID
+					           FROM TBFDMADM002M
+					         WHERE AUD_DOC_CD = 'D10400400') AS T_DOC_ID
+					        ,(SELECT DOC_ID
+					          FROM TBBADFRE103M
+					         WHERE ACP_YR = A.ACP_YR
+					            AND ACP_DVSN_CD = A.ACP_DVSN_CD
+					            AND ACP_SRNO = A.ACP_SRNO
+					            AND RPRT_CD = 'D10400400') AS DOC_ID
+					        ,'D10400400' AS RPRT_CD
+					        ,NVL((SELECT RPRT_NM
+					                FROM TBBADFRE103M
+					               WHERE ACP_YR = A.ACP_YR
+					                 AND ACP_DVSN_CD = A.ACP_DVSN_CD
+					                 AND ACP_SRNO = A.ACP_SRNO
+					                 AND RPRT_CD = 'D10400400'), '시행문(청구인)') AS RPRT_NM
+					        ,A.ACP_YR
+					        ,A.ACP_DVSN_CD
+					        ,A.ACP_SRNO
+					        ,A.MG_ACP_YR
+					        ,A.MG_ACP_DVSN_CD
+					        ,A.MG_ACP_SRNO
+					 FROM TBBADFRE012M A)
+		 WHERE 1=1
+	    <if test='acpYr != null and acpYr != ""'>
+           AND ACP_YR = #{acpYr}
+        </if>
+        <if test='acpDvsnCd != null and acpDvsnCd != ""'>
+           AND ACP_DVSN_CD = #{acpDvsnCd}
+        </if>
+        <if test='acpSrno != null and acpSrno != ""'>
+           AND ACP_SRNO = #{acpSrno}
+        </if>
+        <if test='mgAcpYr != null and mgAcpYr != ""'>
+	       AND MG_ACP_YR 		= #{mgAcpYr}
+	    </if>
+	    <if test='mgAcpDvsnCd != null and mgAcpDvsnCd != ""'>
+	       AND MG_ACP_DVSN_CD 	= #{mgAcpDvsnCd}
+	    </if>
+	    <if test='mgAcpSrno != null and mgAcpSrno != ""'>
+	       AND MG_ACP_SRNO 		= #{mgAcpSrno}
+	   </if>
+	</select>
+
+	<!-- 문서함(시행문) 목록 조회 -->
+	<select id="DocumentListSelect3" parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.DocumentListSelect3 */
+		SELECT *
+		 FROM (
+		           SELECT A.ACP_YR || '-' || DECODE(A.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || DECODE(A.ORG_ACP_SRNO, null, A.ACP_SRNO, A.ORG_ACP_SRNO) AS ACP_NO /* 분류번호 */
+		                    ,(SELECT DOC_ID
+		                       FROM TBFDMADM002M
+		                      WHERE AUD_DOC_CD = 'E10600200') AS T_DOC_ID
+		                    ,(SELECT DOC_ID
+		                      FROM TBBADFRE103M
+		                    WHERE ACP_YR = A.ACP_YR
+				               AND ACP_DVSN_CD = A.ACP_DVSN_CD
+				               AND ACP_SRNO = A.ACP_SRNO
+				               AND RPRT_CD = 'E10600200') AS DOC_ID
+				            ,'E10600200' AS RPRT_CD
+		                    ,NVL((SELECT RPRT_NM
+		                            FROM TBBADFRE103M
+				                   WHERE ACP_YR = A.ACP_YR
+				                      AND ACP_DVSN_CD = A.ACP_DVSN_CD
+				                      AND ACP_SRNO = A.ACP_SRNO
+				                      AND RPRT_CD = 'E10600200'), '시행문') AS RPRT_NM
+					        ,A.ACP_YR
+					        ,A.ACP_DVSN_CD
+					        ,A.ACP_SRNO
+					        ,A.MG_ACP_YR
+					        ,A.MG_ACP_DVSN_CD
+					        ,A.MG_ACP_SRNO
+		            FROM TBBADFRE012M A)
+		 WHERE 1=1
+	    <if test='acpYr != null and acpYr != ""'>
+           AND ACP_YR = #{acpYr}
+        </if>
+        <if test='acpDvsnCd != null and acpDvsnCd != ""'>
+           AND ACP_DVSN_CD = #{acpDvsnCd}
+        </if>
+        <if test='acpSrno != null and acpSrno != ""'>
+           AND ACP_SRNO = #{acpSrno}
+        </if>
+        <if test='mgAcpYr != null and mgAcpYr != ""'>
+	       AND MG_ACP_YR 		= #{mgAcpYr}
+	    </if>
+	    <if test='mgAcpDvsnCd != null and mgAcpDvsnCd != ""'>
+	       AND MG_ACP_DVSN_CD 	= #{mgAcpDvsnCd}
+	    </if>
+	    <if test='mgAcpSrno != null and mgAcpSrno != ""'>
+	       AND MG_ACP_SRNO 		= #{mgAcpSrno}
+	   </if>
+	</select>
+<!-- 결정서 -->
+	<select id="DocumentListSelect4" parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.DocumentListSelect4 */
+		<![CDATA[
+		SELECT   ACP_NO
+			      , MG_DIV_NM
+			      , ACP_YR
+			      , ACP_DVSN_CD
+			      , ACP_SRNO
+                  , REQR_NM
+                  , RPRT_CD
+			      , RPRT_NM
+			      , APV_STA_CD
+			      , APV_STA_NM
+			      , APV_RQS_ID
+			      , DOC_ID
+			      , CON_PGM_CD
+			      , APV_WAY_CD
+                  , APV_USR_NM
+		  FROM (
+		     SELECT ACP_NO
+		          , MG_DIV_NM
+		          , ACP_YR
+		          , ACP_DVSN_CD
+		          , ACP_SRNO
+		          , RPRT_CD
+		          , CASE WHEN RPRT_CD = 'D10400300' THEN CNTR_ADMNSTMACH_NAM
+		                   WHEN RPRT_CD = 'D10400400' THEN REQR_NM
+		            ELSE REQR_NM END AS REQR_NM
+		          , RPRT_NM
+		          , APV_STA_CD
+		          , F_CODE_NM('1000773',APV_STA_CD) AS APV_STA_NM    /*결재상태코드 */
+		          , APV_RQS_ID
+		          , DOC_ID
+		          , CON_PGM_CD
+		          , APV_WAY_CD
+                  , APV_USR_NM
+			      FROM (
+			           SELECT  A.ACP_YR || '-' || DECODE(A.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || DECODE(A.ORG_ACP_SRNO, null, A.ACP_SRNO, A.ORG_ACP_SRNO) AS ACP_NO /* 분류번호 */
+			                 , CASE WHEN (A.ACP_YR = A.MG_ACP_YR AND A.ACP_DVSN_CD = A.MG_ACP_DVSN_CD AND A.ACP_SRNO = A.MG_ACP_SRNO) THEN '대표'
+						            WHEN A.MG_DIV_CD IS NULL AND A.MG_ACP_YR IS NULL THEN '대표'
+						            WHEN A.MG_DIV_CD IS NULL THEN '대표'
+						            WHEN A.MG_DIV_CD = '10' THEN '병합'
+						            WHEN A.MG_DIV_CD = '20' THEN '병행'
+						       END AS MG_DIV_NM /* 병합병행구분명 */
+			                 , A.ACP_YR
+			                 , A.ACP_DVSN_CD
+			                 , A.ACP_SRNO
+			                 , A.CNTR_ADMNSTMACH_NAM
+                             , A.REQR_NM
+			                 , B.ACP_STEP_CD
+			                 , B.RPRT_CD        /*보고서코드 */
+			                 , B.RPRT_NM       /*보고서명 */
+			                 , B.APV_STA_CD    /*결재상태코드 */
+			                 , B.DOC_ID        /*결재문서번호 */
+			                 , B.APV_RQS_ID    /*결재요청ID */
+			                 , B.CON_PGM_CD    /*연계프로그램코드*/
+			                 , B.APV_WAY_CD    /*결재방법코드*/
+                             , (SELECT
+                                                       CASE
+                                                         WHEN APV_STA_CD = '2' THEN '결재중 ( '||(SELECT F_USR_INFO(APVR_CNB, '2')
+                                  FROM TBDCMACM023L S2
+                                 WHERE S1.APV_DOC_NO = S2.APV_DOC_NO
+                                   AND S2.APVR_STA_CD = '103')||' )'
+                                                         WHEN APV_STA_CD = '3' THEN '결재완료 ('||F_USR_INFO(S1.FNL_APV_CNB, '2')||', '||TO_CHAR(S1.FNL_APV_DH, 'YYYY-MM-DD')||' )'
+                                                         WHEN APV_STA_CD = '4' THEN '반려 ( '||(SELECT F_USR_INFO(APVR_CNB, '2')||', '|| TO_CHAR(S2.APV_DH, 'YYYY-MM-DD')
+                                  FROM TBDCMACM023L S2
+                                 WHERE S1.APV_DOC_NO = S2.APV_DOC_NO
+                                   AND S2.APVR_STA_CD = '401')||' )'
+                                                         WHEN APV_STA_CD = '4' THEN '상신취소'
+                                                         ELSE ''
+                                                       END
+                          FROM TBDCMACM022L S1
+                         WHERE S1.APV_DOC_NO = B.APV_RQS_ID ) AS APV_USR_NM
+			             FROM TBBADFRE012M A,
+			                  TBBADFRE103M B
+			                  WHERE A.ACP_YR = B.ACP_YR
+			                    AND A.ACP_DVSN_CD = B.ACP_DVSN_CD
+			                    AND A.ACP_SRNO = B.ACP_SRNO
+			                    AND NVL(A.MG_ACP_YR, A.ACP_YR) = NVL(#{mgAcpYr},#{acpYr})
+			                    AND NVL(A.MG_ACP_DVSN_CD, A.ACP_DVSN_CD) = NVL(#{mgAcpDvsnCd},#{acpDvsnCd})
+			                    AND NVL(A.MG_ACP_SRNO, A.ACP_SRNO) = NVL(#{mgAcpSrno},#{acpSrno})
+								AND B.RPRT_CD IN ('D10400100','E10600050')
+			                  ORDER BY B.SORT_SNO))
+              GROUP BY ACP_NO, MG_DIV_NM, ACP_YR, ACP_DVSN_CD, ACP_SRNO, REQR_NM, RPRT_CD, RPRT_NM, APV_STA_CD, APV_RQS_ID, APV_STA_NM, DOC_ID, CON_PGM_CD, APV_WAY_CD, APV_USR_NM
+			ORDER BY MG_DIV_NM
+		]]>
+	</select>
+	
+	<!-- 문서함(공개문) 목록 조회 -->
+	<select id="OpenDocumentListSelect" parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.OpenDocumentListSelect */
+		SELECT A.ACP_YR || '-' || DECODE(A.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || DECODE(A.ORG_ACP_SRNO, null, A.ACP_SRNO, A.ORG_ACP_SRNO) AS ACP_NO /* 분류번호 */
+		        ,(SELECT DOC_ID
+		           FROM TBBADFRE103M
+		         WHERE ACP_YR = A.ACP_YR
+		            AND ACP_DVSN_CD = A.ACP_DVSN_CD
+		            AND ACP_SRNO = A.ACP_SRNO
+		            <if test='acpDvsnCd == "1" or mgAcpDvsnCd == "1"'>
+		            AND ACP_STEP_CD = 'D1020'
+			        AND RPRT_CD = 'D10200100'
+			        AND ROWNUM = 1) AS T_DOC_ID
+			      </if>
+			      <if test='acpDvsnCd == "2" or mgAcpDvsnCd == "2"'>
+			      	 AND ACP_STEP_CD = 'E1040'
+			         AND RPRT_CD = 'E10400100'
+			         AND ROWNUM = 1) AS T_DOC_ID
+			      </if>
+		        ,(SELECT DOC_ID
+		          FROM TBBADFRE103M
+		         WHERE ACP_YR = A.ACP_YR
+		            AND ACP_DVSN_CD = A.ACP_DVSN_CD
+		            AND ACP_SRNO = A.ACP_SRNO
+		            <if test='acpDvsnCd == "1" or mgAcpDvsnCd == "1"'>
+		            AND ACP_STEP_CD = 'D1040'
+			        AND RPRT_CD = 'D10400600'
+			        AND ROWNUM = 1) AS DOC_ID
+			      </if>
+			      <if test='acpDvsnCd == "2" or mgAcpDvsnCd == "2"'>
+			      	 AND ACP_STEP_CD = 'E1060'
+			         AND RPRT_CD = 'E10600300'
+			         AND ROWNUM = 1) AS DOC_ID
+			      </if>
+		        ,'공개문 - ' || A.TIT_NM AS RPRT_NM
+		        ,A.ACP_YR
+		        ,A.ACP_DVSN_CD
+		        ,A.ACP_SRNO
+		        ,B.RPRT_CD
+		        ,B.APV_STA_CD
+		        ,F_CODE_NM('1000773',B.APV_STA_CD) AS APV_STA_NM    /*결재상태코드 */
+		        ,B.APV_RQS_ID    /*결재요청ID */
+			    ,B.CON_PGM_CD    /*연계프로그램코드*/
+                , (SELECT
+                              CASE
+                                WHEN APV_STA_CD = '2' THEN '결재중 ( '||(SELECT F_USR_INFO(APVR_CNB, '2')
+													                     FROM TBDCMACM023L S2
+													                    WHERE S1.APV_DOC_NO = S2.APV_DOC_NO
+													                      AND S2.APVR_STA_CD = '103')||' )'
+                                WHEN APV_STA_CD = '3' THEN '결재완료 ('||F_USR_INFO(S1.FNL_APV_CNB, '2')||', '||TO_CHAR(S1.FNL_APV_DH, 'YYYY-MM-DD')||' )'
+                                WHEN APV_STA_CD = '4' THEN '반려 ( '||(SELECT F_USR_INFO(APVR_CNB, '2')||', '|| TO_CHAR(S2.APV_DH, 'YYYY-MM-DD')
+												                       FROM TBDCMACM023L S2
+												                      WHERE S1.APV_DOC_NO = S2.APV_DOC_NO
+												                        AND S2.APVR_STA_CD = '401')||' )'
+                                WHEN APV_STA_CD = '4' THEN '상신취소'
+                                ELSE ''
+                              END
+		             FROM TBDCMACM022L S1
+		            WHERE S1.APV_DOC_NO = B.APV_RQS_ID ) AS APV_USR_NM
+		        , (SELECT DECODE(COUNT(1), 0, 'N', 'Y') FROM TBDCMACM023H ST1 WHERE ST1.APV_DOC_NO = B.APV_RQS_ID AND ST1.APVR_STA_CD NOT IN ('301', '201')) AS APV_HIS_YN
+		 FROM TBBADFRE012M A,
+			  TBBADFRE103M B
+	    WHERE A.ACP_YR = B.ACP_YR
+		  AND A.ACP_DVSN_CD = B.ACP_DVSN_CD
+		  AND A.ACP_SRNO = B.ACP_SRNO
+	    <if test='acpYr != null and acpYr != "" and (mgAcpYr == null or mgAcpYr == "")'>
+           AND A.ACP_YR = #{acpYr}
+        </if>
+        <if test='acpDvsnCd != null and acpDvsnCd != "" and (mgAcpDvsnCd == null or mgAcpDvsnCd == "")'>
+           AND A.ACP_DVSN_CD = #{acpDvsnCd}
+        </if>
+        <if test='acpSrno != null and acpSrno != "" and (mgAcpSrno == null or mgAcpSrno == "")'>
+           AND A.ACP_SRNO = #{acpSrno}
+        </if>
+        <if test='mgAcpYr != null and mgAcpYr != ""'>
+	       AND A.MG_ACP_YR 		= #{mgAcpYr}
+	    </if>
+	    <if test='mgAcpDvsnCd != null and mgAcpDvsnCd != ""'>
+	       AND A.MG_ACP_DVSN_CD 	= #{mgAcpDvsnCd}
+	    </if>
+	    <if test='mgAcpSrno != null and mgAcpSrno != ""'>
+	       AND A.MG_ACP_SRNO 		= #{mgAcpSrno}
+	   </if>
+			AND B.RPRT_CD IN('D10400600','E10600300')
+	</select>
+
+
+	<insert id="BADFRE103MInsert" parameterType="paramMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.BADFRE103MInsert */
+		INSERT INTO	TBBADFRE103M
+							(	 ACP_YR              /* 접수년도 */
+								,ACP_DVSN_CD      /* 접수구분 */
+								,ACP_SRNO          /* 접수번호 */
+								,ACP_STEP_CD       /* 단계코드 */
+								,DOC_ID              /* 문서ID */
+								,RPRT_NM           /* 보고서명 */
+								,LINK_URL           /* 링크주소 */
+								,APV_STA_CD	       /* 결재상태코드 */
+								,APV_WAY_CD      /* 결재타입 */
+								,RPRT_CD            /* 보고서코드  */
+								,CON_PGM_CD     /* 연계프로그램코드 */
+								,DOC_WRT_ID      /* 문서작성자 */
+								,FRT_USR_ID        /* 최초사용자ID */
+								,FNL_USR_ID        /* 최종사용자ID */
+								,FNL_DEAL_DPT_CD/* 최종거래부서코드 */
+								,FNL_MNU_ID       /* 최종메뉴ID */
+								,FRT_REGI_DH       /* 최초등록일시 */
+								,FNL_MDF_DH       /* 최종수정일시 */
+								,REF_ID       /* 참고문서아이디 */
+								,REF_DY
+								,TEMPLATE_DOC_ID
+								,REF_DOC_ID
+							)
+					VALUES	(
+					
+								 #{acpYr}
+								,#{acpDvsnCd}
+								,#{acpSrno}
+								,#{acpStepCd}
+								,#{docId}
+								,#{rprtNm}
+								,#{linkUrl}
+								,#{apvStaCd}
+								,#{apvWayCd}
+								,#{rprtCd}
+								,#{conPgmCd}
+								,#{docWrtId}
+								,#{frtUsrId}
+								,#{fnlUsrId}
+								,#{fnlDealDptCd}
+								,#{fnlMnuId}
+								,SYSDATE
+								,SYSDATE
+								,#{refId}
+								,#{refDy}
+								,#{templateDocId} 
+								,#{refDocId} 
+							)
+	</insert>
+
+	<!-- 심사 각하 취하 , 기관 청구인발송일자 -->
+	<select id="BADFRE103MOpmSenDtSelect" parameterType="paramMap" resultType="String">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.BADFRE103MOpmSenDtSelect */
+		SELECT to_char(FNL_MDF_DH, 'YYYY-MM-DD') AS OPM_SEN_DT
+		  FROM (SELECT FNL_MDF_DH
+		 		  FROM TBBADFRE103M
+		 		 WHERE ACP_YR = #{acpYr}
+		   		   AND ACP_DVSN_CD = #{acpDvsnCd}
+		   		   AND ACP_SRNO = #{acpSrno}
+		   		   AND RPRT_CD = #{rprtCd}
+		   		   AND APV_STA_CD = #{apvStaCd}
+		   		 ORDER BY FNL_MDF_DH DESC)
+		  WHERE ROWNUM = 1
+	</select>
+
+	<delete id="BADFRE103MFreDelete" parameterType="paramMap">
+    	/* kr.go.bai.eip.bad.fre.dao.BADFRE101Mapper.BADFRE103MFreDelete*/
+    	DELETE FROM TBBADFRE103M
+        WHERE ACP_YR = #{acpYr}
+		   		   AND ACP_DVSN_CD = #{acpDvsnCd}
+		   		   AND ACP_SRNO = #{acpSrno}
+		   		   AND RPRT_CD = #{rprtCd}
+		   		   AND ACP_STEP_CD = #{acpStepCd}
+		   		   AND DOC_ID = #{docId}
+    </delete>
+	
+	<update id="updateBADFRE103MShareDoc" parameterType="paramMap">
+    	/* kr.go.bai.eip.bad.fre.dao.BADFRE101Mapper.updateBADFRE103MShareDoc*/
+    	UPDATE TBBADFRE103M
+    	SET 	SHARE_YN = #{shareYn}
+    			, FNL_USR_ID   = #{fnlUsrId}  /*최종사용자ID*/
+                , FNL_DEAL_DPT_CD  = #{fnlDealDptCd} /*최종거래부서코드*/
+                , FNL_MNU_ID  = #{fnlMnuId}      /*최종메뉴ID*/
+                , FNL_MDF_DH  = SYSDATE      /*최종수정일시*/
+        WHERE ACP_YR = #{acpYr}
+		   		   AND ACP_DVSN_CD = #{acpDvsnCd}
+		   		   AND ACP_SRNO = #{acpSrno}
+		   		   AND RPRT_CD = #{rprtCd}
+		   		   AND DOC_ID = #{docId}
+    </update>
+	
+	<!-- 법률자문횟수 -->
+	<select id="selectMfexStatus" parameterType="paramMap" resultType="Integer">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.selectMfexStatus */
+		SELECT COUNT(1) LEGAL_CNT
+              FROM TBBADDED126M A
+              LEFT OUTER JOIN TBBADFRE012M B ON (A.WRK_YR = B.ACP_YR AND DECODE(A.WRK_DVSN_CD,'D10','1','E10','2','') = B.ACP_DVSN_CD AND A.WRK_NO = B.ACP_SRNO)
+             WHERE NVL(B.MG_ACP_YR, B.ACP_YR) = #{acpYr}
+               AND NVL(B.MG_ACP_SRNO, B.ACP_SRNO) = #{acpSrno}
+               AND NVL(B.MG_ACP_DVSN_CD, B.ACP_DVSN_CD) = #{acpDvsnCd}
+	</select>
+	
+	<select id="selectDocIdByMaxRefDy" parameterType="paramMap" resultType="String">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.selectDocIdByMaxRefDy */
+		SELECT DOC_ID
+		FROM TBBADFRE103M
+		WHERE ACP_YR = #{acpYr}
+		AND ACP_DVSN_CD = #{acpDvsnCd}
+		AND ACP_SRNO = #{acpSrno}
+		AND ACP_STEP_CD = #{acpStepCd}
+		AND RPRT_CD = #{rprtCd}
+		AND REF_DY = (SELECT MAX(REF_DY)
+					  FROM TBBADFRE103M
+			          WHERE ACP_YR = #{acpYr}
+					  AND ACP_DVSN_CD = #{acpDvsnCd}
+					  AND ACP_SRNO = #{acpSrno}
+					  AND ACP_STEP_CD = #{acpStepCd}
+					  AND RPRT_CD = #{rprtCd})
+	</select>
+	
+	<update id="dspRqSndMessage" parameterType="paramMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.dspRqSndMessage */
+		INSERT INTO
+            TBDCMACM026L
+            (
+              MSG_SNO
+            , TSK_CAT_CD
+            , FUNC_CAT_CD
+            , SEND_ID
+            , MSG_TP_YN
+            , MSG_TXT_2
+            , RCNT_CNT
+            , RCNT_HIS
+            , MSG_REGI_DH
+            , FRT_USR_ID
+            , FNL_USR_ID
+            , FNL_DEAL_DPT_CD
+            , FNL_MNU_ID
+            , FRT_REGI_DH
+            , FNL_MDF_DH    
+            )
+            VALUES
+            (
+              (SELECT NVL(MAX(MSG_SNO),'0')+1 AS MSG_SNO FROM TBDCMACM026L)
+            , 'CM'
+            , 'CM'
+            , 'SYSTEM'
+            , '0'
+            , '"' || (SELECT F_DPT_INFO(DPT_CD, 1) 
+                 FROM TBBADFRE012M
+                WHERE ACP_YR = #{acpYr}
+                  AND ACP_DVSN_CD = #{acpDvsnCd}
+                  AND ACP_SRNO = #{acpSrno}) || '"에서 ' || 
+                  '"' || #{acpYr} || '-' || DECODE(#{acpDvsnCd},'1','심사','재심') || '-' || #{acpSrno} || '"에 대한 원처분과 의견서를 요청하였습니다. ' || CHR(13)||CHR(10)||CHR(13)||CHR(10)||
+            '<![CDATA[<안내문>]]> 
+1. 귀 부서에서' || DECODE(#{acpDvsnCd},'1',' 아래와 같이','') || ' 처분요구한 감사사항에 대하여 ' || DECODE(#{acpDvsnCd},'1','심사','재심의') || ' 청구가 접수되었으니 「감사사무 등 처리에 관한 규정」' || DECODE(#{acpDvsnCd},'1','제72조 규정에 따라 각 청구이유별로 귀 부서의 의견을 회신하여 주시기 바랍니다.','제75조 제2항의 규정에 따라 [별지 제58호서식]') || '' ||CHR(13)||CHR(10)||
+   '"' || DECODE(#{acpDvsnCd},'1','심사','재심의') || '청구에 대한 의견서"'  || DECODE(#{acpDvsnCd},'1','를 결재(과장-국장님 결재)하신 후 ','(과장-국장 결재)에 귀 부서의 의견을 각 청구이유별로 작성(전자감사관리시스템-재심의-재심의의견서관리)하여 ') || '"' || DECODE(#{acpDvsnCd},'1','심사담당관"실에 회신(전자감사시스템에 의견서를 업로드)하여 주시면 됩니다.','재심의담당관"실에 회신하여 주시기 바랍니다.') ||CHR(13)||CHR(10)||
+   DECODE(#{acpDvsnCd},'1','','※ 청구이유별로 청구인이 감사과정에서 동일한 주장을 하였는지 여부, 이에 대한 검토내용, 청구인 주장의 사실 여부를 판단할 수 있는 증거자료명, 증거 등을 보완할 필요가 있는지 여부 등 구체적으로 작성') ||CHR(13)||CHR(10)||
+DECODE(#{acpDvsnCd},'1','2. 원처분과 의견서 회신과 함께 다음과 같이 관련 증거서류도 송부(전자감사시스템에 업로드)하여 주십시오.','2. 재심의 청구인이 「감사원 감사사무 처리규칙」 제52조 제3항에 정한 청구인으로서 소속 장관 또는 감독기관의 장을 거치지 않고 직접 재심의를 청구한 경우 같은 규칙 제54조 제4항에 따라 소속 장관 또는 감독기관의 장에게 감사원에 재심의가 청구된 사실을 통보하여 주시기 바랍니다.') ||CHR(13)||CHR(10)||
+DECODE(#{acpDvsnCd},'1','','3. 원처분과 의견서 회신과 함께 다음 증거서류도 전자감사시스템에 업로드하여 주시기 바랍니다.') ||CHR(13)||CHR(10)||
+  DECODE(#{acpDvsnCd},'1','① 처리기간평가표','○ 실지감사종료보고서, 소위원회 심의결과보고서, 원 처리안과 내부결재 문서, 심의참고자료') ||CHR(13)||CHR(10)||
+  DECODE(#{acpDvsnCd},'1','② 실지감사종료보고서','○ 부의안, 부의안 요약과 표지(결재 및 수신처안 표시), 변경의결사항 대조표, 처분요구 등 시행문(처분요구 시행처에 대한 문서 포함)') ||CHR(13)||CHR(10)||
+  DECODE(#{acpDvsnCd},'1','③ 부의안, 부의안 요약과 표지(결재 및 수신처안 표시)','○ 처리안에 링크를 걸지 않은 문답서, 질문ㆍ답변서, 확인서, 징계대상자 인사자료 등 기타 재심의청구 검토에 필요하다고 판단되는 증거서류') ||CHR(13)||CHR(10)||
+  DECODE(#{acpDvsnCd},'1','④ 처리안과 내부결재 문서(심의참고자료 포함)','○ 적극행정면책 등 별도의 소명자료에 대한 검토사항, 적극행정면책자문위원회의 자문결과, 법률자문 등 (제출된 자료 포함)') ||CHR(13)||CHR(10)||
+  DECODE(#{acpDvsnCd},'1','⑤ 처분요구 등 시행문(처분요구 시행처에 대한 문서 포함)','을 전자감사관리시스템에 업로드 조치하여 주시기 바랍니다.') ||CHR(13)||CHR(10)||
+  DECODE(#{acpDvsnCd},'1','⑥ 관련 문답서, 질문ㆍ답변서, 확인서, 징계대상자 인사자료','4. 효율적인 업무처리를 위하여 재심의 담당자가 귀 부서에 해당 감사문서 열람 승인을 요청할 수 있습니다.') ||CHR(13)||CHR(10)||
+  DECODE(#{acpDvsnCd},'1','⑦ 기타 심사청구 검토에 필요하다고 판단되는 증빙서류 등','') ||CHR(13)||CHR(10)||
+  DECODE(#{acpDvsnCd},'1','⑧ 감사사항이나 처분요구의 비밀 해당 여부에 대한 표시','') ||CHR(13)||CHR(10)||
+  DECODE(#{acpDvsnCd},'1','⑨ 적극행정면책 등 별도의 소명자료에 대한 검토사항, 법률자문 등 (제출된 자료 포함)','') ||CHR(13)||CHR(10)||
+' ' ||CHR(13)||CHR(10)||
+  DECODE(#{acpDvsnCd},'1','을 전자감사시스템에 업로드 조치하여 주시기 바랍니다.','') ||CHR(13)||CHR(10)||CHR(13)||CHR(10)||
+DECODE(#{acpDvsnCd},'1','3. 효율적인 업무처리를 위하여 심사 담당자가 귀 부서에 해당 감사문서 열람 승인을 요청할 수 있습니다.','')
+            , 1
+            , NVL(NVL((SELECT B.CNB
+                 FROM TBBADDED001M A
+           INNER JOIN TBDCMACM001M B ON (B.DPT_CD = A.MNG_DPT_CD)
+                WHERE A.AUD_YR = #{audYr}
+                  AND A.AUD_NO = #{audNo}
+                  AND B.PST_CD = '0013600'
+                  AND ROWNUM = 1),
+                  (SELECT B.CNB
+                 FROM TBBADDED001M A
+           INNER JOIN TBDCMACM001M B ON (B.DPT_CD = A.MNG_DPT_CD)
+                WHERE A.AUD_YR = #{audYr}
+                  AND A.AUD_NO = #{audNo}
+                  AND B.PST_CD = '0057400'
+                  AND ROWNUM = 1)),
+                  (SELECT B.CNB
+                 FROM TBBADDED001M A
+           INNER JOIN TBDCMACM001M B ON (B.DPT_CD = A.MNG_DPT_CD)
+                WHERE A.AUD_YR = #{audYr}
+                  AND A.AUD_NO = #{audNo}
+                  AND B.RANK_CD IN (SELECT MIN(D.RANK_CD)
+                                      FROM TBBADDED001M C
+                                INNER JOIN TBDCMACM001M D ON (D.DPT_CD = C.MNG_DPT_CD)
+                                     WHERE C.AUD_YR = #{audYr}
+                                       AND C.AUD_NO = #{audNo})
+                  AND ROWNUM = 1))
+            , SYSDATE 
+            , #{fnlUsrId}
+            , #{fnlUsrId}
+            , #{fnlDealDptCd}
+            , 'BADFRE311'
+            , SYSDATE
+            , SYSDATE 
+            )
+	</update>
+
+	<update id="dspRqSndMessageForMaintenance" parameterType="paramMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.dspRqSndMessageForMaintenance */
+		INSERT INTO
+            TBDCMACM026L
+            (
+              MSG_SNO
+            , TSK_CAT_CD
+            , FUNC_CAT_CD
+            , SEND_ID
+            , MSG_TP_YN
+            , MSG_TXT_2
+            , RCNT_CNT
+            , RCNT_HIS
+            , MSG_REGI_DH
+            , FRT_USR_ID
+            , FNL_USR_ID
+            , FNL_DEAL_DPT_CD
+            , FNL_MNU_ID
+            , FRT_REGI_DH
+            , FNL_MDF_DH    
+            )
+            VALUES
+            (
+              (SELECT NVL(MAX(MSG_SNO),'0')+1 AS MSG_SNO FROM TBDCMACM026L)
+            , 'CM'
+            , 'CM'
+            , 'SYSTEM'
+            , '0'
+            , '"' || (SELECT F_DPT_INFO(DPT_CD, 1) 
+                 FROM TBBADFRE012M
+                WHERE ACP_YR = #{acpYr}
+                  AND ACP_DVSN_CD = #{acpDvsnCd}
+                  AND ACP_SRNO = #{acpSrno}) || '"에서 ' || 
+                  '"' || #{acpYr} || '-' || DECODE(#{acpDvsnCd},'1','심사','재심') || '-' || #{acpSrno} || '"에 대한 원처분과 의견서를 요청하였습니다. ' || CHR(13)||CHR(10)||CHR(13)||CHR(10)||
+            '<![CDATA[<안내문>]]> 
+1. 귀 부서에서' || DECODE(#{acpDvsnCd},'1',' 아래와 같이','') || ' 처분요구한 감사사항에 대하여 ' || DECODE(#{acpDvsnCd},'1','심사','재심의') || ' 청구가 접수되었으니 「감사사무 등 처리에 관한 규정」' || DECODE(#{acpDvsnCd},'1','제72조 규정에 따라 각 청구이유별로 귀 부서의 의견을 회신하여 주시기 바랍니다.','제75조 제2항의 규정에 따라 [별지 제58호서식]') || '' ||CHR(13)||CHR(10)||
+   '"' || DECODE(#{acpDvsnCd},'1','심사','재심의') || '청구에 대한 의견서"'  || DECODE(#{acpDvsnCd},'1','를 결재(과장-국장님 결재)하신 후 ','(과장-국장 결재)에 귀 부서의 의견을 각 청구이유별로 작성(전자감사관리시스템-재심의-재심의의견서관리)하여 ') || '"' || DECODE(#{acpDvsnCd},'1','심사담당관"실에 회신(전자감사시스템에 의견서를 업로드)하여 주시면 됩니다.','재심의담당관"실에 회신하여 주시기 바랍니다.') ||CHR(13)||CHR(10)||
+   DECODE(#{acpDvsnCd},'1','','※ 청구이유별로 청구인이 감사과정에서 동일한 주장을 하였는지 여부, 이에 대한 검토내용, 청구인 주장의 사실 여부를 판단할 수 있는 증거자료명, 증거 등을 보완할 필요가 있는지 여부 등 구체적으로 작성') ||CHR(13)||CHR(10)||
+DECODE(#{acpDvsnCd},'1','2. 원처분과 의견서 회신과 함께 다음과 같이 관련 증거서류도 송부(전자감사시스템에 업로드)하여 주십시오.','2. 재심의 청구인이 「감사원 감사사무 처리규칙」 제52조 제3항에 정한 청구인으로서 소속 장관 또는 감독기관의 장을 거치지 않고 직접 재심의를 청구한 경우 같은 규칙 제54조 제4항에 따라 소속 장관 또는 감독기관의 장에게 감사원에 재심의가 청구된 사실을 통보하여 주시기 바랍니다.') ||CHR(13)||CHR(10)||
+DECODE(#{acpDvsnCd},'1','','3. 원처분과 의견서 회신과 함께 다음 증거서류도 전자감사시스템에 업로드하여 주시기 바랍니다.') ||CHR(13)||CHR(10)||
+  DECODE(#{acpDvsnCd},'1','① 처리기간평가표','○ 실지감사종료보고서, 소위원회 심의결과보고서, 원 처리안과 내부결재 문서, 심의참고자료') ||CHR(13)||CHR(10)||
+  DECODE(#{acpDvsnCd},'1','② 실지감사종료보고서','○ 부의안, 부의안 요약과 표지(결재 및 수신처안 표시), 변경의결사항 대조표, 처분요구 등 시행문(처분요구 시행처에 대한 문서 포함)') ||CHR(13)||CHR(10)||
+  DECODE(#{acpDvsnCd},'1','③ 부의안, 부의안 요약과 표지(결재 및 수신처안 표시)','○ 처리안에 링크를 걸지 않은 문답서, 질문ㆍ답변서, 확인서, 징계대상자 인사자료 등 기타 재심의청구 검토에 필요하다고 판단되는 증거서류') ||CHR(13)||CHR(10)||
+  DECODE(#{acpDvsnCd},'1','④ 처리안과 내부결재 문서(심의참고자료 포함)','○ 적극행정면책 등 별도의 소명자료에 대한 검토사항, 적극행정면책자문위원회의 자문결과, 법률자문 등 (제출된 자료 포함)') ||CHR(13)||CHR(10)||
+  DECODE(#{acpDvsnCd},'1','⑤ 처분요구 등 시행문(처분요구 시행처에 대한 문서 포함)','을 전자감사관리시스템에 업로드 조치하여 주시기 바랍니다.') ||CHR(13)||CHR(10)||
+  DECODE(#{acpDvsnCd},'1','⑥ 관련 문답서, 질문ㆍ답변서, 확인서, 징계대상자 인사자료','4. 효율적인 업무처리를 위하여 재심의 담당자가 귀 부서에 해당 감사문서 열람 승인을 요청할 수 있습니다.') ||CHR(13)||CHR(10)||
+  DECODE(#{acpDvsnCd},'1','⑦ 기타 심사청구 검토에 필요하다고 판단되는 증빙서류 등','') ||CHR(13)||CHR(10)||
+  DECODE(#{acpDvsnCd},'1','⑧ 감사사항이나 처분요구의 비밀 해당 여부에 대한 표시','') ||CHR(13)||CHR(10)||
+  DECODE(#{acpDvsnCd},'1','⑨ 적극행정면책 등 별도의 소명자료에 대한 검토사항, 법률자문 등 (제출된 자료 포함)','') ||CHR(13)||CHR(10)||
+' ' ||CHR(13)||CHR(10)||
+  DECODE(#{acpDvsnCd},'1','을 전자감사시스템에 업로드 조치하여 주시기 바랍니다.','') ||CHR(13)||CHR(10)||CHR(13)||CHR(10)||
+DECODE(#{acpDvsnCd},'1','3. 효율적인 업무처리를 위하여 심사 담당자가 귀 부서에 해당 감사문서 열람 승인을 요청할 수 있습니다.','')
+            , 2
+            , '92469725'
+            , SYSDATE 
+            , #{fnlUsrId}
+            , #{fnlUsrId}
+            , #{fnlDealDptCd}
+            , 'BADFRE311'
+            , SYSDATE
+            , SYSDATE 
+            )
+	</update>
+	
+	
+	
+	<select id="docSignCmplYn" parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.docSignCmplYn */
+		<![CDATA[
+		SELECT A.ACP_YR
+             , A.ACP_DVSN_CD
+             , A.ACP_SRNO
+             , A.TIT_NM
+             , B.DOC_ID
+             , (CASE WHEN SUM(DECODE(B.APV_STA_CD,'30',1,0)) > 0 THEN 'Y' ELSE 'N' END) AS SIGN_CMPL_YN
+             , TO_CHAR((SELECT FNL_APV_DH FROM TBDCMACM022L WHERE APV_DOC_NO = B.APV_RQS_ID AND APV_STA_CD = '3'),'YYYYMMDD') AS FNL_APV_DH
+		FROM TBBADFRE012M A 
+   LEFT OUTER JOIN TBBADFRE103M B ON (B.ACP_YR = A.ACP_YR AND B.ACP_DVSN_CD = A.ACP_DVSN_CD AND B.ACP_SRNO = A.ACP_SRNO AND B.RPRT_CD = #{rprtCd})
+        WHERE A.ACP_YR = #{acpYr}
+          AND A.ACP_DVSN_CD = #{acpDvsnCd}
+          AND A.ACP_SRNO = #{acpSrno}
+     GROUP BY A.ACP_YR, A.ACP_DVSN_CD, A.ACP_SRNO, A.TIT_NM, B.DOC_ID, B.APV_RQS_ID
+		]]>
+	</select>
+	
+	
+	<update id="insertSbcnTrtm" parameterType="paramMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.insertSbcnTrtm */
+		DECLARE
+            BEGIN
+		        MERGE INTO TBBADFRE112M T1
+                USING DUAL
+                        ON (     T1.ACP_YR = #{acpYr}
+                             AND T1.ACP_DVSN_CD = #{acpDvsnCd}
+                             AND T1.ACP_SRNO = #{acpSrno}
+                           )
+                      WHEN MATCHED THEN 
+                          UPDATE
+                          SET  FNL_USR_ID = #{fnlUsrId}
+                              ,FNL_DEAL_DPT_CD = #{fnlDealDptCd}
+                              ,FNL_MNU_ID = #{fnlUsrId}
+                              ,FNL_MDF_DH = SYSDATE
+                      WHEN NOT MATCHED THEN
+                          INSERT (  ACP_YR
+                                   ,ACP_DVSN_CD
+                                   ,ACP_SRNO
+                                   ,TIT_NM
+                                   ,SBCN_TRTM_REQ_DT
+                                   ,SORT_SNO
+                                   ,FRT_USR_ID
+                                   ,FNL_USR_ID
+                                   ,FNL_DEAL_DPT_CD
+                                   ,FNL_MNU_ID
+                                   ,FRT_REGI_DH
+                                   ,FNL_MDF_DH
+                          ) VALUES (
+                                   #{acpYr}
+                                   ,#{acpDvsnCd}
+                                   ,#{acpSrno}
+                                   ,#{titNm}
+                                   ,#{fnlApvDh}
+                                   ,1
+                                   ,#{fnlUsrId}
+                                   ,#{fnlUsrId}
+                                   ,#{fnlDealDptCd}
+                                   ,#{fnlMnuId}
+                                   ,SYSDATE
+                                   ,SYSDATE
+                          );
+             MERGE INTO TBBADFRE112D T1
+                USING DUAL
+                        ON (     T1.ACP_YR = #{acpYr}
+                             AND T1.ACP_DVSN_CD = #{acpDvsnCd}
+                             AND T1.ACP_SRNO = #{acpSrno}
+                             AND T1.DOC_ID = #{docId}
+                           )
+                      WHEN MATCHED THEN 
+                          UPDATE
+                          SET  FNL_USR_ID = #{fnlUsrId}
+                              ,FNL_DEAL_DPT_CD = #{fnlDealDptCd}
+                              ,FNL_MNU_ID = #{fnlUsrId}
+                              ,FNL_MDF_DH = SYSDATE
+                      WHEN NOT MATCHED THEN
+                          INSERT (  ACP_YR
+                                   ,ACP_DVSN_CD
+                                   ,ACP_SRNO
+                                   ,SBCN_TRTM_DTL_SNO
+                                   ,DOC_ID
+                                   ,SORT_SNO
+                                   ,FRT_USR_ID
+                                   ,FNL_USR_ID
+                                   ,FNL_DEAL_DPT_CD
+                                   ,FNL_MNU_ID
+                                   ,FRT_REGI_DH
+                                   ,FNL_MDF_DH
+                          ) VALUES (
+                                   #{acpYr}
+                                   ,#{acpDvsnCd}
+                                   ,#{acpSrno}
+                                   ,1
+                                   ,#{docId}
+                                   ,1
+                                   ,#{fnlUsrId}
+                                   ,#{fnlUsrId}
+                                   ,#{fnlDealDptCd}
+                                   ,#{fnlMnuId}
+                                   ,SYSDATE
+                                   ,SYSDATE
+                          );
+         END;
+	</update>
+	
+	
+	<select id="selectDspOpinDdlnDt" parameterType="paramMap" resultType="String">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.selectDspOpinDdlnDt */
+		<![CDATA[
+		   SELECT WRK_DT
+		     FROM (
+		        SELECT WRK_DT, TO_CHAR(ROWNUM) AS RN
+		          FROM (
+		              SELECT TO_CHAR(SYSDATE + LEVEL - 1, 'YYYYMMDD') AS WRK_DT
+		                FROM DUAL
+		          CONNECT BY LEVEL < 365
+		               MINUS
+		              SELECT YE || MD
+		                FROM TBBADDED013B)
+		      ORDER BY WRK_DT ASC 
+		      ) WHERE RN = #{ddlnCnt}
+		]]>
+	</select>
+	
+	<update id="updateDspOpinDdlnDt" parameterType="paramMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.updateDspOpinDdlnDt */
+		UPDATE TBBADFRE012M
+		   SET ORG_DSP_KWA_OPIN_DDLN_DT = #{ddlnDt}
+		   <if test="prssYn != null and prssYn != '' and prssYn eq 'Y'.toString()">
+		     , ORG_DSP_KWA_OPIN_PRSS_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		   </if>
+		 WHERE ACP_YR = #{acpYr}
+           AND ACP_DVSN_CD = #{acpDvsnCd}
+           AND ACP_SRNO = #{acpSrno}
+	</update>
+	
+	
+	<update id="updatePrcsUseYN" parameterType="paramMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.updatePrcsUseYN */
+		UPDATE TBBADFRE102M 
+   		   SET USE_YN = DECODE(#{referEntRsn},'1','Y','N')
+ 	     WHERE (ACP_YR, ACP_DVSN_CD, ACP_SRNO) 
+            IN (
+                SELECT NVL(MG_ACP_YR, ACP_YR), NVL(MG_ACP_DVSN_CD, ACP_DVSN_CD), NVL(MG_ACP_SRNO, ACP_SRNO)
+                FROM TBBADFRE012M
+                WHERE ACP_YR = #{acpYr}
+		    	AND ACP_DVSN_CD = #{acpDvsnCd}
+		    	AND ACP_SRNO = #{acpSrno}
+            )
+   		   AND ACP_MAIN_STEP_ID IN ('300601', '300701')
+	</update>
+	
+    <select id="selectBadFre103MChkEditDocId" parameterType="paramMap" resultType="String">
+    /* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.selectBadFre103MChkEditDocId */
+       SELECT NVL(T1.EDT_AUTH, 'N') AS EDT_AUTH
+        FROM TBBADFRE103M T1
+       WHERE T1.ACP_YR = #{acpYr}
+          AND T1.ACP_DVSN_CD =  #{acpDvsnCd}
+          AND T1.ACP_SRNO = #{acpSrno}
+          AND T1.DOC_ID = #{docId}
+          AND T1.ACP_STEP_CD = #{acpStepCd}
+          AND T1.RPRT_CD = #{rprtCd}
+	</select>
+	
+	<select id="selCmptCnt" parameterType="paramMap" resultType="integer">
+    /* kr.go.bai.eip.bad.fre.dao.BADFRE311Mapper.selCmptCnt*/
+            <![CDATA[
+                    SELECT COUNT(*) CNT
+					  FROM TBBADFRE012M
+					 WHERE 1=1
+					   AND ACP_HNDL_STA_CD = '420'
+					   AND ACP_YR = #{acpYr}
+					   AND ACP_DVSN_CD = #{acpDvsnCd}
+					   AND ACP_SRNO = #{acpSrno}
+            ]]>
+    </select>
+    
+</mapper>

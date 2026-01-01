@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/bii/214">
+
+	<resultMap class="java.util.HashMap" id="CSPBII214QSelectMainMap">
+		<result property="ACP_YR_NO"			column="ACP_YR_NO" 				jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="ACP_DT"				column="ACP_DT" 				jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="AUD_TG_ORG_NM"		column="AUD_TG_ORG_NM" 			jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="TIT_NM"				column="TIT_NM" 				jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="INF_NO"				column="INF_NO" 				jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="AUD_INF_TRF_DVSN_CD"	column="AUD_INF_TRF_DVSN_CD" 	jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="ACP_YR"				column="ACP_YR" 				jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="CVPT_ACP_NO"			column="CVPT_ACP_NO" 			jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="REQ_DVSN_CD"			column="REQ_DVSN_CD" 			jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="YE"					column="YE" 					jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="SRNO"					column="SRNO" 					jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="AUD_TG_ORG_1"			column="AUD_TG_ORG_1" 			jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="AUD_TG_ORG_2"			column="AUD_TG_ORG_2" 			jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="AUD_TG_ORG_3"			column="AUD_TG_ORG_3" 			jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="CVPT_DOC_TXT"			column="CVPT_DOC_TXT" 			jdbcType="CLOB" 	javaType="java.lang.String"/>
+		
+	</resultMap>
+ 	
+ 	<select id="CSPBII214QSelectMain" parameterClass="paramMap" resultMap="CSPBII214QSelectMainMap">
+		<![CDATA[
+		    SELECT A.ACP_YR||'-민원-'||A.RM_CVPT_ACP_NO                             AS ACP_YR_NO
+			     , TO_CHAR(A.ACP_DH, 'YYYYMMDD')                            AS ACP_DT
+			     , (SELECT AGGR_CONCAT(F_ORG_INFO(ORG_CD, '1'), ',')
+				          FROM TBCSPDCP206L
+				         WHERE REQ_DVSN_CD = A.REQ_DVSN_CD
+				           AND ACP_YR      = A.ACP_YR
+				           AND CVPT_ACP_NO = A.CVPT_ACP_NO
+				           AND ORG_HIS_DVSN_CD = '1')                       AS AUD_TG_ORG_NM
+			     , A.TIT_NM
+			     , CASE WHEN B.YE IS NOT NULL THEN B.YE||'-'||B.SRNO
+			            ELSE ''
+			       END                                                      AS INF_NO
+			     , A.AUD_INF_TRF_DVSN_CD
+			     , A.ACP_YR
+			     , A.CVPT_ACP_NO
+			     , A.REQ_DVSN_CD
+			     , B.YE
+			     , B.SRNO			 
+			     , (SELECT /*+INDEX KBCSPCSPDCP206001 +*/
+			               ORG_CD || '|' || F_ORG_INFO(ORG_CD, '1')
+			          FROM TBCSPDCP206L
+			         WHERE REQ_DVSN_CD = A.REQ_DVSN_CD
+				       AND ACP_YR      = A.ACP_YR
+				       AND CVPT_ACP_NO = A.CVPT_ACP_NO
+				       AND ORG_HIS_DVSN_CD = '1'
+				       AND ROWNUM = 1)                                   AS AUD_TG_ORG_1
+				 , (SELECT /*+INDEX KBCSPCSPDCP206001 +*/
+			               MAX(DECODE(ROWNUM, 2, ORG_CD, NULL)) || '|' || F_ORG_INFO(MAX(DECODE(ROWNUM, 2, ORG_CD, NULL)), '1')
+			          FROM TBCSPDCP206L
+			         WHERE REQ_DVSN_CD = A.REQ_DVSN_CD
+				       AND ACP_YR      = A.ACP_YR
+				       AND CVPT_ACP_NO = A.CVPT_ACP_NO
+				       AND ORG_HIS_DVSN_CD = '1'
+				       AND ROWNUM <= 2)                                   AS AUD_TG_ORG_2
+				 , (SELECT /*+INDEX KBCSPCSPDCP206001 +*/
+			               MAX(DECODE(ROWNUM, 3, ORG_CD, NULL)) || '|' || F_ORG_INFO(MAX(DECODE(ROWNUM, 3, ORG_CD, NULL)), '2')
+			          FROM TBCSPDCP206L
+			         WHERE REQ_DVSN_CD = A.REQ_DVSN_CD
+				       AND ACP_YR      = A.ACP_YR
+				       AND CVPT_ACP_NO = A.CVPT_ACP_NO
+				       AND ORG_HIS_DVSN_CD = '1'
+				       AND ROWNUM <= 3)                                   AS AUD_TG_ORG_3          
+			     , (SELECT CVPT_DOC_TXT 
+			          FROM TBCSPDCP203M C
+			         WHERE REQ_DVSN_CD = A.REQ_DVSN_CD
+				       AND ACP_YR      = A.ACP_YR
+				       AND CVPT_ACP_NO = A.CVPT_ACP_NO
+				       AND CVPT_DOC_DVSN_CD = 'A')                        AS CVPT_DOC_TXT		         
+			 FROM TBCSPDCP101M A
+			    , TBCSPBII170M B
+			 WHERE 1=1
+			   AND A.REQ_DVSN_CD = B.REQ_DVSN_CD(+)
+			   AND A.ACP_YR      = B.ACP_YR(+)
+			   AND A.CVPT_ACP_NO = B.CVPT_ACP_NO(+)		
+			   AND A.REQ_DVSN_CD = '1'	   			   		  
+		]]>
+		<!-- 접수년도 -->
+		<isNotEmpty property="strAcpYr">
+			AND A.ACP_YR      = #strAcpYr#  
+		</isNotEmpty>
+		<!-- 민원접수번호 -->
+		<isNotEmpty property="strCvptAcpNo">
+			AND A.RM_CVPT_ACP_NO = #strCvptAcpNo#  
+		</isNotEmpty>
+		<!-- 시작접수일 -->
+		<isNotEmpty property="strStrAcpDt">
+			AND TO_CHAR(A.ACP_DH, 'YYYYMMDD') >= #strStrAcpDt#
+		</isNotEmpty>
+		<!-- 종료접수일 -->
+		<isNotEmpty property="strEndAcpDt">
+			AND TO_CHAR(A.ACP_DH, 'YYYYMMDD') &lt;= #strEndAcpDt#
+		</isNotEmpty>
+		<!-- 검색어 -->
+		<isNotEmpty property="strSchTxt">
+			AND (A.TIT_NM LIKE '%'||#strSchTxt#||'%'
+			 OR  (A.ACP_YR, A.CVPT_ACP_NO, A.REQ_DVSN_CD) IN (SELECT ACP_YR
+			                                                       , CVPT_ACP_NO
+			                                                       , REQ_DVSN_CD
+			                                                    FROM TBCSPDCP104L
+			                                                   WHERE F_ORG_INFO(AUD_TG_ORG_CD, '1') LIKE '%'||#strSchTxt#||'%')
+			    )
+		</isNotEmpty>
+		<!-- 소속기관 -->
+		<isNotEmpty property="strAudTgOrgCd">
+			<!-- 소속기관포함여부 -->
+			<isEqual property="bltOrgIclsAt" compareValue="Y">
+				AND (A.ACP_YR, A.CVPT_ACP_NO, A.REQ_DVSN_CD) IN (SELECT ACP_YR
+			                                                          , CVPT_ACP_NO
+			                                                          , REQ_DVSN_CD
+			                                                       FROM TBCSPDCP104L
+			                                                      WHERE AUD_TG_ORG_CD LIKE SUBSTR(#strAudTgOrgCd#, 0, INSTR(#strAudTgOrgCd#, '000') -1) || '%')
+			</isEqual>
+			<isNotEqual property="bltOrgIclsAt" compareValue="Y">
+				AND (A.ACP_YR, A.CVPT_ACP_NO, A.REQ_DVSN_CD) IN (SELECT ACP_YR
+			                                                          , CVPT_ACP_NO
+			                                                          , REQ_DVSN_CD
+			                                                       FROM TBCSPDCP104L
+			                                                      WHERE AUD_TG_ORG_CD = #strAudTgOrgCd#)
+			</isNotEqual>	
+		</isNotEmpty>
+		<!-- 조회구분 -->
+		<isNotEmpty property="strSrchDvsnCd">
+			AND A.AUD_INF_TRF_DVSN_CD = #strSrchDvsnCd#
+		</isNotEmpty>
+		<!-- 감사정보연계여부[N] [정보제출 등록>민원연계정보 선택 팝업화면에서 사용]-->
+		<isEqual property="strAudInfLnkYn" compareValue="N">
+			AND B.YE IS NULL		
+		</isEqual>
+		ORDER BY NVL(INF_NO, '9999-9999') DESC
+		       , ACP_YR_NO DESC
+	</select>
+	
+	<update id="CSPBII214QUpdateAudInfTrfDvsnCd" parameterClass="paramMap">
+	<![CDATA[
+ 		UPDATE TBCSPDCP101M
+ 		   SET AUD_INF_TRF_DVSN_CD = #AUD_INF_TRF_DVSN_CD# /* 감사정보이관구분코드 */
+ 			  ,FNL_USR_ID          = #FNL_USR_ID#          /* 최종사용자ID */
+		      ,FNL_DEAL_DPT_CD     = #FNL_DEAL_DPT_CD#     /* 최종거래부서코드 */
+		      ,FNL_MNU_ID          = #FNL_MNU_ID#          /* 최종메뉴ID */
+		      ,FNL_MDF_DH          = SYSDATE               /* 최종수정일시 */
+ 	     WHERE ACP_YR      = #ACP_YR#
+ 	       AND CVPT_ACP_NO = #CVPT_ACP_NO#
+ 	       AND REQ_DVSN_CD = #REQ_DVSN_CD# 
+ 	       ]]>
+ 	</update>
+</sqlMap> 

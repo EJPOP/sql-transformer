@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/fre/017">
+	
+	<!-- 특수관리통계 조회-->
+	<select id="BADFRE017EMainselect" parameterClass="paramMap" resultClass="resultMap">
+
+       SELECT ENFM_HIRK_DPT_NM          AS ENFM_HIRK_DPT_NM     /* 집행상위관리부서 */
+             ,ENFM_DPT_NM               AS ENFM_DPT_NM          /* 집행관리부서 */
+             ,AUD_SBJ                   AS AUD_SBJ              /* 감사사항 */
+             ,DSP_RQ_KND_NM                                                  || '(' || 
+              TO_NUMBER((ASG_ACP + ASG_DTM + RLS_ACP + RLS_DTM),'9,999,999') || '건)' 
+                                        AS DSP_RQ_KND_NM   /* 처분요구종류코드명 */
+             ,ASG_ACP                   AS ASG_ACP         /* 지정접수 */
+             ,ASG_DTM                   AS ASG_DTM         /* 지정확정 */
+             ,RLS_ACP                   AS RLS_ACP         /* 해제접수 */
+             ,RLS_DTM                   AS RLS_DTM         /* 해제확정 */
+         FROM(
+                SELECT A.ENFM_HIRK_DPT_NM      AS ENFM_HIRK_DPT_NM    
+                      ,A.ENFM_DPT_NM           AS ENFM_DPT_NM    
+                      ,A.AUD_SBJ               AS AUD_SBJ        
+                      ,A.DSP_RQ_KND_NM         AS DSP_RQ_KND_NM  
+                      ,NVL(SUM(A.ASG_ACP),0)   AS ASG_ACP        
+                      ,NVL(SUM(A.ASG_DTM),0)   AS ASG_DTM        
+                      ,NVL(SUM(A.RLS_ACP),0)   AS RLS_ACP        
+                      ,NVL(SUM(A.RLS_DTM),0)   AS RLS_DTM        
+                  FROM(  
+                       SELECT
+                              (SELECT F_DPT_INFO(HIRK_DPT_CD , '1')
+                                 FROM TBDCMACM002M
+                                WHERE DPT_CD = D1.SPV_BRDV_CD)                  AS ENFM_HIRK_DPT_NM  /* 집행상위관리부서 */
+                             ,F_DPT_INFO(D1.SPV_BRDV_CD , '1')                  AS ENFM_DPT_NM       /* 집행관리부서 */ 
+                             ,'(' || F_MNG_KND_AUDYRNO(D3.AUD_YR, D3.AUD_NO, D3.AUD_KND_CD, '-') || ') ' || D3.AUD_SBJ_NM                                     
+                                                                                AS AUD_SBJ        /* 감사사항 */
+                             ,F_CODE_NM('1000002', D2.DSP_RQ_KND_CD)            AS DSP_RQ_KND_NM  /* 처분요구종류코드명 */     
+                             ,CASE WHEN NVL(D1.DTM_YN,'N') != 'Y' 
+                                    AND D1.ASG_DT IS NOT NULL                 
+                                    AND D1.RLS_DT IS NULL        
+                                   THEN 1 ELSE 0         
+                               END                                              AS ASG_ACP        /* 지정접수 */
+                             ,CASE WHEN NVL(D1.DTM_YN,'N')  = 'Y' 
+                                    AND D1.ASG_DT IS NOT NULL                 
+                                    AND D1.RLS_DT IS NULL        
+                                   THEN 1 ELSE 0         
+                               END                                              AS ASG_DTM        /* 지정확정 */
+                             ,CASE WHEN NVL(D1.DTM_YN,'N') != 'Y'                
+                                    AND D1.RLS_DT IS NOT NULL    
+                                   THEN 1 ELSE 0        
+                               END                                              AS RLS_ACP        /* 해제접수 */
+                             ,CASE WHEN NVL(D1.DTM_YN,'N')  = 'Y'               
+                                    AND D1.RLS_DT IS NOT NULL   
+                                   THEN 1 ELSE 0         
+                               END                                              AS RLS_DTM        /* 해제확정 */    
+                         FROM TBBADFRE011M D1 /* 특수관리기본 */
+                             ,TBBADEAR001M D2 /* 처분요구사항기본 */
+                             ,TBBADDED001M D3 /* 감사사항기본 */ 
+                        WHERE 1=1
+                          AND D1.AUD_YR     = D2.AUD_YR
+                          AND D1.AUD_NO     = D2.AUD_NO
+                          AND D1.DSP_RQ_SNO = D2.DSP_RQ_SNO
+                          AND D2.AUD_YR     = D3.AUD_YR
+                          AND D2.AUD_NO     = D3.AUD_NO  
+                          
+            			  	AND D1.SPV_BRDV_CD   IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #strDptAuth#, '', #strDptCd#)))
+                          
+            		  <!-- 주관국과코드 -->    
+					  <isNotEmpty property="strDptCd2">
+                		  AND D1.SPV_BRDV_CD = #strDptCd2#
+            		  </isNotEmpty>
+            		   
+                      <!-- 지정접수 -->
+                      <isEqual property="strSpCnMngStaCd" compareValue="1">
+                          AND NVL(D1.DTM_YN,'N') != 'Y'                           
+        	              AND D1.ASG_DT IS NOT NULL                            
+        	              AND D1.RLS_DT IS NULL
+	                  </isEqual>     
+                      <!-- 지정확정 -->
+                      <isEqual property="strSpCnMngStaCd" compareValue="2">
+                          AND NVL(D1.DTM_YN,'N') = 'Y'                            
+                          AND D1.ASG_DT IS NOT NULL                            
+                          AND D1.RLS_DT IS NULL     
+	                  </isEqual>                 
+                      <!-- 해제접수 -->
+                      <isEqual property="strSpCnMngStaCd" compareValue="3">
+                          AND NVL(D1.DTM_YN,'N') != 'Y'                           
+                          AND D1.RLS_DT IS NOT NULL     
+	                  </isEqual>               
+                      <!-- 해제확정 -->
+                      <isEqual property="strSpCnMngStaCd" compareValue="4">
+                          AND NVL(D1.DTM_YN,'N') = 'Y'                           
+                          AND D1.RLS_DT IS NOT NULL     
+	                  </isEqual>
+	                  
+	                  <!-- 년도 -->
+                      <isNotEmpty property="strAudYr">
+                          AND D1.AUD_YR = #strAudYr#   
+                      </isNotEmpty>                             
+
+                      ) A
+                 WHERE 1=1
+              GROUP BY A.ENFM_HIRK_DPT_NM
+                      ,A.ENFM_DPT_NM
+                      ,A.AUD_SBJ
+                      ,A.DSP_RQ_KND_NM                      
+              )
+          ORDER BY ENFM_HIRK_DPT_NM
+                  ,ENFM_DPT_NM
+                  ,AUD_SBJ
+	</select>
+
+	<!-- 감사사항 건수 조회-->
+	<select id="BADFRE017EAudSbjCntselect" parameterClass="paramMap" resultClass="resultMap">
+
+           SELECT '감사사항(' || TO_NUMBER(COUNT(DISTINCT(AUD_YR || AUD_NO || DSP_RQ_SNO)),'9,999,999') || '건)' AS AUD_SBJ_CNT_INFO
+             FROM TBBADFRE011M D1 /* 특수관리기본 */
+            WHERE 1=1
+
+          	  	AND D1.SPV_BRDV_CD   IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #strDptAuth#, '', #strDptCd#)))
+                         
+			<!-- 주관국과코드 -->    
+			<isNotEmpty property="strDptCd2">
+				AND D1.SPV_BRDV_CD = #strDptCd2#
+			</isNotEmpty>
+            		  
+          <!-- 지정접수 -->
+          <isEqual property="strSpCnMngStaCd" compareValue="1">
+              AND NVL(D1.DTM_YN,'N') != 'Y'                           
+              AND D1.ASG_DT IS NOT NULL                            
+              AND D1.RLS_DT IS NULL
+          </isEqual>     
+          <!-- 지정확정 -->
+          <isEqual property="strSpCnMngStaCd" compareValue="2">
+              AND NVL(D1.DTM_YN,'N') = 'Y'                            
+              AND D1.ASG_DT IS NOT NULL                            
+              AND D1.RLS_DT IS NULL     
+          </isEqual>                 
+          <!-- 해제접수 -->
+          <isEqual property="strSpCnMngStaCd" compareValue="3">
+              AND NVL(D1.DTM_YN,'N') != 'Y'                           
+              AND D1.RLS_DT IS NOT NULL     
+          </isEqual>               
+          <!-- 해제확정 -->
+          <isEqual property="strSpCnMngStaCd" compareValue="4">
+              AND NVL(D1.DTM_YN,'N') = 'Y'                           
+              AND D1.RLS_DT IS NOT NULL     
+          </isEqual>
+       
+          <!-- 년도 -->
+          <isNotEmpty property="strAudYr">
+              AND D1.AUD_YR = #strAudYr#   
+          </isNotEmpty>                             
+	</select>
+	
+</sqlMap> 

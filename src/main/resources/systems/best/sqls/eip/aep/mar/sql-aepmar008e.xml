@@ -1,0 +1,364 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.mar.dao.AEPMAR008EMapper">
+
+	<select id="selectDocList" parameterType="paramMap" resultType="egovMap">
+       /* kr.go.bai.eip.aep.mar.dao.AEPMAR008EMapper.selectDocList */
+            <![CDATA[
+            SELECT BB.CD        AS STEP_CD
+       				 ,BB.CD_NM  AS STEP_NM
+			       	 ,AA.CD       AS DOC_CD
+			         ,AA.CD_NM AS DOC_NM
+			  FROM TBDCMACM013C AA ,
+			       	  (SELECT CD,
+   			                    CD_NM
+			            FROM TBDCMACM013C
+			           WHERE CMM_CD_DVSN_CD = '1000785'
+			              AND SUBSTR(CD, 0, 1) = 'A'
+			              AND CD NOT IN ('A00000001')) BB
+			WHERE CMM_CD_DVSN_CD = '1000786'
+			   AND SUBSTR(AA.CD, 0, 1) = 'A'
+			   AND AA.CD NOT IN ('A00000001')
+			   AND SUBSTR(AA.CD, 0, 5) = BB.CD ;
+            ]]>
+    </select>
+    
+    
+    <select id="selectUsrList" parameterType="paramMap" resultType="egovMap">
+       /* kr.go.bai.eip.aep.mar.dao.AEPMAR008EMapper.selectUsrList */
+            <![CDATA[
+            SELECT RANK_NM_2 AS PST_NM,
+				     USR_NAM ,
+				     RQS_STA_CD,
+				     USR_ID
+			 FROM TBDCMACM001M
+		    WHERE (RAL_BLT_DIV_CD = #{dptCd}
+				            OR DPT_CD = #{dptCd}
+				            OR SUB_DPT_CD = #{dptCd})
+					   AND RSG_DT IS NULL
+					   AND RQS_STA_CD = '3'
+					   AND BAI_USR_YN = 'Y'
+			ORDER BY USR_NAM ASC ;
+            ]]>
+    </select>
+    
+    <!--부서코드팝업 조회 -->
+	<select id="deptSelect" parameterType="paramMap" resultType="egovMap">
+    /* kr.go.bai.eip.aep.mar.dao.AEPMAR008EMapper.deptSelect */
+        <![CDATA[
+			SELECT DPT_CD
+			     , DPT_NM
+			     , TNB
+			     , DECODE(USE_YN,'Y','사용','N','미사용','미사용') USE_YN
+			     , ABR_DPT_NM_1
+			     , ABR_DPT_NM_2
+			     , FRML_DPT_NM
+			     , STND_DPT_CD
+			     , FAN
+			     , OW_DVDT_TXT
+			     , DPT_TP_CD
+			     , IMD_CD
+			     , DPT_SNO
+			     , ZCD
+			     , AD
+			     , DTL_AD
+			     , HMP_AD
+			     , SAL_DPT_CD
+			     , SAL_DPT_NM
+			     , BK_DPT_NM
+			     , HIRK_DPT_CD
+                 , F_DPT_INFO(HIRK_DPT_CD,'1') AS HIRK_DPT_NM/*상위부서명*/
+		      FROM TBDCMACM002M
+		     WHERE 1=1
+
+        ]]>
+		<if test='usrdptauth != null and usrdptauth != ""'>
+			AND DPT_CD IN ( SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#{usrcnb}, #{usrdptauth}, 'Y')))
+		</if>
+
+		<if test='dptcd != null and dptcd != ""'>
+			AND DPT_CD LIKE
+			'%'||#{dptcd} ||'%'
+		</if>
+		<if test='dptNm != null and dptNm != ""'>
+			AND (DPT_NM LIKE
+			'%'||#{dptNm} ||'%'
+			OR ABR_DPT_NM_1 LIKE '%'||#{dptNm} ||'%'
+			OR
+			ABR_DPT_NM_2 LIKE '%'||#{dptNm} ||'%'
+			OR DPT_CD LIKE '%'||#{dptNm}||'%'
+			OR FRML_DPT_NM LIKE '%'||#{dptNm}||'%')
+		</if>
+		<if test='useYn != null and useYn != ""'>
+			AND USE_YN LIKE '%'||#{useYn} ||'%'
+		</if>
+
+		 ORDER BY DPT_SNO
+	</select>
+	
+	
+	<select id="AEPMAR008EMaxSrno" parameterType="java.lang.String"
+		resultType="java.lang.String"> 
+		/* kr.go.bai.eip.aep.mar.dao.AEPMAR008EMapper.AEPMAR008EMaxSrno */
+		
+		SELECT NVL(MAX(GRN_SRNO), 0)+1  AS MAX_SRNO
+          FROM TBAEPMAR002M
+         WHERE 1=1
+           AND GRN_YR = #{grnYr}
+	</select>
+	
+	<insert id="docMainInsert">
+       /*kr.go.bai.eip.aep.mar.dao.AEPMAR008EMapper.docMainInsert*/
+	   INSERT
+		  INTO TBAEPMAR002M 
+		     ( GRN_YR  
+		      ,GRN_SRNO
+		      ,GRN_PRD_STR_DY
+		      ,GRN_PRD_END_DY
+		      ,DOC_CRE_STR_DY
+		      ,DOC_CRE_END_DY
+		      ,GRN_YN
+		      ,GRN_DH
+		      ,DOC_MNG_DPT_CD
+		      ,DOC_MNG_DPT_NM
+		      ,FRT_USR_ID
+		      ,FNL_USR_ID
+		      ,FNL_DEAL_DPT_CD
+		      ,FNL_MNU_ID
+		      ,FRT_REGI_DH
+		      ,FNL_MDF_DH
+		      
+		    )
+		  VALUES
+		    ( #{grnYr}
+		      ,#{grnSrno}                     /* 부여일련번호 */
+		      ,REPLACE(#{grnPrdStrDy},'-','')                 /* 부여기간시작일자 */
+		      ,REPLACE(#{grnPrdEndDy}, '-','')                 /* 부여기간종료일자 */
+		      ,REPLACE(#{docStrDt}, '-', '')                 /* 문서생성시작일자 */  
+		      ,REPLACE(#{docEndDt}, '-', '')                 /* 문서생성종료일자 */
+		      ,#{grnYn}                       /* 부여여부 */
+		      ,SYSDATE                        /* 부여일시 */
+		      ,#{docMngDptCd}							/*문서관리관리부서코드*/
+		      ,F_DPT_INFO(#{docMngDptCd},'1')/*문서관리관리부서명*/
+		      ,#{sUserId}                       /* 최초사용자ID */
+		      ,#{sUserId}                       /* 최종사용자ID */
+		      ,#{sDptCd}                       /* 최종거래부서코드 */
+		      ,NVL(#{menuNo},'NVL')           /* 최종메뉴ID */
+		      ,SYSDATE                        /* 최초등록일시 */
+		      ,SYSDATE                        /* 최종수정일시 */	
+		    )
+	</insert>
+	
+	
+	<insert id="docInsert">
+       /*kr.go.bai.eip.aep.mar.dao.AEPMAR008EMapper.docInsert*/
+	   INSERT
+		  INTO TBAEPMAR003D 
+		     ( GRN_YR  
+		      ,GRN_SRNO
+		      ,DOC_KND_CD
+		      ,DOC_KND_NM
+		      ,FRT_USR_ID
+		      ,FNL_USR_ID
+		      ,FNL_DEAL_DPT_CD
+		      ,FNL_MNU_ID
+		      ,FRT_REGI_DH
+		      ,FNL_MDF_DH
+		    )
+		  VALUES
+		    ( #{grnYr}
+		      ,#{grnSrno}                    			 			/* 부여일련번호 */
+		      ,#{docKndCd}                			 			/* 문서 종류 코드 */
+		      ,(SELECT AA.CD_NM
+		          FROM TBDCMACM013C AA
+		         WHERE 1=1
+		           AND AA.CMM_CD_DVSN_CD = '1000786'
+		           AND USE_YN = 'Y'
+		           AND CD = #{docKndCd}
+		      )                 										/* 문서 종류 이름 */
+		      ,#{sUserId}                       					/* 최초사용자ID */
+		      ,#{sUserId}                       					/* 최종사용자ID */
+		      ,#{sDptCd}                       					/* 최종거래부서코드 */
+		      ,NVL(#{menuNo},'NVL')           				/* 최종메뉴ID */
+		      ,SYSDATE                        					/* 최초등록일시 */
+		      ,SYSDATE                        					/* 최종수정일시 */	
+		    )
+	</insert>
+	
+	
+	<insert id="docUsrInsert">
+       /*kr.go.bai.eip.aep.mar.dao.AEPMAR008EMapper.docUsrInsert*/
+	   INSERT
+		  INTO TBAEPMAR004D 
+		     ( GRN_YR  
+		      ,GRN_SRNO
+		      ,CNB
+		      ,USR_ID
+		      ,USR_NM
+		      ,DPT_CD
+		      ,DPT_NM
+		      ,FRT_USR_ID
+		      ,FNL_USR_ID
+		      ,FNL_DEAL_DPT_CD
+		      ,FNL_MNU_ID
+		      ,FRT_REGI_DH
+		      ,FNL_MDF_DH
+		    )
+		  VALUES
+		    ( #{grnYr}
+		      ,#{grnSrno}                                       			  /* 부여일련번호 */
+		      ,F_USR_INFO_BY_ID(#{docUsrId},'1')               		  /* 열람권한 부여 사용자 전산번호 */
+		      ,#{docUsrId}                                      			  /* 열람권한 부여 사용자 아이디 */
+		      ,#{docUsrNam}                                     		  /* 열람권한 부여 사용자 이름 */
+		      ,F_USR_INFO_BY_ID(#{docUsrId},'5')                		  /* 열람권한 부여 사용자 부서코드 */
+		      ,(
+		       SELECT AA.CD_NM
+		          FROM TBDCMACM013C AA
+		         WHERE 1=1
+		           AND AA.CMM_CD_DVSN_CD = '1000144'
+		           AND USE_YN = 'Y'
+		           AND CD = F_USR_INFO_BY_ID(#{docUsrId},'5') 
+		      )                                                 			 	/* 열람권한 부여 사용자 부서이름 */
+		      ,#{sUserId}                                         			/* 최초사용자ID */
+		      ,#{sUserId}                                       		  	/* 최종사용자ID */
+		      ,#{sDptCd}                                          			/* 최종거래부서코드 */
+		      ,NVL(#{menuNo},'NVL')                              		/* 최종메뉴ID */
+		      ,SYSDATE                                          			/* 최초등록일시 */
+		      ,SYSDATE                                           		/* 최종수정일시 */	
+		    )
+	</insert>
+	
+	<insert id="insertRqsDocUsr">
+       /*kr.go.bai.eip.aep.mar.dao.AEPMAR008EMapper.insertRqsDocUsr*/
+      
+	   INSERT
+		  INTO TBAEPMAR005M 
+		     ( GRN_YR  
+		      ,GRN_SRNO
+		      ,AUD_YR
+		      ,AUD_NO
+		      ,AUD_STEP_CD
+		      ,RPRT_DVSN_CD
+		      ,READ_DOC_ID
+		      ,READ_DOC_SNO
+		      ,EDT_DOC_ID
+		      ,EDT_DOC_WRIT_ID
+		      ,LNK_URL
+		      ,GRN_DPT_CD
+		      ,GRN_USR_ID
+		      ,GRN_PRD_STR_DY
+		      ,GRN_PRD_END_DY
+		      ,GRN_YN
+		      ,GRN_DH
+		      ,FRT_USR_ID
+		      ,FNL_USR_ID
+		      ,FNL_DEAL_DPT_CD
+		      ,FNL_MNU_ID
+		      ,FRT_REGI_DH
+		      ,FNL_MDF_DH
+		    )
+		     <![CDATA[
+	 		WITH TBCSTGRN001M AS (
+				    SELECT A.GRN_YR
+				         , A.GRN_SRNO
+				         , CASE WHEN SUBSTR(A.DOC_MNG_DPT_CD, -3) = '000' THEN A.DOC_MNG_DPT_CD
+				                ELSE SUBSTR(A.DOC_MNG_DPT_CD, 0, 3)||'000'
+				            END AS SPV_BRDV_CD
+				         , CASE WHEN SUBSTR(A.DOC_MNG_DPT_CD, -3) = '000' THEN ''
+				                ELSE A.DOC_MNG_DPT_CD
+				            END AS DEPT_CD
+				         , A.DOC_MNG_DPT_NM
+				         , A.GRN_PRD_STR_DY
+				         , A.GRN_PRD_END_DY
+				         , A.DOC_CRE_STR_DY
+				         , A.DOC_CRE_END_DY
+				         , A.GRN_YN
+				         , A.GRN_DH
+				         , A.GRN_BAS_TXT
+				      FROM TBAEPMAR002M A /*문서열람권한부여정보*/
+				     WHERE 1=1
+				       AND A.GRN_YR   = #{grnYr} 
+				       AND A.GRN_SRNO = #{grnSrno}
+				)
+				, TBCSTAUD001M AS (
+				    SELECT D1.AUD_YR AS AUD_YR
+				         , D1.AUD_NO AS AUD_NO
+				      FROM TBBADDED001M AS D1
+				      LEFT OUTER JOIN TBBADDED003M AS D3 ON D1.AUD_YR = D3.AUD_YR AND D1.AUD_NO = D3.AUD_NO
+				     WHERE 1=1
+				       AND  D1.AUD_YR > '2016'
+				       AND D1.AUD_CTRL_CD = '2'
+				       AND MNG_DPT_CD IN (SELECT DPT_CD
+				                               FROM TABLE(F_AUTH_DEPT('','ALL', 'Y', (SELECT SPV_BRDV_CD FROM TBCSTGRN001M))))
+				                       /* 부서권한은 없으나 출장 배정자로 등록 된 경우 감사사항 조회 가능하도록 수정 MJ */
+				       
+				       AND SUBSTR(D1.AUD_KND_CD, 3, 1) <> '5' /* 확인출장은 조회하지 않음*/
+				)
+				SELECT #{grnYr}
+		    		 	, #{grnSrno} 
+					 	, A.AUD_YR
+				 	 	, A.AUD_NO
+					 	, A.AUD_STEP_CD
+					 	, A.RPRT_CD
+					 	, A.DOC_ID 
+					 	, (SELECT NVL(MAX(AA.READ_DOC_SNO),0) + 1
+				   	     	FROM TBAEPMAR005M AA
+				   	       WHERE AA.GRN_YR = #{grnYr}
+                              AND AA.GRN_SRNO = #{grnSrno} 
+                              AND AA.AUD_YR = A.AUD_YR
+				   	      	  AND AA.AUD_NO = A.AUD_NO
+				   	      	  AND AA.AUD_STEP_CD = A.AUD_STEP_CD
+				   	      	  AND AA.RPRT_DVSN_CD = A.RPRT_CD
+				   	      	  AND AA.READ_DOC_ID = A.DOC_ID )
+					 	, NULL
+					 	, NULL
+					 	, NULL
+					 	, F_USR_INFO_BY_ID(#{docUsrId},'5')
+					 	, #{docUsrId}
+					 	, (SELECT GRN_PRD_STR_DY
+							FROM TBAEPMAR002M
+   			       	       WHERE 1=1
+						  	  AND GRN_YR = #{grnYr}
+						  	  AND GRN_SRNO = #{grnSrno})
+					     , (SELECT GRN_PRD_END_DY
+							FROM TBAEPMAR002M
+   			       	       WHERE 1=1
+						  	  AND GRN_YR = #{grnYr}
+					  	      AND GRN_SRNO = #{grnSrno}) 
+					 	, (SELECT GRN_YN
+							FROM TBAEPMAR002M
+   			       	       WHERE 1=1
+						  	  AND GRN_YR = #{grnYr}
+						  	   AND GRN_SRNO = #{grnSrno}) 
+						, (SELECT GRN_DH
+							FROM TBAEPMAR002M
+   			       	       WHERE 1=1
+						  	  AND GRN_YR = #{grnYr}
+						  	   AND GRN_SRNO = #{grnSrno}) 
+				  	    , #{sUserId}            /* 최초사용자ID */
+						, #{sUserId}            /* 최종사용자ID */
+						, #{sDptCd}            /* 최종거래부서코드 */
+						, NVL(#{menuNo},'NVL')           /* 최종메뉴ID */
+						, SYSDATE             /* 최초등록일시 */
+						, SYSDATE             /* 최종수정일시 */	
+				   FROM TBBADDED103M A
+				  INNER JOIN TBBADDED001M B ON A.AUD_YR = B.AUD_YR AND A.AUD_NO = B.AUD_NO		  
+				  WHERE 1=1
+				    AND A.AUD_YR||A.AUD_NO IN (SELECT AUD_YR||AUD_NO FROM TBCSTAUD001M)
+				    AND A.RPRT_CD          IN (SELECT DOC_KND_CD
+				                                 FROM TBAEPMAR003D
+				                                WHERE 1=1
+				                                  AND GRN_YR   = #{grnYr}
+				                                  AND GRN_SRNO = #{grnSrno}
+				                                  ) /* 감사실시계획서, 감사보고서, 실지감사 종료보고서 'A10300100','A10500200','A10600200'*/
+				  AND A.APV_STA_CD  = '30'
+				  /*AND CASE WHEN A.RPRT_CD  = 'A10600200' AND A.AUD_STEP_CD = 'A1070' AND A.APV_STA_CD  = '30'  THEN '1'
+                            WHEN A.RPRT_CD  = 'A10600200' THEN '2'
+                             WHEN  A.APV_STA_CD  = '30' THEN '1'
+                              ELSE '2' END = '1'*/ 
+				    AND A.FRT_REGI_DH BETWEEN (SELECT DOC_CRE_STR_DY FROM TBCSTGRN001M) AND (SELECT DOC_CRE_END_DY FROM TBCSTGRN001M)
+	]]>
+	</insert>
+	
+</mapper> 

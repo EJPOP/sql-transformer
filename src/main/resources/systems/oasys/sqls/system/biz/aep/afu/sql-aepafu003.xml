@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="aep/afu/003">
+
+<select id="AEPAFU003GetEAuditApprDocInfo" parameterClass="paramMap" resultClass="resultMap">
+		SELECT	 A.SORT_SNO
+				,C.AUD_STEP_NM
+		      	,B.RPRT_NM
+		      	,B.RPRT_CD
+			  	,A.APV_RQS_ID
+		      	,A.AUD_YR
+		      	,A.AUD_NO
+		      	,A.AUD_STEP_CD
+				,A.DOC_ID
+				,A.APV_DVSN_CD
+				,A.APV_DOC_DVSN_CD
+				,F_OPEN_EDIT(B.LINK_URL) AS DOC_TYPE
+				,D.SRNO
+				,D.EDT_ALLOW_DM 
+				,D.EDT_ALLOW_DH 
+		  FROM TBBADDED109M A
+		 INNER JOIN TBBADDED103M B
+		    ON A.AUD_YR = B.AUD_YR
+		   AND A.AUD_NO = B.AUD_NO
+		   AND A.AUD_STEP_CD = B.AUD_STEP_CD
+		   AND A.DOC_ID = B.DOC_ID
+		 INNER JOIN TBBADDED101M C
+		    ON A.AUD_YR = C.AUD_YR
+		   AND A.AUD_NO = C.AUD_NO
+		   AND A.AUD_STEP_CD = C.AUD_STEP_CD
+		 INNER JOIN
+		       TBBADDED149M D
+		    ON A.AUD_YR = D.AUD_YR
+		   AND A.AUD_NO = D.AUD_NO
+		   AND A.AUD_STEP_CD = D.AUD_STEP_CD
+		   AND A.DOC_ID = D.DOC_ID
+		   AND D.SRNO = (SELECT MAX(SRNO)
+		                   FROM TBBADDED149M AA
+		                  WHERE AA.AUD_YR = D.AUD_YR
+						    AND AA.AUD_NO = D.AUD_NO
+						    AND AA.AUD_STEP_CD = D.AUD_STEP_CD
+						    AND AA.DOC_ID = D.DOC_ID
+						    AND AA.APV_RQS_ID = D.APV_RQS_ID)
+		   AND A.APV_RQS_ID = D.APV_RQS_ID  
+		 WHERE A.APV_RQS_ID = #APV_DOC_NO#
+		   AND A.APV_DOC_DVSN_CD = #APV_DOC_DVSN_CD#
+		ORDER BY A.SORT_SNO
+	</select>
+	
+	<select id="AEPAFU003GetEAuditApprDocInfoByParentKey" parameterClass="paramMap" resultClass="resultMap">
+		SELECT A.AUD_STEP_CD
+		     , B.AUD_STEP_NM
+		     , A.RPRT_NM
+		     , A.RPRT_CD
+		     , A.APV_RQS_ID
+		      ,A.AUD_YR
+		      ,A.AUD_NO
+			  ,A.DOC_ID
+			  ,A.APV_STA_CD
+			  ,F_OPEN_EDIT(A.LINK_URL) AS DOC_TYPE			  
+		  FROM TBBADDED103M A
+		 INNER JOIN TBBADDED101M B
+		    ON A.AUD_YR = B.AUD_YR
+		   AND A.AUD_NO = B.AUD_NO
+		   AND A.AUD_STEP_CD = B.AUD_STEP_CD
+		 WHERE 1=1
+		<iterate property="docInfoList" prepend="AND (A.AUD_YR,A.AUD_NO,A.AUD_STEP_CD,A.DOC_ID) IN " open="(" close=")" conjunction="," >
+       		(#docInfoList[].audYr#,#docInfoList[].audNo#,#docInfoList[].audStepCd#,#docInfoList[].docId#)
+   		</iterate>
+	</select>
+	
+	 <!--실지감사 결재문서별 보고서코드 조회 (문서편집요청)-->
+	<select id="AEPAFU003GetRprtCdByApvDocNo" parameterClass="paramMap"	resultClass="resultMap">
+	    SELECT DISTINCT A.RPRT_CD, A.TEMPLATE_DOC_ID
+		  FROM TBBADDED103M A
+		  LEFT OUTER JOIN
+               TBBADDED149M B
+            ON B.AUD_YR = A.AUD_YR
+           AND B.AUD_NO = A.AUD_NO
+           AND B.AUD_STEP_CD = A.AUD_STEP_CD
+           AND B.DOC_ID = A.DOC_ID
+		 WHERE B.APV_RQS_ID = #strDocNo#
+		   AND ROWNUM = 1
+	</select>
+	
+	<update id="AEPAFU003UpdateDocInfoByApvInfo" parameterClass="java.util.Map">
+		<![CDATA[  
+		    MERGE 
+		     INTO TBBADDED149M
+		    USING DUAL
+		       ON ( AUD_YR = #AUD_YR#
+			  AND   AUD_NO = #AUD_NO#
+			  AND   AUD_STEP_CD = #AUD_STEP_CD#
+			  AND   DOC_ID = #DOC_ID#
+			  AND   SRNO = #SRNO# )
+		     WHEN MATCHED THEN
+	   	   UPDATE 
+			  SET APV_STA_CD = DECODE(#APV_STA_CD# ,'20',DECODE((SELECT COUNT(*) 
+	                                                     FROM TBDCMACM023L 
+	                                                    WHERE APV_DOC_NO = #APV_DOC_NO# 
+	                                                      AND APVR_KND_CD <> '1' 
+	                                                      AND APVR_SEQ <> 1 
+	                                                      AND APV_DH IS NOT NULL
+	                                                      AND SUBSTR(APVR_STA_CD, 0,1) = '2'),0,'20','25')
+	                                           ,#APV_STA_CD#)
+			      , APV_RQS_ID = #APV_DOC_NO#
+			      , EDT_ALLOW_DM = #EDT_ALLOW_DM#
+			      , EDT_ALLOW_DH = #EDT_ALLOW_DH#
+			      , FNL_USR_ID          = #FNL_USR_ID#                 /* 최종사용자ID */
+			      , FNL_DEAL_DPT_CD     = #FNL_DEAL_DPT_CD#            /* 최종거래부서코드 */
+			      , FNL_MNU_ID          = #FNL_MNU_ID#                 /* 최종메뉴ID */
+			      , FNL_MDF_DH          = SYSDATE                      /* 최종수정일시 */
+			WHEN NOT MATCHED THEN 
+	      INSERT
+	           (  AUD_YR
+				, AUD_NO
+				, AUD_STEP_CD
+				, DOC_ID
+				, SRNO
+				, APV_RQS_ID
+				, APV_STA_CD
+				, RQR_ID
+				, EDT_ALLOW_DM
+				, EDT_ALLOW_DH
+				, FRT_USR_ID
+				, FNL_USR_ID
+				, FNL_DEAL_DPT_CD
+				, FNL_MNU_ID
+				, FRT_REGI_DH
+				, FNL_MDF_DH 
+	           )
+	      VALUES
+	           (  #AUD_YR#
+				, #AUD_NO#
+				, #AUD_STEP_CD#
+				, #DOC_ID#
+				, (SELECT NVL(MAX(AA.SRNO),0) + 1
+				     FROM TBBADDED149M AA
+				    WHERE AA.AUD_YR = #AUD_YR#
+					  AND AA.AUD_NO = #AUD_NO#
+					  AND AA.AUD_STEP_CD = #AUD_STEP_CD#
+					  AND AA.DOC_ID = #DOC_ID#)
+				, #APV_DOC_NO#
+				, DECODE(#APV_STA_CD# ,'20',DECODE((SELECT COUNT(*) 
+	                                                     FROM TBDCMACM023L 
+	                                                    WHERE APV_DOC_NO = #APV_DOC_NO# 
+	                                                      AND APVR_KND_CD <> '1' 
+	                                                      AND APVR_SEQ <> 1 
+	                                                      AND APV_DH IS NOT NULL
+	                                                      AND SUBSTR(APVR_STA_CD, 0,1) = '2'),0,'20','25')
+	                                           ,#APV_STA_CD#)
+				, #RQR_ID#
+				, #EDT_ALLOW_DM#
+				, #EDT_ALLOW_DH#
+				, #FRT_USR_ID#
+				, #FNL_USR_ID#
+				, #FNL_DEAL_DPT_CD#
+				, #FNL_MNU_ID#
+				, SYSDATE
+				, SYSDATE
+	           ) 
+		]]>
+	</update>
+	
+	<update id="AEPAFU003ChangeStaApvRqsIdByApvRqsId" parameterClass="java.util.Map">
+		<![CDATA[  
+			UPDATE TBBADDED149M
+			   SET  APV_STA_CD = DECODE(#APV_STA_CD# ,'20',DECODE((SELECT COUNT(*) 
+	                                                     FROM TBDCMACM023L 
+	                                                    WHERE APV_DOC_NO = #APV_DOC_NO# 
+	                                                      AND APVR_KND_CD <> '1' 
+	                                                      AND APVR_SEQ <> 1 
+	                                                      AND APV_DH IS NOT NULL
+	                                                      AND SUBSTR(APVR_STA_CD, 0,1) = '2'),0,'20','25')
+	                                           ,#APV_STA_CD#)
+			      , FNL_USR_ID          = #FNL_USR_ID#                 /* 최종사용자ID */
+			      , FNL_DEAL_DPT_CD     = #FNL_DEAL_DPT_CD#            /* 최종거래부서코드 */
+			      , FNL_MNU_ID          = #FNL_MNU_ID#                 /* 최종메뉴ID */
+			      , FNL_MDF_DH          = SYSDATE                      /* 최종수정일시 */
+			 WHERE APV_RQS_ID = #APV_DOC_NO#
+		]]>
+	</update>
+</sqlMap>

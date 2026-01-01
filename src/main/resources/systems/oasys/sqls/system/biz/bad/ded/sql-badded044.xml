@@ -1,0 +1,588 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/ded/044">
+
+	<!-- 감사,출장사항 목록을 검색한다 - 페이지이 처리로 변경 2016.01.07 yyh -->
+	<select id="BADDED044EMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		<include refid="include.pageSelct" />
+			
+        <![CDATA[       
+			SELECT A.AUD_YR                 				AS AUD_YR				/*감사년도*/
+			     , A.AUD_NO                 				AS AUD_NO				/*감사번호*/
+			     , F_MNG_KND_AUDYRNO(A.AUD_YR, A.AUD_NO, A.AUD_KND_CD, '-') 
+			                                                AS AUD_YR_NO			/*감사년번호*/
+			     , B.BZT_YR									AS BZT_YR				/*출장년도*/	
+			     , B.BZT_SNO								AS BZT_SNO				/*출장번호*/
+			     , A.AUD_TASK_CD            				AS AUD_TASK_CD			/*업무분류코드*/
+			     , A.AUD_KND_CD             				AS AUD_KND_CD			/*감사종류*/
+			     , F_CODE_NM_YEAR('1000007', A.AUD_KND_CD, A.AUD_YR) AS AUD_KND_NM 	/*감사종류명*/
+			     , F_CODE_NM('1000751', A.BZT_BGT_DVSN_CD)  AS BZT_BGT_DVSN_NM      /*예산구분명 추가 - 2019.11.12 les*/
+			     , A.SPV_BRDV_CD                            AS SPV_BRDV_CD          /*주관국과코드*/
+			     , F_DPT_INFO(A.SPV_BRDV_CD,'1')	        AS SPV_BRDV_NM          /*주관국과명*/
+			     , F_DPT_INFO(A.MNG_DPT_CD, '1') AS MNG_DPT_NM /*관리부서명*/
+			     , B.AUD_BZT_KND_CD                         AS AUD_BZT_KND_CD       /*감사출장종류코드*/
+			     , F_CODE_NM('1000030',B.AUD_BZT_KND_CD)    AS AUD_BZT_KND_NM       /*감사출장종류명*/
+			     , F_ORG_CNT_NM_AUD(B.BZT_YR,B.BZT_SNO,'BZT') 		AS ORG_CNT				/*관계기관명*/
+			     , (     SELECT COUNT(DISTINCT PCT_CNB) CNT
+				           FROM TBBADDED005L
+				          WHERE 1=1
+				            AND BZT_YR  = B.BZT_YR
+				            AND BZT_SNO = B.BZT_SNO    )AS BZT_CNB_CNT				/*출장인원*/
+			     , A.AUD_SBJ_NM               				AS AUD_SBJ_NM       	/*감사사항명*/
+			     , TO_CHAR(TO_DATE(B.AUD_STR_DT),'YYYY-MM-DD')||'~'|| TO_CHAR(TO_DATE(B.AUD_END_DT),'YYYY-MM-DD')    AS AUD_ST_END_DT 
+			  FROM TBBADDED001M A
+     			 , TBBADDED002M B
+			 WHERE 1=1
+			   AND A.AUD_YR = B.REL_AUD_YR(+)
+   			   AND A.AUD_NO = B.REL_AUD_NO(+)
+   			   AND B.BZT_DVSN_CD = '1'
+   			   
+   			   /* 속도개선으로 변경 - 2016.01.07 yyh */   			   
+   			   AND A.AUD_YR BETWEEN #strAudYrSt# AND #strAudYrEnd#
+		]]>
+		
+		<isNotEmpty property="strAudYrSt">
+			<isNotEmpty property="strAudGrnNoSt">
+	        	<![CDATA[     		
+				  AND A.AUD_YR||LPAD(A.AUD_GRN_NO,4,'0') >= #strAudYrSt#||DECODE(#strAudGrnNoSt#,'','0000', LPAD(#strAudGrnNoSt#,4,'0'))
+				]]>
+			</isNotEmpty>
+		</isNotEmpty>	
+		<isNotEmpty property="strAudYrEnd">
+			<isNotEmpty property="strAudGrnNoEnd">
+	        	<![CDATA[     		
+				  AND A.AUD_YR||LPAD(A.AUD_GRN_NO,4,'0') <= #strAudYrEnd#||DECODE(#strAudGrnNoEnd#,'','9999', LPAD(#strAudGrnNoEnd#,4,'0'))
+				]]>
+			</isNotEmpty>
+		</isNotEmpty>			
+		
+		/* 감사연번종류코드 추가 - 2015.12.22 yyh */		
+		<isNotEmpty property="strAudYrNoKndCdSt">
+        	<![CDATA[ 			
+                AND SUBSTR(A.AUD_KND_CD,3,1) = SUBSTR(#strAudYrNoKndCdSt#,3,1)
+			]]>                 
+		</isNotEmpty>		
+		
+		/* 감찰담당관실은 조회시 제외하며, 로그인 한 담당자가 감찰담당관일때만 포함하여 모두 보임 - 2016.01.04 yyh */
+		<isNotEmpty property="strExmpDptYn">
+		    <isEqual property="strExmpDptYn" compareValue="Y">
+		      	AND A.SPV_BRDV_CD != '100100'
+		    </isEqual>
+		</isNotEmpty>		
+				
+		<isNotEmpty property="strDptStCd">
+		      AND A.SPV_BRDV_CD >= #strDptStCd#
+		</isNotEmpty>			
+		<isNotEmpty property="strDptEndCd">
+        	<![CDATA[     		
+		      AND A.SPV_BRDV_CD <= #strDptEndCd#
+			]]>
+		</isNotEmpty>			
+		<isNotEmpty property="strMngDptStCd">
+		      AND A.MNG_DPT_CD >= #strMngDptStCd#
+		</isNotEmpty>			
+		<isNotEmpty property="strMngDptEndCd">
+        	<![CDATA[     		
+		      AND A.MNG_DPT_CD <= #strMngDptEndCd#
+			]]>
+		</isNotEmpty>			
+		<isNotEmpty property="strSbjNm">
+        	<![CDATA[     		
+        	  AND A.AUD_SBJ_NM LIKE '%'||#strSbjNm#||'%'
+			]]>
+		</isNotEmpty>			
+		<isNotEmpty property="strBztTlCnb">
+		      AND A.AUD_TOT_DRTR_CNB = #strBztTlCnb#     /*출장책임자*/
+		</isNotEmpty>		
+		<isNotEmpty property="strSpvrCnb">
+        	<![CDATA[   
+        	  AND (A.AUD_YR, A.AUD_NO) IN (SELECT AUD_YR, AUD_NO 
+                                             FROM TBBADDED031L
+                                            WHERE AUDTOR_DVSN_CD = '1'
+                                              AND CNB            = #strSpvrCnb#) /*감사주관자 - 2018.05.03 yyh*/
+			]]>
+		</isNotEmpty>
+			<dynamic>	
+				<isNotEmpty property="strAudTypeCd" prepend="AND">
+					SUBSTR(A.AUD_KND_CD,3) IN
+					<iterate open="(" close=")" property="strAudTypeCd" conjunction=",">
+		                    #strAudTypeCd[]#
+		              </iterate>
+				</isNotEmpty>
+			</dynamic>
+			
+			<!-- 대표기관 - 2015.05.29 yyh -->
+			<dynamic>
+				<isEqual property="strOrgDvsnGbCd" compareValue="1">
+								
+						<isNotEmpty property="strOrgDvsnCd" prepend="AND">
+							A.ORG_DVSN_CD IN
+							<iterate open="(" close=")" property="strOrgDvsnCd" conjunction=",">
+				            	#strOrgDvsnCd[]#
+				        	</iterate>
+						</isNotEmpty>			
+					
+				</isEqual>
+			</dynamic>
+			
+			<!-- 출장기관 - 2015.05.29 yyh -->
+			<dynamic>	
+				<isEqual property="strOrgDvsnGbCd" compareValue="2">
+					AND EXISTS (
+								SELECT 1
+								  FROM TBBADDED008L T1
+								      ,TBDCMACM015M T2
+								 WHERE 1=1
+								   AND T1.BZT_YR      = B.BZT_YR
+								   AND T1.BZT_SNO     = B.BZT_SNO
+								   AND T1.ORG_CD      = T2.ORG_CD
+										
+								<isNotEmpty property="strOrgDvsnCd" prepend="AND">
+									T2.ORG_DVSN_CD IN
+									<iterate open="(" close=")" property="strOrgDvsnCd" conjunction=",">
+						            	#strOrgDvsnCd[]#
+						       		</iterate>
+								</isNotEmpty>			
+					           )
+				</isEqual>
+			</dynamic>
+
+		<dynamic>
+		<isNotEmpty property="tripSituNeeded">				
+			   AND (B.BZT_YR, B.BZT_SNO)  
+			              
+			           IN (SELECT TRIPSITU.BZT_YR
+			                     ,TRIPSITU.BZT_SNO
+			          		 FROM TBBADDED002M TRIPSITU
+			      
+
+			<isNotEmpty property="tripMemberNeeded">		      
+				                , TBBADDED005L TRIPMEMBER
+			</isNotEmpty>	   
+			<isNotEmpty property="tripOrgNeeded">
+	                         	, TBBADDED008L TRIPORG
+			</isNotEmpty>
+			                WHERE 1=1
+			                  AND TRIPSITU.REL_AUD_YR BETWEEN  #strAudYrSt#  AND  #strAudYrEnd# 
+					          AND TRIPSITU.REL_AUD_YR (+)= A.AUD_YR
+		           			  AND TRIPSITU.REL_AUD_NO (+)= A.AUD_NO
+           			  
+			<isNotEmpty property="strAudBztKndCd" prepend="AND">
+							      TRIPSITU.AUD_BZT_KND_CD IN
+				<iterate open="(" close=")" property="strAudBztKndCd" conjunction=",">
+	                    #strAudBztKndCd[]#
+	        	</iterate>
+			</isNotEmpty>			
+           			  
+			<isNotEmpty property="tripMemberNeeded">		
+						      AND TRIPMEMBER.BZT_YR  (+)= TRIPSITU.BZT_YR
+						      AND TRIPMEMBER.BZT_SNO (+)= TRIPSITU.BZT_SNO	
+						      	
+			<isNotEmpty property="strBztStDt">
+                             AND(
+                                   (TRIPMEMBER.BZT_STR_DT BETWEEN #strBztStDt# AND '99991231') 
+                                OR 
+                                   (TRIPMEMBER.BZT_END_DT BETWEEN #strBztStDt# AND '99991231')
+                                )					
+			</isNotEmpty>
+			<isNotEmpty property="strBztEndDt">	
+                             AND(
+                                   (TRIPMEMBER.BZT_STR_DT BETWEEN '19000101' AND #strBztEndDt#) 
+                                OR 
+                                   (TRIPMEMBER.BZT_END_DT BETWEEN '19000101' AND #strBztEndDt#)
+                                )					
+            </isNotEmpty>	  			
+			
+				<isNotEmpty property="strInPctCnb">  
+							  AND PCT_CNB = #strInPctCnb# /*내부출장자*/
+				</isNotEmpty>	    			     
+				<isNotEmpty property="strOutPctNm">  
+							  AND PCT_NM LIKE #strOutPctNm#||'%' /*외부출장자*/
+				</isNotEmpty>	    			       
+			</isNotEmpty> 
+			<isNotEmpty property="tripOrgNeeded">		
+						      AND TRIPORG.BZT_YR = TRIPSITU.BZT_YR
+						      AND TRIPORG.BZT_SNO = TRIPSITU.BZT_SNO 
+						      
+				<!-- 소속기관포함 - 2015.06.17 yyh -->				
+				<isNotEmpty property="strOrgCdSt">
+					<isEqual property="strOrgCdStDetail" compareValue="Y">
+						<isEqual property="strOrgDepCd" compareValue="1">     
+						      AND TRIPORG.ORG_CD LIKE SUBSTR(#strOrgCdSt#,0,3) || '%'
+						</isEqual>
+						<isEqual property="strOrgDepCd" compareValue="2">     
+						      AND TRIPORG.ORG_CD LIKE SUBSTR(#strOrgCdSt#,0,6) || '%'
+						</isEqual>
+						<isEqual property="strOrgDepCd" compareValue="3">     
+						      AND TRIPORG.ORG_CD LIKE SUBSTR(#strOrgCdSt#,0,9) || '%'
+						</isEqual>
+						<isEqual property="strOrgDepCd" compareValue="4">     
+						      AND TRIPORG.ORG_CD = #strOrgCdSt#
+						</isEqual>
+					</isEqual>
+					<isEqual property="strOrgCdStDetail" compareValue="">    
+						      AND TRIPORG.ORG_CD = #strOrgCdSt#
+					</isEqual>
+				</isNotEmpty>
+				
+				
+				<!-- 시군포함 - 2015.06.17 yyh -->			
+				<isNotEmpty property="strRgnCdSt">
+					<isEqual property="strRgnCdStDetail" compareValue="Y">      
+						      AND TRIPORG.RGN_CD LIKE SUBSTR(#strRgnCdSt#,0,2) || '%'
+					</isEqual>
+					<isEqual property="strRgnCdStDetail" compareValue="">      
+						      AND TRIPORG.RGN_CD = #strRgnCdSt#
+					</isEqual>					
+					
+				</isNotEmpty>			
+				
+			</isNotEmpty> 
+						)
+		</isNotEmpty>				
+		</dynamic>
+		
+	    /* 예산구분코드 추가 - 2019.11.12 les */		
+		<isNotEmpty property="strBztBgtDvsnCdSt">
+        	<![CDATA[ 			
+                AND A.BZT_BGT_DVSN_CD = #strBztBgtDvsnCdSt# 
+			]]>                 
+		</isNotEmpty>			
+		
+        <include refid="include.pageOrder" />        
+	</select>
+
+
+	<!-- 감사,출장사항 목록을 검색한다(엑셀파일로 받기) -->
+	<select id="BADDED044EExcelSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+			SELECT F_MNG_KND_AUDYRNO(A.AUD_YR, A.AUD_NO, A.AUD_KND_CD, '-')
+			                                                          AS AUD_YR_NO			/*감사년번호*/ 
+			     , F_CODE_NM_YEAR('1000007', A.AUD_KND_CD, A.AUD_YR)  AS AUD_KND_NM         /*감사종류*/
+			     , F_CODE_NM('1000751', A.BZT_BGT_DVSN_CD)            AS BZT_BGT_DVSN_NM    /*예산구분명 추가 - 2019.11.12 les*/
+			     , F_DPT_INFO(A.SPV_BRDV_CD,'1')	                  AS SPV_BRDV_NM        /*주관국과명*/
+			     ,F_DPT_INFO(A.MNG_DPT_CD, '1') AS MNG_DPT_NM /*관리부서명*/
+			     , A.AUD_SBJ_NM                                       AS AUD_SBJ_NM         /*감사사항명*/
+			     , F_ORG_INFO(A.AUD_RPST_ORG_CD,'1')                  AS AUD_RPST_ORG_NM    /*대표기관*/
+			     , F_CODE_NM('1000119', A.ORG_DVSN_CD)                AS ORG_DVSN_NM        /*기관구분*/
+			     , CASE WHEN A.AUD_SCL_CD = '6' THEN '기타' 
+			            ELSE F_CODE_NM('1000027', A.AUD_SCL_CD) 
+			        END                                               AS AUD_SCL_NM         /*감사규모*/
+			     , F_CODE_NM_YEAR('1000005', A.EPS_TASK_CD, A.AUD_YR) AS EPS_TASK_NM        /*감사중점*/
+			     , F_CODE_NM('1000120', A.TSK_CAT_CD)
+			       || '(' || 
+			       A.TSK_CAT_CD
+			       || ')'                                             AS TSK_CAT_NM         /*업무분류*/
+			     , F_USR_INFO(A.AUD_TOT_DRTR_CNB,'2')		          
+			       || '(' || 
+			       F_CODE_NM('1000173', A.TOT_DRTR_RANK_CD)
+			       || ')'                                             AS AUD_TOT_DRTR_NM    /*감사책임자*/
+			     , F_USR_INFO(A.SPVR_CNB,'2')                         
+			       || '(' || 
+			       F_CODE_NM('1000173', A.SPVR_RANK_CD)
+			       || ')'                                             AS SPVR_NM            /*주관자*/
+			     , F_USR_INFO(A.AST_CNB,'2')                          
+			       || '(' || 
+			       F_CODE_NM('1000173', A.AST_RANK_CD)
+			       || ')'                                             AS AST_NM             /*보조자*/
+			     , B.AUD_STEP_SNO                                     
+			       || '(' ||
+			       F_CODE_NM('1000030', B.AUD_BZT_KND_CD)
+			       || ')'                  	                          AS AUD_STEP_SNO       /*출장순번*/
+			     , B.AUD_STR_DT                                       AS AUD_STR_DT         /*출장기간(F)*/
+			     , B.AUD_END_DT                                       AS AUD_END_DT         /*출장기간(T)*/
+			     , B.AUD_DCN                                          AS AUD_DCN            /*출장일수*/
+			     , ATMA2.IN_PSON_CNT                                  AS IN_PSON_CNT        /*내부인원*/
+			     , ATMA.IN_PSON_DAYS                                  AS IN_PSON_DAYS       /*내부연인원*/
+			     , ATMA2.EXT_PSON_CNT                                 AS EXT_PSON_CNT       /*외부인원*/
+			     , ATMA.EXT_PSON_DAYS                                 AS EXT_PSON_DAYS      /*외부연인원*/
+			     , F_ORG_CNT_NM_AUD(B.BZT_YR,B.BZT_SNO,'BZT')         AS ORG_NM_CNT         /*대상기관*/
+
+			     , B.BZT_YR									          AS BZT_YR				/*출장년도 - 2015.05.21 yyh*/	
+			     , B.BZT_SNO								          AS BZT_SNO			/*출장번호 - 2015.05.21 yyh*/
+			  FROM TBBADDED001M A
+     			 , TBBADDED002M B
+    		     ,(SELECT                                                                                                                              
+    				      MEM.BZT_YR                                                                                                                          
+    			  	     ,MEM.BZT_SNO                                                                                                                    
+    				     ,SUM(CASE WHEN MEM.STF_DVSN_CD = '0' THEN APTD.AUD_DCN ELSE 0 END) AS IN_PSON_DAYS                                                  
+    				     ,SUM(CASE WHEN MEM.STF_DVSN_CD = '0' THEN 0 ELSE APTD.AUD_DCN END) AS EXT_PSON_DAYS                                                         
+    			     FROM TBBADDED005L MEM                                                                                                      
+    				     ,(SELECT BZT_YR
+    				             ,BZT_SNO
+    				             ,TEAM_SNO
+    				             ,PCT_ALC_SNO
+    				             ,SUM(NVL(AUD_DCN,0)) AS AUD_DCN                                          
+    					     FROM TBBADDED006L                                                                                                          
+    					    GROUP BY BZT_YR, BZT_SNO, TEAM_SNO, PCT_ALC_SNO) APTD                                                                        
+    			    WHERE 1=1                                                                                                                           
+    			      AND MEM.BZT_YR = APTD.BZT_YR
+    			      AND MEM.BZT_SNO =APTD.BZT_SNO                                                                                                     
+    			      AND MEM.TEAM_SNO = APTD.TEAM_SNO                                                                                                    
+    			      AND MEM.PCT_ALC_SNO = APTD.PCT_ALC_SNO                                                                                      
+    			    GROUP BY MEM.BZT_YR
+    			            ,MEM.BZT_SNO) ATMA        
+    			                                                                                       
+    		, (SELECT DISTINCT                                                                                                                              
+    				  MEM.BZT_YR                                                                                                                          
+    				, MEM.BZT_SNO                                                                                                                    
+    				, SUM(CASE WHEN MEM.STF_DVSN_CD = '0' THEN 1 ELSE 0 END) AS IN_PSON_CNT                                                          
+    				, SUM(CASE WHEN MEM.STF_DVSN_CD = '0' THEN 0 ELSE 1 END) AS EXT_PSON_CNT                                                         
+    			FROM (SELECT BZT_YR
+    			            ,BZT_SNO
+    			            ,PCT_CNB
+    			            ,STF_DVSN_CD 
+    			        FROM TBBADDED005L 
+    			       GROUP BY BZT_YR
+    			               ,BZT_SNO
+    			               ,PCT_CNB
+    			               ,STF_DVSN_CD) MEM                                          
+    			GROUP BY MEM.BZT_YR, MEM.BZT_SNO) ATMA2                                 
+                             			 
+			 WHERE 1=1
+			   AND A.AUD_YR      = B.REL_AUD_YR(+)
+   			   AND A.AUD_NO      = B.REL_AUD_NO(+)
+   			   AND B.BZT_DVSN_CD = '1' 
+   			   AND B.BZT_YR      = ATMA.BZT_YR(+)
+   			   AND B.BZT_SNO     = ATMA.BZT_SNO(+)
+   			   AND B.BZT_YR      = ATMA2.BZT_YR(+)
+   			   AND B.BZT_SNO     = ATMA2.BZT_SNO(+)		   
+   			   
+   			   /* 속도개선으로 변경 - 2016.01.07 yyh */
+   			   AND A.AUD_YR BETWEEN #strAudYrSt# AND #strAudYrEnd#
+		]]>
+		
+		<isNotEmpty property="strAudYrSt">
+			<isNotEmpty property="strAudGrnNoSt"> 
+        	<![CDATA[     		
+			  AND A.AUD_YR||A.AUD_GRN_NO >= #strAudYrSt#||DECODE(#strAudGrnNoSt#,'','0000', LPAD(#strAudGrnNoSt#,4,'0'))
+			]]>
+			</isNotEmpty>
+		</isNotEmpty>	
+		<isNotEmpty property="strAudYrEnd">
+		<isNotEmpty property="strAudGrnNoEnd">
+        	<![CDATA[     		
+			  AND A.AUD_YR||A.AUD_GRN_NO <= #strAudYrEnd#||DECODE(#strAudGrnNoEnd#,'','9999', LPAD(#strAudGrnNoEnd#,4,'0'))
+			]]>
+			</isNotEmpty>
+		</isNotEmpty>	
+		
+		/* 감사연번종류코드 추가 - 2015.12.22 yyh */		
+		<isNotEmpty property="strAudYrNoKndCdSt">
+        	<![CDATA[ 			
+                AND SUBSTR(A.AUD_KND_CD,3,1) = SUBSTR(#strAudYrNoKndCdSt#,3,1)
+			]]>                 
+		</isNotEmpty>
+		
+		/* 감찰담당관실은 조회시 제외하며, 로그인 한 담당자가 감찰담당관일때만 포함하여 모두 보임 - 2016.01.04 yyh */
+		<isNotEmpty property="strExmpDptYn">
+		    <isEqual property="strExmpDptYn" compareValue="Y">
+		      	AND A.SPV_BRDV_CD != '100100'
+		    </isEqual>
+		</isNotEmpty>							
+						
+		<isNotEmpty property="strDptStCd">
+		      AND A.SPV_BRDV_CD >= #strDptStCd#
+		</isNotEmpty>			
+		<isNotEmpty property="strDptEndCd">
+        	<![CDATA[     		
+		      AND A.SPV_BRDV_CD <= #strDptEndCd#
+			]]>
+		</isNotEmpty>			
+		<isNotEmpty property="strMngDptStCd">
+		      AND A.MNG_DPT_CD >= #strMngDptStCd#
+		</isNotEmpty>			
+		<isNotEmpty property="strMngDptEndCd">
+        	<![CDATA[     		
+		      AND A.MNG_DPT_CD <= #strMngDptEndCd#
+			]]>
+		</isNotEmpty>			
+		<isNotEmpty property="strSbjNm">
+        	<![CDATA[     		
+        	  AND A.AUD_SBJ_NM LIKE '%'||#strSbjNm#||'%'
+			]]>
+		</isNotEmpty>			
+		<isNotEmpty property="strBztTlCnb">
+		      AND A.AUD_TOT_DRTR_CNB = #strBztTlCnb#     /*출장책임자*/
+		</isNotEmpty>		
+		<isNotEmpty property="strSpvrCnb">
+        	<![CDATA[     				
+        	  AND (A.AUD_YR, A.AUD_NO) IN (SELECT AUD_YR, AUD_NO 
+                                             FROM TBBADDED031L
+                                            WHERE AUDTOR_DVSN_CD = '1'
+                                              AND CNB            = #strSpvrCnb#) /*감사주관자 - 2018.05.03 yyh*/
+			]]>
+		</isNotEmpty>
+			<dynamic>	
+				<isNotEmpty property="strAudTypeCd" prepend="AND">
+					SUBSTR(A.AUD_KND_CD,3) IN
+					<iterate open="(" close=")" property="strAudTypeCd" conjunction=",">
+		                    #strAudTypeCd[]#
+		              </iterate>
+				</isNotEmpty>
+			</dynamic>
+			
+			<!-- 대표기관 - 2015.05.29 yyh -->
+			<dynamic>
+				<isEqual property="strOrgDvsnGbCd" compareValue="1">
+								
+						<isNotEmpty property="strOrgDvsnCd" prepend="AND">
+							A.ORG_DVSN_CD IN
+							<iterate open="(" close=")" property="strOrgDvsnCd" conjunction=",">
+				            	#strOrgDvsnCd[]#
+				        	</iterate>
+						</isNotEmpty>			
+					
+				</isEqual>
+			</dynamic>
+			
+			<!-- 출장기관 - 2015.05.29 yyh -->
+			<dynamic>	
+				<isEqual property="strOrgDvsnGbCd" compareValue="2">
+					AND EXISTS (
+								SELECT 1
+								  FROM TBBADDED008L T1
+								      ,TBDCMACM015M T2
+								 WHERE 1=1
+								   AND T1.BZT_YR      = B.BZT_YR
+								   AND T1.BZT_SNO     = B.BZT_SNO
+								   AND T1.ORG_CD      = T2.ORG_CD
+										
+								<isNotEmpty property="strOrgDvsnCd" prepend="AND">
+									T2.ORG_DVSN_CD IN
+									<iterate open="(" close=")" property="strOrgDvsnCd" conjunction=",">
+						            	#strOrgDvsnCd[]#
+						       		</iterate>
+								</isNotEmpty>			
+					           )
+				</isEqual>
+			</dynamic>
+
+		<dynamic>
+		<isNotEmpty property="tripSituNeeded">				
+			   AND (B.BZT_YR, B.BZT_SNO) 
+			              
+			           IN (SELECT TRIPSITU.BZT_YR
+			                     ,TRIPSITU.BZT_SNO
+			          		 FROM TBBADDED002M TRIPSITU
+			      
+
+			<isNotEmpty property="tripMemberNeeded">		      
+				                , TBBADDED005L TRIPMEMBER
+			</isNotEmpty>	   
+			<isNotEmpty property="tripOrgNeeded">
+	                         	, TBBADDED008L TRIPORG
+			</isNotEmpty>
+			                WHERE 1=1
+			                  AND TRIPSITU.REL_AUD_YR BETWEEN  #strAudYrSt#  AND  #strAudYrEnd#
+					          AND TRIPSITU.REL_AUD_YR (+)= A.AUD_YR
+		           			  AND TRIPSITU.REL_AUD_NO (+)= A.AUD_NO
+           			  
+			<isNotEmpty property="strAudBztKndCd" prepend="AND">
+							      TRIPSITU.AUD_BZT_KND_CD IN
+				<iterate open="(" close=")" property="strAudBztKndCd" conjunction=",">
+	                    #strAudBztKndCd[]#
+	        	</iterate>
+			</isNotEmpty>			
+           			  
+			<isNotEmpty property="tripMemberNeeded">		
+						      AND TRIPMEMBER.BZT_YR  (+)= TRIPSITU.BZT_YR
+						      AND TRIPMEMBER.BZT_SNO (+)= TRIPSITU.BZT_SNO		
+				
+			<isNotEmpty property="strBztStDt">
+                             AND(
+                                   (TRIPMEMBER.BZT_STR_DT BETWEEN #strBztStDt# AND '99991231') 
+                                OR 
+                                   (TRIPMEMBER.BZT_END_DT BETWEEN #strBztStDt# AND '99991231')
+                                )					
+			</isNotEmpty>
+			<isNotEmpty property="strBztEndDt">	
+                             AND(
+                                   (TRIPMEMBER.BZT_STR_DT BETWEEN '19000101' AND #strBztEndDt#) 
+                                OR 
+                                   (TRIPMEMBER.BZT_END_DT BETWEEN '19000101' AND #strBztEndDt#)
+                                )					
+            </isNotEmpty>		
+				
+				<isNotEmpty property="strInPctCnb">  
+							  AND PCT_CNB = #strInPctCnb# /*내부출장자*/
+				</isNotEmpty>	    			     
+				<isNotEmpty property="strOutPctNm">  
+							  AND PCT_NM LIKE #strOutPctNm#||'%' /*외부출장자*/
+				</isNotEmpty>	    			       
+			</isNotEmpty> 
+			<isNotEmpty property="tripOrgNeeded">		
+						      AND TRIPORG.BZT_YR = TRIPSITU.BZT_YR
+						      AND TRIPORG.BZT_SNO = TRIPSITU.BZT_SNO 
+						      
+				<!-- 소속기관포함 - 2015.06.17 yyh -->				
+				<isNotEmpty property="strOrgCdSt">
+					<isEqual property="strOrgCdStDetail" compareValue="Y">
+						<isEqual property="strOrgDepCd" compareValue="1">     
+						      AND TRIPORG.ORG_CD LIKE SUBSTR(#strOrgCdSt#,0,3) || '%'
+						</isEqual>
+						<isEqual property="strOrgDepCd" compareValue="2">     
+						      AND TRIPORG.ORG_CD LIKE SUBSTR(#strOrgCdSt#,0,6) || '%'
+						</isEqual>
+						<isEqual property="strOrgDepCd" compareValue="3">     
+						      AND TRIPORG.ORG_CD LIKE SUBSTR(#strOrgCdSt#,0,9) || '%'
+						</isEqual>
+						<isEqual property="strOrgDepCd" compareValue="4">     
+						      AND TRIPORG.ORG_CD = #strOrgCdSt#
+						</isEqual>
+					</isEqual>
+					<isEqual property="strOrgCdStDetail" compareValue="">    
+						      AND TRIPORG.ORG_CD = #strOrgCdSt#
+					</isEqual>
+				</isNotEmpty>
+				
+				
+				<!-- 시군포함 - 2015.06.17 yyh -->			
+				<isNotEmpty property="strRgnCdSt">
+					<isEqual property="strRgnCdStDetail" compareValue="Y">      
+						      AND TRIPORG.RGN_CD LIKE SUBSTR(#strRgnCdSt#,0,2) || '%'
+					</isEqual>
+					<isEqual property="strRgnCdStDetail" compareValue="">      
+						      AND TRIPORG.RGN_CD = #strRgnCdSt#
+					</isEqual>					
+					
+				</isNotEmpty>	
+				
+			</isNotEmpty> 
+						)
+		</isNotEmpty>				
+		</dynamic>	
+		
+		/* 예산구분코드 추가 - 2019.11.12 les */		
+		<isNotEmpty property="strBztBgtDvsnCdSt">
+			<![CDATA[ 			
+				AND A.BZT_BGT_DVSN_CD = #strBztBgtDvsnCdSt# 
+			]]>                 
+		</isNotEmpty>
+				
+        <![CDATA[       
+			   ORDER BY A.AUD_YR DESC
+			           ,A.AUD_NO DESC
+			           ,B.BZT_SNO 
+        ]]>
+	</select>
+	
+	
+	<!-- 대상기관 목록을 조회한다. -->
+	<select id="BADDED044EExcelOrgNmListSelect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+		        SELECT F_ORG_INFO(ORG_CD, '1') AS ORG_NM
+			      FROM TBBADDED008L 
+		         WHERE 1=1
+		           AND BZT_YR  = #BZT_YR#
+		           AND BZT_SNO = #BZT_SNO#
+		         GROUP BY ORG_CD
+		         ORDER BY ORG_CD   
+		]]>
+		
+	</select>
+	
+</sqlMap> 
+

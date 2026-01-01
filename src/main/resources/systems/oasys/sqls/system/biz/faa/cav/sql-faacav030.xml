@@ -1,0 +1,349 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="faa/cav/030"> 
+
+	<!-- 소관별 폐지 목록 가져오기 -->	 
+	<select id="FAACAV030Echecklist" parameterClass="paramMap" 	resultClass="resultMap">
+	 	<![CDATA[  /* faa/cav/030/FAACAV030Echecklist */ ]]>
+			SELECT COPT_CD,
+			       ACNT_CD,
+			       BLL_CD,
+			       PROF_DRTR_SRNO,
+			       DL_XPN_RCDB_PBSVT_SRNO,
+			       CRE_DT,
+			       ORG_CD,
+			       ORG_NM,
+			       ORGCHF_NM,
+			       PST_NM,
+			       BR_CD,
+			       DIV_CD,
+			       FNCR_EIN,
+			       FNCR_NM,
+			       EXPN_SSEC_EIN,
+			       EXPN_SSEC_NM,
+			       MDF_PEN_EIN,
+			       MDF_PEN_NM,
+			       DOC_ENF_NO,
+			       DOC_ENF_DT,
+			       TNB,
+			       ZCD,
+			       AD,
+			       BZN,
+			       ACP_DVSN_CD,
+			       PROF_DRTR_RMK,
+			       APV_LIN_CHGR_NM,
+			       APV_EXAM_PEN_NM,
+			       APVR_NM,
+			       PRSS_STA_CD,
+			       FRT_REGI_DH,
+			       FRT_USR_ID,
+			       FNL_MDF_DH,
+			       FNL_USR_ID,
+			       FNL_DEAL_DPT_CD,
+			       FNL_MNU_ID,
+			       ENS_USE_YN ,
+			       (ROW_NUMBER() OVER(ORDER BY ACNT_CD)) AS CHK
+		    FROM    TWFAACAV003M
+		    WHERE   COPT_CD  = #COPT_CD#
+		    AND 	MDF_DVSN_CD != 'D'
+    	<isNotEmpty property="ACNT_CD">
+    		AND 	ACNT_CD = #ACNT_CD#
+    	</isNotEmpty>
+    	<isNotEmpty property="BLL_CD">
+    		AND 	BLL_CD = #BLL_CD#
+    	</isNotEmpty>
+		    AND     ABLT_DT = '999999'
+		    ORDER BY COPT_CD, ACNT_CD, BLL_CD, PROF_DRTR_SRNO, DL_XPN_RCDB_PBSVT_SRNO
+		   
+	</select>
+	
+	<!-- 계산서 번호가 22,23 공무원번호가 000 이 아닐때 회계코드 테이블에서 계산서 가져오기	  -->
+	<select id="FAACAV030EcheckPtype" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[  /* faa/cav/030/FAACAV030EcheckPtype */ ]]>
+		SELECT	SUBSTR(RMK_2,1,2) AS MON FROM TWFAACAV024C
+		WHERE	ACNT_DVSN_CD = '03'
+		AND		ACNT_CD = #BLL_CD#
+	</select>
+	
+	<!-- 계산서이력테이블 조회 -->	 
+	<select id="FAACAV030ESelectProfYmAblt" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[  /* faa/cav/030/FAACAV030ESelectProfYmAblt */ ]]>
+		SELECT	NVL(PROF_YM,0) AS PROF_YM
+		FROM	TWFAACAV002H
+		WHERE	COPT_CD||ACNT_CD||BLL_CD||PROF_DRTR_SRNO||DL_XPN_RCDB_PBSVT_SRNO = #COPT_CD#||#ACNT_CD#||#BLL_CD#||#PROF_DRTR_SRNO#||#DL_XPN_RCDB_PBSVT_SRNO#
+			AND  PROF_YM >
+			(
+			CASE 
+				WHEN #pType# = '01' 
+				THEN	
+					case 
+				    WHEN SUBSTR(#ABLT_DT#,5,2)='12' 
+				    THEN SUBSTR(#ABLT_DT#,1,4)||'13'
+				ELSE #ABLT_DT# 
+				END 
+				ELSE 
+				    CASE 
+				        WHEN #pType# = '03' 
+				        THEN 
+				            CASE 
+				                WHEN SUBSTR(#ABLT_DT#,5,2) > '09' 
+				                THEN SUBSTR(#ABLT_DT#,1,4)||'04' 
+				ELSE 
+				    CASE
+				        WHEN SUBSTR(#ABLT_DT#,5,2) > '06'
+				        THEN SUBSTR(#ABLT_DT#,1,4)||'03'
+				ELSE 
+				    CASE 
+				        WHEN SUBSTR(#ABLT_DT#,5,2) > '03' 
+				        THEN SUBSTR(#ABLT_DT#,1,4)||'02' 
+				ELSE SUBSTR(#ABLT_DT#,1,4)||'01' 
+				    END
+				    END
+				    END
+				    END
+				END )
+				AND  RCPT_STA_CD='A'
+	</select>
+	
+	<!--증명책임자부호  폐지--> 
+	<update id="FAACAV030EUpdateDataAbltDel" parameterClass="paramMap">
+		<![CDATA[  /* faa/cav/030/FAACAV030EUpdateDataAbltDel */ ]]>
+		UPDATE	TWFAACAV003M
+		SET		ABLT_DT = #ABLT_DT#
+	        	, DOC_ENF_NO = #DOC_ENF_NO#
+	        	, DOC_ENF_DT = #DOC_ENF_DT#
+		        , MDF_DT = #MDF_DT#
+		        , MDF_DVSN_CD  = 'N'
+		WHERE   COPT_CD = #COPT_CD#
+		AND     ACNT_CD = #ACNT_CD#
+		AND     BLL_CD  = #BLL_CD#
+		AND     PROF_DRTR_SRNO = #PROF_DRTR_SRNO#
+		AND     DL_XPN_RCDB_PBSVT_SRNO = #DL_XPN_RCDB_PBSVT_SRNO#
+	</update>
+	
+ 	<!--접수마스터 테이블 update--> 
+	<update id="FAACAV030EUpdateAcctMster" parameterClass="paramMap">
+		<![CDATA[  /* faa/cav/030/FAACAV030EUpdateAcctMster */ ]]>
+		UPDATE TWFAACAV007M
+		SET 
+			MN_1_STA_CD  = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '01') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '01')  THEN '*' ELSE CASE WHEN NVL(MN_1_STA_CD,' ') NOT IN('*', ' ')   THEN MN_1_STA_CD ELSE ' ' END END ,
+			MN_2_STA_CD  = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '02') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '02')  THEN '*' ELSE CASE WHEN NVL(MN_2_STA_CD,' ') NOT IN('*', ' ')   THEN MN_2_STA_CD ELSE ' ' END END ,
+			MN_3_STA_CD  = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '03') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '03')  THEN '*' ELSE CASE WHEN NVL(MN_3_STA_CD,' ') NOT IN('*', ' ')   THEN MN_3_STA_CD ELSE ' ' END END ,
+			MN_4_STA_CD  = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '04') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '04')  THEN '*' ELSE CASE WHEN NVL(MN_4_STA_CD,' ') NOT IN('*', ' ')   THEN MN_4_STA_CD ELSE ' ' END END ,
+			MN_5_STA_CD  = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '05') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '05')  THEN '*' ELSE CASE WHEN NVL(MN_5_STA_CD,' ') NOT IN('*', ' ')   THEN MN_5_STA_CD ELSE ' ' END END ,
+			MN_6_STA_CD  = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '06') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '06')  THEN '*' ELSE CASE WHEN NVL(MN_6_STA_CD,' ') NOT IN('*', ' ')   THEN MN_6_STA_CD ELSE ' ' END END ,
+			MN_7_STA_CD  = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '07') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '07')  THEN '*' ELSE CASE WHEN NVL(MN_7_STA_CD,' ') NOT IN('*', ' ')   THEN MN_7_STA_CD ELSE ' ' END END ,
+			MN_8_STA_CD  = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '08') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '08')  THEN '*' ELSE CASE WHEN NVL(MN_8_STA_CD,' ') NOT IN('*', ' ')   THEN MN_8_STA_CD ELSE ' ' END END ,
+			MN_9_STA_CD  = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '09') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '09')  THEN '*' ELSE CASE WHEN NVL(MN_9_STA_CD,' ') NOT IN('*', ' ')   THEN MN_9_STA_CD ELSE ' ' END END ,
+			MN_1_0_STA_CD   = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '10') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '10')  THEN '*' ELSE CASE WHEN NVL(MN_1_0_STA_CD,' ') NOT IN('*', ' ')   THEN MN_1_0_STA_CD ELSE ' ' END END ,
+			MN_1_1_STA_CD   = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '11') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '11')  THEN '*' ELSE CASE WHEN NVL(MN_1_1_STA_CD,' ') NOT IN('*', ' ')   THEN MN_1_1_STA_CD ELSE ' ' END END ,
+			MN_1_2_STA_CD   = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '12') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '12')  THEN '*' ELSE CASE WHEN NVL(MN_1_2_STA_CD,' ') NOT IN('*', ' ')   THEN MN_1_2_STA_CD ELSE ' ' END END ,
+			MN_1_3_STA_CD   = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT3#,5,2) > '12') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '12')  THEN '*' ELSE CASE WHEN NVL(MN_1_3_STA_CD,' ') NOT IN('*', ' ')   THEN MN_1_3_STA_CD ELSE ' ' END END 
+		WHERE  COPT_CD||ACNT_CD||BLL_CD||PROF_DRTR_SRNO||DL_XPN_RCDB_PBSVT_SRNO = #COPT_CD#||#ACNT_CD#||#BLL_CD#||#PROF_DRTR_SRNO#||#DL_XPN_RCDB_PBSVT_SRNO#
+		AND PROF_YR = #startYear#
+	</update>
+	
+	<!--서류접수마스터 update -->
+	<update id="FAACAV030EUpdateAcctPaperMst" parameterClass="paramMap">
+		<![CDATA[  /* faa/cav/030/FAACAV030EUpdateAcctPaperMst */ ]]>
+		UPDATE TWFAACAV008M
+		SET 
+			MN_1_ACP_DT = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '01') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '01')  THEN '*' ELSE CASE WHEN NVL(MN_1_ACP_DT,' ') NOT IN('*', ' ')   THEN MN_1_ACP_DT ELSE ' ' END END ,  
+			MN_2_ACP_DT = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '02') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '02')  THEN '*' ELSE CASE WHEN NVL(MN_2_ACP_DT,' ') NOT IN('*', ' ')   THEN MN_2_ACP_DT ELSE ' ' END END ,  
+			MN_3_ACP_DT = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '03') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '03')  THEN '*' ELSE CASE WHEN NVL(MN_3_ACP_DT,' ') NOT IN('*', ' ')   THEN MN_3_ACP_DT ELSE ' ' END END ,  
+			MN_4_ACP_DT = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '04') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '04')  THEN '*' ELSE CASE WHEN NVL(MN_4_ACP_DT,' ') NOT IN('*', ' ')   THEN MN_4_ACP_DT ELSE ' ' END END ,  
+			MN_5_ACP_DT = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '05') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '05')  THEN '*' ELSE CASE WHEN NVL(MN_5_ACP_DT,' ') NOT IN('*', ' ')   THEN MN_5_ACP_DT ELSE ' ' END END ,  
+			MN_6_ACP_DT = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '06') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '06')  THEN '*' ELSE CASE WHEN NVL(MN_6_ACP_DT,' ') NOT IN('*', ' ')   THEN MN_6_ACP_DT ELSE ' ' END END ,  
+			MN_7_ACP_DT = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '07') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '07')  THEN '*' ELSE CASE WHEN NVL(MN_7_ACP_DT,' ') NOT IN('*', ' ')   THEN MN_7_ACP_DT ELSE ' ' END END ,  
+			MN_8_ACP_DT = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '08') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '08')  THEN '*' ELSE CASE WHEN NVL(MN_8_ACP_DT,' ') NOT IN('*', ' ')   THEN MN_8_ACP_DT ELSE ' ' END END ,  
+			MN_9_ACP_DT = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '09') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '09')  THEN '*' ELSE CASE WHEN NVL(MN_9_ACP_DT,' ') NOT IN('*', ' ')   THEN MN_9_ACP_DT ELSE ' ' END END ,  
+			MN_1_0_ACP_DT = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '10') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '10') THEN '*' ELSE CASE WHEN NVL(MN_1_0_ACP_DT,' ') NOT IN('*', ' ')   THEN MN_1_0_ACP_DT ELSE ' ' END END ,
+			MN_1_1_ACP_DT = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '11') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '11') THEN '*' ELSE CASE WHEN NVL(MN_1_1_ACP_DT,' ') NOT IN('*', ' ')   THEN MN_1_1_ACP_DT ELSE ' ' END END ,
+			MN_1_2_ACP_DT = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '12') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '12') THEN '*' ELSE CASE WHEN NVL(MN_1_2_ACP_DT,' ') NOT IN('*', ' ')   THEN MN_1_2_ACP_DT ELSE ' ' END END ,
+			MN_1_3_ACP_DT = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '12') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '12') THEN '*' ELSE CASE WHEN NVL(MN_1_3_ACP_DT,' ') NOT IN('*', ' ')   THEN MN_1_3_ACP_DT ELSE ' ' END END  
+		WHERE  COPT_CD||ACNT_CD||BLL_CD||PROF_DRTR_SRNO||DL_XPN_RCDB_PBSVT_SRNO = #COPT_CD#||#ACNT_CD#||#BLL_CD#||#PROF_DRTR_SRNO#||#DL_XPN_RCDB_PBSVT_SRNO#
+	</update>
+	
+	<!--접수마스터 테이블 update -->
+	<update id="FAACAV030EUpdateAcctMster2" parameterClass="paramMap">
+		<![CDATA[  /* faa/cav/030/FAACAV030EUpdateAcctMster2 */ ]]>
+		UPDATE TWFAACAV007M
+		SET 
+			MN_1_STA_CD  = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '03') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '01')  THEN '*' ELSE CASE WHEN NVL(MN_1_STA_CD,' ') NOT IN('*', ' ')   THEN MN_1_STA_CD ELSE ' ' END END ,
+			MN_2_STA_CD  = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '06') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '04')  THEN '*' ELSE CASE WHEN NVL(MN_2_STA_CD,' ') NOT IN('*', ' ')   THEN MN_2_STA_CD ELSE ' ' END END ,
+			MN_3_STA_CD  = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '09') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '07')  THEN '*' ELSE CASE WHEN NVL(MN_3_STA_CD,' ') NOT IN('*', ' ')   THEN MN_3_STA_CD ELSE ' ' END END ,
+			MN_4_STA_CD  = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '13') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '10')  THEN '*' ELSE CASE WHEN NVL(MN_4_STA_CD,' ') NOT IN('*', ' ')   THEN MN_4_STA_CD ELSE ' ' END END ,
+			MN_5_STA_CD  = '*', 
+			MN_6_STA_CD  = '*',
+			MN_7_STA_CD  = '*',
+			MN_8_STA_CD  = '*',
+			MN_9_STA_CD  = '*',
+			MN_1_0_STA_CD = '*',
+			MN_1_1_STA_CD = '*',
+			MN_1_2_STA_CD = '*',
+			MN_1_3_STA_CD = '*'
+		WHERE  COPT_CD||ACNT_CD||BLL_CD||PROF_DRTR_SRNO||DL_XPN_RCDB_PBSVT_SRNO = #COPT_CD#||#ACNT_CD#||#BLL_CD#||#PROF_DRTR_SRNO#||#DL_XPN_RCDB_PBSVT_SRNO#
+		AND PROF_YR = #startYear#
+	</update>
+	
+	<!--서류접수마스터 update -->
+	<update id="FAACAV030EUpdateAcctPaperMst2" parameterClass="paramMap">
+		<![CDATA[  /* faa/cav/030/FAACAV030EUpdateAcctPaperMst2 */ ]]>
+		UPDATE TWFAACAV008M
+		SET 
+			MN_1_ACP_DT = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '03') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '01')  THEN '*' ELSE CASE WHEN NVL(MN_1_ACP_DT,' ') NOT IN('*', ' ')   THEN MN_1_ACP_DT ELSE ' ' END END ,  
+			MN_2_ACP_DT = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '06') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '04')  THEN '*' ELSE CASE WHEN NVL(MN_2_ACP_DT,' ') NOT IN('*', ' ')   THEN MN_2_ACP_DT ELSE ' ' END END ,  
+			MN_3_ACP_DT = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '09') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '07')  THEN '*' ELSE CASE WHEN NVL(MN_3_ACP_DT,' ') NOT IN('*', ' ')   THEN MN_3_ACP_DT ELSE ' ' END END ,  
+			MN_4_ACP_DT = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '13') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '10')  THEN '*' ELSE CASE WHEN NVL(MN_4_ACP_DT,' ') NOT IN('*', ' ')   THEN MN_4_ACP_DT ELSE ' ' END END ,  
+			MN_5_ACP_DT = '*',
+			MN_6_ACP_DT = '*',
+			MN_7_ACP_DT = '*',
+			MN_8_ACP_DT = '*',
+			MN_9_ACP_DT = '*',
+			MN_1_0_ACP_DT = '*',
+			MN_1_1_ACP_DT = '*',
+			MN_1_2_ACP_DT = '*',
+			MN_1_3_ACP_DT = '*'
+		WHERE  COPT_CD||ACNT_CD||BLL_CD||PROF_DRTR_SRNO||DL_XPN_RCDB_PBSVT_SRNO = #COPT_CD#||#ACNT_CD#||#BLL_CD#||#PROF_DRTR_SRNO#||#DL_XPN_RCDB_PBSVT_SRNO#
+		AND PROF_YR = #startYear#
+	</update>
+	
+	<!--접수마스터 테이블 update -->
+	<update id="FAACAV030EUpdateAcctMster3" parameterClass="paramMap">
+		<![CDATA[  /* faa/cav/030/FAACAV030EUpdateAcctMster3 */ ]]>
+		UPDATE TWFAACAV007M
+		SET 
+			MN_1_STA_CD  = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '01') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '01')  THEN '*' ELSE CASE WHEN NVL(MN_1_STA_CD,' ') NOT IN('*', ' ')   THEN MN_1_STA_CD ELSE ' ' END END ,
+			MN_2_STA_CD  = '*',
+			MN_3_STA_CD  = '*',
+			MN_4_STA_CD  = '*',
+			MN_5_STA_CD  = '*',
+			MN_6_STA_CD  = '*',
+			MN_7_STA_CD  = '*',
+			MN_8_STA_CD  = '*',
+			MN_9_STA_CD  = '*',
+			MN_1_0_STA_CD   = '*',
+			MN_1_1_STA_CD   = '*',
+			MN_1_2_STA_CD   = '*',
+			MN_1_3_STA_CD   = '*' 
+		WHERE  COPT_CD||ACNT_CD||BLL_CD||PROF_DRTR_SRNO||DL_XPN_RCDB_PBSVT_SRNO = #COPT_CD#||#ACNT_CD#||#BLL_CD#||#PROF_DRTR_SRNO#||#DL_XPN_RCDB_PBSVT_SRNO#
+		AND PROF_YR = #startYear#
+	</update>
+	
+	<!--서류 접수마스터 테이블 update -->
+	<update id="FAACAV030EUpdateAcctPaperMst3" parameterClass="paramMap">
+		<![CDATA[  /* faa/cav/030/FAACAV030EUpdateAcctPaperMst3 */ ]]>
+		UPDATE TWFAACAV008M
+		SET 
+			MN_1_ACP_DT = CASE WHEN  (SUBSTR(#CRE_DT#,1,4) = #startYear# AND SUBSTR(#CRE_DT#,5,2) > '01') OR  (SUBSTR(#delDate#,1,4) = #startYear# AND SUBSTR(#delDate#,5,2) &lt; '01')  THEN '*' ELSE CASE WHEN NVL(MN_1_ACP_DT,' ') NOT IN('*', ' ')   THEN MN_1_ACP_DT ELSE ' ' END END ,  
+			MN_2_ACP_DT = '*',
+			MN_3_ACP_DT = '*',
+			MN_4_ACP_DT = '*',  
+			MN_5_ACP_DT = '*',
+			MN_6_ACP_DT = '*',
+			MN_7_ACP_DT = '*',
+			MN_8_ACP_DT = '*',
+			MN_9_ACP_DT = '*',
+			MN_1_0_ACP_DT = '*',
+			MN_1_1_ACP_DT = '*',
+			MN_1_2_ACP_DT = '*',
+			MN_1_3_ACP_DT = '*'
+		WHERE  COPT_CD||ACNT_CD||BLL_CD||PROF_DRTR_SRNO||DL_XPN_RCDB_PBSVT_SRNO = #COPT_CD#||#ACNT_CD#||#BLL_CD#||#PROF_DRTR_SRNO#||#DL_XPN_RCDB_PBSVT_SRNO#
+		AND PROF_YR = #startYear#
+	</update>
+	
+	<insert id="FAACAV030E_EN_ENAIS_TWFAACAV003M_UpdateDelete" parameterClass="paramMap">
+		<![CDATA[  /* faa/cav/030/FAACAV030E_EN_ENAIS_TWFAACAV003M_UpdateDelete */ ]]>
+		INSERT INTO EN_ENAIS_TWFAACAV003M (
+						IF_SEQ
+			            ,COPT_CD
+						,ACNT_CD
+						,BLL_CD
+						,PROF_DRTR_SRNO
+						,DL_XPN_RCDB_PBSVT_SRNO
+						,CRE_DT
+						,ORG_CD
+						,ORG_NM
+						,ORGCHF_NM
+						,PST_NM
+						,ABLT_DT
+						,BR_CD
+						,DIV_CD
+						,MDF_DT
+						,MDF_DVSN_CD
+						,DOC_ENF_NO
+						,DOC_ENF_DT
+						,FNCR_EIN
+						,FNCR_NM
+						,EXPN_SSEC_EIN
+						,EXPN_SSEC_NM
+						,MDF_PEN_EIN
+						,MDF_PEN_NM
+						,TNB
+						,ZCD
+						,AD
+						,BZN
+						,ACP_DVSN_CD
+						,ENS_USE_YN
+						,FRT_REGI_DH
+						,FRT_USR_ID
+						,FNL_MDF_DH
+						,FNL_USR_ID
+						,FNL_DEAL_DPT_CD
+						,FNL_MNU_ID
+			            ,FLAG
+			            ,IF_STATUS
+			            ,IF_TRY
+			            ,IF_RAISE_DT
+			            ,IF_DEAL_DT
+			            ,IF_MESSG
+			            ,IF_SIID
+					) VALUES (
+			            #IF_SEQ#
+						,#COPT_CD#
+			            ,#ACNT_CD#
+			            ,#BLL_CD#
+			            ,#PROF_DRTR_SRNO#
+			            ,#DL_XPN_RCDB_PBSVT_SRNO#
+			            ,#CRE_DT#
+			            ,#ORG_CD#
+			            ,#ORG_NM#
+			            ,#ORGCHF_NM#
+			            ,#PST_NM#
+			            ,#ABLT_DT#
+			            ,RPAD(#BR_CD#,3,'0')
+			            ,RPAD(#DIV_CD#,3,'0')
+			            ,#MDF_DT#
+						,#MDF_DVSN_CD#
+						,#DOC_ENF_NO#
+						,#DOC_ENF_DT#
+						,#FNCR_EIN#
+						,#FNCR_NM#
+						,#EXPN_SSEC_EIN#
+						,#EXPN_SSEC_NM#
+						,#MDF_PEN_EIN#
+						,#MDF_PEN_NM#
+						,#TNB#
+						,#ZCD#
+						,#AD#
+						,#BZN#
+						,#ACP_DVSN_CD#
+						,#ENS_USE_YN#
+						,TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+						,#FRT_USR_ID#
+						,TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+						,#FNL_USR_ID#
+						,#FNL_DEAL_DPT_CD#
+						,#FNL_MNU_ID#
+			            ,#FLAG#
+			            ,'SS'
+			            ,'0'
+			            ,TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+			            ,TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+			            ,''
+			            ,''
+					)
+	</insert>
+	
+</sqlMap> 

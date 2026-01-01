@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.dcm.acm.dao.DCMACM011EMapper">
+	<!-- 공통 문서편집 권한코드 조회 -->
+	<select id="selectAuthCodeList" parameterType="paramMap" resultType="egovMap" >
+			/* kr.go.bai.eip.dcm.acm.dao.DCMACM011EMapper.selectAuthCodeList*/
+		    SELECT   CD AS AUTH_CD /* 코드 */
+		           , CD_NM AS AUTH_CD_NM /* 코드명 */ 
+		           , #{audDocCd} AS AUD_DOC_CD /* 감사문서코드 */
+		     FROM   
+		             TBDCMACM013C /* 공통코드 */
+	        WHERE   
+	                 CMM_CD_DVSN_CD = '1000889'
+	           AND   USE_YN = 'Y'
+	           AND   CD != '000000000'
+	           AND   CD NOT IN (SELECT AUTH_CD FROM TBDCMACM201M WHERE AUD_DOC_CD = #{audDocCd})
+	        ORDER BY
+	              CD
+	
+	</select>
+	
+	<!-- 문서편집 기본권한코드 조회 -->
+	<select id="selectRegAuthCodeList" parameterType="paramMap" resultType="egovMap" >
+		/* kr.go.bai.eip.dcm.acm.dao.DCMACM011EMapper.selectRegAuthCodeList*/
+	    SELECT   A.AUD_DOC_CD /* 문서그룹ID */
+	           , A.AUTH_CD /* 권한코드 */
+	           , B.CD_NM AS AUTH_CD_NM /* 코드명 */ 
+	     FROM   
+	             TBDCMACM201M A /* 감사문서기본편집권한관리 */
+   INNER JOIN    (SELECT CD, CD_NM FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1000889' 
+                                                       AND USE_YN = 'Y' 
+                                                       AND CD != '000000000') B /* 공통코드 */
+           ON    A.AUTH_CD = B.CD
+        WHERE  
+                 AUD_DOC_CD = #{audDocCd}
+        ORDER  BY
+               A.AUTH_CD    
+	
+	</select>	
+	
+	<!-- 문서편집 기본권한 등록 -->
+	<insert id="insertEdtAuth" parameterType="paramMap">
+		/* kr.go.bai.eip.dcm.acm.dao.DCMACM011EMapper.insertEdtAuth*/
+	    INSERT
+	      INTO TBDCMACM201M
+	         ( AUD_DOC_CD
+	         , AUTH_CD
+	         , FRT_USR_ID
+	         , FRT_REGI_DH
+	         , FNL_USR_ID
+	         , FNL_MDF_DH 
+	         )
+	    VALUES
+	         ( #{audDocCd}
+	         , #{authCd}
+	         , #{usrId}
+	         , sysdate
+	         , #{usrId}
+	         , sysdate
+	         )      
+	</insert>		
+	
+	<!-- 문서편집 기본권한 삭제 -->
+	<delete id="deleteEdtAuth" parameterType="paramMap">
+		/* kr.go.bai.eip.dcm.acm.dao.DCMACM011EMapper.deleteEdtAuth*/
+	    DELETE 
+	      FROM TBDCMACM201M 
+	     WHERE AUD_DOC_CD = #{audDocCd} 
+	       AND AUTH_CD = #{authCd}
+	                               	
+	</delete>
+	
+	<select id="selectMainList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.dcm.acm.dao.DCMACM011EMapper.selectMainList*/
+        <include refid="include.pageSelct" />
+            <![CDATA[    
+			SELECT 
+			    F_MNG_KND_AUDYRNO(T1.AUD_YR, T1.AUD_NO, T1.AUD_KND_CD, '-') AS AUD_YR_NO
+			    , AUD_SBJ_NM 
+			    , (SELECT MAX(CASE WHEN AUD_STEP_CD = '10' THEN '자료수집/확인출장' ELSE AUD_STEP_NM END) AS CD_NM
+			         FROM TBBADDED101B
+			        WHERE AUD_STEP_CD = T2.AUD_STEP_CD) AS AUD_STEP_NM
+			    , (SELECT 
+					   DECODE(AUD_DOC_CD, 'A10600100', '개별처분요구안',AGGR_CONCAT(DTIL_AUD_DOC_NM,',')) AS CD_NM
+					  FROM (
+					        SELECT 
+					            AUD_DOC_CD
+					            , DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1)) AS DTIL_AUD_DOC_NM
+					          FROM TBFDMADM002M
+					         WHERE SUBSTR(AUD_DOC_CD,0,1) = 'A'
+					         GROUP BY AUD_DOC_CD, DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1))
+                             UNION ALL SELECT 'A10800500' , '공개문' FROM DUAL
+                             UNION ALL SELECT 'A10700700' , '부의안요약문-보고자용' FROM DUAL
+                             UNION ALL SELECT 'A10700800' , '부의안요약문-원장님용' FROM DUAL
+					        )
+					  WHERE AUD_DOC_CD = T2.RPRT_CD 
+					 GROUP BY AUD_DOC_CD) AS RPRT_KND_NM
+			    , T2.RPRT_NM
+                , T2.RPRT_NM AS RPRT_REAL_NM
+			    , F_CODE_NM('1000773', T2.APV_STA_CD) AS APV_STA_NM
+			    , F_USR_INFO_BY_ID(DOC_WRT_ID,'2') AS DOC_WRT_NM
+			    , TO_CHAR(T2.FRT_REGI_DH,'YYYY-MM-DD') AS REGI_DH 
+			    , DECODE(NVL(EDT_AUTH,'N'),'N','편집불가','편집가능') AS EDT_AUTH_NM
+                , NVL(EDT_AUTH,'N') AS EDT_AUTH
+			    , T2.AUD_YR
+			    , T2.AUD_NO
+			    , T2.AUD_STEP_CD
+                , T2.AUD_KND_CD
+			    , T2.DOC_ID
+			    , T2.APV_STA_CD
+			    , T2.APV_RQS_ID
+			    , T2.REF_ID
+			    , F_DPT_INFO(T1.MNG_DPT_CD,'1') AS DPT_NM
+			    , CURR_APV.APVR_NM AS CURR_APV_USR_NM
+			    , FNL_APV.APVR_NM AS FNL_APV_USR_NM
+			    , F_OPEN_EDIT(T2.LINK_URL) AS DOC_TYPE
+			  FROM TBBADDED001M T1
+			       INNER JOIN TBBADDED103M T2
+			       ON (T1.AUD_YR = T2.AUD_YR AND T1.AUD_NO = T2.AUD_NO)
+			       LEFT OUTER JOIN (
+									SELECT M.APV_DOC_NO, M.APV_DVSN_CD, M.APVR_PST_CD
+									     , DECODE(M.APVR_PST_CD, '','','(' || F_CODE_NM('1000176', M.APVR_PST_CD) || ')') || ' ' || F_USR_INFO(M.APVR_CNB,2) AS APVR_NM
+									  FROM TBDCMACM023L M
+									 WHERE M.APV_DVSN_CD = 'fieldAudit' 
+									   AND SUBSTR(M.APVR_STA_CD,1,1) = '1'
+									   AND M.APVR_KND_CD <> '6'
+									 GROUP BY M.APV_DOC_NO, M.APV_DVSN_CD, M.APVR_PST_CD, M.APVR_CNB) CURR_APV
+			 	   ON (T2.APV_RQS_ID = CURR_APV.APV_DOC_NO)
+			 	   LEFT OUTER JOIN (
+									SELECT M.APV_DOC_NO, M.APV_DVSN_CD, M.APVR_PST_CD
+  										  ,DECODE(M.APVR_PST_CD, '','','(' || F_CODE_NM('1000176', M.APVR_PST_CD) || ')') || ' ' || F_USR_INFO(M.APVR_CNB,2) AS APVR_NM
+									  FROM TBDCMACM023L M
+									  	   ,(
+											SELECT APV_DOC_NO, APV_DVSN_CD, MAX(APVR_SEQ) AS MAX_APVR_SEQ
+											  FROM TBDCMACM023L
+											 GROUP BY APV_DOC_NO, APV_DVSN_CD
+											) SUB
+									 WHERE M.APV_DOC_NO = SUB.APV_DOC_NO
+									   AND M.APV_DVSN_CD = SUB.APV_DVSN_CD
+									   AND M.APVR_SEQ = SUB.MAX_APVR_SEQ
+									   AND M.APV_DVSN_CD = 'fieldAudit' ) FNL_APV
+			 	   ON (T2.APV_RQS_ID = FNL_APV.APV_DOC_NO)
+			 WHERE 1=1
+			     AND T2.CON_PGM_CD = '10' /* 감사문서만 조회  */
+			]]>
+			 	 
+		    <if test="schAudYr != null and schAudYr != '' "> 
+			 	AND T1.AUD_YR = #{schAudYr}
+			</if>
+			<if test="schAudYrNoKndCd != null and schAudYrNoKndCd != '' "> 
+			 	AND T1.AUD_KND_CD = #{schAudYrNoKndCd}
+			</if>
+			<if test="schAudGrnNo != null and schAudGrnNo != '' "> 
+ 				AND T1.AUD_GRN_NO = #{schAudGrnNo}
+ 			</if>
+			<if test="schAudSbjNm != null and schAudSbjNm != '' "> 
+				 AND T1.AUD_SBJ_NM LIKE '%'||#{schAudSbjNm}||'%'
+			</if>
+			<if test='searchChk != "Y"  and  dptCd != "140100" '>
+				 AND T1.MNG_DPT_CD IN ( SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#{cnb}, '', 'Y', #{dptCd})) )  
+			</if>
+			<if test="schPrssStepCd != null and schPrssStepCd != ''  and schPrssStepCd neq  'A1095'.toString()">  
+				 AND T2.AUD_STEP_CD = #{schPrssStepCd}
+			</if>
+            <if test="schPrssStepCd eq  'A1095'.toString()">  
+                 AND SUBSTR(T2.RPRT_CD,0,5) = #{schPrssStepCd}
+            </if>
+			<if test="schRprtNm != null and schRprtNm != '' "> 
+				 AND T2.RPRT_NM LIKE '%'||#{schRprtNm}||'%'
+			</if>
+			<if test="schRprtCd != null and schRprtCd != '' "> 
+				 AND T2.RPRT_CD = #{schRprtCd}
+			</if>
+			<if test="schApvStaCd != null and schApvStaCd != '' "> 
+				 AND T2.APV_STA_CD = #{schApvStaCd}
+			</if>
+			<if test="schEdtAuth != null and schEdtAuth != '' "> 
+				 AND NVL(T2.EDT_AUTH,'N') = #{schEdtAuth}
+			</if>
+			 ORDER BY T1.AUD_YR, T1.AUD_KND_CD, T1.AUD_GRN_NO DESC, T2.AUD_STEP_CD, T2.RPRT_CD
+			 
+		<include refid="include.pageOrder" />
+    </select>	
+
+</mapper> 

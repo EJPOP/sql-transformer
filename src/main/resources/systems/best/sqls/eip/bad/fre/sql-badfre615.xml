@@ -1,0 +1,408 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--   -->
+<mapper namespace="kr.go.bai.eip.bad.fre.dao.BADFRE615Mapper">
+
+	<select id="selectBadfre615QMain" parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE615Mapper.selectBadfre615QMain */
+		<include refid="include.pageSelct" />
+		SELECT A.ACP_NO, A.ACP_YR, A.ACP_DVSN_CD, A.ACP_SRNO, A.DOC_ID, A.RPRT_NM, A.REQR_NM, A.TIT_NM, A.DPT_CD, A.DCS_SBJ, A.JDG_REQ_DVSN_CD, A.JDG_REQ_DVSN_NM, A.DCS_DT, A.ACP_STEP_CD, A.ISU_TXT, A.OPEN_DOC_NTCE_DH, A.OPEN_YN, A.DPT_NM, A.DOC_TYPE, A.IF_SEQ
+		      , A.ACP_DVSN_NM, A.ACP_DT, A.ORG_CD, A.ORG_NM, A.DSP_OFC_ACP_DT, A.AGT_NM, A.AMIT_AM, A.RMK, A.VT_KND_CD, A.VT_KND_NM, A.LWS_YO, A.EXEC_PRCS_ORG_NM, A.EXEC_PRCS_ORG_CD
+              , DECODE((SELECT ST.ATCH_FILE_ID FROM EH_INF_SP_HP_001 ST WHERE ST.IF_SEQ = A.IF_SEQ), NULL, 'N', 'Y') AS SND_FILE_YN
+          FROM (
+                SELECT
+					A.ACP_YR || '-' || DECODE(A.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || DECODE(A.ORG_ACP_SRNO, null, A.ACP_SRNO, A.ORG_ACP_SRNO) AS ACP_NO
+		            , A.ACP_YR        			/*접수년도*/
+		            , A.ACP_DVSN_CD   			/*접수구분*/
+		            , A.ACP_SRNO      			/*접수번호*/
+		            , B.DOC_ID       			/*공개문 DOC_ID*/
+		            , B.RPRT_NM       			/*공개문 제목*/
+		            , DECODE(A.AGT_NM, NULL, A.REQR_NM, A.REQR_NM || '(代:' || A.AGT_NM || ')' ) AS REQR_NM		/*청구인*/
+		            , DECODE(A.ACP_DVSN_CD, '1', A.TIT_NM, C.TIT_NM) AS TIT_NM        			/*제목*/
+		            , A.DPT_CD        			/*부서*/
+		            , A.DCS_SBJ         		/*결정내용*/
+		            , A.JDG_REQ_DVSN_CD     	/*구분*/
+		            , F_CODE_NM ('1000043', A.JDG_REQ_DVSN_CD) AS  JDG_REQ_DVSN_NM  /*구분*/
+		            , TO_CHAR(TO_DATE(A.DCS_DT),'YYYY-MM-DD') AS DCS_DT               	/*결정일자*/
+		            , B.ACP_STEP_CD
+		            , A.ISU_TXT
+		            , TO_CHAR(B.OPEN_DOC_NTCE_DH,'YYYY-MM-DD') AS OPEN_DOC_NTCE_DH
+		            , DECODE(B.OPEN_DOC_NTCE_DH,'','N','Y') AS OPEN_YN
+		            , (SELECT DPT_NM FROM TBDCMACM002M WHERE DPT_CD = A.DPT_CD) AS DPT_NM
+		            , F_OPEN_EDIT(B.LINK_URL) AS DOC_TYPE -- 편집기구분
+		            , MAX(D.IF_SEQ) AS IF_SEQ
+		            , DECODE(A.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') AS ACP_DVSN_NM
+		            , A.ACP_DT
+		            , A.ORG_CD
+                    , F_ORG_INFO(A.ORG_CD,'1') AS ORG_NM
+                    , A.DSP_OFC_ACP_DT
+                    , A.AGT_NM
+                    , A.AMIT_AM
+                    , A.RMK
+                    , A.VT_KND_CD
+                    , F_CODE_NM('1000045', A.VT_KND_CD) AS VT_KND_NM
+                    , E.LWS_YO
+                    , CASE WHEN E.EXEC_PRCS_ORG_CD IS NOT NULL THEN F_ORG_INFO(E.EXEC_PRCS_ORG_CD,'1')||'('||E.EXEC_PRCS_ORG_CD||')'
+                       ELSE ''
+                      END EXEC_PRCS_ORG_NM
+                    , E.EXEC_PRCS_ORG_CD
+		        from TBBADFRE012M A
+		        INNER JOIN TBBADFRE103M B
+		        ON ( 
+		            A.ACP_YR = B.ACP_YR
+		            AND A.ACP_DVSN_CD = B.ACP_DVSN_CD
+		            AND A.ACP_SRNO = B.ACP_SRNO
+		            AND B.RPRT_CD IN ('D10400600', 'E10600300')
+		            AND B.APV_STA_CD = '30'
+		        )
+		        LEFT OUTER JOIN TBBADFRE112M C ON (C.ACP_YR = A.ACP_YR AND C.ACP_DVSN_CD = A.ACP_DVSN_CD AND C.ACP_SRNO = A.ACP_SRNO)
+		        LEFT OUTER JOIN EH_INF_SP_HP_001 D ON (D.SUB2 = A.ACP_YR AND D.SUB1 = DECODE(A.ACP_DVSN_CD,'1','4','2','5') AND D.CATEGORY_SUB = TO_CHAR(A.ACP_SRNO))
+		        LEFT OUTER JOIN TBBADFRE013D E ON (E.ACP_YR = A.ACP_YR AND E.ACP_DVSN_CD = A.ACP_DVSN_CD AND E.ACP_SRNO = A.ACP_SRNO)
+		        WHERE 1 = 1
+		        <if test='acpYr != null and acpYr != ""'>
+		        	AND A.ACP_YR = #{acpYr} 
+		        </if>
+		        <if test='acpDvsnCd != null and acpDvsnCd != ""'>
+		        	AND A.ACP_DVSN_CD = #{acpDvsnCd}
+		        </if>
+		        <if test='acpSrno != null and acpSrno != ""'>
+		        	AND A.ACP_SRNO = #{acpSrno}
+		        </if>
+		        <if test='dptCd != null and dptCd != ""'>
+		        	AND A.DPT_CD = #{dptCd}
+		        </if>
+		        <if test='dcsDts != null and dcsDts != ""'>
+					AND TO_CHAR(TO_DATE(A.DCS_DT),'YYYYMMDD') &gt;= #{dcsDts}
+				</if>
+				<if test='dcsDte != null and dcsDte != ""'>
+					AND TO_CHAR(TO_DATE(A.DCS_DT),'YYYYMMDD') &lt;= #{dcsDte}
+				</if>
+				<if test='openDocNtceDhs != null and openDocNtceDhs != ""'>
+					AND TO_CHAR(B.OPEN_DOC_NTCE_DH,'YYYYMMDD') &gt;= #{openDocNtceDhs}
+				</if>
+				<if test='openDocNtceDhe != null and openDocNtceDhe != ""'>
+					AND TO_CHAR(B.OPEN_DOC_NTCE_DH,'YYYYMMDD') &lt;= #{openDocNtceDhe}
+				</if>
+				<if test='openYn != null and openYn != ""'>
+		        	AND DECODE(B.OPEN_DOC_NTCE_DH,'','N','Y') = #{openYn}
+		        </if>
+		        <if test='reqrNm != null and reqrNm != ""'>
+		        	AND A.REQR_NM LIKE '%'||#{reqrNm}||'%'
+		        </if>
+		        <if test='titNm != null and titNm != ""'>
+					AND A.TIT_NM LIKE '%'||#{titNm}||'%'
+				</if>
+				GROUP BY A.ACP_YR, A.ACP_DVSN_CD, A.ACP_SRNO, A.ORG_ACP_SRNO, B.DOC_ID, B.RPRT_NM, A.AGT_NM, A.REQR_NM, A.TIT_NM, C.TIT_NM, A.DPT_CD
+                       , A.DCS_SBJ, A.JDG_REQ_DVSN_CD, A.DCS_DT, B.ACP_STEP_CD, A.ISU_TXT, B.OPEN_DOC_NTCE_DH, B.LINK_URL, A.ACP_DT, A.ORG_CD, A.DSP_OFC_ACP_DT
+                       , A.AMIT_AM, A.RMK, A.VT_KND_CD, E.LWS_YO, E.EXEC_PRCS_ORG_CD
+		    ) A
+			ORDER BY A.OPEN_DOC_NTCE_DH DESC, A.ACP_YR DESC, TO_NUMBER(A.ACP_SRNO) DESC
+        <include refid="include.pageOrder" />
+	</select>
+	
+	
+	<select id="getNttIdByBizKey" parameterType="paramMap" resultType="java.lang.String">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE615Mapper.getNttIdByBizKey */
+		SELECT NTT_ID 
+		  FROM TBCSPTSM002L
+		 WHERE BIZ_KEY1 = #{bizKey1} 
+		   AND BIZ_KEY2 = #{bizKey2}
+		   AND BIZ_KEY3 = #{bizKey3}
+	</select>
+	
+	<update id="updateTbcsptsm002L" parameterType="paramMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE615Mapper.updateTbcsptsm002L */
+		UPDATE TBCSPTSM002L
+		   SET 	NTT_SJ 			= #{titNm}
+		       ,NTCR_NM 		= #{usrNam}
+		       ,NTT_CN 			= #{isuTxt}
+		       ,DOC_ID	 		= #{docId}
+		       ,LAST_UPDT_PNTTM = SYSDATE
+		       ,CATEGORY 		= #{jdgReqDvsnCd}
+		       ,SUB1 			= #{sub1}
+		       ,SUB2 			= #{sub2}
+		       ,CATEGORY_SUB 	= #{categorySub}
+		       ,FRST_REGIST_PNTTM = #{dcsDt}
+		 WHERE NTT_ID = #{nttId}
+		   AND BBS_ID = 'BBSMSTR_100000000013'
+	</update>
+	
+	<select id="getMaxNttIdByBiz" parameterType="paramMap" resultType="java.lang.Integer">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE615Mapper.getMaxNttIdByBiz */
+		SELECT NVL(MAX(NTT_ID),0)+1 AS NTT_ID 
+		  FROM TBCSPTSM002L
+	</select>
+	
+	<insert id="insertTbcsptsm002L" parameterType="paramMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE615Mapper.insertTbcsptsm002L */
+		INSERT INTO TBCSPTSM002L
+				(
+					NTT_ID, BBS_ID, NTT_SJ, NTT_CN, SORT_ORDR, 
+					NTCR_ID, NTCR_NM, PASSWORD, RDCNT, 
+					NTCE_BGNDE, NTCE_ENDDE, ANSWER_AT,  			   
+					PARNTSCTT_NO, NTT_NO, ANSWER_LC, DOC_ID,
+					FRST_REGISTER_ID, FRST_REGIST_PNTTM, USE_AT,
+					KEYWORD, MAIN_IMG_ID, QNA_STATE, QNA_ANSWER, DOC_YEAR, HTML_YN, LIST_IMG_ID, PUBLIC_YN,
+					NOTICE_YN, SECRET_YN, URL_LINK, CATEGORY, THUMB_IMG_ID, LIST_TOP_IMG_YN, FAQ_DSJ, FAQ_ANSWER,
+					SUB1, SUB2, CATEGORY_SUB, BUSEO, EMAIL, TEL, JUSO, INSTITUTION, DATE_SUB, QNA_ANSWER_NM, QNA_REG_DATE, 
+					CNN_CNT1, CNN_CON2, CNN_CON1, CNN_CON3, CLIENT_IP, BOGO_DATE, BIZ_KEY1, BIZ_KEY2, BIZ_KEY3
+				)
+			VALUES
+				(
+				    #{nttId},'BBSMSTR_100000000013',#{titNm},#{isuTxt},0
+					,#{frtUsrId},#{usrNam},'',0
+					,'','','N'
+					,#{nttId},1,0,#{docId}
+					,#{frtUsrId},#{dcsDt},'Y'
+					,'','','','','','','','Y'
+					,'N','','',#{jdgReqDvsnCd},'','N','',''
+					,#{sub1},#{sub2},#{categorySub},'','','','','','','',SYSDATE
+					,'0','','','','','',#{bizKey1},#{bizKey2},#{bizKey3}
+				)
+	</insert>
+	
+	<select id="sendHomepageselectByBiz" parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE615Mapper.sendHomepageselectByBiz */
+		SELECT
+				NTT_ID, BBS_ID, NTT_NO, NTT_SJ, NTT_CN, ANSWER_AT, 
+		       PARNTSCTT_NO, ANSWER_LC, SORT_ORDR, RDCNT, USE_AT, 
+		       NTCE_BGNDE, NTCE_ENDDE, NTCR_ID, NTCR_NM, PASSWORD, 
+		       DOC_ID, FRST_REGIST_PNTTM, FRST_REGISTER_ID, 
+		       LAST_UPDT_PNTTM, LAST_UPDUSR_ID, THUMB_IMG_ID, CATEGORY, 
+		       HEADER, KEYWORD, MAIN_IMG_ID, QNA_STATE, QNA_ANSWER, DOC_YEAR,
+		       HTML_YN, LIST_IMG_ID, PUBLIC_YN, NOTICE_YN, SECRET_YN, URL_LINK, 
+		       LIST_TOP_IMG_YN, MAIN_YN, FAQ_ANSWER, FAQ_DSJ, SUB1, SUB2, CATEGORY_SUB, 
+		       BUSEO, EMAIL, TEL, JUSO, INSTITUTION, DATE_SUB, CNN_STATE1, CNN_STATE2, 
+		       CNN_STATE3, CNN_STATE4, CNN_CON1, CNN_CON2, CNN_CON3, CNN_CON4, CNN_CNT1, QNA_ANSWER_NM, 
+		       QNA_REG_DATE, PARENT_NO, LEVEL_NO, CNN_ACCT_DATE, CNN_PROP_DATE, 
+		       CLIENT_IP, BOGO_DATE, #{flag} AS FLAG
+		 FROM TBCSPTSM002L 
+		WHERE NTT_ID = #{nttId}
+	</select>
+	
+	<insert id="insertEhinfsphp002" parameterType="paramMap" >
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE615Mapper.insertEhinfsphp002 */
+		INSERT INTO EH_INF_SP_HP_001 
+			       (
+			           IF_SEQ,IF_TYPE,IF_SIID, 
+			           NTT_ID, BBS_ID, NTT_NO, NTT_SJ, NTT_CN, ANSWER_AT, 
+			           PARNTSCTT_NO, ANSWER_LC, SORT_ORDR, RDCNT, USE_AT, 
+			           NTCE_BGNDE, NTCE_ENDDE, NTCR_ID, NTCR_NM, PASSWORD, 
+			           ATCH_FILE_ID, FRST_REGIST_PNTTM, FRST_REGISTER_ID, 
+			           LAST_UPDT_PNTTM, LAST_UPDUSR_ID, THUMB_IMG_ID, CATEGORY, 
+			           HEADER, KEYWORD, MAIN_IMG_ID, QNA_STATE, QNA_ANSWER, DOC_YEAR,
+			           HTML_YN, LIST_IMG_ID, PUBLIC_YN, NOTICE_YN, SECRET_YN, URL_LINK, 
+			           LIST_TOP_IMG_YN, MAIN_YN, FAQ_ANSWER, FAQ_DSJ, SUB1, SUB2, CATEGORY_SUB, 
+			           BUSEO, EMAIL, TEL, JUSO, INSTITUTION, DATE_SUB, CNN_STATE1, CNN_STATE2, 
+			           CNN_STATE3, CNN_STATE4, CNN_CON1, CNN_CON2, CNN_CON3, CNN_CON4, CNN_CNT1, QNA_ANSWER_NM, 
+			           QNA_REG_DATE, PARENT_NO, LEVEL_NO, CNN_ACCT_DATE, CNN_PROP_DATE, 
+			           CLIENT_IP, BOGO_DATE, FLAG,ETC1,ETC2,ETC3,ETC4,ETC5
+			       ) 
+			  VALUES
+			       (
+			           #{ifSeq},'SND',#{ifSiid}
+			          ,#{nttId},#{bbsId},#{nttNo},#{nttSj},#{nttCn},#{answerAt}
+					  ,#{parntscttNo},#{answerLc},#{sortOrdr},#{rdcnt},#{useAt}
+					  ,#{ntceBgnde},#{ntceEndde},#{ntcrId},#{ntcrNm},#{password}
+					  ,#{docId},#{frstRegistPnttm},#{frstRegisterId}
+					  ,#{lastUpdtPnttm},#{lastUpdusrId},#{thumbImgId},#{category}
+					  ,#{header},#{keyword},#{mainImgId},#{qnaState},#{qnaAnswer},#{docYear}
+					  ,#{htmlYn},#{listImgId},#{publicYn},#{noticeYn},#{secretYn},#{urlLink}
+					  ,#{listTopImgYn},#{mainYn},#{faqAnswer},#{faqDsj},#{sub1},#{sub2},#{categorySub}
+					  ,#{buseo},#{email},#{tel},#{juso},#{institution},#{dateSub},#{cnnState1},#{cnnState2}
+					  ,#{cnnState3},#{cnnState4},#{cnnCon1},#{cnnCon2},#{cnnCon3},#{cnnCon4},#{cnnCnt1},#{qnaAnswerNm}
+					  ,#{qnaRegDate},#{parentNo},#{levelNo},#{cnnAcctDate},#{cnnPropDate}
+					  ,#{clientIp},#{bogoDate},#{flag},#{etc1},#{etc2},#{etc3},#{etc4},#{etc5}
+			       )
+	</insert>
+	
+	<update id="updateOpenDocNtceDh" parameterType="paramMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE615Mapper.updateOpenDocNtceDh */
+		   UPDATE TBBADFRE103M
+		      SET OPEN_DOC_NTCE_DH = SYSDATE
+		    WHERE ACP_YR = #{acpYr} 
+		      AND ACP_DVSN_CD = #{acpDvsnCd} 
+		      AND ACP_SRNO = #{acpSrno} 
+		      AND RPRT_CD IN ('D10400600', 'E10600300')
+	</update>
+	
+	<select id="getSysDate" resultType="String">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE615Mapper.getSysDate */
+		SELECT
+			TO_CHAR(SYSTIMESTAMP, 'YYYYMMDDHH24MiSSFF3')
+		FROM DUAL
+	</select>
+	
+	<insert id="insertFileCopyHistory" parameterType="paramMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE615Mapper.insertFileCopyHistory */
+		INSERT INTO TBDOCUMENTHIS (
+			DOC_HIS_SRNO
+			, DOC_NO
+			, FRT_USR_ID
+			, FNL_USR_ID
+			, FNL_DEAL_DPT_CD
+			, FNL_MNU_ID
+			, FRT_REGI_DH
+			, FNL_MDF_DH
+		) VALUES (
+			TBDOCUMENTHIS_SEQ.NEXTVAL
+			, #{docId} 
+			, #{usrId}
+			, #{usrId}
+			, #{dptCd}
+			, #{menuId}
+			, sysdate
+			, sysdate
+		)
+	</insert>
+	
+	<update id="updateExecPrcsOrgCd" parameterType="paramMap">
+    /* kr.go.bai.eip.bad.fre.dao.BADFRE615Mapper.updateExecPrcsOrgCd */
+        UPDATE TBBADFRE013D 
+           SET EXEC_PRCS_ORG_CD = #{execPrcsOrgCd}
+         WHERE ACP_YR = #{acpYr}
+           AND ACP_DVSN_CD = #{acpDvsnCd}
+           AND ACP_SRNO = #{acpSrno}
+    </update>
+	
+	<select id="getSrnoByKey" parameterType="paramMap" resultType="java.lang.Integer">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE615Mapper.getSrnoByKey */
+		SELECT COUNT(SRNO) AS CNT 
+		  FROM IS_JDG_REQ_OPEN_DOC
+		 WHERE ACP_YR = #{acpYr} 
+		   AND ACP_DVSN_CD = #{acpDvsnCd}
+		   AND ACP_SRNO = #{acpSrno}
+		   AND DATA_HNDL_DVSN_CD != 'D'
+		   AND SRNO = (SELECT MAX(SRNO)
+		                 FROM IS_JDG_REQ_OPEN_DOC
+		                WHERE ACP_YR = #{acpYr} 
+		                  AND ACP_DVSN_CD = #{acpDvsnCd}
+		                  AND ACP_SRNO = #{acpSrno})
+	</select>
+	
+	<select id="getMaxSrnoByKey" parameterType="paramMap" resultType="java.lang.Integer">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE615Mapper.getMaxSrnoByKey */
+		SELECT NVL(MAX(SRNO),0)+1 AS SRNO 
+		  FROM IS_JDG_REQ_OPEN_DOC
+	</select>
+	
+	<select id="sendGongGamByBiz" parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE615Mapper.sendGongGamByBiz */
+		SELECT #{maxSrno} AS MAX_SRNO
+		      ,#{dataHndlDvsnCd} AS DATA_HNDL_DVSN_CD
+		      ,A.ACP_YR
+		      ,A.ACP_DVSN_CD
+		      ,DECODE(A.ACP_DVSN_CD, '1', '심사', '재심의') AS ACP_DVSN_NM
+		      ,A.ACP_SRNO
+		      ,A.ACP_DT
+		      ,A.ORG_CD
+		      ,A.ORG_NM
+		      ,A.DSP_OFC_ACP_DT
+		      ,A.REQR_NM
+		      ,A.AGT_NM
+		      ,A.JDG_REQ_DVSN_CD
+		      ,F_CODE_NM('1000043', A.JDG_REQ_DVSN_CD) AS JDG_REQ_DVSN_NM
+		      ,A.TIT_NM
+		      ,A.ISU_TXT
+		      ,A.AMIT_AM
+		      ,A.RMK
+		      ,A.VT_KND_CD
+		      ,F_CODE_NM('1000045', A.VT_KND_CD) AS VT_KND_NM
+		      ,A.DCS_SBJ
+		      ,B.LWS_YO
+		      ,B.EXEC_PRCS_ORG_CD
+		      ,#{fnlDealDptCd} AS FNL_DEAL_DPT_CD
+		      ,#{fnlMnuId} AS FNL_MNU_ID
+		      ,#{frtUsrId} AS FRT_USR_ID
+		      ,#{fnlUsrId} AS FNL_USR_ID
+		  FROM TBBADFRE012M A
+		      ,TBBADFRE013D B
+		 WHERE 1=1
+		   AND A.ACP_YR = B.ACP_YR
+		   AND A.ACP_DVSN_CD = B.ACP_DVSN_CD
+		   AND A.ACP_SRNO = B.ACP_SRNO
+		   AND A.ACP_YR = #{acpYr}
+		   AND A.ACP_DVSN_CD = #{acpDvsnCd}
+		   AND A.ACP_SRNO = #{acpSrno}
+	</select>
+    
+    <insert id="saveIsJdgReqOpenDoc" parameterType="paramMap">
+		/* kr.go.bai.eip.bad.fre.dao.BADFRE615Mapper.saveIsJdgReqOpenDoc */
+		INSERT INTO IS_JDG_REQ_OPEN_DOC
+				(
+					 SRNO
+					,DATA_HNDL_DVSN_CD
+					,ACP_YR
+					,ACP_DVSN_CD
+					,ACP_DVSN_NM
+					,ACP_SRNO
+					,ACP_DT
+					,ORG_CD
+					,ORG_NM
+					,DSP_OFC_ACP_DT
+					,REQR_NM
+					,AGT_NM
+					,JDG_REQ_DVSN_CD
+					,JDG_REQ_DVSN_NM
+					,TIT_NM
+					,ISU_TXT
+					,AMIT_AM
+					,RMK
+					,VT_KND_CD
+					,VT_KND_NM
+					,DCS_SBJ
+					,LWS_YO
+					,EXEC_PRCS_ORG_CD
+					,TRN_ID
+					,MSG_ID
+					,TRN_STATS
+					,TRN_DT
+					,TRN_MSG
+					,FNL_DEAL_DPT_CD
+					,FNL_MNU_ID
+					,FRT_USR_ID
+					,FRT_REGI_DH
+					,FNL_USR_ID
+					,FNL_MDF_DH
+				)
+			VALUES
+				(
+				     #{maxSrno}
+					,#{dataHndlDvsnCd}
+				    ,#{acpYr}
+				    ,#{acpDvsnCd}
+				    ,#{acpDvsnNm}
+				    ,#{acpSrno}
+				    ,#{acpDt}
+				    ,#{orgCd}
+				    ,#{orgNm}
+				    ,#{dspOfcAcpDt}
+				    ,#{reqrNm}
+				    ,#{agtNm}
+				    ,#{jdgReqDvsnCd}
+				    ,#{jdgReqDvsnNm}
+				    ,#{titNm}
+				    ,#{isuTxt}
+				    ,#{amitAm}
+				    ,#{rmK}
+				    ,#{vtKndCd}
+				    ,#{vtKndNm}
+				    ,#{dcsSbj}
+				    ,#{lwsYo}
+				    ,#{execPrcsOrgCd}
+				    ,''
+				    ,''
+				    ,'SN'
+				    ,SYSDATE
+				    ,''
+				    ,#{fnlDealDptCd}
+				    ,#{fnlMnuId}
+				    ,#{frtUsrId}
+				    ,SYSDATE
+				    ,#{fnlUsrId}
+				    ,SYSDATE
+				)
+	</insert>
+	
+</mapper>

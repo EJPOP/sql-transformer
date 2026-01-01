@@ -1,0 +1,362 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/oep/008">
+
+	<!-- 비상소집 select -->
+    <select id="CSPOEP008EMainSelect" parameterClass="paramMap" resultClass="resultMap">
+    
+    <include refid = "include.pageSelct"/>
+  
+        <![CDATA[
+				SELECT	T1.CNB
+						, T1.DPT_CD
+						, T2.DPT_NM
+						, T1.USR_NAM
+						, T1.PBSVT_NO
+						,F_CODE_NM('1000338',T1.USR_DVSN_CD) AS USR_DVSN_NM
+						,RAL_BLT_DIV_CD
+						,COFM_DT
+						,DECODE(COFM_STA_CD,'N','해지적용','Y','승인적용','') AS COFM_STA_NM
+						,CAR_NO
+						,F_CODE_NM('1000339',T1.RQS_STA_CD) AS RQS_STA_NM
+                         ,INN_RANK_CD
+                         ,RANK_SRT_SEQ_NM
+                         ,CRNT_RANK_APM_DT
+                         ,SRT_KY_NO
+                         ,CRNT_DPT_APM_DT
+                         ,EIN ,DPT_SNO
+                         ,RLS_DT
+				FROM	TBDCMACM001M T1
+						,TBDCMACM002M T2
+				WHERE	1=1
+				AND		T1.DPT_CD = T2.DPT_CD
+				AND		SUBSTR(T1.CNB,1,1) <> '5'
+				AND		T2.USE_YN = 'Y'
+        ]]>
+        
+        <dynamic>
+        	<isNotEmpty property="strCNB" prepend="AND">
+        		T1.CNB = #strCNB#
+        	</isNotEmpty>
+        	
+        	<isNotEmpty property="strDPT_CD" prepend="AND">
+        		T1.DPT_CD = #strDPT_CD#
+        	</isNotEmpty>
+        	
+        	<isEqual property="strHNDL_STA_CD" compareValue="Y"  prepend="AND">
+        		DECODE(NVL(COFM_STA_CD,'N'),'N','4','3') = T1.RQS_STA_CD
+        	</isEqual>
+        	
+        	<isEqual property="strHNDL_STA_CD" compareValue="N"  prepend="AND">
+        		DECODE(NVL(COFM_STA_CD,'N'),'N','4','3') <![CDATA[<>]]> T1.RQS_STA_CD
+        	</isEqual>
+        	
+        	<isNotEmpty property="strUSR_DVSN_CD" prepend="AND">
+        		T1.USR_DVSN_CD = #strUSR_DVSN_CD#
+        	</isNotEmpty>
+        	
+        	<isNotEmpty property="strPBSVT_NO" prepend="AND">
+        		T1.PBSVT_NO LIKE '%'||#strPBSVT_NO#||'%'
+        	</isNotEmpty>
+        	<isEmpty property="strRQS_STA_CD" prepend="AND">
+        		T1.RQS_STA_CD IN ('3','4')
+        	</isEmpty> 
+        	
+        	<isNotEmpty property="strRQS_STA_CD" prepend="AND">
+        		T1.RQS_STA_CD = #strRQS_STA_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strRLS_DTS">
+        		AND	T1.RLS_DT &gt;= #strRLS_DTS#
+        	</isNotEmpty>
+        	<isNotEmpty property="strRLS_DTE">
+        		AND	T1.RLS_DT &lt;= #strRLS_DTE#
+        	</isNotEmpty>
+        	
+        	<isNotEmpty property="strCOFM_STA_CD" prepend="AND">
+        		NVL(COFM_STA_CD,'N') = #strCOFM_STA_CD#
+        	</isNotEmpty>
+        	
+        </dynamic>
+        
+    <include refid = "include.pageOrder"/> 
+    </select>
+    
+    
+    <update id="CSPOEP008EUpdate" parameterClass="paramMap">
+    	<![CDATA[
+    		UPDATE	TBDCMACM001M
+    		SET		PBSVT_NO = #PBSVT_NO#
+    		WHERE	CNB = #CNB#
+    	]]>
+    </update>
+    
+    <update id="CSPOEP008EApplyUpdate" parameterClass="paramMap">
+    	<![CDATA[
+    		UPDATE	TBDCMACM001M
+    		SET		COFM_DT = TO_CHAR(SYSDATE,'YYYYMMDD')
+    				,COFM_STA_CD = #COFM_STA_CD#
+    		WHERE	CNB = #CNB#
+    	]]>
+    </update>
+    
+    
+    <select id="CSPOEP008EExcelExportSelect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT '900000000'||A.CNB USR_ID, A.CNB, A.DPT_CD, B.ABR_DPT_NM_1, B.DPT_SNO, A.RANK_CD, (SELECT CD_NM FROM TBDCMACM013C WHERE CD = A.RANK_CD AND CMM_CD_DVSN_CD = '1000173') RANK_NM, A.USR_NAM, A.INN_RANK_CD,
+			       (SELECT CD_NM FROM TBDCMACM013C WHERE CD = A.INN_RANK_CD AND CMM_CD_DVSN_CD = '1000161') INN_RANK_NM,RANK_SRT_SEQ_NM,CRNT_RANK_APM_DT,SRT_KY_NO,CRNT_DPT_APM_DT, EIN
+			FROM TBDCMACM001M A, TBDCMACM002M B
+			WHERE A.RQS_STA_CD = '3' AND A.USR_ID NOT LIKE 'test%'
+			AND A.DPT_CD = B.DPT_CD
+			UNION ALL
+			SELECT CASE WHEN PBSVT_NO LIKE '%-%' THEN  SUBSTR(PBSVT_NO,1,INSTR(PBSVT_NO,'-')-1)||LPAD(SUBSTR(PBSVT_NO,INSTR(PBSVT_NO,'-')+1),6,'0')
+			    ELSE PBSVT_NO END USR_ID, A.CNB, A.DPT_CD, B.ABR_DPT_NM_1, B.DPT_SNO, A.RANK_CD, (SELECT CD_NM FROM TBDCMACM013C WHERE CD = A.RANK_CD AND CMM_CD_DVSN_CD = '1000173') RANK_NM, A.USR_NAM, A.INN_RANK_CD,
+			       (SELECT CD_NM FROM TBDCMACM013C WHERE CD = A.INN_RANK_CD AND CMM_CD_DVSN_CD = '1000161') INN_RANK_NM,RANK_SRT_SEQ_NM,CRNT_RANK_APM_DT,SRT_KY_NO,CRNT_DPT_APM_DT, EIN
+			FROM TBDCMACM001M A, TBDCMACM002M B
+			WHERE A.RQS_STA_CD = '3' AND A.USR_ID NOT LIKE 'test%'
+			AND A.DPT_CD = B.DPT_CD
+			ORDER BY B.DPT_SNO, NVL(INN_RANK_CD,'50') ASC, RANK_SRT_SEQ_NM, CRNT_RANK_APM_DT, SRT_KY_NO,CRNT_DPT_APM_DT, EIN
+]]>
+    </select>
+    
+    <select id="CSPOEP008EExcelExportSelect2" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			select T1.USR_NAM ,
+			       substring(T1.EIN, 1, 7) EIN,
+			       T1.CNB ,
+			       T1.DPT_CD ,
+			       F_DPT_INFO(T1.DPT_CD ,'1') AS DPT_NM,
+			       F_DPT_INFO(T1.DPT_CD ,'4') AS ABR_DPT_NM_1,
+			       T1.RAL_BLT_DIV_CD,
+			       F_CODE_NM('1000144',T1.RAL_BLT_DIV_CD) AS RAL_BLT_DIV_NM,
+			       T1.RANK_CD_2,
+			       T1.RANK_NM_2,
+			       T1.RANK_CD,
+			       F_CODE_NM('1000173',T1.RANK_CD) AS RANK_NM,
+			       T1.RANK_SRT_SEQ_NM ,
+			       T1.PST_CD,
+			       F_CODE_NM('1000176',T1.PST_CD) AS PST_NM,
+			       NVL(T1.INN_RANK_CD,'50') AS INN_RANK_CD ,
+			       F_CODE_NM('1000161',NVL(T1.INN_RANK_CD,'50')) AS INN_RANK_NM,
+			       T1.AD,
+			       T1.RSD_ZCD,
+			       T1.TNB,
+			       T1.HOM_TNB,
+			       T1.R_HOM_TNB,
+			       (select DPT_SNO
+			          from TBDCMACM002M
+			         where DPT_CD = T1.DPT_CD) DPT_SNO,
+			       NVL(T1.INN_RANK_CD,'50') AS ORDER_INN_RANK_CD,
+			       T1.RANK_SRT_SEQ_NM ORDER_RANK_SRT_SEQ_NM,
+			       T1.CRNT_RANK_APM_DT ORDER_CRNT_RANK_APM_DT,
+			       T1.SRT_KY_NO ORDER_SRT_KY_NO,
+			       T1.CRNT_DPT_APM_DT ORDER_CRNT_DPT_APM_DT,
+			       substring(T1.EIN, 1, 6) ORDER_EIN,
+			       (CASE WHEN (SELECT DPT_SNO FROM TBDCMACM002M WHERE DPT_CD = T1.DPT_CD) = 828 THEN 820
+                          WHEN (SELECT DPT_SNO FROM TBDCMACM002M WHERE DPT_CD = T1.DPT_CD) = 818 THEN 810
+                          WHEN T1.RAL_BLT_DIV_CD = '200710' THEN 814
+                        ELSE (SELECT DPT_SNO FROM TBDCMACM002M WHERE DPT_CD = T1.DPT_CD)  
+                     END  ) SORT1 /*감사교육원 및 교육운영부 연구부 정렬수정*/
+			  from TBDCMACM001M T1
+			 where USR_DVSN_CD in ('1','3') and (CNB < '5' OR CNB > '8')
+			   AND USR_ID not like 'itedu%'
+			   AND RQS_STA_CD ='3'
+			   and DPT_CD <= '770770' /*파견자 포함*/
+			   ORDER BY SORT1,DPT_SNO, ORDER_INN_RANK_CD, ORDER_RANK_SRT_SEQ_NM, ORDER_CRNT_RANK_APM_DT, ORDER_SRT_KY_NO, ORDER_CRNT_DPT_APM_DT, ORDER_EIN
+]]>
+    </select>
+    
+    <select id="CSPOEP008EExcelExportSelect3" parameterClass="paramMap" resultClass="resultMap">
+    
+    <![CDATA[
+				SELECT	T1.CNB
+						, T1.DPT_CD
+						, T2.DPT_NM
+						, T1.USR_NAM
+						, T1.PBSVT_NO
+						,F_CODE_NM('1000338',T1.USR_DVSN_CD) AS USR_DVSN_NM
+						,RAL_BLT_DIV_CD
+						,COFM_DT
+						,DECODE(COFM_STA_CD,'N','해지적용','Y','승인적용','') AS COFM_STA_NM
+						,CAR_NO
+						,F_CODE_NM('1000339',T1.RQS_STA_CD) AS RQS_STA_NM
+                         ,INN_RANK_CD
+                         ,RANK_SRT_SEQ_NM
+                         ,CRNT_RANK_APM_DT
+                         ,SRT_KY_NO
+                         ,CRNT_DPT_APM_DT
+                         ,EIN ,DPT_SNO
+                         ,RLS_DT
+				FROM	TBDCMACM001M T1
+						,TBDCMACM002M T2
+				WHERE	1=1
+				AND		T1.DPT_CD = T2.DPT_CD
+				AND		SUBSTR(T1.CNB,1,1) <> '5'
+				AND		T2.USE_YN = 'Y'
+        ]]>
+        
+        <dynamic>
+        	<isNotEmpty property="strCNB" prepend="AND">
+        		T1.CNB = #strCNB#
+        	</isNotEmpty>
+        	
+        	<isNotEmpty property="strDPT_CD" prepend="AND">
+        		T1.DPT_CD = #strDPT_CD#
+        	</isNotEmpty>
+        	
+        	<isEqual property="strHNDL_STA_CD" compareValue="Y"  prepend="AND">
+        		DECODE(NVL(COFM_STA_CD,'N'),'N','4','3') = T1.RQS_STA_CD
+        	</isEqual>
+        	
+        	<isEqual property="strHNDL_STA_CD" compareValue="N"  prepend="AND">
+        		DECODE(NVL(COFM_STA_CD,'N'),'N','4','3') <![CDATA[<>]]> T1.RQS_STA_CD
+        	</isEqual>
+        	
+        	<isNotEmpty property="strUSR_DVSN_CD" prepend="AND">
+        		T1.USR_DVSN_CD = #strUSR_DVSN_CD#
+        	</isNotEmpty>
+        	
+        	<isNotEmpty property="strPBSVT_NO" prepend="AND">
+        		T1.PBSVT_NO LIKE '%'||#strPBSVT_NO#||'%'
+        	</isNotEmpty>
+        	<isEmpty property="strRQS_STA_CD" prepend="AND">
+        		T1.RQS_STA_CD IN ('3','4')
+        	</isEmpty> 
+        	
+        	<isNotEmpty property="strRQS_STA_CD" prepend="AND">
+        		T1.RQS_STA_CD = #strRQS_STA_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strRLS_DTS">
+        		AND	T1.RLS_DT &gt;= #strRLS_DTS#
+        	</isNotEmpty>
+        	<isNotEmpty property="strRLS_DTE">
+        		AND	T1.RLS_DT &lt;= #strRLS_DTE#
+        	</isNotEmpty>
+        	
+        	<isNotEmpty property="strCOFM_STA_CD" prepend="AND">
+        		NVL(COFM_STA_CD,'N') = #strCOFM_STA_CD#
+        	</isNotEmpty>
+        	
+        </dynamic>
+        ORDER BY DPT_SNO, NVL(INN_RANK_CD,'50') ASC , RANK_SRT_SEQ_NM, CRNT_RANK_APM_DT, SRT_KY_NO, CRNT_DPT_APM_DT, EIN
+    </select>
+
+    <select id="CSPOEP008ERselect1" parameterClass="paramMap" resultClass="resultMap">
+	    <![CDATA[
+	    SELECT 
+		       F_DPT_INFO(T1.DPT_CD , '1') AS DPT_NM,
+		       F_CODE_NM('1000176', T1.PST_CD) AS PST_NM,
+		       T1.RANK_NM_2,
+		       T1.USR_NAM , 
+		       T1.R_HOM_TNB,
+		       T1.HOM_TNB,
+		       (SELECT DPT_SNO
+		          FROM TBDCMACM002M
+		         WHERE DPT_CD = T1.DPT_CD) DPT_SNO,
+		       NVL(T1.INN_RANK_CD, '50') AS ORDER_INN_RANK_CD,
+		       T1.RANK_SRT_SEQ_NM ORDER_RANK_SRT_SEQ_NM,
+		       T1.CRNT_RANK_APM_DT ORDER_CRNT_RANK_APM_DT,
+		       T1.SRT_KY_NO ORDER_SRT_KY_NO,
+		       T1.CRNT_DPT_APM_DT ORDER_CRNT_DPT_APM_DT,
+		       SUBSTRING(T1.EIN, 1, 6) ORDER_EIN,
+		       (CASE WHEN T1.DPT_CD='500000' OR T1.DPT_CD='120000'  THEN '1' ELSE '2' END) AS SORT1,
+		       (CASE WHEN T1.DPT_CD='520000' THEN '1' ELSE '2' END) AS SORT2,
+		       (CASE WHEN T1.RAL_BLT_DIV_CD = '510510' THEN '1' ELSE '2' END) AS SORT3, 
+		       (CASE WHEN T1.RAL_BLT_DIV_CD = '510520' THEN '1' ELSE '2' END) AS SORT4,
+		       (CASE WHEN T1.RAL_BLT_DIV_CD = '510530' THEN '1' ELSE '2' END) AS SORT5, 
+		       (CASE WHEN T1.RAL_BLT_DIV_CD = '510540' THEN '1' ELSE '2' END) AS SORT6, 
+		       (CASE WHEN T1.RAL_BLT_DIV_CD = '510550' THEN '1' ELSE '2' END) AS SORT7  
+		
+		 FROM TBDCMACM001M T1
+		 WHERE USR_DVSN_CD in ('1','3')
+		   AND (CNB < '5' OR CNB > '8')
+		   AND USR_ID not like 'itedu%'
+		   AND RQS_STA_CD ='3'
+		   AND DPT_CD <= '770770' /*파견자 포함*/
+           AND DPT_CD IN ('510000','160200','500000','120000','520000','530000')
+		 ORDER BY 
+		       SORT1, SORT2, SORT3, SORT4, SORT5, SORT6, SORT7,
+		       DPT_SNO,
+		       ORDER_INN_RANK_CD,
+		       ORDER_RANK_SRT_SEQ_NM,
+		       ORDER_CRNT_RANK_APM_DT,
+		       ORDER_SRT_KY_NO,
+		       ORDER_CRNT_DPT_APM_DT,
+		       ORDER_EIN
+	     ]]>
+    </select>
+    
+     <select id="CSPOEP008ERselect2" parameterClass="paramMap" resultClass="resultMap">
+	    <![CDATA[
+	    
+	     ]]>
+    </select>
+    
+    
+    <select id="CSPOEP008EExcelExportSelect4" parameterClass="paramMap" resultClass="resultMap">
+    
+    	<![CDATA[
+			SELECT	F_DPT_INFO(T1.DPT_CD , '1') AS DPT_NM,
+       				F_CODE_NM('1000176', T1.PST_CD) AS PST_NM,
+       				/* T1.RANK_NM_2 , */
+       				(SELECT REPLACE(
+                			REPLACE(CASE    WHEN CD IN ('004','007','187','214','215','216','988') THEN T1.RANK_NM_2
+                                WHEN (CD LIKE '96%' OR CD = '215' OR T1.RANK_NM_2 = '해당없음' OR T1.RANK_NM_2 IS NULL) THEN CD_NM
+                        ELSE CD_NM
+                        END, '(일반임기제)', ''), '(시간선택제)', '')
+        			FROM    TBDCMACM013C
+        			WHERE   CMM_CD_DVSN_CD = '1000173'
+        			AND     CD = SUBSTR(T1.RANK_CD,'0','3')) RANK_NM_2, 
+       				T1.USR_NAM , 
+       				T1.R_HOM_TNB,
+       				T1.HOM_TNB,
+       				(SELECT DPT_SNO
+						FROM TBDCMACM002M
+					WHERE DPT_CD = T1.DPT_CD) DPT_SNO,
+					NVL(T1.INN_RANK_CD, '50') AS ORDER_INN_RANK_CD,
+					T1.RANK_SRT_SEQ_NM ORDER_RANK_SRT_SEQ_NM,
+					T1.CRNT_RANK_APM_DT ORDER_CRNT_RANK_APM_DT,
+					T1.SRT_KY_NO ORDER_SRT_KY_NO,
+					T1.CRNT_DPT_APM_DT ORDER_CRNT_DPT_APM_DT,
+					SUBSTRING(T1.EIN, 1, 6) ORDER_EIN,
+					(CASE WHEN T1.DPT_CD='500000' OR T1.DPT_CD='120000'  THEN '1' ELSE '2' END) AS SORT1,
+					(CASE WHEN T1.DPT_CD='520000' THEN '1' ELSE '2' END) AS SORT2,
+					(CASE WHEN T1.RAL_BLT_DIV_CD = '510510' THEN '1' ELSE '2' END) AS SORT3,  
+					(CASE WHEN T1.RAL_BLT_DIV_CD = '510520' THEN '1' ELSE '2' END) AS SORT4, 
+					(CASE WHEN T1.RAL_BLT_DIV_CD = '510530' THEN '1' ELSE '2' END) AS SORT5,  
+					(CASE WHEN T1.RAL_BLT_DIV_CD = '510540' THEN '1' ELSE '2' END) AS SORT6,  
+					(CASE WHEN T1.RAL_BLT_DIV_CD = '510550' THEN '1' ELSE '2' END) AS SORT7,
+					(CASE WHEN T1.RAL_BLT_DIV_CD = '510560' THEN '1' ELSE '2' END) AS SORT8,
+                    (CASE WHEN (SELECT DPT_SNO FROM TBDCMACM002M WHERE DPT_CD = T1.DPT_CD) = 828 THEN 820
+                          WHEN (SELECT DPT_SNO FROM TBDCMACM002M WHERE DPT_CD = T1.DPT_CD) = 818 THEN 810
+                          WHEN T1.RAL_BLT_DIV_CD = '200710' THEN 814
+                        ELSE (SELECT DPT_SNO FROM TBDCMACM002M WHERE DPT_CD = T1.DPT_CD)  
+                     END  ) SORT9  /* 감사교육원 연구부 부장 순서정렬 */
+			FROM TBDCMACM001M T1
+ 			WHERE 	USR_DVSN_CD IN ('1','3')
+   					AND (CNB < '5' OR CNB > '8')
+   					AND USR_ID NOT LIKE 'itedu%'
+   					AND RQS_STA_CD ='3'
+   					AND DPT_CD <= '770770' /*파견자 포함*/
+ 			ORDER BY 
+       				SORT1,
+       				SORT2,
+       				SORT3,
+       				SORT4,
+       				SORT5,
+       				SORT6,
+       				SORT7,
+       				SORT8,
+       				SORT9,
+					DPT_SNO,
+					ORDER_INN_RANK_CD,
+					ORDER_RANK_SRT_SEQ_NM,
+					ORDER_CRNT_RANK_APM_DT,
+					ORDER_SRT_KY_NO,
+					ORDER_CRNT_DPT_APM_DT,
+					ORDER_EIN
+        ]]>
+    </select>
+    
+    
+</sqlMap> 

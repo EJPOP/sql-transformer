@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/qbo/121">
+ 
+ 	<select id="CSPQBO121EMainSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<![CDATA[
+			SELECT 	 A.BOO_NO 				/*도서번호*/
+					,A.BOO_VLE_NO
+					,A.BOO_NO||'-'||A.BOO_VLE_NO AS BOO_NOS
+					,A.CAT_SYM_NM  			/*분류기호명*/
+					, SUBSTR(A.CAT_SYM_NM,1,1)||'-'||SUBSTR(A.CAT_SYM_NM,2,3)||'-'||SUBSTR(A.CAT_SYM_NM,5,3) AS CAT_SYM_NM2
+					,A.BOO_TIT_NM  			/*도서제목명*/
+					,A.ATR_NM /*저자*/
+					,( SELECT	B.BOO_REN_APT_DT 
+						 FROM 	TBCSPQBO002H B 
+						WHERE 	A.COPT_CAT_CD = B.COPT_CAT_CD
+    					  AND 	A.BOO_KND_CD = B.BOO_KND_CD
+    					  AND 	A.BOO_NO = B.BOO_NO
+    					  AND 	A.CAT_SYM_NM = B.CAT_SYM_NM
+    					  AND 	A.BOO_VLE_NO = B.BOO_VLE_NO 
+    					  AND 	B.BOO_REN_YN_CD ='0' 
+    					  AND 	A.BOO_LEND_DVSN_CD ='0'
+    					) AS BOO_REN_APT_DT /*도서반납예정일*/
+					,F_USR_INFO(C.LEND_BOKG_PEN_CNB,'2') AS LEND_BOKG_PEN_NM		/*대출예약자*/
+					,C.LEND_BOKG_APL_DT 	/*대출예약일자*/
+					,C.BOO_BOKG_NO /*예약순번*/ 
+					,NVL(A.BOO_LEND_DVSN_CD,'1') AS BOO_LEND_DVSN_CD		/*입고여부*/
+					,F_DPT_INFO(F_USR_INFO(C.LEND_BOKG_PEN_CNB,'5'), '1') AS LEND_BOKG_DPT_NM
+					,A.COPT_CAT_CD			/*소관분류코드*/
+					,A.BOO_KND_CD			/*도서종류코드*/
+					,C.BOO_BOKG_SLN			/*도서예약연번*/
+					,F_USR_INFO(C.LEND_BOKG_PEN_CNB,'1') AS LEND_BOKG_PEN_ID		/*대출예약자*/
+					,C.LEND_BOKG_PEN_CNB
+			FROM	 TBCSPQBO001M A		/*도서자료기본*/
+					,(SELECT Z.*, RANK() OVER (PARTITION BY Z.COPT_CAT_CD, Z.BOO_KND_CD, Z.BOO_NO, Z.CAT_SYM_NM, Z.BOO_VLE_NO ORDER BY Z.BOO_BOKG_SLN ASC) AS BOO_BOKG_NO 
+						FROM TBCSPQBO003H Z 
+						WHERE Z.LEND_BOKG_STA_CD = 'Y') C		/*도서대출예약이력*/
+			WHERE	1=1
+			AND		A.COPT_CAT_CD = C.COPT_CAT_CD
+			AND		A.BOO_KND_CD = C.BOO_KND_CD
+			AND		A.BOO_NO = C.BOO_NO
+			AND		A.CAT_SYM_NM = C.CAT_SYM_NM
+			AND		A.BOO_VLE_NO = C.BOO_VLE_NO
+			AND		A.COPT_CAT_CD = #strCOPT_CAT_CD#
+			AND		C.LEND_BOKG_STA_CD = 'Y'
+		]]> 
+		<dynamic>
+        	<isNotEmpty property="strBOO_NOS">
+				AND	A.BOO_NO &gt;= #strBOO_NOS#
+        	</isNotEmpty>
+        	<isNotEmpty property="strBOO_NOE">
+				AND	A.BOO_NO &lt;= #strBOO_NOE#
+        	</isNotEmpty>
+        	<isNotEmpty property="strBAR_CD">
+        		AND	A.BAR_CD = #strBAR_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strLEND_BOKG_APL_DTS">
+        		AND	C.LEND_BOKG_APL_DT &gt;= #strLEND_BOKG_APL_DTS#
+        	</isNotEmpty>
+        	<isNotEmpty property="strLEND_BOKG_APL_DTE">
+        		AND	C.LEND_BOKG_APL_DT &lt;= #strLEND_BOKG_APL_DTE#
+        	</isNotEmpty>
+        	
+			<isNotEmpty property="strBOO_KND_CD"> 
+			  	AND A.BOO_KND_CD IN 
+			  		(SELECT 	SUBSTR(CODE,INSTR(CODE,',',1,LEVEL)+1,INSTR(CODE,',',1,LEVEL+1)-INSTR(CODE,',',1,LEVEL) -1) merge_col
+                     FROM 	DUAL A
+                     CROSS JOIN(SELECT ','|| #strBOO_KND_CD# ||',' AS CODE FROM DUAL) B
+                     CONNECT BY LEVEL&lt;=LENGTH(CODE)-LENGTH(REPLACE(CODE,','))-1 )				
+			</isNotEmpty>
+			<isNotEmpty property="strCAT_SYM_NMS2"> 
+				AND	A.CAT_SYM_NM &gt;= #strCAT_SYM_NMS1#||#strCAT_SYM_NMS2#||#strCAT_SYM_NMS3#
+			</isNotEmpty>
+			<isNotEmpty property="strCAT_SYM_NME2"> 
+				AND	A.CAT_SYM_NM &lt;= #strCAT_SYM_NME1#||#strCAT_SYM_NME2#||#strCAT_SYM_NME3#
+			</isNotEmpty>
+        	
+        	<isNotEmpty property="strBOO_TIT_NM1">
+        		<isEmpty property="strBOO_TIT_NM2">
+        			<isEmpty property="strBOO_TIT_NM3">
+        				AND	A.BOO_TIT_NM like '%'||#strBOO_TIT_NM1#||'%'
+        			</isEmpty>
+        			<isNotEmpty property="strBOO_TIT_NM3">
+        				<isEqual property="strBOO_TIT_NM_DELI2" compareValue="AND">
+        					AND	(A.BOO_TIT_NM like '%'||#strBOO_TIT_NM1#||'%' AND A.BOO_TIT_NM like '%'||#strBOO_TIT_NM3#||'%')
+        				</isEqual>
+        				<isEqual property="strBOO_TIT_NM_DELI2" compareValue="OR">
+        					AND	(A.BOO_TIT_NM like '%'||#strBOO_TIT_NM1#||'%' OR A.BOO_TIT_NM like '%'||#strBOO_TIT_NM3#||'%')
+        				</isEqual>
+        			</isNotEmpty>
+        		</isEmpty>
+        		<isNotEmpty property="strBOO_TIT_NM2">
+        			<isEmpty property="strBOO_TIT_NM3">
+        				<isEqual property="strBOO_TIT_NM_DELI1" compareValue="AND">
+        					AND	(A.BOO_TIT_NM like '%'||#strBOO_TIT_NM1#||'%' AND A.BOO_TIT_NM like '%'||#strBOO_TIT_NM2#||'%')
+        				</isEqual>
+        				<isEqual property="strBOO_TIT_NM_DELI1" compareValue="OR">
+        					AND	(A.BOO_TIT_NM like '%'||#strBOO_TIT_NM1#||'%' OR A.BOO_TIT_NM like '%'||#strBOO_TIT_NM2#||'%')
+        				</isEqual>
+        			</isEmpty>
+        			<isNotEmpty property="strBOO_TIT_NM3">
+        				<isEqual property="strBOO_TIT_NM_DELI1" compareValue="AND">
+        					<isEqual property="strBOO_TIT_NM_DELI2" compareValue="AND">
+        						AND	(A.BOO_TIT_NM like '%'||#strBOO_TIT_NM1#||'%' 
+        							AND A.BOO_TIT_NM like '%'||#strBOO_TIT_NM2#||'%'
+        							AND A.BOO_TIT_NM like '%'||#strBOO_TIT_NM3#||'%')
+        					</isEqual>
+        					<isEqual property="strBOO_TIT_NM_DELI2" compareValue="OR">
+        						AND	(A.BOO_TIT_NM like '%'||#strBOO_TIT_NM1#||'%' 
+        							AND (A.BOO_TIT_NM like '%'||#strBOO_TIT_NM2#||'%'
+        								OR A.BOO_TIT_NM like '%'||#strBOO_TIT_NM3#||'%'))
+        					</isEqual>
+        				</isEqual>
+        				<isEqual property="strBOO_TIT_NM_DELI1" compareValue="OR">
+        					<isEqual property="strBOO_TIT_NM_DELI2" compareValue="AND">
+        						AND	( (A.BOO_TIT_NM like '%'||#strBOO_TIT_NM1#||'%' OR A.BOO_TIT_NM like '%'||#strBOO_TIT_NM2#||'%')
+        								AND	A.BOO_TIT_NM like '%'||#strBOO_TIT_NM3#||'%')
+        					</isEqual>
+        					<isEqual property="strBOO_TIT_NM_DELI2" compareValue="OR">
+        						AND	(A.BOO_TIT_NM like '%'||#strBOO_TIT_NM1#||'%' OR A.BOO_TIT_NM like '%'||#strBOO_TIT_NM2#||'%'
+        								OR A.BOO_TIT_NM like '%'||#strBOO_TIT_NM3#||'%')
+        					</isEqual>
+        				</isEqual>
+        			</isNotEmpty>
+        		</isNotEmpty>
+        	</isNotEmpty>
+        	<isEqual property="strBOO_LEND_DVSN_CD" compareValue="1">
+        		AND	(A.BOO_LEND_DVSN_CD = #strBOO_LEND_DVSN_CD# OR A.BOO_LEND_DVSN_CD IS NULL)
+        	</isEqual>
+        	<isEqual property="strBOO_LEND_DVSN_CD" compareValue="0">
+        		AND	(A.BOO_LEND_DVSN_CD = #strBOO_LEND_DVSN_CD# )
+        	</isEqual>
+        	<isNotEmpty property="strLEND_BOKG_PEN_NM">
+        		AND C.LEND_BOKG_PEN_CNB IN (SELECT CNB FROM TBDCMACM001M WHERE USR_NAM LIKE '%'||#strLEND_BOKG_PEN_NM#||'%' )
+        	</isNotEmpty>
+        	<isNotEmpty property="strDPT_CD">
+        		AND C.LEND_BOKG_PEN_CNB IN (SELECT CNB FROM TBDCMACM001M WHERE DPT_CD = #strDPT_CD# )
+        	</isNotEmpty>
+        </dynamic>
+	</select>
+	
+	<delete id="CSPQBO121ETBCSPQBO003HDelete" parameterClass="paramMap">
+		<![CDATA[
+			DELETE	
+			FROM	TBCSPQBO003H
+			WHERE	COPT_CAT_CD = #COPT_CAT_CD#
+			AND		BOO_KND_CD = #BOO_KND_CD#
+			AND		BOO_NO = #BOO_NO#
+			AND		CAT_SYM_NM = #CAT_SYM_NM#
+			AND		BOO_VLE_NO = #BOO_VLE_NO#
+			AND		BOO_BOKG_SLN = #BOO_BOKG_SLN#
+		]]>
+	</delete>
+	
+</sqlMap> 

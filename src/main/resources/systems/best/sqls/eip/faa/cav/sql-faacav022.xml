@@ -1,0 +1,393 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.go.bai.eip.faa.cav.dao.FAACAV022QMapper">
+    
+    <select id="selectLoadSttcList" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.faa.cav.dao.FAACAV022QMapper.selectLoadSttcList */
+        <![CDATA[
+       SELECT AUD_YR 
+             ,ROW_KND_CD
+             ,VIEW_YN
+             ,STTC_TIT1
+             ,STTC_COL1
+			 ,STTC_COL2
+			 ,STTC_COL3
+		   	 ,STTC_COL4
+			 ,STTC_COL5
+             ,STTC_COL6
+             ,STTC_COL7
+			 ,STTC_COL8
+			 ,STTC_COL9
+		   	 ,STTC_COL10
+			 ,STTC_COL11	
+        FROM (        
+				SELECT TO_CHAR(AUD_YR) AS AUD_YR
+					 , TO_CHAR(NVL(DSP_RQ_KND_CD, 0)) AS ROW_KND_CD 
+					 , CASE WHEN AUD_YR IS NULL THEN 'Y'
+	                        WHEN SUBSTR(ADD_MONTHS(#{proStadDt}, -1), 0, 4) - 1 > AUD_YR THEN 'N'
+	                        ELSE 'Y'
+	                   END VIEW_YN
+					 , CASE WHEN T1.DSP_RQ_KND_CD IS NULL THEN T1.AUD_YR || '년 합계'
+				            WHEN T1.DSP_RQ_KND_CD = 1     THEN '변상판정'
+				            WHEN T1.DSP_RQ_KND_CD = 2     THEN '징계문책'
+				            WHEN T1.DSP_RQ_KND_CD = 3     THEN '시정,주의 등'
+				        END                                                            AS STTC_TIT1
+				     , TO_CHAR(NVL(T1.NOW_MAKE  , 0))                                  AS STTC_COL1  
+				     , TO_CHAR(NVL(T1.PAST_MAKE , 0))                                  AS STTC_COL2        
+				     , TO_CHAR(NVL(T1.TOT_MAKE  , 0))                                  AS STTC_COL3  
+				     , TO_CHAR(NVL(T1.RESULT_1  , 0))                                  AS STTC_COL4  
+				     , TO_CHAR(NVL(T1.RESULT_2  , 0))                                  AS STTC_COL5   
+				     , TO_CHAR(NVL(T1.RESULT_3  , 0))                                  AS STTC_COL6  
+				     , TO_CHAR(NVL(T1.RESULT_4  , 0))                                  AS STTC_COL7  
+				     , TO_CHAR(NVL(T1.RESULT_5  , 0))                                  AS STTC_COL8  
+				     , TO_CHAR(NVL(T1.RESULT_TOT, 0))                                  AS STTC_COL9  
+				     , TO_CHAR(NVL(T1.TOT_MAKE, 0) - NVL(T1.RESULT_TOT, 0))            AS STTC_COL10       
+				     , TO_CHAR(NVL(CASE WHEN T1.RESULT_TOT = 0 THEN NULL
+				     			WHEN T1.RESULT_1 = 0 THEN NULL
+				                ELSE TRUNC(T1.RESULT_1/T1.RESULT_TOT*100,2) END, 0)) AS STTC_COL11  
+				  FROM (
+				           SELECT  SUBSTR(ADD_MONTHS(#{proStadDt}, -1),0,4) AS AUD_YR
+			                    ,CASE WHEN D4.DSP_RQ_KND_CD = '110' THEN 1 /* 변상판정 */
+				                        WHEN D4.DSP_RQ_KND_CD = '210' THEN 2 /* 징계문책 */
+				                        ELSE                               3 /* 시정,주의 등*/
+				                    END                  AS DSP_RQ_KND_CD
+				                 , SUM(
+				                     CASE WHEN D1.ACP_DT BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01') AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1)) THEN NVL(D1.STTC_CNT, 1)
+				                          WHEN D1.ACP_YR < SUBSTR(ADD_MONTHS(#{proStadDt}, -1),1,4)
+				                           AND D2.SBCN_DT IS NULL 
+				                           AND D3.ENF_DT IS NULL THEN NVL(D1.STTC_CNT, 1)
+				                          WHEN D1.ACP_YR < SUBSTR(ADD_MONTHS(#{proStadDt}, -1),1,4)
+				                           AND NVL(D2.SBCN_DT, D3.ENF_DT)BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01') AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1)) THEN NVL(D1.STTC_CNT, 1)
+				                          ELSE 0 END
+				                 ) AS TOT_MAKE                                /* 청구건수 계 */
+				                 , SUM(
+				                     CASE WHEN D1.ACP_YR < SUBSTR(ADD_MONTHS(#{proStadDt}, -1),1,4)
+				                           AND NVL(D2.SBCN_DT, D3.ENF_DT) IS NULL THEN NVL(D1.STTC_CNT, 1)
+				                          WHEN D1.ACP_YR < SUBSTR(ADD_MONTHS(#{proStadDt}, -1),1,4)
+				                           AND NVL(D2.SBCN_DT, D3.ENF_DT)BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01') AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1)) THEN NVL(D1.STTC_CNT, 1)
+				                          ELSE 0 END
+				                 ) AS PAST_MAKE                               /* 청구건수 이월 */
+				                 , SUM(
+				                     CASE WHEN D1.ACP_DT BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01') AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1)) THEN NVL(D1.STTC_CNT, 1)
+				                          ELSE 0 END
+				                 ) AS NOW_MAKE                                /* 청구건수 신규 */
+				                 , SUM(
+				                     CASE WHEN NVL(D2.SBCN_DT, D3.ENF_DT)BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01') AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1))
+				                           AND NVL(D2.VT_KND_CD, '9999') != '9999' THEN NVL(D1.STTC_CNT, 1)
+				                          ELSE 0 END
+				                 ) AS RESULT_TOT                               /* 처리결과 계 */
+				                 , SUM(
+				                     CASE WHEN NVL(D2.SBCN_DT, D3.ENF_DT)BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01') AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1))
+				                           AND D2.VT_KND_CD IN ('3', '4', '5') THEN NVL(D1.STTC_CNT, 1)
+				                          ELSE 0 END
+				                 ) AS RESULT_1                               /* 처리결과 인용 */
+				                 , SUM(
+				                     CASE WHEN NVL(D2.SBCN_DT, D3.ENF_DT)BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01') AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1))
+				                           AND D2.VT_KND_CD IN ('1', '2') THEN NVL(D1.STTC_CNT, 1)
+				                          ELSE 0 END
+				                 ) AS RESULT_2                               /* 처리결과 인용 */
+				                 , SUM(
+				                     CASE WHEN NVL(D2.SBCN_DT, D3.ENF_DT)BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01') AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1))
+				                           AND D2.VT_KND_CD IN ('6') THEN NVL(D1.STTC_CNT, 1)
+				                          ELSE 0 END
+				                 ) AS RESULT_3                               /* 처리결과 기각 */
+				                 , SUM(
+				                     CASE WHEN NVL(D2.SBCN_DT, D3.ENF_DT)BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01') AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1))
+				                           AND D2.VT_KND_CD IN ('8') THEN NVL(D1.STTC_CNT, 1)
+				                          ELSE 0 END
+				                 ) AS RESULT_4                               /* 처리결과 각하 */
+				                 , SUM(
+				                     CASE WHEN NVL(D2.SBCN_DT, D3.ENF_DT)BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01') AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1))
+				                           AND D2.VT_KND_CD IN ('7') THEN NVL(D1.STTC_CNT, 1)
+				                          ELSE 0 END
+				                 ) AS RESULT_5                               /* 처리결과 취하 */
+				                 , SUM(
+				                     CASE WHEN NVL(D2.SBCN_DT, D3.ENF_DT)BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01') AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1))
+				                           AND D2.VT_KND_CD IN ('9') THEN NVL(D1.STTC_CNT, 1)
+				                          ELSE 0 END
+				                 ) AS RESULT_ETC                               /* 처리결과 기타 */
+				              FROM TBBADFRE012M D1
+				                 , TBBADFRE012D D2
+				                 , TBBADFRE013D D3
+				                 , TBBADEAR001M D4
+				             WHERE 1 = 1
+				               AND D1.ACP_YR      = D2.ACP_YR     
+				               AND D1.ACP_DVSN_CD = D2.ACP_DVSN_CD
+				               AND D1.ACP_SRNO    = D2.ACP_SRNO   
+				               AND D1.DPT_CD      = D2.DPT_CD    
+				               AND D1.ACP_YR      = D3.ACP_YR     
+				               AND D1.ACP_DVSN_CD = D3.ACP_DVSN_CD
+				               AND D1.ACP_SRNO    = D3.ACP_SRNO   
+				               AND D1.DPT_CD      = D3.DPT_CD
+				               AND D1.AUD_NO      = D4.AUD_NO
+				               AND D1.DSP_RQ_SNO  = D4.DSP_RQ_SNO
+				               AND D1.ACP_DVSN_CD = '2' 
+				             GROUP BY ROLLUP(CASE WHEN D4.DSP_RQ_KND_CD = '110' THEN 1 /* 변상판정 */
+				                                  WHEN D4.DSP_RQ_KND_CD = '210' THEN 2 /* 징계문책 */
+				                                  ELSE                               3 /* 시정,주의 등*/
+				                              END)
+				   ) T1
+	)
+          UNION ALL
+          	SELECT T2.AUD_YR
+		             ,ROW_KND_CD
+                     ,CASE WHEN SUBSTR(ADD_MONTHS(#{proStadDt}, -1),6,2) = '01' AND T2.AUD_YR = (SELECT TO_CHAR(MAX(T2.AUD_YR)-1) 
+              																		FROM TWFAACAV200D T2
+																				   WHERE T2.STTC_CLSF_CD = '022' 
+																					 AND T2.STTC_TYP_SEQ = (SELECT MAX(T3.STTC_TYP_SEQ) 
+																												FROM TWFAACAV200M T3
+																												WHERE T3.STTC_CLSF_CD = '022' 
+																										          AND T3.STTC_DTM_DY IS NOT NULL)) THEN 'N' 
+	                  		WHEN T1.STTC_YR > T2.AUD_YR THEN 'N'
+	                        ELSE 'Y'
+	                   END VIEW_YN  
+		             ,STTC_TIT1
+		             ,TO_CHAR(STTC_COL1)
+					 ,TO_CHAR(STTC_COL2)
+					 ,TO_CHAR(STTC_COL3)
+				   	 ,TO_CHAR(STTC_COL4)
+					 ,TO_CHAR(STTC_COL5)
+		             ,TO_CHAR(STTC_COL6)
+		             ,TO_CHAR(STTC_COL7)
+					 ,TO_CHAR(STTC_COL8)
+					 ,TO_CHAR(STTC_COL9)
+				   	 ,TO_CHAR(STTC_COL10)
+					 ,TO_CHAR(STTC_COL11)
+              FROM TWFAACAV200M T1
+             INNER JOIN TWFAACAV200D T2 ON (
+                        T1.STTC_TYP_CD = T2.STTC_TYP_CD
+                    AND T1.STTC_CLSF_CD = T2.STTC_CLSF_CD
+                    AND T1.STTC_TYP_SEQ = T2.STTC_TYP_SEQ )
+			 WHERE T1.STTC_CLSF_CD = '022'
+				               AND T2.STTC_TYP_SEQ = (SELECT MAX(T3.STTC_TYP_SEQ) 
+														FROM TWFAACAV200M T3
+													   WHERE T3.STTC_CLSF_CD = '022' 
+													     AND T3.STTC_DTM_DY IS NOT NULL)
+							   AND T2.AUD_YR BETWEEN SUBSTR(ADD_MONTHS(#{proStadDt}, -49),0,4) AND SUBSTR(ADD_MONTHS(#{proStadDt},-13),0,4)															
+            ORDER BY AUD_YR DESC, ROW_KND_CD
+        ]]>
+    </select>
+    
+    <select id="selectComboList" parameterType="paramMap" resultType="egovMap">
+        <![CDATA[
+        /* kr.go.bai.eip.aep.arp.dao.FAACAV022QMapper.selectAffComboList */
+            SELECT STTC_TYP_SEQ AS CD,
+                   STTC_YR || '년 ' || STTC_STR_MON || '월' || DECODE(STTC_END_MON, '01', '', ' ~ ' || STTC_END_MON || '월') AS CD_NM
+              FROM TWFAACAV200M 
+             WHERE STTC_TYP_CD = '10'
+               AND STTC_CLSF_CD = '022'
+        ]]>
+        <if test='mngDptYn != "Y"'>
+               AND STTC_DTM_DY IS NOT NULL
+        </if>
+        <![CDATA[
+        	ORDER BY STTC_TYP_SEQ DESC
+        ]]>
+    </select>
+    
+    <select id="selectSttcList" parameterType="paramMap" resultType="egovMap">
+        <![CDATA[
+        /* kr.go.bai.eip.aep.arp.dao.FAACAV022QMapper.selectSttcList */
+            SELECT T1.RMK
+                  ,T1.ADM_OPIN
+                  ,TO_CHAR(T1.STTC_PROD_STAD_DY,'YYYY-MM-DD') AS STTC_PROD_STAD_DY
+                  ,CASE WHEN T1.STTC_DTM_DY IS NULL THEN 'N'
+                        ELSE 'Y'
+                   END AS STTC_DTM_YN
+                  ,T2.STTC_TYP_CD
+                  ,T2.STTC_CLSF_CD
+                  ,T2.STTC_TYP_SEQ
+                  ,T2.STTC_DATA_SNO
+                  ,T2.STTC_TIT1
+                  ,T2.STTC_COL1
+                  ,T2.STTC_COL2
+                  ,T2.STTC_COL3
+                  ,T2.STTC_COL4
+                  ,T2.STTC_COL5
+                  ,T2.STTC_COL6
+                  ,T2.STTC_COL7
+                  ,T2.STTC_COL8
+                  ,T2.STTC_COL9
+                  ,T2.STTC_COL10
+                  ,T2.STTC_COL11
+                  ,CASE WHEN T1.STTC_YR - 1 > T2.AUD_YR THEN 'N'
+                        ELSE 'Y'
+                   END VIEW_YN
+                  ,T2.AUD_YR
+                  ,T2.ROW_KND_CD
+                  ,NVL(TO_CHAR(T1.STTC_DTM_DY,'YYYY"-"MM"-"DD'),'미확정') AS STTC_DTM_DY
+              FROM TWFAACAV200M T1
+             INNER JOIN TWFAACAV200D T2 ON (
+                        T1.STTC_TYP_CD = T2.STTC_TYP_CD
+                    AND T1.STTC_CLSF_CD = T2.STTC_CLSF_CD
+                    AND T1.STTC_TYP_SEQ = T2.STTC_TYP_SEQ )
+             WHERE T1.STTC_CLSF_CD = '022'
+               AND T1.STTC_TYP_SEQ = #{sttcTypSeq}
+             ORDER BY STTC_DATA_SNO
+        ]]>
+    </select>
+    
+    <insert id="insertMaster">
+        /* kr.go.bai.eip.faa.cav.dao.FAACAV022QMapper.insertMaster */
+        <![CDATA[
+            INSERT INTO TWFAACAV200M (
+                 STTC_TYP_CD
+                ,STTC_CLSF_CD
+                ,STTC_TYP_SEQ
+                ,STTC_YR
+                ,STTC_STR_MON
+                ,STTC_END_MON
+                ,STTC_PROD_STAD_DY
+                ,STTC_DTM_DY
+                ,RMK
+                ,ADM_OPIN
+                ,FRT_USR_ID
+                ,FNL_USR_ID
+                ,FNL_DEAL_DPT_CD
+                ,FNL_MNU_ID
+                ,FRT_REGI_DH
+                ,FNL_MDF_DH )
+            VALUES (
+                 '10'
+                ,'022'
+                ,( SELECT NVL(MAX(STTC_TYP_SEQ), 0) + 1
+                     FROM TWFAACAV200M
+                    WHERE STTC_TYP_CD = '10'
+                      AND STTC_CLSF_CD = '022' )
+                ,SUBSTR(ADD_MONTHS(#{proStadDt}, -1), 0, 4)
+                ,'01'
+                ,TO_CHAR(TO_DATE(ADD_MONTHS(#{proStadDt}, -1)), 'MM')
+                ,#{proStadDt}
+                ,''
+                ,#{rmk}
+                ,#{admOpin}
+                ,#{usrId}
+                ,#{usrId}
+                ,#{dptCd}
+                ,#{mnuId}
+                ,SYSDATE
+                ,SYSDATE )
+        ]]>
+    </insert>
+    
+    <insert id="insertDetail">
+        /* kr.go.bai.eip.faa.cav.dao.FAACAV022QMapper.insertDetail */
+        <![CDATA[
+            INSERT INTO TWFAACAV200D (
+                 STTC_TYP_CD
+                ,STTC_CLSF_CD
+                ,STTC_TYP_SEQ
+                ,STTC_DATA_SNO
+                ,STTC_TIT1
+                ,STTC_COL1
+                ,STTC_COL2
+                ,STTC_COL3
+                ,STTC_COL4
+                ,STTC_COL5
+                ,STTC_COL6
+                ,STTC_COL7
+                ,STTC_COL8
+                ,STTC_COL9
+                ,STTC_COL10
+                ,STTC_COL11                
+                ,AUD_YR
+                ,ROW_KND_CD
+                ,FRT_USR_ID
+                ,FNL_USR_ID
+                ,FNL_DEAL_DPT_CD
+                ,FNL_MNU_ID
+                ,FRT_REGI_DH
+                ,FNL_MDF_DH )
+            VALUES (
+                 '10'
+                ,'022'
+                ,( SELECT NVL(MAX(STTC_TYP_SEQ), 0)
+                     FROM TWFAACAV200M
+                    WHERE STTC_TYP_CD = '10'
+                      AND STTC_CLSF_CD = '022' )
+                ,( SELECT NVL(MAX(STTC_DATA_SNO), 0) + 1
+                     FROM TWFAACAV200D
+                    WHERE STTC_TYP_CD = '10'
+                      AND STTC_CLSF_CD = '022' 
+                      AND STTC_TYP_SEQ = ( SELECT NVL(MAX(STTC_TYP_SEQ), 0)
+                                             FROM TWFAACAV200M
+                                            WHERE STTC_TYP_CD = '10'
+                                              AND STTC_CLSF_CD = '022' ))
+                ,#{sttcTit1}
+                ,#{sttcCol1}
+                ,#{sttcCol2}
+                ,#{sttcCol3}
+                ,#{sttcCol4}
+                ,#{sttcCol5}
+                ,#{sttcCol6}
+                ,#{sttcCol7}
+                ,#{sttcCol8}
+                ,#{sttcCol9}
+                ,#{sttcCol10}
+                ,#{sttcCol11}                
+                ,#{audYr}
+                ,#{rowKndCd}
+                ,#{usrId}
+                ,#{usrId}
+                ,#{dptCd}
+                ,#{mnuId}
+                ,SYSDATE
+                ,SYSDATE )
+        ]]>
+    </insert>
+    
+    <insert id="updateMaster">
+        /* kr.go.bai.eip.faa.cav.dao.FAACAV022QMapper.updateMaster */
+        <![CDATA[
+            UPDATE TWFAACAV200M
+               SET RMK = #{rmk}
+                  ,ADM_OPIN = #{admOpin}
+                  ,FNL_USR_ID = #{usrId}
+                  ,FNL_DEAL_DPT_CD = #{dptCd}
+                  ,FNL_MDF_DH = SYSDATE
+             WHERE STTC_TYP_CD = #{sttcTypCd}
+               AND STTC_CLSF_CD = #{sttcClsfCd}
+               AND STTC_TYP_SEQ = #{sttcTypSeq}
+        ]]>
+    </insert>
+    
+    <insert id="updateDetail">
+        /* kr.go.bai.eip.faa.cav.dao.FAACAV022QMapper.updateDetail */
+        <![CDATA[
+            UPDATE TWFAACAV200D
+               SET STTC_COL1 = #{sttcCol1}
+                  ,STTC_COL2 = #{sttcCol2}
+                  ,STTC_COL3 = #{sttcCol3}
+                  ,STTC_COL4 = #{sttcCol4}
+                  ,STTC_COL5 = #{sttcCol5}
+                  ,STTC_COL6 = #{sttcCol6}
+                  ,STTC_COL7 = #{sttcCol7}
+                  ,STTC_COL8 = #{sttcCol8}
+                  ,STTC_COL9 = #{sttcCol9}
+                  ,STTC_COL10 = #{sttcCol10}
+                  ,STTC_COL11 = RTRIM(#{sttcCol11}, '%')
+                  ,FNL_USR_ID = #{usrId}
+                  ,FNL_DEAL_DPT_CD = #{dptCd}
+                  ,FNL_MDF_DH = SYSDATE
+             WHERE STTC_TYP_CD = #{sttcTypCd}
+               AND STTC_CLSF_CD = #{sttcClsfCd}
+               AND STTC_TYP_SEQ = #{sttcTypSeq}
+               AND STTC_DATA_SNO = #{sttcDataSno}
+        ]]>
+    </insert>
+    
+    <insert id="updateMasterDtmDy">
+        /* kr.go.bai.eip.faa.cav.dao.FAACAV022QMapper.updateMasterDtmDy */
+        <![CDATA[
+            UPDATE TWFAACAV200M
+               SET STTC_DTM_DY = SYSDATE
+                  ,FNL_USR_ID = #{usrId}
+                  ,FNL_DEAL_DPT_CD = #{dptCd}
+                  ,FNL_MDF_DH = SYSDATE
+             WHERE STTC_TYP_CD = #{sttcTypCd}
+               AND STTC_CLSF_CD = #{sttcClsfCd}
+               AND STTC_TYP_SEQ = #{sttcTypSeq}
+        ]]>
+    </insert>
+    
+</mapper>

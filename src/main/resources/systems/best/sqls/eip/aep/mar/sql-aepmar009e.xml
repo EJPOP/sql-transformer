@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.mar.dao.AEPMAR009EMapper">
+    
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap">
+       /* kr.go.bai.eip.aep.mar.dao.AEPMAR009EMapper.selectMainList */
+        <include refid="include.pageSelct" />
+            <![CDATA[
+		            SELECT A.AUD_YR                                            /* 감사년도 */
+					     , A.AUD_NO                                            /* 감사번호 */
+					     , A.AUD_STEP_CD                                       /* 감사단계코드 */
+					     , A.RPRT_DVSN_CD                                           /* 보고서구분코드 */
+					     , A.READ_DOC_ID                                        /* 요청문서ID */
+		                 , TO_DATE(A.GRN_DH)      AS APV_DT       /* 처리일자 */
+		                 , F_MNG_KND_AUDYRNO(B.AUD_YR, B.AUD_NO, B.AUD_KND_CD, '-') AS AUD_YR_NO   /* 분류번호 */
+		                 , B.AUD_SBJ_NM                                        /* 감사사항명 */
+		                 , B.MNG_DPT_CD                                        /* 관리부서 */                                       
+					     , F_DPT_INFO(B.MNG_DPT_CD,'1')        AS MNG_DPT_NM   /* 관리부서명 */
+					     , F_CODE_NM('1000786',A.RPRT_DVSN_CD)      AS AUD_DOC_NM   /* 보고서구분명 */
+					     , C.RPRT_NM || ' (열람용)'               AS RPRT_NM      /* 보고서명 */
+					     , TO_DATE(A.GRN_PRD_STR_DY) || ' ~ ' || TO_DATE(A.GRN_PRD_END_DY)  AS OPEN_DT      /* 열람기간 */     
+					     , F_OPEN_EDIT(A.LNK_URL)             AS DOC_TYPE     /* 편집기구분 */ 
+					     , B.AUD_KND_CD                                        /* 감사종류코드 */
+					     , A.GRN_DH
+					     , TRUNC(TO_DATE(A.GRN_PRD_END_DY)) - TRUNC(SYSDATE) AS OPEN_DAY_NUM
+					  FROM TBAEPMAR005M A
+					 INNER JOIN
+					       TBBADDED001M B
+					    ON B.AUD_YR = A.AUD_YR
+					   AND B.AUD_NO = A.AUD_NO
+					 INNER JOIN
+					       (SELECT AA.AUD_YR
+					             , AA.AUD_NO
+					             , AA.AUD_STEP_CD
+					             , AA.DOC_ID
+					             , AA.RPRT_CD
+					             , AA.RPRT_NM
+					          FROM TBBADDED103M AA
+					         UNION ALL 
+					        SELECT BB.AUD_YR
+					             , BB.AUD_NO
+					             , 'NO'
+					             , BB.DOC_ID
+					             , DECODE(BB.DOC_TYP_CD,'AD-AR-002','A10300100','AD-AR-003','A10600200','AD-AR-001','A10500200')   AS RPRT_CD /* 감사실시계획서, 감사보고서, 실지감사 종료보고서 'A10300100','A10500200','A10600200' */
+					             , CC.FILE_NAME    AS RPRT_NM
+					          FROM TBBADDED021M BB  
+					         INNER JOIN
+					               ECM_FILE_LIST_VIEW2 CC
+					            ON CC.DOC_ID = BB.DOC_ID
+					        ) C
+					    ON C.AUD_YR = A.AUD_YR
+					   AND C.AUD_NO = A.AUD_NO
+					   AND C.AUD_STEP_CD = A.AUD_STEP_CD
+					   AND C.DOC_ID = A.READ_DOC_ID
+					   ]]>
+					   <if test='usrId != null and dptCd != ""'>
+							AND (A.GRN_USR_ID  = #{usrId})
+						</if>
+						/* 분류번호 (번호) */
+						 <if test="schAudYr3 != null and schAudYr3 != ''">
+			                    AND A.AUD_YR  = #{schAudYr3}
+			            </if>
+			            /* 분류번호 (감사구분) */
+			            <if test="schAudYrNoKndCd3 != null and schAudYrNoKndCd3 != ''">
+			                    AND B.AUD_KND_CD = #{schAudYrNoKndCd3}
+			            </if>
+			            /* 분류번호 (일련번호) */
+			            <if test="schAudNo3 != null and schAudNo3 != ''">
+			                    AND B.AUD_GRN_NO = #{schAudNo3}
+			            </if>
+			            /* 감사사항명 */
+			            <if test="schAudSbjNm3 != null and schAudSbjNm3 != ''">
+			                    AND B.AUD_SBJ_NM LIKE #{schAudSbjNm3}||'%'
+			            </if>
+			             /* 관리부서 (상위) */
+						<if test="schSpvBrdvCd3 != null and schSpvBrdvCd3 != ''">
+			                    AND (SELECT D4.HIRK_DPT_CD 
+			                           FROM TBDCMACM002M D4 
+			                          WHERE D4.DPT_CD  = B.MNG_DPT_CD 
+			                            AND D4.USE_YN = 'Y') = #{schSpvBrdvCd3} 
+			            </if>
+			            /* 관리부서  */
+			            <if test="schDeptCd3 != null and schDeptCd3 != ''">
+			                    AND B.MNG_DPT_CD = #{schDeptCd3}
+			            </if>
+			            /* 보고서 종류 */
+			            <if test="schRprtCd3 != null and schRprtCd3 != ''">
+			                    AND A.RPRT_DVSN_CD = #{schRprtCd3}
+			            </if>
+						ORDER BY GRN_SRNO DESC
+		               
+        
+        <include refid="include.pageOrder" />
+    </select>
+    
+	
+</mapper> 

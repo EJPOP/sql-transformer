@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.go.bai.eip.aep.rla.dao.AEPRLA002PMapper">
+    
+    <select id="selectAffList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.aep.rla.dao.AEPRLA002PMapper.selectAffList*/
+        <![CDATA[
+            SELECT T1.AUD_YR AS WRK_YR
+                 , T1.AUD_NO AS WRK_NO
+                 , TO_CHAR(T1.AFF_SNO) AS AFF_SNO
+                 , T1.RPRT_FILD_ID
+                 , T1.APVR_CD
+                 , F_MNG_KND_AUDYRNO(T1.AUD_YR, T1.AUD_NO, T1.AUD_KND_CD, '-') || '-' || T1.AFF_CD AS AFF_NO
+                 , T1.TITLE_NM
+                 , T3.RPRT_NM
+                 , (SELECT COUNT(1)
+                      FROM TBBADDED126M ST1
+                     WHERE ST1.WRK_YR = T1.AUD_YR
+                       AND ST1.WRK_NO = T1.AUD_NO
+                       AND ST1.AFF_SNO = T1.AFF_SNO) AS LEGAL_REQ_CNT
+              FROM TBBADDED145M T1
+             INNER JOIN TBBADDED146M T2 ON (    T1.AUD_YR = T2.AUD_YR
+                                            AND T1.AUD_NO = T2.AUD_NO
+                                            AND T1.AUD_STEP_CD = T2.AUD_STEP_CD
+                                            AND T1.APVR_CD = T2.APVR_CD
+                                            AND T1.DOC_ID = T2.DOC_ID
+                                            AND T1.AFF_SNO = T2.AFF_SNO)
+             INNER JOIN TBBADDED103M T3 ON (    T1.AUD_YR = T3.AUD_YR
+                                            AND T1.AUD_NO = T3.AUD_NO
+                                            AND T1.DOC_ID = T3.DOC_ID)
+             WHERE T1.AUD_YR = #{audYr}
+               AND T1.AUD_NO = #{audNo}
+        ]]>
+        <!-- 
+           <if test="legalReqDvsnCd != null and legalReqDvsnCd != '' and legalReqDvsnCd eq '10'.toString()">
+               AND T2.DSP_RQ_CD = '730'
+           </if>
+           <if test="legalReqDvsnCd != null and legalReqDvsnCd != '' and legalReqDvsnCd eq '20'.toString()">
+               AND T2.DSP_RQ_CD IN ('710', '720')
+           </if>
+           <if test="legalReqDvsnCd != null and legalReqDvsnCd != '' and legalReqDvsnCd eq '30'.toString()">
+               AND T2.DSP_RQ_CD NOT IN ('710', '720', '730')
+           </if>
+           <if test="legalReqDvsnCd != null and legalReqDvsnCd != '' and legalReqDvsnCd eq '40'.toString()">
+               AND T2.DSP_RQ_CD NOT IN ('710', '720', '730')
+           </if>
+            -->
+        <![CDATA[
+               AND T2.DSP_RQ_CD NOT IN ('390', '391', '490')
+               AND T1.APVR_CD IN (SELECT NVL(MAX(APVR_CD), '0013600')
+                                   FROM (
+                                         SELECT RANK() OVER (PARTITION BY A.DOC_ID ORDER BY DECODE(A.APVR_CD, 'A1070', 1, '0010600', 2,  '0055700', 3, '0055600' ,4 ,'0045900', 5,  '0015800' ,6,'0035100', 7, '0058100', 8,  '0013600', 9, 99) ASC ) AS RN
+                                            , A.APVR_CD APVR_CD
+                                            , A.DOC_ID
+                                         FROM TBBADDED145M A
+                                        WHERE A.AUD_YR = #{audYr}
+                                          AND A.AUD_NO  =  #{audNo}
+                                          AND A.APVR_CD <> '0010200'
+                                        GROUP BY A.DOC_ID, A.APVR_CD )   
+                                  WHERE RN = 1 
+                                    AND T1.DOC_ID = DOC_ID)
+             GROUP BY T1.AUD_YR
+                    , T1.AUD_NO
+                    , T1.AUD_KND_CD
+                    , T1.AFF_CD
+                    , T1.AFF_SNO
+                    , T1.RPRT_FILD_ID
+                    , T1.APVR_CD
+                    , T1.TITLE_NM
+                    , T3.RPRT_NM
+        ]]>
+    </select>
+    
+    
+    <select id="selectAffListRefData" parameterType="paramMap" resultType="egovMap">
+    <![CDATA[
+    /*kr.go.bai.eip.aep.rla.dao.AEPRLA002PMapper.selectAffListRefData*/
+           SELECT T1.AUD_YR AS WRK_YR
+                     , T1.AUD_NO AS WRK_NO
+                     , '' AS AFF_SNO
+                   ,  '' AS  RPRT_FILD_ID
+                     , '' AS APVR_CD
+                     , '-' AS AFF_NO
+                     , '수사참고자료' AS TITLE_NM
+                     , T1.RPRT_NM
+                     , '-' AS LEGAL_REQ_CNT
+                     , T1.DOC_ID AS REF_DATA_DOC_ID
+              FROM TBBADDED103M T1
+             WHERE T1.AUD_YR = #{audYr}
+                AND T1.AUD_NO  = #{audNo}
+                AND T1.RPRT_CD = 'A10601700'
+     ]]>
+    </select>
+    
+    
+    <select id="selectBadfreMergeList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.aep.rla.dao.AEPRLA002PMapper.selectBadfreMergeList*/
+        <![CDATA[
+            SELECT A.ACP_YR || '-' || DECODE(A.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || DECODE(A.ORG_ACP_SRNO, null, A.ACP_SRNO, A.ORG_ACP_SRNO) AS AFF_NO /* 분류번호 */
+			     ,to_char(to_date(A.ACP_DT), 'YYYY-MM-DD') AS ACP_DT		/* 접수일 */
+			     ,to_char(to_date(A.DSP_OFC_ACP_DT), 'YYYY-MM-DD') AS DSP_OFC_ACP_DT		/* 처분청접수일자 */
+			     ,A.ORG_NM /* 처분청 */
+			     ,A.DSP_OFC_UP_INSTT_CD /* 처분청상급기관코드 */
+			     ,A.DSP_OFC_UP_INSTT_NAM  /* 처분청상급기관명 */
+			     ,A.DSPTCH_INSTT_NAM /* 발신기관명 */
+			     ,DECODE(A.AGT_NM, NULL, A.REQR_NM, A.REQR_NM || '(代:' || A.AGT_NM || ')' ) AS REQR_NM/* 청구인명 */
+			     ,A.TIT_NM AS TITLE_NM /* 청구내용 */
+			     ,A.JDG_REQ_DVSN_CD /* 심사청구부분코드 */
+			     ,F_CODE_NM('1000043', A.JDG_REQ_DVSN_CD) AS JDG_REQ_DVSN_NM /* 심사청구구분명 */
+			     ,A.DPT_CD /* 부서코드 */
+			     ,F_DPT_INFO (A.DPT_CD, '1') AS DPT_NM /* 처리과 */
+			     ,A.HNDL_CHGR_NM /* 담당자 */
+			     ,A.ACP_HNDL_STA_CD /* 진행단계 */
+			     ,F_CODE_NM('1000807', A.ACP_HNDL_STA_CD) AS ACP_HNDL_STA_NM /* 진행단계명 */
+			     ,A.VT_KND_CD /* 의결종류 */
+			     ,F_CODE_NM('1000045', A.VT_KND_CD) AS VT_KND_NM /* 의결종류명 */
+			     ,to_char(to_date(A.DCS_DT), 'YYYY-MM-DD') AS DCS_DT /* 결정일자 */
+			     ,A.ACP_YR /* 접수년도 */
+			     ,A.ACP_DVSN_CD /* 접수구분코드 */
+			     ,A.ACP_SRNO /* 접수일련번호 */
+			     ,A.ORG_ACP_SRNO /* 기존접수일련번호 */
+			     ,A.MG_ACP_YR /* 병합접수년도 */
+			     ,A.MG_ACP_DVSN_CD /* 병합접수구분코드 */
+			     ,A.MG_ACP_SRNO /* 병합접수일련번호 */
+			     ,A.MG_DPT_CD /* 병합부서코드 */
+			     ,A.MG_DIV_CD /* 병합병행구분코드 */
+			     ,A.DEL_YN
+			     ,A.AMIT_AM /* 결정금액 */
+			     ,CASE WHEN (A.ACP_YR = A.MG_ACP_YR AND A.ACP_DVSN_CD = A.MG_ACP_DVSN_CD AND A.ACP_SRNO = A.MG_ACP_SRNO) THEN '대표'
+			             WHEN A.MG_DIV_CD IS NULL AND A.MG_ACP_YR IS NULL THEN '대표'
+			             WHEN A.MG_DIV_CD IS NULL THEN '대표'
+			             WHEN A.MG_DIV_CD = '10' THEN '병합'
+			             WHEN A.MG_DIV_CD = '20' THEN '병행'
+			      END AS MG_DIV_NM /* 병합병행구분명 */
+			    ,CASE WHEN B.ENF_DT IS NULL THEN to_char(TO_DATE(SYSDATE) - TO_DATE(ACP_DT))
+			    	  WHEN B.ENF_DT IS NOT NULL THEN to_char(TO_DATE(B.ENF_DT) - TO_DATE(ACP_DT))
+			      END AS PASS_DAY /* 경과일 */
+			    ,DECODE(A.BAI_DSP_YN, 'Y', 'O', 'X') AS BAI_DSP_YN /* 감사원처분여부 */
+			    ,to_char(to_date(A.HNDL_DDLN_DT), 'YYYY-MM-DD') AS HNDL_DDLN_DT /* 처리기한 */
+			    ,A.REFER_ENT /* 부의위임여부 Y,N */
+			    ,to_char(to_date(B.ENFM_DT), 'YYYY-MM-DD') AS ENFM_DT		/* 집행일 */
+			    ,B.ENFM_TXT /* 집행내용 */
+			    ,B.LWS_YO /* 소송유무 */
+			    ,B.FRTRL_EVT_NO_TXT /* 1심사건번호 */
+			    ,B.FRTRL_CT_NM /* 1심법원명 */
+			  , A.AUD_YR
+              , A.AUD_NO
+              , A.DSP_RQ_SNO
+		 FROM TBBADFRE012M A
+		 LEFT OUTER JOIN TBBADFRE013D B ON (A.ACP_YR 		= B.ACP_YR
+                                           AND A.ACP_DVSN_CD 	= B.ACP_DVSN_CD
+                                           AND A.ACP_SRNO 		= B.ACP_SRNO)
+	    WHERE 1=1
+		   --AND A.DEL_YN IS NULL
+
+		  AND NVL(A.MG_ACP_YR, A.ACP_YR) 		= #{acpYr}
+		  AND NVL(A.MG_ACP_DVSN_CD, A.ACP_DVSN_CD) 	= #{acpDvsnCd}
+		  AND NVL(A.MG_ACP_SRNO, A.ACP_SRNO) 		= #{acpSrno}
+      	  ORDER BY MG_DIV_NM, A.ACP_YR DESC, A.ACP_SRNO, A.ORG_ACP_SRNO DESC 
+        ]]>
+    </select>
+</mapper> 

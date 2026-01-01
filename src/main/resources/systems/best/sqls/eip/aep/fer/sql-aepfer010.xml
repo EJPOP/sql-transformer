@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.fer.dao.AEPFER010QMapper">
+    
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap" >
+            /* kr.go.bai.eip.aep.fer.dao.AEPFER010QMapper.selectMainList */
+            <![CDATA[
+	         SELECT A1.AUD_YR
+	                ,A1.AUD_NO
+	                ,F_MNG_KND_AUDYRNO(A1.AUD_YR, A1.AUD_NO, A1.AUD_KND_CD, '-') AS AUD_YR_NO --분류번호     
+	                ,NVL((SELECT T4.ABR_DPT_NM_1
+							 FROM TBDCMACM002M T4
+							WHERE T4.DPT_CD = (SELECT A2.HIRK_DPT_CD
+							                       FROM TBDCMACM002M A2
+							                      WHERE A2.DPT_CD = A1.SPV_BRDV_CD)
+							   AND T4.USE_YN = 'Y'
+							   AND ROWNUM = 1)   
+							 ,(SELECT T4.ABR_DPT_NM_1
+								 FROM TBDCMACM002M T4
+								WHERE T4.DPT_CD = A1.SPV_BRDV_CD
+								   AND T4.USE_YN = 'Y'
+								   AND ROWNUM = 1)) AS HIRK_DPT_NM    -- 국
+	                ,(SELECT T4.ABR_DPT_NM_1
+						 FROM TBDCMACM002M T4
+						WHERE T4.DPT_CD = A1.SPV_BRDV_CD
+						   AND T4.USE_YN = 'Y'
+						   AND ROWNUM = 1) AS AUD_DPT_NM    -- 과
+	                ,A1.AUD_SBJ_NM    -- 감사사항명               
+	                ,F_CODE_NM('1000739', A1.AUD_KND_CD) AS AUD_KND_NM -- 종류
+	                ,DECODE(A2.STEP_DVSN,'1','귀청','시행') AS STEP_DVSN --구분
+	                ,TOT_DSP_CNT    -- 합계
+	                ,DSP_110_CNT+DSP_120_CNT                                      AS DSP_JUD_CNT          -- 판정
+	                ,DSP_210_CNT                                                  AS DSP_PNSH_CNT         -- 징계
+	                ,DSP_310_CNT+DSP_320_CNT                                      AS DSP_CRCT_CNT         -- 시정
+	                ,DSP_410_CNT                                                  AS DSP_ATNT_CNT         -- 주의
+	                ,DSP_510_CNT                                                  AS DSP_LAW_IMP_CNT      -- 법개
+	                ,DSP_530_CNT                                                  AS DSP_OFADM_IMP_CNT    -- 행개
+	                ,DSP_520_CNT                                                  AS DSP_SYE_IMP_CNT      -- 제개
+	                ,DSP_611_CNT                                                  AS DSP_RDA_CNT          -- 권고
+	                ,DSP_610_CNT                                                  AS DSP_NTF_CNT          -- 통보
+	                ,DSP_620_CNT                                                  AS DSP_HRA_NTF_CNT      -- 인통
+	                ,DSP_623_CNT                                                  AS DSP_WRDO_NTF_CNT     -- 비통
+	                ,DSP_625_CNT                                                  AS DSP_NOCP_NTF_CNT     -- 비통(시완)
+	                ,DSP_810_CNT+DSP_820_CNT+DSP_830_CNT+DSP_840_CNT+DSP_850_CNT  AS DSP_EXPL_CNT         -- 모범
+	                ,DSP_710_CNT+DSP_720_CNT                                      AS DSP_PSC_CNT          -- 고발
+	                ,DSP_730_CNT                                                  AS DSP_SUSA_CNT         -- 수사
+	                ,DSP_390_CNT+DSP_391_CNT                                      AS DSP_SPT_CRCT_CNT     -- 현지시정
+	                ,DSP_395_CNT+DSP_396_CNT                                      AS DSP_SPT_DRCT_CNT     -- 시정(국장전결)
+	                ,DSP_490_CNT                                                  AS DSP_SPT_ATNT_CNT     -- 현지주의
+	                ,DSP_495_CNT                                                  AS DSP_SPT_DRNT_CNT     -- 주의(국장전결)
+	
+	                ,NVL(CRCT_DLG_CNT,0)
+	                +NVL(ATNT_DLG_CNT,0)
+	                +NVL(ADVI_DLG_CNT,0)
+	                +NVL(NOTI_DLG_CNT,0)
+	                +NVL(NOCP_DLG_CNT,0)                                          AS TOT_DLG_CNT          -- 소계(위임)
+	                ,CRCT_DLG_CNT                                                 AS CRCT_DLG_CNT         -- 시정위임
+	                ,ATNT_DLG_CNT                                                 AS ATNT_DLG_CNT         -- 주의위임
+	                ,ADVI_DLG_CNT                                                 AS ADVI_DLG_CNT         -- 권고위임
+	                ,NOTI_DLG_CNT                                                 AS NOTI_DLG_CNT         -- 통보위임
+	                ,NOCP_DLG_CNT                                                 AS NOCP_DLG_CNT         -- 통보(시완)위임
+	
+	                ,NVL(DECODE(A2.STEP_DVSN,'1',SUSA_RFR_RTN_CNT,SUSA_RFR_ENF_CNT),0)    AS SUSA_RFR_CNT -- 수사자료통보
+	                ,NVL(DECODE(A2.STEP_DVSN,'1',FACT_NTF_RTN_CNT,FACT_NTF_ENF_CNT),0)    AS FACT_NTF_CNT -- 사실통보
+	            FROM TBBADDED001M A1
+	                ,(/******************** 종료보고 ********************/
+	                  SELECT T1.AUD_YR
+	                        ,T1.AUD_NO
+	                        ,T1.AUD_KND_CD
+	                        ,'1' AS STEP_DVSN
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,NULL,0,1))  AS TOT_DSP_CNT -- 합계
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'110',1,0)) AS DSP_110_CNT -- 변상판정
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'120',1,0)) AS DSP_120_CNT -- 무책판정
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'210',1,0)) AS DSP_210_CNT -- 징계문책
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'310',1,0)) AS DSP_310_CNT -- 시정(금액)
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'320',1,0)) AS DSP_320_CNT -- 시정(기타)
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'390',1,0)) AS DSP_390_CNT -- 현지시정
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'391',1,0)) AS DSP_391_CNT -- 현지시정회
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'395',1,0)) AS DSP_395_CNT -- 시정(국장전결)
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'396',1,0)) AS DSP_396_CNT -- 시정(국장전결)회
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'410',1,0)) AS DSP_410_CNT -- 주의
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'490',1,0)) AS DSP_490_CNT -- 현지주의
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'495',1,0)) AS DSP_495_CNT -- 주의(국장전결)
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'510',1,0)) AS DSP_510_CNT -- 법령상개선
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'520',1,0)) AS DSP_520_CNT -- 제도상개선
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'530',1,0)) AS DSP_530_CNT -- 행정상개선
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'610',1,0)) AS DSP_610_CNT -- 통보
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'611',1,0)) AS DSP_611_CNT -- 권고
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'620',1,0)) AS DSP_620_CNT -- 통보(인사)
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'621',1,0)) AS DSP_621_CNT -- 통보(징계)
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'623',1,0)) AS DSP_623_CNT -- 통보(비위)
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'625',1,0)) AS DSP_625_CNT -- 통보(시정완료)
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'630',1,0)) AS DSP_630_CNT -- 통보개선
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'710',1,0)) AS DSP_710_CNT -- 직접고발
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'720',1,0)) AS DSP_720_CNT -- 자체고발
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'730',1,0)) AS DSP_730_CNT -- 수사요청
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'810',1,0)) AS DSP_810_CNT -- 모범(예산절감)
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'820',1,0)) AS DSP_820_CNT -- 모범(업무개선)
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'830',1,0)) AS DSP_830_CNT -- 모범(성실근무)
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'840',1,0)) AS DSP_840_CNT -- 모범(민원해소)
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'850',1,0)) AS DSP_850_CNT -- 모범(기타)
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'904',1,0)) AS DSP_904_CNT -- 종합통보
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'905',1,0)) AS DSP_905_CNT -- 개별통보
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'910',1,0)) AS DSP_910_CNT -- 자체처리요구
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'911',1,0)) AS DSP_911_CNT -- 자체징계
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'912',1,0)) AS DSP_912_CNT -- 자체시정
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'913',1,0)) AS DSP_913_CNT -- 자체주의
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'914',1,0)) AS DSP_914_CNT -- 자체통보
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'915',1,0)) AS DSP_915_CNT -- 자체처리고발
+	                        ,SUM(DECODE(T2.DSP_RQ_CD,'916',1,0)) AS DSP_916_CNT -- 불문
+	                        ,SUM(CASE WHEN T2.DSP_RQ_CD IN ('310','320') AND T1.REFER_DVSN_CD = 'E10' THEN 1
+	                                  ELSE 0 END )  AS CRCT_DLG_CNT -- 시정위임
+	                        ,SUM(CASE WHEN T2.DSP_RQ_CD IN ('410')       AND T1.REFER_DVSN_CD = 'E10' THEN 1
+	                                  ELSE 0 END )  AS ATNT_DLG_CNT -- 주의위임
+	                        ,SUM(CASE WHEN T2.DSP_RQ_CD IN ('611')       AND T1.REFER_DVSN_CD = 'E10' THEN 1
+	                                  ELSE 0 END )  AS ADVI_DLG_CNT -- 권고위임
+	                        ,SUM(CASE WHEN T2.DSP_RQ_CD IN ('610','620','621','623','630') AND T1.REFER_DVSN_CD = 'E10' THEN 1
+	                                  ELSE 0 END )  AS NOTI_DLG_CNT  -- 통보위임
+	                        ,SUM(CASE WHEN T2.DSP_RQ_CD IN ('625')       AND T1.REFER_DVSN_CD = 'E10' THEN 1
+	                                  ELSE 0 END )  AS NOCP_DLG_CNT  -- 통보(시완)위임
+	                    FROM TBBADDED145M T1
+	                        ,TBBADDED146M T2
+	                   WHERE 1=1
+	                     AND T1.AUD_YR         = #{srcAudYr} --PARAM
+	                     AND T1.AUD_YR         = T2.AUD_YR
+	                     AND T1.AUD_NO         = T2.AUD_NO
+	                     AND T1.AUD_STEP_CD    = T2.AUD_STEP_CD
+	                     AND T1.DOC_ID         = T2.DOC_ID
+	                     AND T1.APVR_CD        = T2.APVR_CD
+	                     AND T1.AFF_SNO        = T2.AFF_SNO
+	                     AND T1.AUD_STEP_CD    = 'A1050'
+	                     AND EXISTS (
+	                                 SELECT 'X'
+	                                   FROM TBBADEAR001M S
+	                                  WHERE S.AUD_YR = T1.AUD_YR
+	                                    AND S.AUD_NO = T1.AUD_NO
+	                                )
+	                   GROUP BY T1.AUD_YR, T1.AUD_NO, T1.AUD_KND_CD
+	                  UNION ALL
+	                  /******************** 시행완료 ********************/
+	                  SELECT T3.AUD_YR
+	                        ,T3.AUD_NO
+	                        ,T6.AUD_KND_CD
+	                        ,'2' AS STEP_DVSN
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,NULL,0,1))  AS TOT_DSP_CNT -- 합계
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'110',1,0)) AS DSP_110_CNT -- 변상판정
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'120',1,0)) AS DSP_120_CNT -- 무책판정
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'210',1,0)) AS DSP_210_CNT -- 징계문책
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'310',1,0)) AS DSP_310_CNT -- 시정(금액)
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'320',1,0)) AS DSP_320_CNT -- 시정(기타)
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'390',1,0)) AS DSP_390_CNT -- 현지시정
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'391',1,0)) AS DSP_391_CNT -- 현지시정회
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'395',1,0)) AS DSP_395_CNT -- 시정(국장전결)
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'396',1,0)) AS DSP_396_CNT -- 시정(국장전결)회
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'410',1,0)) AS DSP_410_CNT -- 주의
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'490',1,0)) AS DSP_490_CNT -- 현지주의
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'495',1,0)) AS DSP_495_CNT -- 주의(국장전결)
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'510',1,0)) AS DSP_510_CNT -- 법령상개선
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'520',1,0)) AS DSP_520_CNT -- 제도상개선
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'530',1,0)) AS DSP_530_CNT -- 행정상개선
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'610',1,0)) AS DSP_610_CNT -- 통보
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'611',1,0)) AS DSP_611_CNT -- 권고
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'620',1,0)) AS DSP_620_CNT -- 통보(인사)
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'621',1,0)) AS DSP_621_CNT -- 통보(징계)
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'623',1,0)) AS DSP_623_CNT -- 통보(비위)
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'625',1,0)) AS DSP_625_CNT -- 통보(시정완료)
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'630',1,0)) AS DSP_630_CNT -- 통보개선
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'710',1,0)) AS DSP_710_CNT -- 직접고발
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'720',1,0)) AS DSP_720_CNT -- 자체고발
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'730',1,0)) AS DSP_730_CNT -- 수사요청
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'810',1,0)) AS DSP_810_CNT -- 모범(예산절감)
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'820',1,0)) AS DSP_820_CNT -- 모범(업무개선)
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'830',1,0)) AS DSP_830_CNT -- 모범(성실근무)
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'840',1,0)) AS DSP_840_CNT -- 모범(민원해소)
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'850',1,0)) AS DSP_850_CNT -- 모범(기타)
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'904',1,0)) AS DSP_904_CNT -- 종합통보
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'905',1,0)) AS DSP_905_CNT -- 개별통보
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'910',1,0)) AS DSP_910_CNT -- 자체처리요구
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'911',1,0)) AS DSP_911_CNT -- 자체징계
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'912',1,0)) AS DSP_912_CNT -- 자체시정
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'913',1,0)) AS DSP_913_CNT -- 자체주의
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'914',1,0)) AS DSP_914_CNT -- 자체통보
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'915',1,0)) AS DSP_915_CNT -- 자체처리고발
+	                        ,SUM(DECODE(T3.DSP_RQ_KND_CD,'916',1,0)) AS DSP_916_CNT -- 불문
+	                        ,SUM(CASE WHEN T3.DSP_RQ_KND_CD IN ('310','320') AND T6.REFER_DVSN_CD = 'E10' THEN 1
+	                                  ELSE 0 END )  AS CRCT_DLG_CNT -- 시정위임
+	                        ,SUM(CASE WHEN T3.DSP_RQ_KND_CD IN ('410')       AND T6.REFER_DVSN_CD = 'E10' THEN 1
+	                                  ELSE 0 END )  AS ATNT_DLG_CNT -- 주의위임
+	                        ,SUM(CASE WHEN T3.DSP_RQ_KND_CD IN ('611')       AND T6.REFER_DVSN_CD = 'E10' THEN 1
+	                                  ELSE 0 END )  AS ADVI_DLG_CNT -- 권고위임
+	                        ,SUM(CASE WHEN T3.DSP_RQ_KND_CD IN ('610','620','621','623','630') AND T6.REFER_DVSN_CD = 'E10' THEN 1
+	                                  ELSE 0 END )  AS NOTI_DLG_CNT  -- 통보위임
+	                        ,SUM(CASE WHEN T3.DSP_RQ_KND_CD IN ('625')       AND T6.REFER_DVSN_CD = 'E10' THEN 1
+	                                  ELSE 0 END )  AS NOCP_DLG_CNT  -- 통보(시완)위임
+	                    FROM TBBADEAR001M T3
+	                        ,(SELECT T5.AUD_YR
+	                                ,T5.AUD_NO
+	                                ,T5.DSP_RQ_SNO
+	                                ,T5.AUD_KND_CD
+	                                ,T4.REFER_DVSN_CD
+	                            FROM TBBADDED145M T4
+	                                ,TBBADDED146M T5
+	                           WHERE 1=1
+	                             AND T4.AUD_YR      = T5.AUD_YR
+	                             AND T4.AUD_NO      = T5.AUD_NO
+	                             AND T4.AUD_STEP_CD = T5.AUD_STEP_CD
+	                             AND T4.DOC_ID      = T5.DOC_ID
+	                             AND T4.APVR_CD     = T5.APVR_CD
+	                             AND T4.AFF_SNO     = T5.AFF_SNO
+	                             AND T4.AUD_YR      = #{srcAudYr} --PARAM
+	                             AND T4.APVR_CD     = 'A1070'
+	                         ) T6
+	                   WHERE T3.AUD_YR       = #{srcAudYr} --PARAM
+	                     AND T3.EXEC_DSP_NM IS NOT NULL
+	                     AND T3.AUD_YR         = T6.AUD_YR
+	                     AND T3.AUD_NO         = T6.AUD_NO
+	                     AND T3.AUD_DSP_RQ_SNO = T6.DSP_RQ_SNO
+	                   GROUP BY T3.AUD_YR,T3.AUD_NO,T6.AUD_KND_CD
+	                 ) A2
+	                ,(SELECT AUD_YR
+	                        ,AUD_NO
+	                        ,SUM(DECODE(RPRT_CD,'A10601100',1,0)) AS SUSA_RFR_RTN_CNT   --수사요청서
+	                        ,SUM(DECODE(RPRT_CD,'A10601200',1,0)) AS SUSA_RFR_ENF_CNT   --수사요청서 시행문
+	                        ,SUM(DECODE(RPRT_CD,'A10601500',1,0)) AS FACT_NTF_RTN_CNT   --사실통보서
+	                        ,SUM(DECODE(RPRT_CD,'A10601600',1,0)) AS FACT_NTF_ENF_CNT   --사실통보서 시행문
+	                   FROM TBBADDED103M
+	                  WHERE 1=1
+	                    AND AUD_YR = #{srcAudYr} --PARAM
+	                    AND RPRT_CD IN ('A10601100','A10601200','A10601500','A10601600')
+	                  GROUP BY AUD_YR, AUD_NO) A3
+	           WHERE 1=1
+	             AND A1.AUD_YR = A2.AUD_YR
+	             AND A1.AUD_NO = A2.AUD_NO
+	             AND A1.AUD_YR = A3.AUD_YR(+)
+	             AND A1.AUD_NO = A3.AUD_NO(+)
+	             AND A1.AUD_YR = #{srcAudYr}
+	           ORDER BY A1.AUD_YR, A1.AUD_NO, A2.STEP_DVSN
+             ]]>
+    </select>
+    
+</mapper> 

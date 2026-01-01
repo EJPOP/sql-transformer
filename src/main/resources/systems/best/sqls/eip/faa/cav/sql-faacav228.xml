@@ -1,0 +1,378 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.go.bai.eip.faa.cav.dao.FAACAV228QMapper">
+    
+    <select id="selectStrEndDt" parameterType="paramMap" resultType="egovMap">
+        <![CDATA[      
+			  SELECT SUBSTR(DT,0,4) || '0101' AS STR_DT
+			        ,DT                       AS END_DT
+			    FROM (
+			            SELECT TO_CHAR(LAST_DAY(ADD_MONTHS( REPLACE( #{proStadDt} ,'-',''), -1) ), 'YYYYMMDD') AS DT
+			              FROM DUAL
+			         )    	
+        ]]>			         
+    </select>
+    
+    <select id="selectLoadSttcList" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.faa.cav.dao.FAACAV228QMapper.selectLoadSttcList */
+        <![CDATA[        
+					WITH BASE AS 
+					(
+					     SELECT SUBSTR(A.DPT_CD,0,3) || '000'    AS DPT_CD,
+					            A.STAT_CD                        AS STAT_CD,
+					            NVL(SUM(A.CNT1),0) + NVL(SUM(A.CNT2),0) + NVL(SUM(A.CNT3),0) + NVL(SUM(A.CNT4),0)
+					                                             AS CNT_TOT,
+					
+					            NVL(SUM(A.PSON_CNT1),0)          AS PSON_CNT_TOT,	
+					
+					            NVL(SUM(CNT1),0)                 AS CNT1,
+					            NVL(SUM(PSON_CNT1),0)            AS PSON_CNT1,        
+					            NVL(SUM(CNT2),0)                 AS CNT2,
+					            NVL(SUM(CNT3),0)                 AS CNT3,
+					            NVL(SUM(CNT4),0)                 AS CNT4
+					       FROM (  
+					             SELECT 'A'                                     AS STAT_CD,  
+					                     DECODE(A.NTF_DVSN_CD, '1', 1)          AS CNT1,
+					                     DECODE(A.NTF_DVSN_CD, '1', B.PSON_CNT) AS PSON_CNT1,
+					                     DECODE(A.NTF_DVSN_CD, '2', 1)          AS CNT2,
+					                     0                                      AS CNT3,
+					                     0                                      AS CNT4,
+					                     A.DPT_CD                               AS DPT_CD 
+					               FROM TBBADGDA001M A,
+					                    (SELECT ORG_CD,
+					                            NTF_DVSN_CD,
+					                            NNB,
+					                            COUNT(*) AS PSON_CNT
+					                       FROM TBBADGDA001L 
+					                      WHERE 1=1
+					                      GROUP BY ORG_CD, NTF_DVSN_CD, NNB) B
+					              WHERE 1=1
+					                AND A.ORG_CD = B.ORG_CD (+ )
+					                AND A.NTF_DVSN_CD = B.NTF_DVSN_CD (+)
+					                AND A.NNB = B.NNB (+)
+					                AND A.ACP_STA_CD  != '51'
+					                AND (A.HNDL_OPIN_CD IS NULL OR A.HNDL_OPIN_CD != '8') 
+					                AND ((A.ACP_DT BETWEEN #{strDt}  AND  #{endDt}) OR (#{strDt} > A.ACP_DT AND (#{strDt} <= A.CPLT_DT OR A.CPLT_DT IS NULL ) ) )
+					
+					                                  
+					             UNION ALL
+					                    
+					             SELECT 'A'                                  AS STAT_CD,                        
+					                     0                                   AS CNT1,
+					                     0                                   AS PSON_CNT1,
+					                     0                                   AS CNT2,
+					                     DECODE(A.LAW_NTF_DVSN_CD, '100', 1) AS CNT3,
+					                     DECODE(A.LAW_NTF_DVSN_CD, '200', 1) AS CNT4,
+					                     A.DPT_CD                            AS DPT_CD 
+					                FROM TBBADGDA004M A
+					               WHERE 1=1
+					                 AND A.ACP_STA_CD  != '51'
+					                 AND (A.HNDL_OPIN_CD IS NULL OR A.HNDL_OPIN_CD != '8') 
+					                 AND ((A.ACP_DT BETWEEN #{strDt}  AND  #{endDt}) OR (#{strDt} > A.ACP_DT AND (#{strDt} <= A.CPLT_DT OR A.CPLT_DT IS NULL ) ) )
+					
+					
+					      UNION ALL
+					
+					             SELECT CASE WHEN (A.CPLT_DT BETWEEN #{strDt} AND  #{endDt}) THEN 'D' 
+					                         ELSE 'E'
+					                     END                                   AS STAT_CD,  
+					                    DECODE(A.NTF_DVSN_CD, '1', 1)          AS CNT1,
+					                    DECODE(A.NTF_DVSN_CD, '1', B.PSON_CNT) AS PSON_CNT1,
+					                    DECODE(A.NTF_DVSN_CD, '2', 1)          AS CNT2,
+					                    0                                      AS CNT3,
+					                    0                                      AS CNT4,
+					                    A.DPT_CD                               AS DPT_CD 
+					               FROM TBBADGDA001M A,
+					                    ( SELECT ORG_CD,
+					                             NTF_DVSN_CD,
+					                             NNB,
+					                             COUNT(*) AS PSON_CNT
+					                        FROM TBBADGDA001L 
+					                       WHERE 1=1
+					                       GROUP BY ORG_CD, NTF_DVSN_CD, NNB) B
+					              WHERE 1=1
+					                AND A.ORG_CD = B.ORG_CD (+)
+					                AND A.NTF_DVSN_CD = B.NTF_DVSN_CD (+)
+					                AND A.NNB = B.NNB (+)
+					                AND A.ACP_STA_CD  != '51'
+					                AND (A.HNDL_OPIN_CD IS NULL OR A.HNDL_OPIN_CD != '8') 
+					                AND ((A.ACP_DT BETWEEN #{strDt}  AND  #{endDt}) OR (#{strDt} > A.ACP_DT AND (#{strDt} <= A.CPLT_DT OR A.CPLT_DT IS NULL ) ) )
+					
+					                                 
+					              UNION ALL
+					                    
+					             SELECT CASE WHEN (A.CPLT_DT BETWEEN #{strDt} AND  #{endDt}) THEN 'D' 
+					                               ELSE 'E'
+					                     END                                AS STAT_CD,                       
+					                    0                                   AS CNT1,
+					                    0                                   AS PSON_CNT1,
+					                    0                                   AS CNT2,
+					                    DECODE(A.LAW_NTF_DVSN_CD, '100', 1) AS CNT3,
+					                    DECODE(A.LAW_NTF_DVSN_CD, '200', 1) AS CNT4,
+					                    A.DPT_CD                            AS DPT_CD 
+					               FROM TBBADGDA004M A
+					              WHERE 1=1
+					                AND A.ACP_STA_CD  != '51'
+					                AND (A.HNDL_OPIN_CD IS NULL OR A.HNDL_OPIN_CD != '8') 
+					                AND ((A.ACP_DT BETWEEN #{strDt}  AND  #{endDt}) OR (#{strDt} > A.ACP_DT AND (#{strDt} <= A.CPLT_DT OR A.CPLT_DT IS NULL ) ) )
+					
+							 ) A
+					      WHERE 1=1
+					      GROUP BY SUBSTR(A.DPT_CD,0,3) || '000'
+					              ,A.STAT_CD
+					)
+					                        
+					                        
+					SELECT TO_CHAR(SUBSTR( #{strDt}, 0,4))                                                       AS AUD_YR
+					      ,TO_CHAR( (ROW_NUMBER() OVER(PARTITION BY X.DPT_CD ORDER BY X.DPT_CD, X.STAT_CD)) - 1 ) AS ROW_KND_CD
+					      ,'Y' AS VIEW_YN 
+					      ,(SELECT ABR_DPT_NM_1
+					          FROM TBDCMACM002M
+					         WHERE DPT_CD = X.DPT_CD)                       AS STTC_TIT1    /* 국단 */
+					      ,CASE WHEN X.STAT_CD = 'A' THEN '접수(이월포함)'
+							    WHEN X.STAT_CD = 'D' THEN '처리'
+							    WHEN X.STAT_CD = 'E' THEN '처리중'   
+						    END                                             AS STTC_TIT2    /* 구분 */
+					      ,NVL(Y.CNT_TOT, 0)                                AS STTC_COL1    /* 총 건수 */
+					      ,NVL(Y.PSON_CNT_TOT, 0)                           AS STTC_COL2    /* 총 인원 */
+					      ,NVL(Y.CNT1, 0)                                   AS STTC_COL3    /* 범죄징계 건수 */
+					      ,NVL(Y.PSON_CNT1, 0)                              AS STTC_COL4    /* 범죄징계 인원 */
+					      ,NVL(Y.CNT2, 0)                                   AS STTC_COL5    /* 손망실 건수 */
+					      ,NVL(Y.CNT3, 0)                                   AS STTC_COL6    /* 계약사항 */
+					      ,NVL(Y.CNT4, 0)                                   AS STTC_COL7    /* 국유재산 */
+					  FROM (
+					         SELECT A.DPT_CD 
+					               ,B.STAT_CD
+					           FROM BASE A
+					               ,(    SELECT 'A' AS STAT_CD FROM DUAL
+					                   UNION ALL
+					                     SELECT 'D' AS STAT_CD FROM DUAL
+					                   UNION ALL
+					                     SELECT 'E' AS STAT_CD FROM DUAL
+					                 ) B  
+					          GROUP BY A.DPT_CD 
+					                  ,B.STAT_CD
+					      )    X
+					     ,BASE Y
+					   WHERE X.DPT_CD  = Y.DPT_CD(+)
+					     AND X.STAT_CD = Y.STAT_CD(+)
+					   ORDER BY X.DPT_CD
+					           ,X.STAT_CD
+        
+        
+        ]]>
+    </select>
+    
+    <select id="selectComboList" parameterType="paramMap" resultType="egovMap">
+        <![CDATA[
+        /* kr.go.bai.eip.aep.arp.dao.FAACAV228QMapper.selectAffComboList */
+            SELECT STTC_TYP_SEQ AS CD,
+                   STTC_YR || '년 ' || STTC_STR_MON || '월' || DECODE(STTC_END_MON, '01', '', ' ~ ' || STTC_END_MON || '월') AS CD_NM
+              FROM TWFAACAV200M 
+             WHERE STTC_TYP_CD = '20'
+               AND STTC_CLSF_CD = '228'
+        ]]>
+        <if test='mngDptYn != "Y"'>
+               AND STTC_DTM_DY IS NOT NULL
+        </if>
+        <![CDATA[
+        	ORDER BY STTC_TYP_SEQ DESC
+        ]]>
+    </select>
+    
+    <select id="selectSttcList" parameterType="paramMap" resultType="egovMap">
+        <![CDATA[
+        /* kr.go.bai.eip.aep.arp.dao.FAACAV228QMapper.selectSttcList */
+            SELECT T1.RMK
+                  ,T1.ADM_OPIN
+                  ,TO_CHAR(T1.STTC_PROD_STAD_DY,'YYYY-MM-DD') AS STTC_PROD_STAD_DY
+                  ,CASE WHEN T1.STTC_DTM_DY IS NULL THEN 'N'
+                        ELSE 'Y'
+                   END AS STTC_DTM_YN
+                  ,T2.STTC_TYP_CD
+                  ,T2.STTC_CLSF_CD
+                  ,T2.STTC_TYP_SEQ
+                  ,T2.STTC_DATA_SNO
+                  ,T2.STTC_TIT1
+                  ,T2.STTC_TIT2
+                  ,T2.STTC_COL1
+                  ,T2.STTC_COL2
+                  ,T2.STTC_COL3
+                  ,T2.STTC_COL4
+                  ,T2.STTC_COL5
+                  ,T2.STTC_COL6
+                  ,T2.STTC_COL7               
+                  ,CASE WHEN T1.STTC_YR - 5 > T2.AUD_YR THEN 'N'
+                        ELSE 'Y'
+                   END VIEW_YN
+                   ,CASE WHEN T1.STTC_YR - 4 > T2.AUD_YR THEN 'N'
+                        ELSE 'Y'
+                   END CHART_VIEW_YN
+                  ,T2.AUD_YR
+                  ,T2.ROW_KND_CD
+                  ,NVL(TO_CHAR(T1.STTC_DTM_DY,'YYYY"-"MM"-"DD'),'미확정') AS STTC_DTM_DY
+              FROM TWFAACAV200M T1
+             INNER JOIN TWFAACAV200D T2 ON (
+                        T1.STTC_TYP_CD = T2.STTC_TYP_CD
+                    AND T1.STTC_CLSF_CD = T2.STTC_CLSF_CD
+                    AND T1.STTC_TYP_SEQ = T2.STTC_TYP_SEQ )
+             WHERE T1.STTC_CLSF_CD = '228'
+               AND T1.STTC_TYP_SEQ = #{sttcTypSeq}
+             ORDER BY STTC_DATA_SNO
+        ]]>
+    </select>
+    
+    <insert id="insertMaster">
+        /* kr.go.bai.eip.faa.cav.dao.FAACAV228QMapper.insertMaster */
+        <![CDATA[
+            INSERT INTO TWFAACAV200M (
+                 STTC_TYP_CD
+                ,STTC_CLSF_CD
+                ,STTC_TYP_SEQ
+                ,STTC_YR
+                ,STTC_STR_MON
+                ,STTC_END_MON
+                ,STTC_PROD_STAD_DY
+                ,STTC_DTM_DY
+                ,RMK
+                ,ADM_OPIN
+                ,FRT_USR_ID
+                ,FNL_USR_ID
+                ,FNL_DEAL_DPT_CD
+                ,FNL_MNU_ID
+                ,FRT_REGI_DH
+                ,FNL_MDF_DH )
+            VALUES (
+                 '20'
+                ,'228'
+                ,( SELECT NVL(MAX(STTC_TYP_SEQ), 0) + 1
+                     FROM TWFAACAV200M
+                    WHERE STTC_TYP_CD = '20'
+                      AND STTC_CLSF_CD = '228' )
+                ,SUBSTR(ADD_MONTHS(#{proStadDt}, -1), 0, 4)
+                ,'01'
+                ,TO_CHAR(TO_DATE(ADD_MONTHS(#{proStadDt}, -1)), 'MM')
+                ,#{proStadDt}
+                ,''
+                ,#{rmk}
+                ,#{admOpin}
+                ,#{usrId}
+                ,#{usrId}
+                ,#{dptCd}
+                ,#{mnuId}
+                ,SYSDATE
+                ,SYSDATE )
+        ]]>
+    </insert>
+    
+    <insert id="insertDetail">
+        /* kr.go.bai.eip.faa.cav.dao.FAACAV228QMapper.insertDetail */
+        <![CDATA[
+            INSERT INTO TWFAACAV200D (
+                 STTC_TYP_CD
+                ,STTC_CLSF_CD
+                ,STTC_TYP_SEQ
+                ,STTC_DATA_SNO
+                ,STTC_TIT1
+                ,STTC_TIT2
+                ,STTC_COL1
+                ,STTC_COL2
+                ,STTC_COL3
+                ,STTC_COL4
+                ,STTC_COL5
+                ,STTC_COL6
+                ,STTC_COL7
+                ,AUD_YR
+                ,ROW_KND_CD
+                ,FRT_USR_ID
+                ,FNL_USR_ID
+                ,FNL_DEAL_DPT_CD
+                ,FNL_MNU_ID
+                ,FRT_REGI_DH
+                ,FNL_MDF_DH )
+            VALUES (
+                 '20'
+                ,'228'
+                ,( SELECT NVL(MAX(STTC_TYP_SEQ), 0)
+                     FROM TWFAACAV200M
+                    WHERE STTC_TYP_CD = '20'
+                      AND STTC_CLSF_CD = '228' )
+                ,( SELECT NVL(MAX(STTC_DATA_SNO), 0) + 1
+                     FROM TWFAACAV200D
+                    WHERE STTC_TYP_CD = '20'
+                      AND STTC_CLSF_CD = '228' 
+                      AND STTC_TYP_SEQ = ( SELECT NVL(MAX(STTC_TYP_SEQ), 0)
+                                             FROM TWFAACAV200M
+                                            WHERE STTC_TYP_CD = '20'
+                                              AND STTC_CLSF_CD = '228' ))
+                ,#{sttcTit1}
+                ,#{sttcTit2}
+                ,#{sttcCol1}
+                ,#{sttcCol2}
+                ,#{sttcCol3}
+                ,#{sttcCol4}
+                ,#{sttcCol5}
+                ,#{sttcCol6}
+                ,#{sttcCol7}            
+                ,#{audYr}
+                ,#{rowKndCd}
+                ,#{usrId}
+                ,#{usrId}
+                ,#{dptCd}
+                ,#{mnuId}
+                ,SYSDATE
+                ,SYSDATE )
+        ]]>
+    </insert>
+    
+    <insert id="updateMaster">
+        /* kr.go.bai.eip.faa.cav.dao.FAACAV228QMapper.updateMaster */
+        <![CDATA[
+            UPDATE TWFAACAV200M
+               SET RMK = #{rmk}
+                  ,ADM_OPIN = #{admOpin}
+                  ,FNL_USR_ID = #{usrId}
+                  ,FNL_DEAL_DPT_CD = #{dptCd}
+                  ,FNL_MDF_DH = SYSDATE
+             WHERE STTC_TYP_CD = #{sttcTypCd}
+               AND STTC_CLSF_CD = #{sttcClsfCd}
+               AND STTC_TYP_SEQ = #{sttcTypSeq}
+        ]]>
+    </insert>
+    
+    <insert id="updateDetail">
+        /* kr.go.bai.eip.faa.cav.dao.FAACAV228QMapper.updateDetail */
+        <![CDATA[
+            UPDATE TWFAACAV200D
+               SET STTC_COL1 = #{sttcCol1}
+                  ,STTC_COL2 = #{sttcCol2}
+                  ,STTC_COL3 = #{sttcCol3}
+                  ,STTC_COL4 = #{sttcCol4}
+                  ,STTC_COL5 = #{sttcCol5}
+                  ,STTC_COL6 = #{sttcCol6}
+                  ,STTC_COL7 = #{sttcCol7}
+                  ,FNL_USR_ID = #{usrId}
+                  ,FNL_DEAL_DPT_CD = #{dptCd}
+                  ,FNL_MDF_DH = SYSDATE
+             WHERE STTC_TYP_CD = #{sttcTypCd}
+               AND STTC_CLSF_CD = #{sttcClsfCd}
+               AND STTC_TYP_SEQ = #{sttcTypSeq}
+               AND STTC_DATA_SNO = #{sttcDataSno}
+        ]]>
+    </insert>
+    
+    <insert id="updateMasterDtmDy">
+        /* kr.go.bai.eip.faa.cav.dao.FAACAV228QMapper.updateMasterDtmDy */
+        <![CDATA[
+            UPDATE TWFAACAV200M
+               SET STTC_DTM_DY = SYSDATE
+                  ,FNL_USR_ID = #{usrId}
+                  ,FNL_DEAL_DPT_CD = #{dptCd}
+                  ,FNL_MDF_DH = SYSDATE
+             WHERE STTC_TYP_CD = #{sttcTypCd}
+               AND STTC_CLSF_CD = #{sttcClsfCd}
+               AND STTC_TYP_SEQ = #{sttcTypSeq}
+        ]]>
+    </insert>
+    
+</mapper>

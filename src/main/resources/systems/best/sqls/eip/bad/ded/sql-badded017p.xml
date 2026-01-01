@@ -1,0 +1,341 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.bad.ded.dao.BADDED017PMapper">
+
+   	<!-- 출장여비 수정 후 조회 -->
+    <select id="selectAfTrexp" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.kr.go.bai.eip.bad.ded.dao.BADDED017PMapper.selectAfTrexp*/
+        <![CDATA[
+            SELECT D1.BZT_YR                                           AS BZT_YR           /*출장년도*/
+                 , D1.BZT_SNO                                          AS BZT_SNO          /*출장순번*/
+                 , D1.PCT_CNB                                          AS PCT_CNB          /*출장자전산번호*/
+                 , D1.BZT_EXS_SNO                                      AS BZT_EXS_SNO      /*출장비순번*/
+                 , D1.CALC_YN                                          AS CALC_YN          /*계산여부*/
+                 , D1.ORG_CD                                           AS ORG_CD           /*기관코드*/
+                 , F_ORG_INFO(D1.ORG_CD,'1')                           AS ORG_NM           /*기관명*/
+                 , F_ORG_INFO(D1.ORG_CD,'1')||'('||D1.ORG_CD||')'      AS ORG_NM_CD        /*기관명*/
+                 , D1.RGN_CD                                           AS RGN_CD           /*지역코드*/
+                 , F_CODE_NM('1000001',D1.RGN_CD)                      AS RGN_NM           /*지역명*/
+                 , D1.RGN_DVSN_CD                                      AS RGN_DVSN_CD      /*지역구분코드*/
+                 , F_CODE_NM('1000023',D1.RGN_DVSN_CD)                 AS RGN_DVSN_NM      /*지역구분명*/
+                 , TO_CHAR(TO_DATE(D1.BZT_STR_DT),'YYYY-MM-DD')        AS BZT_STR_DT       /*출장시작일*/
+                 , TO_CHAR(TO_DATE(D1.BZT_END_DT),'YYYY-MM-DD')        AS BZT_END_DT       /*출장종료일*/
+                 , TO_CHAR(TO_DATE(D1.BZT_STR_DT),'YYYY-MM-DD')||' ~ '
+                 || TO_CHAR(TO_DATE(D1.BZT_END_DT),'YYYY-MM-DD')       AS BZT_DT_NM        /*출장기간*/
+                 , NVL(D1.BZT_DCN,0)                                   AS BZT_DCN          /*출장일수*/
+                 , NVL(D1.AUD_DCN,0)                                   AS AUD_DCN          /*감사일수*/
+                 , NVL(D1.LODG_DCN,0)                                  AS LODG_DCN         /*숙박일수*/
+                 , NVL(D1.DT_EXS,0)                                    AS DT_EXS           /*일비*/
+                 , NVL(D1.LDC,0)                                       AS LDC              /*숙박비*/
+                 , NVL(D1.FDEX,0)                                      AS FDEX             /*식비*/
+                 , NVL(D1.SPM_XPN,0)                                   AS SPM_XPN          /*보충경비*/
+                 , NVL(D1.LEAD_EXS,0)                                  AS LEAD_EXS         /*지휘비*/
+                 , D1.FNL_YN                                           AS FNL_YN           /*최종여부*/
+                 , D1.AUD_ACTV_RCV_EXS                                 AS AUD_ACTV_RCV_EXS /*감사활동수용비*/
+                 , D2.PCT_RANK_CD                                      AS PCT_RANK_CD      /*출장자직급*/
+                 , D2.STF_DVSN_CD                                      AS STF_DVSN_CD      /*직원구분코드 */
+                 , NVL(D1.CPRG_FR_EXS,0)                               AS CPRG_FR_EXS      /*수도권운임비 - 2015.05.04 yyh */
+                 , NVL(D1.DT_EXS,0) + NVL(D1.LDC,0) + NVL(D1.FDEX,0) + NVL(D1.SPM_XPN,0) + NVL(D1.CPRG_FR_EXS,0) /* 수도권운임비 추가 */
+                   + CASE WHEN F_LEAD_EXS_RCV_EXS_RCIT_CNB(#{bztYr},#{bztSno}) = D1.PCT_CNB THEN NVL(D1.AUD_ACTV_RCV_EXS,0)
+                   + NVL(D1.LEAD_EXS,0) ELSE 0 END AS ALL_COST                    /*합계*/
+              FROM TBBADDED011L AS D1
+        INNER JOIN TBBADDED010L AS D2 ON D1.BZT_YR = D2.BZT_YR AND D1.BZT_SNO = D2.BZT_SNO AND D1.PCT_CNB = D2.PCT_CNB
+             WHERE 1=1 
+               AND D1.BZT_YR  = #{bztYr}
+               AND D1.BZT_SNO = #{bztSno}
+               AND D1.PCT_CNB = #{pctCnb}
+               AND D1.CALC_YN = 'Y'
+          ORDER BY D1.BZT_EXS_SNO
+           
+        ]]>
+   
+    </select>    
+    
+    <!-- 출장여비 변경 전후 차액 조회 -->
+    <select id="selectDffnnt" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.kr.go.bai.eip.bad.ded.dao.BADDED017PMapper.selectDffnnt*/
+        <![CDATA[
+        SELECT BZT_YR
+             , BZT_SNO
+             , PCT_CNB
+             , PCT_NM
+             , RANK_NM AS POS_CLASS_NM
+             , BLT_BRDV_NM AS BLT_BRDV_NM
+             , FDEX
+             , DT_EXS
+             , LDC
+             , CPRG_FR_EXS
+             , NVL(FDEX, 0) + NVL(DT_EXS, 0) + NVL(LDC, 0) AS IN_EXP
+             , SPM_XPN
+             , BZT_DCN
+             , RL_FR_EXS
+             , LEAD_EXS
+             , AUD_ACTV_RCV_EXS
+             , ALL_COST AS SUM_ALL
+             , '' AS SORTER
+             , NVL(FDEX, 0) + NVL(DT_EXS, 0)                                   AS IN_EXP_1     /* 식비 + 일비 추가 - 2018.01.17 yyh */
+             , NVL(FDEX, 0) + NVL(DT_EXS, 0) + NVL(LDC, 0) + NVL(RL_FR_EXS, 0) AS IN_EXP_SUM   /* 숙박비 + 식비 + 일비 + 교통비 추가 - 2018.01.19 yyh */
+            FROM (
+            SELECT D1.BZT_YR                                      AS BZT_YR
+                 , D1.BZT_SNO                                     AS BZT_SNO
+                 , D1.PCT_CNB                                     AS PCT_CNB
+                 , D1.PCT_NM                                      AS PCT_NM
+                 , D1.RANK_NM                                     AS RANK_NM
+                 , F_DPT_INFO(D1.BLT_BRDV_CD, '4')                AS BLT_BRDV_NM
+                 , NVL(D1.DT_EXS,0) - NVL(D2.DT_EXS,0)            AS DT_EXS           /*일비*/
+                 , NVL(D1.LDC,0) - NVL(D2.LDC,0)                  AS LDC              /*숙박비*/              
+                 , NVL(D1.FDEX,0) - NVL(D2.FDEX,0)                AS FDEX             /*식비*/
+                 , NVL(D1.CPRG_FR_EXS,0) - NVL(D2.CPRG_FR_EXS,0)  AS CPRG_FR_EXS      /*수도권운임 - 2015.05.06 yyh*/                 
+                 , NVL(D1.SPM_XPN,0) - NVL(D2.SPM_XPN,0)          AS SPM_XPN          /*보충경비*/
+                 , NVL(D1.BZT_DCN,0) - NVL(D2.BZT_DCN,0)          AS BZT_DCN          /*출장일수*/
+                 , NVL(D1.RL_FR_EXS,0) - NVL(D2.RL_FR_EXS,0)      AS RL_FR_EXS        /*철도운임비*/
+                 , NVL(D1.LEAD_EXS,0) - NVL(D2.LEAD_EXS,0)        AS LEAD_EXS         /*지휘비*/
+                 , NVL(D1.AUD_ACTV_RCV_EXS,0) - NVL(D2.AUD_ACTV_RCV_EXS,0) AS AUD_ACTV_RCV_EXS   /*감사활동수용비*/
+                 , NVL(D1.SUM_COST,0) - NVL(D2.SUM_COST,0)        AS SUM_COST         /*국내여비*/
+                 , NVL(D1.ALL_COST,0) - NVL(D2.ALL_COST,0)        AS ALL_COST         /*합계*/
+                 , ''                                             AS AJT_YN           /*정산완료처리에 flag로 사용*/
+                 , D1.MAX_SNO                                     AS MAX_SNO          /*이력변경번호*/
+                 , D1.AJT_CHG_RSN                                 AS AJT_CHG_RSN      /*정산사유*/
+              FROM (
+                    SELECT D2.*
+                         , MAX_SNO
+                         , AJT_CHG_RSN 
+                      FROM (
+                                SELECT BZT_YR
+                                     , BZT_SNO
+                                     , PCT_CNB
+                                     , MAX(BZT_AJT_SNO) MAX_SNO
+                                     , MAX(AJT_CHG_RSN) AJT_CHG_RSN
+                                  FROM TBBADDED019H
+                                 WHERE BZT_YR  = #{bztYr}
+                                   AND BZT_SNO = #{bztSno}
+                                   AND PCT_CNB = #{pctCnb}
+                                   AND NVL(AJT_YN,'N') = 'N'
+                                 GROUP BY BZT_YR , BZT_SNO , PCT_CNB  
+                          ) D1
+                        , VADED001 D2
+                     WHERE 1=1
+                       AND D1.BZT_YR  = D2.BZT_YR
+                       AND D1.BZT_SNO = D2.BZT_SNO
+                       AND D1.PCT_CNB = D2.PCT_CNB
+                       AND D1.MAX_SNO = D2.BZT_AJT_SNO 
+                       AND D1.BZT_YR  = #{bztYr}
+                       AND D1.BZT_SNO = #{bztSno}
+                       AND D1.PCT_CNB = #{pctCnb}
+                  ) D1
+                , (
+                    SELECT D2.* 
+                      FROM (
+                                SELECT BZT_YR
+                                     , BZT_SNO
+                                     , PCT_CNB
+                                     , MAX(BZT_AJT_SNO) MAX_SNO
+                                  FROM TBBADDED019H
+                                 WHERE BZT_YR  = #{bztYr}
+                                   AND BZT_SNO = #{bztSno}
+                                   AND PCT_CNB = #{pctCnb}
+                                   AND NVL(AJT_YN,'N') = 'Y'
+                                 GROUP BY BZT_YR , BZT_SNO , PCT_CNB  
+                          ) D1
+                        , VADED001 D2
+                     WHERE 1=1
+                       AND D1.BZT_YR  = D2.BZT_YR
+                       AND D1.BZT_SNO = D2.BZT_SNO
+                       AND D1.PCT_CNB = D2.PCT_CNB
+                       AND D1.MAX_SNO = D2.BZT_AJT_SNO 
+                       AND D1.BZT_YR  = #{bztYr}
+                       AND D1.BZT_SNO = #{bztSno}
+                       AND D1.PCT_CNB = #{pctCnb}
+                  ) D2
+            WHERE 1=1
+              AND D1.BZT_YR  = D2.BZT_YR(+)
+              AND D1.BZT_SNO = D2.BZT_SNO(+)
+              AND D1.PCT_CNB = D2.PCT_CNB(+)
+            )     
+            WHERE 1=1
+                AND DT_EXS <>0 OR LDC<>0 OR FDEX<>0 OR SPM_XPN<>0 OR BZT_DCN<>0 OR RL_FR_EXS<>0 OR LEAD_EXS<>0 OR AUD_ACTV_RCV_EXS<>0 OR SUM_COST<>0 OR ALL_COST<>0
+                    OR CPRG_FR_EXS <> 0
+               ORDER BY PCT_CNB 
+        ]]>
+    </select>        
+    
+	<!-- 출장여비 총금액 조회 -->
+    <select id="selectTotamt" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.bad.ded.dao.kr.go.bai.eip.bad.ded.dao.BADDED017PMapper.selectTotamt*/
+        <![CDATA[
+        	SELECT D1.BZT_YR                                           AS BZT_YR                 /*출장년도*/
+                 , D1.BZT_SNO                                          AS BZT_SNO                /*출장순번*/
+                 , D1.PCT_CNB                                          AS PCT_CNB                /*출장자전산번호*/
+                 , D1.PCT_NM                                           AS PCT_NM                 /*출장자명*/
+                 , D1.PCT_NM||'('||D1.PCT_CNB||')'                     AS PCT_NM_DISP            /*출장자명*/
+                 , D1.PCT_RANK_CD                                      AS PCT_RANK_CD            /*직급코드*/
+                 , F_CODE_NM('1000173', D1.PCT_RANK_CD)                AS RANK_NM                /*직급명*/
+                 , D1.STF_DVSN_CD                                      AS STF_DVSN_CD            /*직원구분코드*/
+                 , D1.DEP_RGN_CD                                       AS DEP_RGN_CD             /*출발지역코드*/
+                 , D1.BLT_BRDV_CD                                      AS BLT_BRDV_CD            /*소속국과코드*/
+                 , F_DPT_INFO(D1.BLT_BRDV_CD,'1')                      AS BLT_BRDV_NM            /*소속국과명*/
+                 , D1.BNK_CD                                           AS BNK_CD                 /*은행코드*/
+                 , D1.EAN                                              AS EAN                    /*계좌번호*/
+                 , D3.BZT_STR_DT                                       AS BZT_STR_DT             /*출장시작일*/
+                 , D3.BZT_END_DT                                       AS BZT_END_DT             /*출장종료일*/
+                 , D1.LEAD_EXS_RCV_EXS_RCIT_PEN_YN                     AS LEAD_EXS_RCV_EXS_RCIT_PEN_YN    /*지휘비및 수용비수령자여부*/
+                 , NVL(D3.DT_EXS,0)                                    AS DT_EXS                 /*일비*/
+                 , NVL(D3.LDC,0)                                       AS LDC                    /*숙박비*/
+                 , NVL(D3.FDEX,0)                                      AS FDEX                   /*식비*/
+                 , NVL(D3.SPM_XPN,0)                                   AS SPM_XPN                /*보충경비*/
+                 , NVL(D3.BZT_DCN,0)                                   AS BZT_DCN                /*출장일수*/
+                 , NVL(D5.RL_FR_EXS,0) + NVL(D3.CPRG_FR_EXS,0)         AS RL_CPRG_FR_EXS         /*철도운임비 + 수도권운임비 - 2015.05.11 yyh*/
+                 , NVL(D5.RL_FR_EXS,0)                                 AS RL_FR_EXS              /*철도운임비*/
+                 , NVL(D3.CPRG_FR_EXS,0)                               AS CPRG_FR_EXS            /*수도권운임비*/
+                 , CASE WHEN D2.BZT_TL_CNB = D1.PCT_CNB THEN NVL(D4.LEAD_EXS,0)
+                        ELSE 0 END                                     AS LEAD_EXS               /*지휘비*/
+                 , CASE WHEN D2.BZT_TL_CNB = D1.PCT_CNB THEN NVL(D4.AUD_ACTV_RCV_EXS,0)
+                        ELSE 0  END                                    AS AUD_ACTV_RCV_EXS       /*감사활동수용비*/
+                 , NVL(D3.SUM_COST,0)                                  AS SUM_COST               /*국내여비*/
+                 , NVL(D3.SUM_COST,0) + NVL(D5.RL_FR_EXS,0) + NVL(D3.SPM_XPN,0) + NVL(D3.CPRG_FR_EXS,0) /* 수도권운임비 추가 */
+                   + CASE WHEN D2.BZT_TL_CNB = D1.PCT_CNB THEN NVL(D4.AUD_ACTV_RCV_EXS,0)
+                   + NVL(D4.LEAD_EXS,0) ELSE 0 END AS ALL_COST                    /*합계*/
+                 , D1.PCT_OCP_CD
+                 , D1.EXTL_ORG_CD
+                 , D1.EXTL_ORG_NM
+                 , D3.LODG_DCN
+                 , CASE WHEN D6.AJT_DGE IS NOT NULL THEN D6.AJT_DGE||'차' ELSE '' END  AS AJT_DGE
+                 , CASE WHEN D7.PCT_CNB IS NULL THEN 'Y' ELSE 'N' END AS DEL_YN /*수정가능여부*/
+                 , F_ORG_INFO(D3.ORG_CD,'1')||'('||D3.ORG_CD||')' AS ORG_NM /*기관명*/
+                 , F_CODE_NM('1000001',D3.RGN_CD) AS RGN_NM /*지역명*/
+              FROM 
+                   TBBADDED010L D1 /*출장수령자내역*/
+                 , (
+                     SELECT #{bztYr} AS BZT_YR
+                          , #{bztSno} AS BZT_SNO
+                          , F_LEAD_EXS_RCV_EXS_RCIT_CNB(#{bztYr},#{bztSno}) AS BZT_TL_CNB
+                      FROM DUAL
+                  ) D2 /*지휘비수령자를 확인하기 위함.*/
+                , (
+                    SELECT D1.BZT_YR
+                         , D1.BZT_SNO
+                         , D1.PCT_CNB
+                         , D1.LODG_DCN
+                         , D1.ORG_CD
+                         , D1.RGN_CD
+                         , TO_CHAR(TO_DATE(D1.BZT_STR_DT),'YYYY-MM-DD') AS BZT_STR_DT
+                         , TO_CHAR(TO_DATE(D1.BZT_END_DT),'YYYY-MM-DD') AS BZT_END_DT
+                         , SUM(NVL(D1.DT_EXS,0))      AS DT_EXS       /*일비*/
+                         , SUM(NVL(D1.LDC,0))         AS LDC          /*숙박비*/
+                         , SUM(NVL(D1.FDEX,0))        AS FDEX         /*식비*/
+                         , SUM(NVL(D1.DT_EXS,0)) + SUM(NVL(D1.LDC,0)) + SUM(NVL(D1.FDEX,0)) AS SUM_COST /*합계*/
+                         , SUM(NVL(D1.SPM_XPN,0))     AS SPM_XPN      /*보충경비*/
+                         , SUM(NVL(D1.BZT_DCN,0))     AS BZT_DCN      /*출장일수*/
+                         , SUM(NVL(D1.CPRG_FR_EXS,0)) AS CPRG_FR_EXS  /*수도권운임비*/
+                      FROM 
+                           TBBADDED011L D1
+                     WHERE 
+                           BZT_YR = #{bztYr}
+                       AND BZT_SNO = #{bztSno}
+                       AND CALC_YN = 'N'
+                  GROUP BY 
+                           BZT_YR
+                         , BZT_SNO
+                         , PCT_CNB 
+                         , LODG_DCN
+                         , ORG_CD
+                         , RGN_CD    
+                         , BZT_STR_DT
+                         , BZT_END_DT                    
+                  ) D3  /*일반경비*/
+                , (
+                    SELECT D1.BZT_YR
+                         , D1.BZT_SNO
+                         , SUM(NVL(D1.LEAD_EXS,0))         AS LEAD_EXS          /*지휘비*/
+                         , SUM(NVL(D1.AUD_ACTV_RCV_EXS,0)) AS AUD_ACTV_RCV_EXS  /*감사활동수용비*/
+                      FROM 
+                           TBBADDED011L D1
+                     WHERE 
+                           D1.BZT_YR  = #{bztYr}
+                       AND D1.BZT_SNO = #{bztSno}
+                       AND D1.CALC_YN = 'N'
+                  GROUP BY 
+                           D1.BZT_YR
+                         , D1.BZT_SNO
+                  ) D4 /*지휘비, 감사활동비*/
+                , (
+                    SELECT D1.BZT_YR
+                         , D1.BZT_SNO
+                         , D1.PCT_CNB
+                         , SUM(NVL(D1.RL_FR_EXS,0)) AS RL_FR_EXS
+                      FROM 
+                           TBBADDED017L D1
+                     WHERE 
+                           1=1
+                       AND D1.BZT_YR = #{bztYr}
+                       AND D1.BZT_SNO = #{bztSno}
+                       AND D1.CALC_YN = 'N'
+                  GROUP BY 
+                           D1.BZT_YR
+                         , D1.BZT_SNO
+                         , D1.PCT_CNB
+                  ) D5 /*철도운임비*/
+                , (
+                    SELECT BZT_YR
+                         , BZT_SNO
+                         , PCT_CNB
+                         , MAX(AJT_DGE) AS AJT_DGE
+                      FROM 
+                           TBBADDED019H
+                  GROUP BY 
+                           BZT_YR
+                         , BZT_SNO
+                         , PCT_CNB 
+                  ) D6    
+                , (
+                    SELECT DISTINCT BZT_YR ,BZT_SNO, PCT_CNB
+                      FROM (
+                             SELECT BZT_YR
+                                  , BZT_SNO 
+                                  , BZT_TL_CNB AS PCT_CNB
+                               FROM 
+                                    TBBADDED002M
+                              WHERE 
+                                    1=1
+                                AND BZT_YR  = #{bztYr}
+                                AND BZT_SNO = #{bztSno}
+                          UNION ALL
+                             SELECT BZT_YR
+                                  , BZT_SNO 
+                                  , PCT_CNB 
+                               FROM 
+                                    TBBADDED005L
+                              WHERE 
+                                    BZT_YR  = #{bztYr}
+                                AND BZT_SNO = #{bztSno}
+                           )
+                  ) D7
+             
+              WHERE D1.BZT_YR  = D2.BZT_YR
+                AND D1.BZT_SNO = D2.BZT_SNO
+                AND D1.BZT_YR  = D3.BZT_YR(+)
+                AND D1.BZT_SNO = D3.BZT_SNO(+)
+                AND D1.PCT_CNB = D3.PCT_CNB(+)
+                AND D1.BZT_YR  = D4.BZT_YR(+)
+                AND D1.BZT_SNO = D4.BZT_SNO(+)
+                AND D1.BZT_YR  = D5.BZT_YR(+)
+                AND D1.BZT_SNO = D5.BZT_SNO(+)
+                AND D1.PCT_CNB = D5.PCT_CNB(+)
+                AND D1.BZT_YR  = D6.BZT_YR(+)
+                AND D1.BZT_SNO = D6.BZT_SNO(+)
+                AND D1.PCT_CNB = D6.PCT_CNB(+)
+                AND D1.BZT_YR  = D7.BZT_YR(+)
+                AND D1.BZT_SNO = D7.BZT_SNO(+)
+                AND D1.PCT_CNB = D7.PCT_CNB(+)
+                AND D1.BZT_YR  = #{bztYr}
+                AND D1.BZT_SNO = #{bztSno}
+                AND D1.PCT_CNB = #{pctCnb}
+           
+           ORDER BY D3.BZT_STR_DT
+           
+        ]]>
+   
+    </select>       
+
+</mapper> 

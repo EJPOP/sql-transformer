@@ -1,0 +1,617 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.dcm.acm.dao.DCMACM013PMapper">
+
+	<select id="selectRprtInfoByFA" parameterType="paramMap" resultType="egovMap" >
+	    <![CDATA[
+	        /* kr.go.bai.eip.dcm.acm.dao.DCMACM013PMapper.selectRprtInfoByFA*/
+        SELECT  A.RPRT_NM
+	              , F_MNG_KND_AUDYRNO(A.AUD_YR, A.AUD_NO, A.AUD_KND_CD, '-') AS AUD_YR_NO
+                  , (SELECT AUD_SBJ_NM FROM TBBADDED001M WHERE AUD_YR = #{audYr}
+			                            AND AUD_NO = #{audNo} ) AUD_SBJ_NM
+			      , (SELECT 
+					   DECODE(AUD_DOC_CD, 'A10600100', '개별처분요구안',AGGR_CONCAT(DTIL_AUD_DOC_NM,',')) AS CD_NM
+					  FROM (
+					        SELECT 
+					            AUD_DOC_CD
+					            , DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1)) AS DTIL_AUD_DOC_NM
+					          FROM TBFDMADM002M
+					         WHERE SUBSTR(AUD_DOC_CD,0,1) = 'A'
+					         GROUP BY AUD_DOC_CD, DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1))
+			                 UNION ALL SELECT 'A10800500' , '공개문' FROM DUAL
+			                 UNION ALL SELECT 'A10700700' , '부의안요약문-보고자용' FROM DUAL
+			                 UNION ALL SELECT 'A10700800' , '부의안요약문-원장님용' FROM DUAL
+					        )
+					  WHERE AUD_DOC_CD = RPRT_CD 
+					 GROUP BY AUD_DOC_CD) AS RPRT_KND_NM
+			    ,(CASE WHEN TO_DATE(SYSDATE) >= TO_DATE(B.EDT_END_DT)+1  THEN 'N'   /*현재날짜가 종료일+1보다 클떄 */
+			             ELSE NVL(A.EDT_AUTH,'N')
+				         END) EDT_AUTH
+				   , (CASE WHEN TO_DATE(SYSDATE) >= TO_DATE(B.EDT_END_DT)+1 THEN '편집불가'  /*현재날짜가 종료일+1보다 클떄 */
+				         WHEN A.APV_STA_CD = '10' THEN '편집가능'  /*결재상태가 작성중이면 편집가능*/
+				         WHEN A.APV_STA_CD != '10' AND A.EDT_AUTH IS NULL THEN '편집불가'    /*결재상태가 작성중이 아니고  EDT_AUTH가 NULL이면 '편집불가'*/
+				         ELSE DECODE(A.EDT_AUTH,'N','편집불가','편집가능')
+				         END) AS EDT_AUTH_TXT     
+				  , F_CODE_NM('1000773', A.APV_STA_CD)      AS APV_STA_NM
+				  , (CASE WHEN B.EDT_STR_DT IS NULL THEN TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')
+				          WHEN TO_DATE(SYSDATE) >= TO_DATE(B.EDT_END_DT)+1 THEN TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')  /*현재날짜가 종료일+1보다 크면 현재날짜로 넣기 */
+				          WHEN A.EDT_AUTH = 'N' THEN  TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')
+				          ELSE TO_CHAR(TO_DATE(B.EDT_STR_DT),'YYYY-MM-DD')
+				          END)AS EDT_STR_DT
+				  , (CASE WHEN B.EDT_END_DT IS NULL THEN TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')
+				          WHEN TO_DATE(SYSDATE) >= TO_DATE(B.EDT_END_DT)+1 THEN TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD') /*현재날짜가 종료일+1보다 크면 현재날짜로 넣기 */
+				          WHEN A.EDT_AUTH = 'N' THEN  TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')
+				          ELSE TO_CHAR(TO_DATE(B.EDT_END_DT),'YYYY-MM-DD')
+				          END) AS EDT_END_DT   				  
+			  FROM TBBADDED103M A
+			  LEFT OUTER JOIN TBDCMACM018M B
+			  ON(A.AUD_YR = B.AUD_YR AND A.AUD_NO = B.AUD_NO AND A.AUD_STEP_CD = B.AUD_STEP_CD AND A.DOC_ID = B.DOC_ID)			
+			 WHERE 1=1
+			   AND A.AUD_YR = #{audYr}
+			   AND A.AUD_NO = #{audNo}
+			   AND A.AUD_STEP_CD = #{audStepCd}
+			   AND A.DOC_ID = #{docId} 
+          ]]>
+    </select>
+    
+    <select id="selectRprtInfoByRequestAuditBD" parameterType="paramMap" resultType="egovMap" >
+	    <![CDATA[
+	        /* kr.go.bai.eip.dcm.acm.dao.DCMACM013PMapper.selectRprtInfoByRequestAuditBD*/
+	        SELECT  A.RPRT_NM
+ 				 , (SELECT AGGR_CONCAT(DTIL_AUD_DOC_NM,',') AS CD_NM
+					  FROM (SELECT AUD_DOC_CD
+					            , DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1)) AS DTIL_AUD_DOC_NM
+					          FROM TBFDMADM002M
+			]]>
+						<if test="bizDvsnCd.equals('requestAudit5')"> 
+					        	WHERE SUBSTR(AUD_DOC_CD,0,1) = 'D'
+					        	GROUP BY AUD_DOC_CD, DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1))
+					        	UNION ALL SELECT 'D10400600' , '공개문' FROM DUAL
+					        	UNION ALL SELECT 'D10100002' , '선람전 (과)' FROM DUAL
+                          		UNION ALL SELECT 'D10100001' , '선람전 (국)' FROM DUAL
+					   	</if> 
+					    <if test="bizDvsnCd.equals('requestAudit6')"> 
+					        	WHERE SUBSTR(AUD_DOC_CD,0,1) = 'E'
+					        	GROUP BY AUD_DOC_CD, DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1))
+					        	UNION ALL SELECT 'E10600300' , '공개문' FROM DUAL
+					        	UNION ALL SELECT 'E10100002' , '선람전 (과)' FROM DUAL
+                          		UNION ALL SELECT 'E10100001' , '선람전 (국)' FROM DUAL
+					   	</if> 
+			<![CDATA[
+					        )
+					  WHERE AUD_DOC_CD = RPRT_CD 
+					 GROUP BY AUD_DOC_CD) AS RPRT_KND_NM
+			      ,(CASE WHEN TO_DATE(SYSDATE) >= TO_DATE(B.EDT_END_DT)+1  THEN 'N'   /*현재날짜가 종료일+1보다 클떄 */
+			             ELSE NVL(A.EDT_AUTH,'N')
+				         END) EDT_AUTH
+				   , (CASE WHEN TO_DATE(SYSDATE) >= TO_DATE(B.EDT_END_DT)+1 THEN '편집불가'  /*현재날짜가 종료일+1보다 클떄 */
+				         WHEN A.APV_STA_CD = '10' THEN '편집가능'  /*결재상태가 작성중이면 편집가능*/
+				         WHEN A.APV_STA_CD != '10' AND A.EDT_AUTH IS NULL THEN '편집불가'    /*결재상태가 작성중이 아니고  EDT_AUTH가 NULL이면 '편집불가'*/
+				         ELSE DECODE(A.EDT_AUTH,'N','편집불가','편집가능')
+				         END) AS EDT_AUTH_TXT     
+				  , (CASE WHEN B.EDT_STR_DT IS NULL THEN TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')
+				          WHEN TO_DATE(SYSDATE) >= TO_DATE(B.EDT_END_DT)+1 THEN TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')  /*현재날짜가 종료일+1보다 크면 현재날짜로 넣기 */ 
+				          WHEN A.EDT_AUTH = 'N' THEN  TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')
+				          ELSE TO_CHAR(TO_DATE(B.EDT_STR_DT),'YYYY-MM-DD')
+				          END)AS EDT_STR_DT
+				  , (CASE WHEN B.EDT_END_DT IS NULL THEN TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')
+				          WHEN TO_DATE(SYSDATE) >= TO_DATE(B.EDT_END_DT)+1 THEN TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')  /*현재날짜가 종료일+1보다 크면 현재날짜로 넣기 */
+				          WHEN A.EDT_AUTH = 'N' THEN  TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')
+				          ELSE TO_CHAR(TO_DATE(B.EDT_END_DT),'YYYY-MM-DD')
+				          END)AS EDT_END_DT   
+			  FROM TBBADFRE103M A
+			  LEFT OUTER JOIN TBDCMACM018M B		
+			  ON (A.ACP_YR = B.AUD_YR AND TO_CHAR(A.ACP_SRNO) = B.AUD_NO AND A.ACP_STEP_CD = B.AUD_STEP_CD AND A.DOC_ID = B.DOC_ID ) 			
+			 WHERE 1=1
+			   AND A.ACP_YR = #{audYr}
+			   AND A.ACP_SRNO = #{audNo}
+			   AND A.ACP_STEP_CD = #{audStepCd}
+			   AND A.ACP_DVSN_CD = #{reqDvsnCd}
+			   AND A.DOC_ID = #{docId}
+          ]]>
+    </select>
+    <select id="selectCnt" parameterType="paramMap" resultType="egovMap" >
+           SELECT  COUNT(*)
+           FROM TBDCMACM018M
+           WHERE 1=1
+           AND AUD_YR = #{audYr}
+           AND AUD_NO  = #{audNo}
+           AND AUD_STEP_CD = #{audStepCd}
+           AND DOC_ID = #{docId}
+       <if test="bizDvsnCd.equals('requestAudit1') or bizDvsnCd.equals('requestAudit2') or bizDvsnCd.equals('requestAudit3') or bizDvsnCd.equals('requestAudit4') or bizDvsnCd.equals('requestAudit5') or bizDvsnCd.equals('requestAudit6')">
+		   AND REQ_DVSN_CD = #{reqDvsnCd}
+		</if>
+    </select>
+    
+    
+    <select id="selectRprtInfoByRequestAuditCP" parameterType="paramMap" resultType="egovMap" >
+	    <![CDATA[
+	        /* kr.go.bai.eip.dcm.acm.dao.DCMACM013PMapper.selectRprtInfoByRequestAuditCP*/
+	        SELECT  RPRT_NM
+ 				 , (SELECT AGGR_CONCAT(DTIL_AUD_DOC_NM,',') AS CD_NM
+					  FROM (SELECT AUD_DOC_CD
+					            , DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1)) AS DTIL_AUD_DOC_NM
+					          FROM TBFDMADM002M
+					        	GROUP BY AUD_DOC_CD, DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1))
+					        )
+					  WHERE AUD_DOC_CD = RPRT_CD 
+					 GROUP BY AUD_DOC_CD) AS RPRT_KND_NM
+			      ,(CASE WHEN TO_DATE(SYSDATE,'YYYY-MM-DD') >= TO_DATE(C.EDT_END_DT,'YYYY-MM-DD')+1  THEN 'N'   /*현재날짜가 종료일+1보다 클떄 */
+			             ELSE NVL(A.EDT_AUTH,'N')
+				         END) EDT_AUTH
+				   , (CASE WHEN TO_DATE(SYSDATE) >= TO_DATE(C.EDT_END_DT)+1 THEN '편집불가'  /*현재날짜가 종료일+1보다 클떄 */
+				         WHEN A.APV_STA_CD = '10' THEN '편집가능'  /*결재상태가 작성중이면 편집가능*/
+				         WHEN A.APV_STA_CD != '10' AND A.EDT_AUTH IS NULL THEN '편집불가'    /*결재상태가 작성중이 아니고  EDT_AUTH가 NULL이면 '편집불가'*/
+				         ELSE DECODE(A.EDT_AUTH,'N','편집불가','편집가능')
+				         END) AS EDT_AUTH_TXT  
+				  , (CASE WHEN C.EDT_STR_DT IS NULL THEN TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')
+				          WHEN TO_DATE(SYSDATE) >= TO_DATE(C.EDT_END_DT)+1 THEN TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')  /*현재날짜가 종료일+1보다 크면 현재날짜로 넣기 */
+				          WHEN A.EDT_AUTH = 'N' THEN  TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')
+				          ELSE TO_CHAR(TO_DATE(C.EDT_STR_DT),'YYYY-MM-DD')
+				          END)AS EDT_STR_DT
+				  , (CASE WHEN C.EDT_END_DT IS NULL THEN TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')
+				          WHEN TO_DATE(SYSDATE,'YYYY-MM-DD') >= TO_DATE(C.EDT_END_DT,'YYYY-MM-DD')+1 THEN TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')  /*현재날짜가 종료일+1보다 크면 현재날짜로 넣기 */
+				          WHEN A.EDT_AUTH = 'N' THEN  TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')
+				          ELSE TO_CHAR(TO_DATE(C.EDT_END_DT),'YYYY-MM-DD')
+				          END)AS EDT_END_DT   
+			  FROM TBCSPDCP603M A
+			  LEFT OUTER JOIN TBCSPEAR010M B
+			  ON (A.ACP_YR = B.CMT_OEN_YE AND A.REQ_DVSN_CD = DECODE(B.CMT_DVSN_CD,'1',7,'2',8) AND A.CVPT_ACP_NO = B.CMT_DGE)
+			 LEFT OUTER JOIN TBDCMACM018M C
+			  ON (A.ACP_YR = C.AUD_YR AND TO_CHAR(A.CVPT_ACP_NO) = C.AUD_NO AND A.ACP_STEP_CD = C.AUD_STEP_CD AND A.DOC_ID = C.DOC_ID ) 
+			 WHERE 1=1
+			   AND A.ACP_YR = #{audYr}
+        ]]>
+	<if test="reqDvsnCd == 1 or reqDvsnCd == 2 or reqDvsnCd ==3">			   
+			   AND A.CVPT_ACP_NO = #{audNo}
+	</if>			   
+	<if test="reqDvsnCd == 7 or reqDvsnCd == 8">			   
+			   AND B.CMT_DGE  = #{audNo}
+	</if>		
+	<![CDATA[	   
+			   AND A.ACP_STEP_CD = #{audStepCd}
+			   AND A.REQ_DVSN_CD = #{reqDvsnCd}
+			   AND A.DOC_ID = #{docId}
+	   ]]>		   
+    </select>
+    
+    <update id="updateEdtAuthByFieldAudit">
+        /* kr.go.bai.eip.dcm.acm.dao.DCMACM013PMapper.updateEdtAuthByFieldAudit */
+       UPDATE TBBADDED103M
+          SET EDT_AUTH = #{edtAuth}
+        WHERE 1=1
+		  AND AUD_YR = #{audYr}
+		  AND AUD_NO = #{audNo}
+		  AND AUD_STEP_CD = #{audStepCd}
+		  AND DOC_ID = #{docId}
+    </update>
+    
+        <delete id="deleteEdtAuthByFieldAudit">
+        /* kr.go.bai.eip.dcm.acm.dao.DCMACM013PMapper.deleteEdtAuthByFieldAudit */
+        <![CDATA[
+          DELETE FROM TBDCMACM018M
+          WHERE 1=1
+		  AND AUD_YR = #{audYr}
+		  AND AUD_NO = #{audNo}
+		  AND AUD_STEP_CD = #{audStepCd}
+		  AND DOC_ID = #{docId}
+		  ]]>
+		  <if test="bizDvsnCd.equals('requestAudit1') or bizDvsnCd.equals('requestAudit2') or bizDvsnCd.equals('requestAudit3') or bizDvsnCd.equals('requestAudit4') or bizDvsnCd.equals('requestAudit5') or bizDvsnCd.equals('requestAudit6')">
+		  AND REQ_DVSN_CD = #{reqDvsnCd}
+		  </if>
+       </delete>
+    
+    <update id="updateEdtAuthByRequestAuditBD">
+        /* kr.go.bai.eip.dcm.acm.dao.DCMACM013PMapper.updateEdtAuthByRequestAuditBD */
+       UPDATE TBBADFRE103M
+          SET EDT_AUTH = #{edtAuth}
+         WHERE 1=1
+		   AND ACP_YR = #{audYr}
+		   AND ACP_SRNO = #{audNo}
+		   AND ACP_STEP_CD = #{audStepCd}
+		   AND ACP_DVSN_CD = #{reqDvsnCd}
+		   AND DOC_ID = #{docId}
+    </update>
+    
+    <update id="updateEdtAuthByRequestAuditCP">
+        /* kr.go.bai.eip.dcm.acm.dao.DCMACM013PMapper.updateEdtAuthByRequestAuditCP */
+       UPDATE TBCSPDCP603M
+          SET EDT_AUTH = #{edtAuth}
+        WHERE 1=1
+		  AND ACP_YR = #{audYr}
+		  AND CVPT_ACP_NO = #{audNo}
+		  AND ACP_STEP_CD = #{audStepCd}
+		  AND REQ_DVSN_CD = #{reqDvsnCd}
+		  AND DOC_ID = #{docId}
+    </update>
+    
+    <insert id="insertEdtAuthHistInfo" parameterType="paramMap">
+		INSERT INTO TBDCMACM018H
+		(
+			SEQ
+			,AUD_YR
+			,AUD_NO
+			,AUD_STEP_CD
+			,REQ_DVSN_CD
+			,DOC_ID
+			,EDT_CNB
+			,EDT_RANK_CD
+			,EDT_PST_CD
+			,EDT_AUTH
+			,REASON
+			,FRT_USR_ID
+			,FNL_USR_ID
+			,FNL_DEAL_DPT_CD
+			,FNL_MNU_ID
+			,FRT_REGI_DH
+			,FNL_MDF_DH
+			,EDT_STR_DT
+			,EDT_END_DT	
+			<if test='vsIsEdtAuth == "N" '>		
+				,CFM_PEN_CNB
+				,CFM_PEN_CFM_YN
+			</if>
+		)
+		VALUES
+		(
+			(SELECT NVL(MAX(SEQ),0)+1 FROM TBDCMACM018H)
+			, #{audYr}
+			, #{audNo}
+			, #{audStepCd}
+			, #{reqDvsnCd}
+			, #{docId}
+			, #{cnb}
+			, #{rankCd}
+			, #{pstCd}
+			, #{edtAuth}
+			, #{reason}
+			, #{usrId}
+			, #{usrId}
+			, #{dptCd}
+			, #{menuNo}
+			, SYSDATE
+			, SYSDATE
+			,REPLACE(#{edtStrDt},'-','')
+            ,REPLACE(#{edtEndDt},'-','')
+            <if test='vsIsEdtAuth == "N" '>
+	            ,(SELECT (SELECT CNB 
+	          		FROM TBDCMACM001M
+	        		WHERE DPT_CD = A.MNG_DPT_CD 
+	           		AND INN_RANK_CD = '30'
+	           		AND DPT_CD NOT IN ('880880','770770')
+	           		AND RQS_STA_CD = '3'  )
+	          	FROM TBBADDED001M A
+	         	WHERE A.AUD_YR = #{audYr}
+	           	AND A.AUD_NO = #{audNo})
+	           	,#{cfmPenCfmY}
+	        </if>
+		)
+	</insert>
+	<insert id="insertEdtAuthHistInfo2" parameterType="paramMap">
+		INSERT INTO TBDCMACM018M
+		(
+			AUD_YR
+			,AUD_NO
+			,AUD_STEP_CD
+			,DOC_ID
+			,REQ_DVSN_CD
+			,EDT_AUTH
+			,EDT_STR_DT
+			,EDT_END_DT
+			,FRT_USR_ID
+			,FNL_USR_ID
+			,FNL_DEAL_DPT_CD
+			,FNL_MNU_ID
+			,FRT_REGI_DH
+			,FNL_MDF_DH
+		)
+		VALUES
+		(
+			 #{audYr}
+			, #{audNo}
+			, #{audStepCd}
+			, #{docId}
+			, #{reqDvsnCd}
+			, #{edtAuth}
+			,REPLACE(#{edtStrDt},'-','')
+            ,REPLACE(#{edtEndDt},'-','')
+			, #{usrId}
+			, #{usrId}
+			, #{dptCd}
+			, #{menuNo}
+			, SYSDATE
+			, SYSDATE
+		)
+	</insert>
+	
+	<insert id="insertEdtAuthHistInfo3" parameterType="paramMap">
+		INSERT INTO TBDCMACM018H
+		(
+			SEQ
+			,AUD_YR
+			,AUD_NO
+			,AUD_STEP_CD
+			,REQ_DVSN_CD
+			,DOC_ID
+			,EDT_CNB
+			,EDT_RANK_CD
+			,EDT_PST_CD
+			,EDT_AUTH
+			,REASON
+			,FRT_USR_ID
+			,FNL_USR_ID
+			,FNL_DEAL_DPT_CD
+			,FNL_MNU_ID
+			,FRT_REGI_DH
+			,FNL_MDF_DH
+			,EDT_STR_DT
+			,EDT_END_DT
+			<if test='vsIsEdtAuth == "N" '>
+				,CFM_PEN_CNB
+				,CFM_PEN_CFM_YN
+		    </if>
+		)
+		VALUES
+		(
+			(SELECT NVL(MAX(SEQ),0)+1 FROM TBDCMACM018H)
+			, #{audYr}
+			, #{audNo}
+			, #{audStepCd}
+			, #{reqDvsnCd}
+			, #{docId}
+			, #{cnb}
+			, #{rankCd}
+			, #{pstCd}
+			, #{edtAuth}
+			, #{reason}
+			, #{usrId}
+			, #{usrId}
+			, #{dptCd}
+			, #{menuNo}
+			, SYSDATE
+			, SYSDATE
+			,REPLACE(#{edtStrDt},'-','')
+            ,REPLACE(#{edtEndDt},'-','')
+			<if test='vsIsEdtAuth == "N" '>            
+	            ,(SELECT (SELECT CNB -- F_DPT_INFO(DPT_CD,'1') ||' '|| F_USR_INFO(CNB,'2')
+	          		FROM TBDCMACM001M
+	         		WHERE DPT_CD = 
+	                (SELECT DPT_CD --담당자 부서
+	                    FROM TBDCMACM001M 
+	                    WHERE DPT_CD NOT IN ('880880','770770')
+	                    AND USR_ID =
+	                        (CASE WHEN A.REQ_DVSN_CD IN ('2','3') --감사청구 구분
+	                         THEN B.HNDL_CHGR_ID
+	                         ELSE C.HNDL_CHGR_ID
+	                         END))
+	           		AND INN_RANK_CD = '30'
+	            	AND RQS_STA_CD = '3'
+	        		) CNB    --전산번호 CNB
+	  				FROM  TBCSPDCP101M A, TBCSPEAR001M B, TBCSPDCP201M C --민원기본,감사청구,감사제보 테이블
+	 				WHERE B.ACP_YR(+) = A.ACP_YR   
+	  				AND B.REQ_DVSN_CD(+) = A.REQ_DVSN_CD
+	   				AND B.CVPT_ACP_NO(+) = A.CVPT_ACP_NO 
+	   				AND A.ACP_YR = C.ACP_YR(+)   
+	   				AND A.REQ_DVSN_CD = C.REQ_DVSN_CD(+)
+	   				AND A.CVPT_ACP_NO = C.CVPT_ACP_NO(+) 
+	   				AND A.ACP_YR = #{audYr}  
+	   				AND A.REQ_DVSN_CD = #{reqDvsnCd} 
+	   				AND A.CVPT_ACP_NO = #{audNo}) 
+	             ,#{cfmPenCfmY}
+	         </if>
+		)
+	</insert>
+	
+	<insert id="insertEdtAuthHistInfo4" parameterType="paramMap">
+		INSERT INTO TBDCMACM018H
+		(
+			SEQ
+			,AUD_YR
+			,AUD_NO
+			,AUD_STEP_CD
+			,REQ_DVSN_CD
+			,DOC_ID
+			,EDT_CNB
+			,EDT_RANK_CD
+			,EDT_PST_CD
+			,EDT_AUTH
+			,REASON
+			,FRT_USR_ID
+			,FNL_USR_ID
+			,FNL_DEAL_DPT_CD
+			,FNL_MNU_ID
+			,FRT_REGI_DH
+			,FNL_MDF_DH
+			,EDT_STR_DT
+			,EDT_END_DT
+			<if test='vsIsEdtAuth == "N" '>
+				,CFM_PEN_CNB
+				,CFM_PEN_CFM_YN
+			</if>
+		)
+		VALUES
+		(
+			(SELECT NVL(MAX(SEQ),0)+1 FROM TBDCMACM018H)
+			, #{audYr}
+			, #{audNo}
+			, #{audStepCd}
+			, #{reqDvsnCd}
+			, #{docId}
+			, #{cnb}
+			, #{rankCd}
+			, #{pstCd}
+			, #{edtAuth}
+			, #{reason}
+			, #{usrId}
+			, #{usrId}
+			, #{dptCd}
+			, #{menuNo}
+			, SYSDATE
+			, SYSDATE
+			,REPLACE(#{edtStrDt},'-','')
+            ,REPLACE(#{edtEndDt},'-','')
+            <if test='vsIsEdtAuth == "N" '>
+	            ,(SELECT
+	              	CASE
+	                    WHEN A.ACP_DVSN_CD = '1'
+	                    AND A.DPT_CD NOT IN ('170300','170320') 
+	                    THEN (SELECT CNB /* 심사1,2과가 아니면 심사1과 과장님에게 */
+	                          FROM TBDCMACM001M
+	                          WHERE DPT_CD = '170300'
+	                          AND INN_RANK_CD = '30'
+	                          AND RQS_STA_CD = '3')
+	                          WHEN A.ACP_DVSN_CD = '2'
+	                          AND A.DPT_CD != '160250' 
+	                    THEN (SELECT CNB /* 재심의과가 아니면 재심의과 과장님에게 */
+	                          FROM TBDCMACM001M
+	                          WHERE DPT_CD = '160250'
+	                          AND INN_RANK_CD = '30'
+	                          AND RQS_STA_CD = '3')
+	                          ELSE B.CNB
+	                    END AS CNB
+	              FROM TBBADFRE012M A ,TBDCMACM001M B
+	              WHERE A.DPT_CD = B.DPT_CD
+	              AND B.INN_RANK_CD = '30'
+	              AND B.RQS_STA_CD = '3'
+	              AND A.ACP_YR = #{audYr}
+	              AND A.ACP_DVSN_CD = #{reqDvsnCd}
+	              AND A.ACP_SRNO = #{audNo})  
+	             ,#{cfmPenCfmY}
+	        </if>
+		)
+	</insert>
+	
+	<insert id="insertEdtAuthHistInfo5" parameterType="paramMap">
+		INSERT INTO TBDCMACM018H
+		(
+			SEQ
+			,AUD_YR
+			,AUD_NO
+			,AUD_STEP_CD
+			,REQ_DVSN_CD
+			,DOC_ID
+			,EDT_CNB
+			,EDT_RANK_CD
+			,EDT_PST_CD
+			,EDT_AUTH
+			,REASON
+			,FRT_USR_ID
+			,FNL_USR_ID
+			,FNL_DEAL_DPT_CD
+			,FNL_MNU_ID
+			,FRT_REGI_DH
+			,FNL_MDF_DH
+			,EDT_STR_DT
+			,EDT_END_DT
+			<if test="vsIsEdtAuth.equals('N')">
+				,CFM_PEN_CNB
+				,CFM_PEN_CFM_YN
+			</if>
+		)
+		VALUES
+		(
+			(SELECT NVL(MAX(SEQ),0)+1 FROM TBDCMACM018H)
+			, #{audYr}
+			, #{audNo}
+			, #{audStepCd}
+			, #{reqDvsnCd}
+			, #{docId}
+			, #{cnb}
+			, #{rankCd}
+			, #{pstCd}
+			, #{edtAuth}
+			, #{reason}
+			, #{usrId}
+			, #{usrId}
+			, #{dptCd}
+			, #{menuNo}
+			, SYSDATE
+			, SYSDATE
+			,REPLACE(#{edtStrDt},'-','')
+            ,REPLACE(#{edtEndDt},'-','')
+            
+            <if test="vsIsEdtAuth.equals('N')">
+            ,(SELECT
+              	CASE
+                    WHEN A.ACP_DVSN_CD = '1'
+                    AND A.DPT_CD NOT IN ('170300','170320') 
+                    THEN (SELECT CNB /* 심사1,2과가 아니면 심사1과 과장님에게 */
+                          FROM TBDCMACM001M
+                          WHERE DPT_CD = '170300'
+                          AND INN_RANK_CD = '30'
+                          AND RQS_STA_CD = '3')
+                          WHEN A.ACP_DVSN_CD = '2'
+                          AND A.DPT_CD != '160250' 
+                    THEN (SELECT CNB /* 재심의과가 아니면 재심의과 과장님에게 */
+                          FROM TBDCMACM001M
+                          WHERE DPT_CD = '160250'
+                          AND INN_RANK_CD = '30'
+                          AND RQS_STA_CD = '3')
+                          ELSE B.CNB
+                    END AS CNB
+              FROM TBBADFRE012M A ,TBDCMACM001M B
+              WHERE A.DPT_CD = B.DPT_CD
+              AND B.INN_RANK_CD = '30'
+              AND B.RQS_STA_CD = '3'
+              AND A.ACP_YR = #{audYr}
+              AND A.ACP_DVSN_CD = #{reqDvsnCd}
+              AND A.ACP_SRNO = #{audNo})  
+             ,#{cfmPenCfmY}
+             </if>
+		)
+	</insert>
+	
+	
+	<select id="selectEdtAuthHisList" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.dcm.acm.dao.DCMACM013PMapper.selectEdtAuthHisList*/
+        <include refid="include.pageSelct" />
+        <![CDATA[
+	        SELECT DECODE(H.EDT_AUTH,'Y','권한부여','권한회수') AS EDT_AUTH_DVSN_TXT
+			     , NVL(F_CODE_NM('1000176', H.EDT_PST_CD), F_CODE_NM('1000173', H.EDT_RANK_CD)) AS PST_NM /*직위명*/
+				 , F_DPT_INFO(H.FNL_DEAL_DPT_CD, '1') AS DPT_NAM	/*부서명*/	
+			 	 , F_USR_INFO(H.EDT_CNB,'2') AS USR_NM 
+				 , TO_CHAR(H.FRT_REGI_DH,'YYYY-MM-DD HH24:MM:SS') AS EDT_AUTH_DH
+				 , H.REASON
+				 , H.SEQ
+				 , H.AUD_YR
+				 , H.AUD_NO
+				 , H.AUD_STEP_CD
+				 , H.REQ_DVSN_CD
+				 , H.DOC_ID
+				 , TO_CHAR(TO_DATE(H.EDT_STR_DT),'YYYY-MM-DD')||' ~ '|| TO_CHAR(TO_DATE(H.EDT_END_DT),'YYYY-MM-DD')     AS EDT_ST_END_DT
+			  FROM TBDCMACM018H H
+			 WHERE H.AUD_YR       = #{audYr}
+			   AND H.AUD_NO       = #{audNo}
+			   AND H.AUD_STEP_CD  = #{audStepCd}
+		]]>
+			<if test="reqDvsnCd != null and reqDvsnCd != ''"> 
+			   	AND H.REQ_DVSN_CD  = #{reqDvsnCd}
+		   	</if>
+	   	<![CDATA[
+			   AND H.DOC_ID       = #{docId}
+			 ORDER BY SEQ desc
+        ]]>
+        <include refid="include.pageOrder" />
+    </select>
+    
+    <select id="selectDetailEdtAuthHist" parameterType="paramMap" resultType="egovMap" >
+	    <![CDATA[
+	        /* kr.go.bai.eip.dcm.acm.dao.DCMACM014PMapper.selectDetailEdtAuthHist*/
+	        SELECT DECODE(H.EDT_AUTH,'Y','권한부여','권한회수') AS EDT_AUTH_DVSN_TXT
+			     , NVL(F_CODE_NM('1000176', H.EDT_PST_CD), F_CODE_NM('1000173', H.EDT_RANK_CD)) AS PST_NM /*직위명*/
+				 , F_DPT_INFO(H.FNL_DEAL_DPT_CD, '1') AS DPT_NAM	/*부서명*/	
+			 	 , F_USR_INFO(H.EDT_CNB,'2') AS USR_NM 
+				 , TO_CHAR(H.FRT_REGI_DH,'YYYY-MM-DD HH24:MM:SS') AS EDT_AUTH_DH
+				 , H.REASON
+				 , H.DOC_ID
+				 , H.AUD_YR
+				 , H.AUD_NO
+				 , H.AUD_STEP_CD
+				 , H.REQ_DVSN_CD
+				 , H.DOC_ID
+			  FROM TBDCMACM018H H
+			 WHERE H.SEQ    = #{seq}
+          ]]>
+    </select>
+</mapper> 

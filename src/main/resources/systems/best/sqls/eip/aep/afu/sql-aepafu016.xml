@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.afu.dao.AEPAFU016QMapper">
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap">
+        /*kr.go.bai.eip.aep.afu.dao.AEPAFU016QMapper.selectMainList*/
+        
+        <include refid="include.pageSelct" />
+        
+        <![CDATA[
+            SELECT D1.BZT_YR                                                                                            AS BZT_YR
+                 , D1.BZT_SNO                                                                                           AS BZT_SNO
+                 , D2.AUD_YR                                                                                            AS AUD_YR
+                 , D2.AUD_NO                                                                                            AS AUD_NO
+                 , F_MNG_KND_AUDYRNO(D1.REL_AUD_YR, D1.REL_AUD_NO, D2.AUD_KND_CD, '-') ||'(' ||D1.AUD_STEP_SNO || ')'   AS AUD_YR_NO             /*감사연번호*/
+                 , D2.AUD_SBJ_NM                                                                                        AS AUD_SBJ_NM            /*감사사항명*/
+                 , F_DPT_INFO(D2.SPV_BRDV_CD,'1')                                                                       AS SPV_BRDV_NM           /*주관부서명*/
+                 , D2.SPV_BRDV_CD                                                                                       AS SPV_BRDV_CD           /*주관부서코드*/
+                 , F_DPT_INFO(D2.MNG_DPT_CD,'1')                                                                        AS MNG_DPT_NM            /*관리부서명*/
+                 , D2.MNG_DPT_CD                                                                                        AS MNG_DPT_CD            /*관리부서코드*/                 
+                 , D2.AUD_KND_CD                                                                                        AS AUD_KND_CD            /*감사종류코드*/
+                 , F_CODE_NM('1000007',D2.AUD_KND_CD)                                                                   AS AUD_KND_NM            /*감사종류명*/
+                 , D2.BZT_BGT_DVSN_CD                                                                                   AS BZT_BGT_DVSN_CD       /*출장예산구분 추가*/
+                 , F_CODE_NM('1000751',D2.BZT_BGT_DVSN_CD)                                                              AS BZT_BGT_DVSN_NM
+                 , D1.AUD_BZT_KND_CD                                                                                    AS AUD_BZT_KND_CD        /*감사출장종류코드*/
+                 , F_CODE_NM('1000030',D1.AUD_BZT_KND_CD)                                                               AS AUD_BZT_KND_NM        /*감사출장종류코드명*/
+                 , D1.TIT_TXT                                                                                           AS TIT_TXT               /*제목내용*/
+                 , TO_CHAR(TO_DATE(D1.AUD_STR_DT),'YYYY-MM-DD')||'~'|| TO_CHAR(TO_DATE(D1.AUD_END_DT),'YYYY-MM-DD')     AS AUD_ST_END_DT         /*실시기간*/
+                 , D1.TREXP_PL_CFM_CD                                                                                   AS TREXP_PL_CFM_CD
+                 , CASE WHEN D1.TREXP_PL_CFM_CD = '1' THEN '확인요청'
+                        WHEN D1.TREXP_PL_CFM_CD = '2' THEN '확인완료'
+                    END                                                                                                 AS TREXP_PL_CFM_NM
+                 , CASE WHEN D1.TREXP_PL_CFM_CD = '1' THEN ''
+                        WHEN D1.TREXP_PL_CFM_CD = '2' THEN 'Y'
+                    END                                                                                                 AS TREXP_PL_CFM_YN     
+		         , (SELECT USR_NAM 
+		              FROM TBDCMACM001M 
+		             WHERE USR_ID = D1.FNL_USR_ID)                                                                      AS USR_NAM               /* 최종 수정자  - 2018.10.17 yyh */
+		         , D1.CALC_DTM_YN                                                                                       AS CALC_DTM_YN           /* 여비계산확정 - 2018.10.17 yyh */
+              FROM TBBADDED002M D1
+                  ,TBBADDED001M D2 
+             WHERE 1=1
+               AND D1.REL_AUD_YR      = D2.AUD_YR
+               AND D1.REL_AUD_NO      = D2.AUD_NO
+               AND D1.BZT_DVSN_CD     = '1' 
+               AND D1.TREXP_PL_CFM_CD IN ('1','2')
+        ]]>
+            
+        <if test="audYr != null and audYr != ''">
+               AND D1.REL_AUD_YR = #{audYr}
+        </if>
+         
+        <if test="audYrNoKndCd != null and audYrNoKndCd != ''">
+               AND D2.AUD_KND_CD = #{audYrNoKndCd}
+        </if>
+         
+        <if test="audGrnNo != null and audGrnNo != ''">
+               AND D2.AUD_GRN_NO = #{audGrnNo}
+        </if>
+
+        <if test="schSpvBrdvCd != null and schSpvBrdvCd != '' ">
+               AND D2.MNG_DPT_CD IN ( SELECT T1.DPT_CD 
+                                        FROM TBDCMACM002M T1 
+                                       WHERE T1.HIRK_DPT_CD  = #{schSpvBrdvCd} )
+        </if>
+        
+        <if test="schDeptCd != null and schDeptCd != '' ">
+               AND D2.MNG_DPT_CD  = #{schDeptCd}
+        </if>        
+
+        <if test="audSbjNm != null and audSbjNm != ''">
+               AND D2.AUD_SBJ_NM LIKE '%' || #{audSbjNm} || '%' 
+        </if>
+                
+	    <if test="bztBgtDvsnCd != null and bztBgtDvsnCd != ''  ">
+	           AND D2.BZT_BGT_DVSN_CD = ${bztBgtDvsnCd}
+	    </if>
+	                   
+        <if test="schAudKndCd != null and schAudKndCd != ''">
+               AND D2.AUD_KND_CD = #{schAudKndCd}
+        </if>
+        
+        <if test="schBztKndCd != null and schBztKndCd != ''">
+               AND D1.AUD_BZT_KND_CD  = #{schBztKndCd}
+        </if>
+
+        <if test="trexpPlCfmCd != null and trexpPlCfmCd != ''">
+               AND D1.TREXP_PL_CFM_CD = #{trexpPlCfmCd} 
+        </if>
+                    	                   
+		ORDER BY D2.AUD_YR       DESC
+        		,D2.AUD_NO       DESC
+        		,D1.AUD_STEP_SNO DESC
+			             
+        <include refid="include.pageOrder" />
+    </select>
+    
+    <update id="updateCfm" parameterType="paramMap">
+    /*kr.go.bai.eip.aep.afu.dao.AEPAFU016QMapper.updateCfm*/
+    
+        <![CDATA[
+        
+        UPDATE TBBADDED002M 
+           SET TREXP_PL_CFM_CD = #{trexpPlCfmCd}
+         WHERE BZT_YR          = #{bztYr}
+           AND BZT_SNO         = #{bztSno}
+           
+        ]]>
+        
+    </update>
+    
+    <select id="selectSendMsgInfo" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.aep.afu.dao.AEPAFU016QMapper.selectSendMsgInfo*/
+        <![CDATA[
+        
+		  SELECT F_MNG_KND_AUDYRNO(T1.REL_AUD_YR, REL_AUD_NO, '', '-') || '(' || T1.AUD_STEP_SNO || ')'   AS AUD_YR_NO_NM
+		        ,T1.TIT_TXT                                                                               AS TIT_TXT
+		        ,(SELECT CNB 
+		            FROM TBDCMACM001M 
+		           WHERE USR_ID = T1.FNL_USR_ID)                                                          AS RCPT_USR_CNB
+		        ,'1'                                                                                      AS RCPT_USR_CNT
+		    FROM TBBADDED002M T1
+		   WHERE T1.BZT_YR  = #{bztYr}
+		     AND T1.BZT_SNO = #{bztSno}  
+		                  
+        ]]>
+    </select>    
+    
+</mapper>

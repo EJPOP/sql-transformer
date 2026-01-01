@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.go.bai.eip.aep.adr.dao.AEPADR001EMapper">
+    
+    <select id="selectAudData" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.aep.adr.dao.AEPADR001EMapper.selectAudData*/
+    <![CDATA[
+        SELECT AUD_SBJ_NM
+             , AUD_KND_CD
+             , F_MNG_KND_AUDYRNO(AUD_YR, AUD_NO, AUD_KND_CD, '-') AS AUD_YR_NO
+          FROM TBBADDED001M
+         WHERE AUD_YR = #{audYr}
+           AND AUD_NO = #{audNo}
+    ]]>
+    </select>
+    
+    <select id="selectOnnaraRqsList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.aep.adr.dao.AEPADR001EMapper.selectOnnaraRqsList*/
+    <![CDATA[
+        SELECT T1.RPRT_NM
+             , TO_CHAR(TO_DATE(T2.RCPT_DT), 'YYYY-MM-DD') AS RCPT_DT
+             , DECODE(T3.APVR_NM, NULL, '', T3.APVR_NM||'('||TO_CHAR(MAX(T3.APV_DH), 'YYYY-MM-DD')||')') AS FNL_APVR_NM
+             , T4.ORG_CD
+             , F_ORG_INFO(T4.ORG_CD, '1') AS ORG_NM
+             , T4.RMK
+             , T1.DOC_ID
+             , T1.APV_RQS_ID
+             , T1.AUD_STEP_CD
+             , T1.APV_STA_CD
+             , F_OPEN_EDIT(T1.LINK_URL)  AS DOC_TYPE
+          FROM TBBADDED103M T1
+          LEFT OUTER JOIN TBDCMACM111H T2 ON ( T1.APV_RQS_ID = T2.ONR_DOC_MNG_CRD_ID )
+          LEFT OUTER JOIN (
+                          SELECT ST1.ONR_DOC_MNG_CRD_ID
+                               , ST1.APVR_NM
+                               , ST1.APV_DH
+                            FROM TBDCMACM102L ST1
+                           INNER JOIN (
+                                       SELECT ST1.ONR_DOC_MNG_CRD_ID
+                                            , MAX(ST1.APV_HIS_SRNO) AS APV_HIS_SRNO
+                                         FROM TBDCMACM102L ST1
+                                        WHERE ST1.APV_DH IS NOT NULL
+                                        GROUP BY ST1.ONR_DOC_MNG_CRD_ID
+                                      ) ST2 ON (    ST1.ONR_DOC_MNG_CRD_ID = ST2.ONR_DOC_MNG_CRD_ID
+                                                AND ST1.APV_HIS_SRNO = ST2.APV_HIS_SRNO)
+                           ) T3 ON ( T3.ONR_DOC_MNG_CRD_ID = T1.APV_RQS_ID )
+          LEFT OUTER JOIN TBBADDED133M T4 ON (    T1.AUD_YR = T4.AUD_YR
+                                              AND T1.AUD_NO = T4.AUD_NO
+                                              AND T1.DOC_ID = T4.DOC_ID)
+         WHERE T1.RPRT_CD = 'A10951700'
+           AND T1.AUD_YR = #{audYr}
+           AND T1.AUD_NO = #{audNo}
+         GROUP BY T1.RPRT_NM
+                , T2.RCPT_DT
+                , T3.APVR_NM
+                , T4.ORG_CD
+                , T4.RMK
+                , T1.DOC_ID
+                , T1.APV_RQS_ID
+                , T1.AUD_STEP_CD
+                , T1.APV_STA_CD
+                , T1.FRT_REGI_DH
+                , T1.LINK_URL
+         ORDER BY DECODE(T2.RCPT_DT, NULL, 2, 1)
+                , T2.RCPT_DT DESC
+                , T1.FRT_REGI_DH DESC
+    ]]>
+    </select>
+    
+    <update id="insertAudDataRqs" parameterType="paramMap">
+    /*kr.go.bai.eip.aep.adr.dao.AEPADR001EMapper.insertAudDataRqs*/
+        <![CDATA[
+            MERGE INTO TBBADDED133M 
+                 USING (
+                        SELECT '1'
+                          FROM DUAL ) T2
+                    ON (    AUD_YR = #{audYr}
+                        AND AUD_NO = #{audNo}
+                        AND DOC_ID = #{docId} )
+                  WHEN MATCHED THEN
+                UPDATE
+                   SET ORG_CD           = #{orgCd}
+                     , RMK              = #{rmk}
+                     , FNL_USR_ID       = #{usrId}
+                     , FNL_DEAL_DPT_CD  = #{dptCd}
+                     , FNL_MNU_ID       = #{mnuId}
+                     , FNL_MDF_DH       = SYSDATE
+                  WHEN NOT MATCHED THEN
+                INSERT (
+                         AUD_YR
+                       , AUD_NO
+                       , DOC_ID
+                       , ONR_HND_DVSN_CD
+                       , AUD_KND_CD
+                       , AUD_GRN_NO 
+                       , FILE_NM
+                       , SND_DH
+                       , ORG_CD
+                       , REGI_DH
+                       , REGI_CNB
+                       , RMK
+                       , FRT_USR_ID
+                       , FNL_USR_ID
+                       , FNL_DEAL_DPT_CD
+                       , FNL_MNU_ID
+                       , FRT_REGI_DH
+                       , FNL_MDF_DH )
+                VALUES (
+                         #{audYr}
+                       , #{audNo}
+                       , #{docId}
+                       , #{onrHndDvsnCd}
+                       , #{audKndCd}
+                       , #{audGrnNo}
+                       , #{fileNm}
+                       , #{sndDh}
+                       , #{orgCd}
+                       , #{regiDh}
+                       , #{regiCnb}
+                       , #{rmk}
+                       , #{usrId}
+                       , #{usrId}
+                       , #{dptCd}
+                       , #{mnuId}
+                       , SYSDATE
+                       , SYSDATE )
+        ]]>
+    </update>
+</mapper> 

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="dcm/acm/068">
+
+	<!-- 조회-->
+	<select id="DCMACM068EMainselect" parameterClass="paramMap" resultClass="resultMap">	
+	    <![CDATA[
+            SELECT A.DPT_CD                          /* 부서코드 */
+                  ,CASE WHEN A.LEVEL_NO = '1'                      THEN A.DPT_NM END AS DPT_NM1 /* 부서명1 */
+                  ,CASE WHEN A.LEVEL_NO = '2' OR LEVEL_NO IS NULL  THEN A.DPT_NM END AS DPT_NM2 /* 부서명2 */
+                  ,CASE WHEN A.LEVEL_NO = '3'                      THEN A.DPT_NM END AS DPT_NM3 /* 부서명3 */
+                  ,CASE WHEN A.LEVEL_NO = '4'                      THEN A.DPT_NM END AS DPT_NM4 /* 부서명4 */
+                  ,A.LEVEL_NO                        /* 레벨 */
+                  ,A.SORT_SNO                        /* 정렬순서 */
+                  ,(SELECT COUNT(1)
+                      FROM TBDCMACM001M
+                     WHERE RAL_BLT_DIV_CD = A.DPT_CD
+                       AND (
+                               (USR_DVSN_CD = '1' AND CNB < '5000' AND RQS_STA_CD ='3')
+                            OR (USR_DVSN_CD = '2' AND CNB LIKE '8%' AND RQS_STA_CD ='3') /* 수견 */
+                            OR (USR_DVSN_CD = '3' AND CNB LIKE '9%' AND RQS_STA_CD ='3') /* 내부계약직 */
+                            OR ((USR_DVSN_CD = '4'  AND CNB LIKE '9%' AND RQS_STA_CD ='3')  AND (SELECT USE_YN
+                                                                                                   FROM TBDCMACM002M
+                                                                                                  WHERE DPT_CD = A.DPT_CD) = 'Y') 
+                            )   
+                   )                                   AS NOP_CNT         /* 소속인원 */       
+              FROM H2ODEPT_SORT_VIEW A
+             WHERE 1=1
+	    ]]>  
+		         
+        <isNotEmpty property="strDptNm">
+		    /* 부서명 조회 */
+		    AND A.DPT_NM LIKE '%' || #strDptNm# || '%'
+        </isNotEmpty>
+						   
+		<isNotEmpty property="strLevelNo">
+		    /* 레벨 조회 */
+		    AND A.LEVEL_NO = #strLevelNo#
+		</isNotEmpty>
+						   
+		  ORDER BY A.SORT_SNO
+		          ,A.DPT_CD
+	</select>
+
+
+	<!-- 저장 -->
+	<update id="DCMACM068EMainUpdate" parameterClass="paramMap">
+           UPDATE TBDCMACM013C                   
+              SET USR_DFN_TXT_9     = #LEVEL_NO#           /* 레벨 */
+                 ,USR_DFN_TXT_10    = #SORT_SNO#           /* 정렬순서 */
+                 ,FNL_MDF_DH        = SYSDATE              /* 최종수정일시 */ 
+                 ,FNL_USR_ID        = #FNL_USR_ID#         /* 최종사용자ID */       
+                 ,FNL_DEAL_DPT_CD   = #FNL_DEAL_DPT_CD#    /* 최종거래부서코드 */
+                 ,FNL_MNU_ID        = #FNL_MNU_ID#         /* 최종메뉴ID */
+            WHERE CMM_CD_DVSN_CD    = '1000144'            /* 실부서 코드*/
+              AND CD                = #DPT_CD#
+	</update>	
+			
+</sqlMap> 

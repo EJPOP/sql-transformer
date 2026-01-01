@@ -1,0 +1,2145 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/sae/601">
+	<select id="CSPSAE601QSelectMain" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+				SELECT NVL2(A.YR, A.YR, '합계') AS YR
+				      , DECODE(NVL2(A.YR, A.YR, '합계'), '합계', '', NVL2(A.EDU_DVSN_NM, A.EDU_DVSN_NM, '소계')) AS EDU_DVSN_NM
+				      , DECODE(NVL2(A.EDU_DVSN_NM, A.EDU_DVSN_NM, '소계'), '소계', '', NVL2(A.CRS_NM, A.CRS_NM, '소계')) AS CRS_NM
+				      , A.CRS_CDN
+				      , A.CRS_CD
+				      , A.EDU_PRD_TXT
+				      , A.ONTM_NOP_CNT
+				      , SUM(A.EDU_NBC) AS EDU_NBC
+				      , SUM(A.TOT_NOP_CNT) AS TOT_NOP_CNT
+				      , SUM(A.CNT_CRS_CDN) AS CNT_CRS_CDN
+				      , SUM(A.CNT_TANE_ID) AS CNT_TANE_ID
+				      , A.AVR_TG_CNT
+				FROM (
+						SELECT 	A.YR
+						      , A.EDU_DVSN_CD
+						      , B.EDU_DVSN_NM
+						      , C.EDU_CAT_CD
+						      , A.CRS_CD
+						      , A.CRS_NM
+						      , A.CRS_CDN
+						      , A.EDU_PRD_TXT
+						      , A.ONTM_NOP_CNT
+						      , A.EDU_NBC
+						      , A.TOT_NOP_CNT
+						      , A.CNT_CRS_CDN
+							  , A.CNT_TANE_ID
+							  , A.AVR_TG_CNT 
+						FROM (
+								SELECT 	A.YR
+								      , B.EDU_DVSN_CD
+								      , B.EDU_CAT_CD
+								      , A.CRS_CD
+								      , B.CRS_NM
+								      , A.CRS_CDN
+								      , A.EDU_PRD_TXT
+								      , A.ONTM_NOP_CNT
+								      , A.EDU_NBC
+								      , A.TOT_NOP_CNT
+								      , A.CNT_CRS_CDN
+								      , A.CNT_TANE_ID
+								      , ( CASE NVL(A.TOT_NOP_CNT, 0) 
+											WHEN 0 THEN 0
+											ELSE ROUND( (( A.CNT_TANE_ID / A.TOT_NOP_CNT ) * 100) , 2)											
+										END ) AVR_TG_CNT
+								FROM (
+										SELECT 	B.YR
+										      , B.CRS_CD
+										      , B.CRS_CDN
+										      , B.EDU_PRD_TXT
+										      , B.ONTM_NOP_CNT
+										      , B.EDU_NBC
+										      , B.TOT_NOP_CNT
+										      , NVL(A.CNT_CRS_CDN, 0) AS CNT_CRS_CDN
+										      , NVL(A.CNT_TANE_ID, 0) AS CNT_TANE_ID 
+										FROM (
+											SELECT A.YR
+											     , A.CRS_CD
+											     , COUNT(CRS_CDN) AS CNT_CRS_CDN
+											     , SUM(A.CNT_TANE_ID) AS CNT_TANE_ID
+											FROM (
+												SELECT 	YR
+												      , CRS_CD
+												      , CRS_CDN
+												      , COUNT(TANE_ID) AS CNT_TANE_ID
+												FROM 	TBCSPSAE301D
+												WHERE FIN_YN = 'Y'
+												AND   YR 		BETWEEN #strFromY# AND #strToY#
+												GROUP BY YR, CRS_CD, CRS_CDN
+										        ) A
+										   GROUP BY A.YR, A.CRS_CD
+										) A
+										, (
+											SELECT A.YR
+											     , A.CRS_CD
+											     , MAX(B.CRS_CDN) AS CRS_CDN
+											     , NVL(A.EDU_PRD_TXT, '-') AS EDU_PRD_TXT
+											     , NVL(A.ONTM_NOP_CNT, 0) AS ONTM_NOP_CNT
+												 , NVL(A.EDU_NBC, 0) AS EDU_NBC
+												 , NVL(A.TOT_NOP_CNT, 0) AS TOT_NOP_CNT 
+											FROM   TBCSPSAE201M A
+												 , TBCSPSAE201D B
+									        WHERE B.YR = A.YR
+									          AND B.CRS_CD = A.CRS_CD
+									          AND SUBSTR(B.EDU_STR_DT, 0, 6) BETWEEN #strFromY# || #strFromM#  AND #strToY# || #strToM#
+									        GROUP BY A.YR, A.CRS_CD, A.EDU_PRD_TXT, A.ONTM_NOP_CNT, A.EDU_NBC, A.TOT_NOP_CNT
+										) B
+										WHERE 	B.YR 		= A.YR(+)
+										AND 	B.CRS_CD 	= A.CRS_CD(+)
+								) A, TBCSPSAE103C B
+								WHERE 	B.CRS_CD = A.CRS_CD
+								AND 	B.USE_YN = 'Y'
+						) A
+						, TBCSPSAE101C B
+						, TBCSPSAE102C C
+						WHERE B.EDU_DVSN_CD = A.EDU_DVSN_CD
+						  AND C.EDU_DVSN_CD = B.EDU_DVSN_CD
+						  AND C.EDU_CAT_CD = A.EDU_CAT_CD
+				) A
+				WHERE 1=1
+				AND A.YR BETWEEN #strFromY# AND #strToY#
+         ]]>
+         <dynamic>
+        	<isNotEmpty property="strEDU_DVSN_CD">
+        		AND A.EDU_DVSN_CD = #strEDU_DVSN_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CAT_CD">
+        		AND A.EDU_CAT_CD = #strEDU_CAT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CRS_CD">
+        		AND A.CRS_CD = #strEDU_CRS_CD#
+        	</isNotEmpty>
+        </dynamic>
+        <![CDATA[
+		   GROUP BY ROLLUP(A.YR, A.EDU_DVSN_NM
+				          , ( A.EDU_DVSN_CD
+				          , A.CRS_NM
+					      , A.CRS_CD
+					          , A.CRS_CDN
+					      , A.EDU_PRD_TXT
+					      , A.ONTM_NOP_CNT
+					      , A.AVR_TG_CNT))
+				ORDER BY A.YR, A.EDU_DVSN_NM ASC , A.CRS_CD ASC
+       ]]>
+	</select>
+	
+	<select id="CSPSAE601QMainReportData" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+				SELECT A.YR
+				      , A.EDU_DVSN_NM
+				      , A.CRS_NM
+				      , A.CRS_CDN
+				      , A.CRS_CD
+				      , A.EDU_PRD_TXT
+				      , A.ONTM_NOP_CNT
+				      , A.EDU_NBC AS EDU_NBC
+				      , A.TOT_NOP_CNT AS TOT_NOP_CNT
+				      , A.CNT_CRS_CDN AS CNT_CRS_CDN
+				      , A.CNT_TANE_ID AS CNT_TANE_ID
+				      , A.AVR_TG_CNT AS AVR_TG_CNT
+				FROM (
+						SELECT 	A.YR
+						      , A.EDU_DVSN_CD
+						      , B.EDU_DVSN_NM
+						      , C.EDU_CAT_CD
+						      , A.CRS_CD
+						      , A.CRS_NM
+						      , A.CRS_CDN
+						      , A.EDU_PRD_TXT
+						      , A.ONTM_NOP_CNT
+						      , A.EDU_NBC
+						      , A.TOT_NOP_CNT
+						      , A.CNT_CRS_CDN
+							  , A.CNT_TANE_ID
+							  , A.AVR_TG_CNT 
+						FROM (
+								SELECT 	A.YR
+								      , B.EDU_DVSN_CD
+								      , B.EDU_CAT_CD
+								      , A.CRS_CD
+								      , B.CRS_NM
+								      , A.CRS_CDN
+								      , A.EDU_PRD_TXT
+								      , A.ONTM_NOP_CNT
+								      , A.EDU_NBC
+								      , A.TOT_NOP_CNT
+								      , A.CNT_CRS_CDN
+								      , A.CNT_TANE_ID
+								      , ( CASE NVL(A.TOT_NOP_CNT, 0) 
+											WHEN 0 THEN 0
+											ELSE ROUND( (( A.CNT_TANE_ID / A.TOT_NOP_CNT ) * 100) , 2)											
+										END ) AVR_TG_CNT
+								FROM (
+										SELECT 	B.YR
+										      , B.CRS_CD
+										      , B.CRS_CDN
+										      , B.EDU_PRD_TXT
+										      , B.ONTM_NOP_CNT
+										      , B.EDU_NBC
+										      , B.TOT_NOP_CNT
+										      , NVL(A.CNT_CRS_CDN, 0) AS CNT_CRS_CDN
+										      , NVL(A.CNT_TANE_ID, 0) AS CNT_TANE_ID 
+										FROM (
+											SELECT A.YR
+											     , A.CRS_CD
+											     , COUNT(CRS_CDN) AS CNT_CRS_CDN
+											     , SUM(A.CNT_TANE_ID) AS CNT_TANE_ID
+											FROM (
+												SELECT 	YR
+												      , CRS_CD
+												      , CRS_CDN
+												      , COUNT(TANE_ID) AS CNT_TANE_ID
+												FROM 	TBCSPSAE301D
+												WHERE FIN_YN = 'Y'
+												AND   YR 		BETWEEN #strFromY# AND #strToY#
+												GROUP BY YR, CRS_CD, CRS_CDN
+										        ) A
+										   GROUP BY A.YR, A.CRS_CD
+										) A
+										, (
+											SELECT A.YR
+											     , A.CRS_CD
+											     , MAX(B.CRS_CDN) AS CRS_CDN
+											     , NVL(A.EDU_PRD_TXT, '-') AS EDU_PRD_TXT
+											     , NVL(A.ONTM_NOP_CNT, 0) AS ONTM_NOP_CNT
+												 , NVL(A.EDU_NBC, 0) AS EDU_NBC
+												 , NVL(A.TOT_NOP_CNT, 0) AS TOT_NOP_CNT 
+											FROM   TBCSPSAE201M A
+												 , TBCSPSAE201D B
+									        WHERE B.YR = A.YR
+									          AND B.CRS_CD = A.CRS_CD
+									          AND SUBSTR(B.EDU_STR_DT, 0, 6) BETWEEN #strFromY# || #strFromM#  AND #strToY# || #strToM#
+									        GROUP BY A.YR, A.CRS_CD, A.EDU_PRD_TXT, A.ONTM_NOP_CNT, A.EDU_NBC, A.TOT_NOP_CNT
+										) B
+										WHERE 	B.YR 		= A.YR(+)
+										AND 	B.CRS_CD 	= A.CRS_CD(+)
+								) A, TBCSPSAE103C B
+								WHERE 	B.CRS_CD = A.CRS_CD
+								AND 	B.USE_YN = 'Y'
+						) A
+						, TBCSPSAE101C B
+						, TBCSPSAE102C C
+						WHERE B.EDU_DVSN_CD = A.EDU_DVSN_CD
+						  AND C.EDU_DVSN_CD = B.EDU_DVSN_CD
+						  AND C.EDU_CAT_CD = A.EDU_CAT_CD
+				) A
+				WHERE 1=1
+				AND A.YR BETWEEN #strFromY# AND #strToY#
+         ]]>
+         <dynamic>
+        	<isNotEmpty property="strEDU_DVSN_CD">
+        		AND A.EDU_DVSN_CD = #strEDU_DVSN_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CAT_CD">
+        		AND A.EDU_CAT_CD = #strEDU_CAT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CRS_CD">
+        		AND A.CRS_CD = #strEDU_CRS_CD#
+        	</isNotEmpty>
+        </dynamic>
+        <![CDATA[
+				ORDER BY A.YR, A.EDU_DVSN_NM ASC , A.CRS_CD ASC
+       ]]>
+	</select>
+	
+	<select id="CSPSAE601QDvsnList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+				SELECT
+					  NVL2(A.YR, A.YR, '합계') AS YR
+					, DECODE(NVL2(A.YR, A.YR, '합계'), '합계', '', NVL2(B.EDU_DVSN_NM, B.EDU_DVSN_NM, '소계')) AS EDU_DVSN_NM
+					, DECODE(NVL2(B.EDU_DVSN_NM, B.EDU_DVSN_NM, '소계'), '소계', '', NVL2(A.CRS_NM, A.CRS_NM, '소계')) AS CRS_NM
+					, DECODE(NVL2(A.CRS_NM, A.CRS_NM, '소계'), '소계', '', NVL2(TO_CHAR(A.CRS_CDN), TO_CHAR(A.CRS_CDN), '소계')) AS CRS_CDN
+					, C.EDU_PRD_TXT
+					, SUM(NVL(D.ORG_DVSN_CD_01, 0)) AS ORG_DVSN_CD_01
+					, SUM(NVL(D.ORG_DVSN_CD_02, 0)) AS ORG_DVSN_CD_02
+					, SUM(NVL(D.ORG_DVSN_CD_03, 0)) AS ORG_DVSN_CD_03
+					, SUM(NVL(D.ORG_DVSN_CD_04, 0)) AS ORG_DVSN_CD_04
+					, SUM(NVL(D.ORG_DVSN_CD_05, 0)) AS ORG_DVSN_CD_05
+				FROM (SELECT
+						  A.YR
+						, B.EDU_DVSN_CD
+						, B.EDU_CAT_CD
+						, A.CRS_CD
+						, A.CNT_CRS_CD
+						, B.CRS_NM
+						, A.CRS_CDN
+						, SUM(CASE WHEN C.ORG_DVSN_CD = '10' THEN 1 ELSE 0 END) AS ORG_DVSN_CD_01
+						, SUM(CASE WHEN C.ORG_DVSN_CD = '21' THEN 1 ELSE 0 END) AS ORG_DVSN_CD_02
+						, SUM(CASE WHEN C.ORG_DVSN_CD = '22' THEN 1 ELSE 0 END) AS ORG_DVSN_CD_03
+						, SUM(CASE WHEN SUBSTRING(C.ORG_DVSN_CD,1,1) = '4' THEN 1 ELSE 0 END) AS ORG_DVSN_CD_04
+						, SUM(CASE WHEN SUBSTRING(C.ORG_DVSN_CD,1,1) IN ('5', '6') THEN 1 ELSE 0 END) AS ORG_DVSN_CD_05
+					FROM (SELECT YR
+						        , CRS_CD
+						        , CRS_CDN
+						        , COUNT(CRS_CD) AS CNT_CRS_CD
+							FROM TBCSPSAE201D
+							WHERE 1=1
+							AND SUBSTR(EDU_STR_DT, 0, 6) BETWEEN #strFromY# || #strFromM#  AND #strToY# || #strToM#
+							GROUP BY YR, CRS_CD, CRS_CDN) A
+						, TBCSPSAE103C B
+						, TBCSPSAE301D C
+					WHERE 1=1
+					AND C.YR(+) = A.YR
+					AND C.CRS_CD(+) = A.CRS_CD
+					AND C.CRS_CDN(+) = A.CRS_CDN
+					AND A.CRS_CD = B.CRS_CD
+					GROUP BY A.YR
+					       , B.EDU_DVSN_CD
+					       , B.EDU_CAT_CD
+					       , A.CRS_CD
+					       , B.CRS_NM
+					       , A.CNT_CRS_CD
+					       , A.CRS_CDN
+				    ) A
+				  , TBCSPSAE101C B
+				  , TBCSPSAE201M C
+				  , (SELECT
+						  A.YR
+						, B.EDU_DVSN_CD
+						, B.EDU_CAT_CD
+						, A.CRS_CD
+						, A.CNT_CRS_CD
+						, B.CRS_NM
+						, A.CRS_CDN
+						, SUM(CASE WHEN C.ORG_DVSN_CD = '10' THEN 1 ELSE 0 END) AS ORG_DVSN_CD_01
+						, SUM(CASE WHEN C.ORG_DVSN_CD = '21' THEN 1 ELSE 0 END) AS ORG_DVSN_CD_02
+						, SUM(CASE WHEN C.ORG_DVSN_CD = '22' THEN 1 ELSE 0 END) AS ORG_DVSN_CD_03
+						, SUM(CASE WHEN SUBSTRING(C.ORG_DVSN_CD,1,1) = '4' THEN 1 ELSE 0 END) AS ORG_DVSN_CD_04
+						, SUM(CASE WHEN SUBSTRING(C.ORG_DVSN_CD,1,1) IN ('5', '6') THEN 1 ELSE 0 END) AS ORG_DVSN_CD_05
+					FROM (SELECT YR
+						        , CRS_CD
+						        , CRS_CDN
+						        , COUNT(CRS_CD) AS CNT_CRS_CD
+							FROM TBCSPSAE201D
+							WHERE 1=1
+							AND SUBSTR(EDU_STR_DT, 0, 6) BETWEEN #strFromY# || #strFromM#  AND #strToY# || #strToM#
+							GROUP BY YR, CRS_CD, CRS_CDN) A
+						, TBCSPSAE103C B
+						, TBCSPSAE301D C
+					WHERE 1=1
+					AND C.YR(+) = A.YR
+					AND C.CRS_CD(+) = A.CRS_CD
+					AND C.CRS_CDN(+) = A.CRS_CDN
+					AND A.CRS_CD = B.CRS_CD
+					AND C.FIN_YN = 'Y'
+					GROUP BY A.YR
+					       , B.EDU_DVSN_CD
+					       , B.EDU_CAT_CD
+					       , A.CRS_CD
+					       , B.CRS_NM
+					       , A.CNT_CRS_CD
+					       , A.CRS_CDN
+				    ) D
+		     WHERE A.EDU_DVSN_CD = B.EDU_DVSN_CD
+		       AND C.YR = A.YR
+		       AND C.CRS_CD = A.CRS_CD
+		       AND D.YR(+) = A.YR
+		       AND D.CRS_CD(+) = A.CRS_CD
+		       AND D.CRS_CDN(+) = A.CRS_CDN
+		       AND A.YR BETWEEN #strFromY# AND #strToY#
+         ]]>
+         <dynamic>
+        	<isNotEmpty property="strEDU_DVSN_CD">
+        		AND A.EDU_DVSN_CD = #strEDU_DVSN_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CAT_CD">
+        		AND A.EDU_CAT_CD = #strEDU_CAT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CRS_CD">
+        		AND A.CRS_CD = #strEDU_CRS_CD#
+        	</isNotEmpty>
+        </dynamic>
+        <![CDATA[
+		 GROUP BY ROLLUP(A.YR, B.EDU_DVSN_NM,
+		                 ( A.CRS_CD
+		                 , A.CRS_NM
+		                 , A.CRS_CDN
+		                 , C.EDU_PRD_TXT
+						  )
+						 )
+				ORDER BY A.YR, B.EDU_DVSN_NM ASC , A.CRS_CD ASC
+       ]]>
+	</select>
+
+	<select id="CSPSAE601QDvsnReportData" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+				SELECT
+					  NVL2(A.YR, A.YR, '합계') AS YR
+					, DECODE(NVL2(A.YR, A.YR, '합계'), '합계', '', NVL2(B.EDU_DVSN_NM, B.EDU_DVSN_NM, '소계')) AS EDU_DVSN_NM
+					, A.CRS_CD
+					, DECODE(NVL2(B.EDU_DVSN_NM, B.EDU_DVSN_NM, '소계'), '소계', '', NVL2(A.CRS_NM, A.CRS_NM, '소계')) AS CRS_NM
+					, DECODE(NVL2(A.CRS_NM, A.CRS_NM, '소계'), '소계', '', NVL2(TO_CHAR(A.CRS_CDN), TO_CHAR(A.CRS_CDN), '소계')) AS CRS_CDN
+					, C.EDU_PRD_TXT
+					, NVL(D.ORG_DVSN_CD_01, 0) AS ORG_DVSN_CD_01
+					, NVL(D.ORG_DVSN_CD_02, 0) AS ORG_DVSN_CD_02
+					, NVL(D.ORG_DVSN_CD_03, 0) AS ORG_DVSN_CD_03
+					, NVL(D.ORG_DVSN_CD_04, 0) AS ORG_DVSN_CD_04
+					, NVL(D.ORG_DVSN_CD_05, 0) AS ORG_DVSN_CD_05
+					, #strFromM# AS FROM_DT
+					, #strToM# AS TO_DT
+				FROM (SELECT
+						  A.YR
+						, B.EDU_DVSN_CD
+						, B.EDU_CAT_CD
+						, A.CRS_CD
+						, A.CNT_CRS_CD
+						, B.CRS_NM
+						, A.CRS_CDN
+						, SUM(CASE WHEN C.ORG_DVSN_CD = '10' THEN 1 ELSE 0 END) AS ORG_DVSN_CD_01
+						, SUM(CASE WHEN C.ORG_DVSN_CD = '21' THEN 1 ELSE 0 END) AS ORG_DVSN_CD_02
+						, SUM(CASE WHEN C.ORG_DVSN_CD = '22' THEN 1 ELSE 0 END) AS ORG_DVSN_CD_03
+						, SUM(CASE WHEN SUBSTRING(C.ORG_DVSN_CD,1,1) = '4' THEN 1 ELSE 0 END) AS ORG_DVSN_CD_04
+						, SUM(CASE WHEN SUBSTRING(C.ORG_DVSN_CD,1,1) IN ('5', '6') THEN 1 ELSE 0 END) AS ORG_DVSN_CD_05
+					FROM (SELECT YR
+						        , CRS_CD
+						        , CRS_CDN
+						        , COUNT(CRS_CD) AS CNT_CRS_CD
+							FROM TBCSPSAE201D
+							WHERE 1=1
+							AND SUBSTR(EDU_STR_DT, 0, 6) BETWEEN #strFromY# || #strFromM#  AND #strToY# || #strToM#
+							GROUP BY YR, CRS_CD, CRS_CDN) A
+						, TBCSPSAE103C B
+						, TBCSPSAE301D C
+					WHERE 1=1
+					AND C.YR(+) = A.YR
+					AND C.CRS_CD(+) = A.CRS_CD
+					AND C.CRS_CDN(+) = A.CRS_CDN
+					AND A.CRS_CD = B.CRS_CD
+					GROUP BY A.YR
+					       , B.EDU_DVSN_CD
+					       , B.EDU_CAT_CD
+					       , A.CRS_CD
+					       , B.CRS_NM
+					       , A.CNT_CRS_CD
+					       , A.CRS_CDN
+				    ) A
+				  , TBCSPSAE101C B
+				  , TBCSPSAE201M C
+				  , (SELECT
+						  A.YR
+						, B.EDU_DVSN_CD
+						, B.EDU_CAT_CD
+						, A.CRS_CD
+						, A.CNT_CRS_CD
+						, B.CRS_NM
+						, A.CRS_CDN
+						, SUM(CASE WHEN C.ORG_DVSN_CD = '10' THEN 1 ELSE 0 END) AS ORG_DVSN_CD_01
+						, SUM(CASE WHEN C.ORG_DVSN_CD = '21' THEN 1 ELSE 0 END) AS ORG_DVSN_CD_02
+						, SUM(CASE WHEN C.ORG_DVSN_CD = '22' THEN 1 ELSE 0 END) AS ORG_DVSN_CD_03
+						, SUM(CASE WHEN SUBSTRING(C.ORG_DVSN_CD,1,1) = '4' THEN 1 ELSE 0 END) AS ORG_DVSN_CD_04
+						, SUM(CASE WHEN SUBSTRING(C.ORG_DVSN_CD,1,1) IN ('5', '6') THEN 1 ELSE 0 END) AS ORG_DVSN_CD_05
+					FROM (SELECT YR
+						        , CRS_CD
+						        , CRS_CDN
+						        , COUNT(CRS_CD) AS CNT_CRS_CD
+							FROM TBCSPSAE201D
+							WHERE 1=1
+							AND SUBSTR(EDU_STR_DT, 0, 6) BETWEEN #strFromY# || #strFromM#  AND #strToY# || #strToM#
+							GROUP BY YR, CRS_CD, CRS_CDN) A
+						, TBCSPSAE103C B
+						, TBCSPSAE301D C
+					WHERE 1=1
+					AND C.YR(+) = A.YR
+					AND C.CRS_CD(+) = A.CRS_CD
+					AND C.CRS_CDN(+) = A.CRS_CDN
+					AND A.CRS_CD = B.CRS_CD
+					AND C.FIN_YN = 'Y'
+					GROUP BY A.YR
+					       , B.EDU_DVSN_CD
+					       , B.EDU_CAT_CD
+					       , A.CRS_CD
+					       , B.CRS_NM
+					       , A.CNT_CRS_CD
+					       , A.CRS_CDN
+				    ) D
+		     WHERE A.EDU_DVSN_CD = B.EDU_DVSN_CD
+		       AND C.YR = A.YR
+		       AND C.CRS_CD = A.CRS_CD
+		       AND D.YR(+) = A.YR
+		       AND D.CRS_CD(+) = A.CRS_CD
+		       AND D.CRS_CDN(+) = A.CRS_CDN
+		       AND A.YR BETWEEN #strFromY# AND #strToY#
+         ]]>
+         <dynamic>
+        	<isNotEmpty property="strEDU_DVSN_CD">
+        		AND A.EDU_DVSN_CD = #strEDU_DVSN_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CAT_CD">
+        		AND A.EDU_CAT_CD = #strEDU_CAT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CRS_CD">
+        		AND A.CRS_CD = #strEDU_CRS_CD#
+        	</isNotEmpty>
+        </dynamic>
+        <![CDATA[
+				ORDER BY A.YR, B.EDU_DVSN_NM ASC , A.CRS_CD ASC, A.CRS_CDN
+       ]]>
+	</select>
+
+	<select id="CSPSAE601QOrgList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			WITH DATA AS (
+				SELECT     A.YR
+				      , A.CRS_CD
+				      , A.CRS_CDN
+				      , A.CRS_NM
+				      , A.ORG_CD
+				      , B.ORG_NM
+				      , A.CNT_ORG_CD
+				    FROM (     
+				            SELECT     A.YR, A.CRS_CD, A.CRS_CDN, A.CRS_NM,  
+				                    A.EDU_DVSN_CD, A.EDU_CAT_CD,
+				                    A.ORG_CD, NVL(B.CNT_ORG_CD, 0) CNT_ORG_CD   
+				            FROM ( 
+				                    SELECT     DISTINCT A.YR, A.CRS_CD, A.CRS_CDN, A.CRS_NM, B.ORG_CD, A.EDU_DVSN_CD, A.EDU_CAT_CD
+				                    FROM ( 
+				                            SELECT     A.YR, A.CRS_CD, A.CRS_CDN, B.CRS_NM, B.EDU_DVSN_CD, B.EDU_CAT_CD
+				                            FROM ( 
+				                                    SELECT     B.YR, B.CRS_CD, B.CRS_CDN  
+				                                    FROM ( 
+				                                            SELECT     DISTINCT YR, CRS_CD, CRS_CDN  
+				                                            FROM     TBCSPSAE301D 
+				                                            WHERE     YR         = #strFromY#
+				                                          ) A, TBCSPSAE201D B
+				                                    WHERE     B.YR         = A.YR(+)
+				                                    AND     B.CRS_CD     = A.CRS_CD(+) 
+				                                    AND     B.CRS_CDN     = A.CRS_CDN(+)
+				                                  ) A, TBCSPSAE103C B  
+				                            WHERE     B.CRS_CD             = A.CRS_CD
+				                            ORDER BY B.EDU_DVSN_CD, B.EDU_CAT_CD, B.CRS_CD
+				                          ) A
+				                        , ( 
+				                       
+				                            SELECT     A.YR, A.CRS_CD, A.CRS_CDN, A.ORG_CD
+				                            FROM ( 
+				                                    SELECT     YR, CRS_CD, CRS_CDN,  
+				                                            DECODE(ORG_CD, NULL, '', (SUBSTR(ORG_CD, 1, 3) || '000000000')) ORG_CD  
+				                                    FROM     TBCSPSAE301D 
+				                                    WHERE     YR         = #strFromY#
+				                                    AND		ORG_CD IS NOT NULL
+				                                  ) A 
+				                            GROUP BY A.YR, A.CRS_CD, A.CRS_CDN, A.ORG_CD 
+				                    ) B 
+				                    WHERE B.YR(+) = A.YR
+				                      AND B.CRS_CD(+) = A.CRS_CD
+				                      AND B.CRS_CDN(+) = A.CRS_CDN
+				                    ORDER BY A.EDU_DVSN_CD, A.EDU_CAT_CD
+				            ) A, ( 
+				                    
+				                SELECT A.YR
+				                     , A.CRS_CD
+				                     , A.CRS_CDN
+				                     , A.ORG_CD
+				                     , NVL(B.CNT_ORG_CD, 0) AS CNT_ORG_CD
+				                  FROM (
+				                        SELECT     A.YR, A.CRS_CD, A.CRS_CDN, A.ORG_CD, COUNT(A.ORG_CD) CNT_ORG_CD 
+				                        FROM ( 
+				                                SELECT     YR, CRS_CD, CRS_CDN,  
+				                                        DECODE(ORG_CD, NULL, '', (SUBSTR(ORG_CD, 1, 3) || '000000000')) ORG_CD  
+				                                FROM     TBCSPSAE301D 
+				                                WHERE     YR         = #strFromY#
+				                        ) A 
+				                        GROUP BY A.YR, A.CRS_CD, A.CRS_CDN, A.ORG_CD 
+				                              ) A
+				                     , (
+				                        SELECT     A.YR, A.CRS_CD, A.CRS_CDN, A.ORG_CD, COUNT(A.ORG_CD) CNT_ORG_CD 
+				                        FROM ( 
+				                                SELECT     YR, CRS_CD, CRS_CDN,  
+				                                        DECODE(ORG_CD, NULL, '', (SUBSTR(ORG_CD, 1, 3) || '000000000')) ORG_CD  
+				                                FROM     TBCSPSAE301D 
+				                                WHERE     YR         = #strFromY#
+				                                  AND FIN_YN = 'Y'
+				                              ) A 
+				                        GROUP BY A.YR, A.CRS_CD, A.CRS_CDN, A.ORG_CD 
+				                        ) B
+				                 WHERE B.YR(+) = A.YR
+				                   AND B.CRS_CD(+) = A.CRS_CD
+				                   AND B.CRS_CDN(+) = A.CRS_CDN
+				                   AND B.ORG_CD(+) = A.ORG_CD
+				                    
+				            ) B 
+				            WHERE     B.YR(+)         = A.YR 
+				            AND     B.CRS_CD(+)     = A.CRS_CD 
+				            AND     B.CRS_CDN(+)     = A.CRS_CDN 
+				            AND     B.ORG_CD(+)     = A.ORG_CD 
+				    ) A
+				    , TBDCMACM015M B
+				    , TBCSPSAE101C C
+				    , TBCSPSAE102C D
+				    WHERE B.ORG_CD(+)     = A.ORG_CD 
+				      AND C.EDU_DVSN_CD = A.EDU_DVSN_CD
+				      AND D.EDU_DVSN_CD = A.EDU_DVSN_CD
+				      AND D.EDU_CAT_CD = A.EDU_CAT_CD
+				      AND A.ORG_CD IS NOT NULL
+				      AND A.YR = #strFromY#
+         ]]>
+         <dynamic>
+        	<isNotEmpty property="strEDU_DVSN_CD">
+        		AND A.EDU_DVSN_CD = #strEDU_DVSN_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CAT_CD">
+        		AND A.EDU_CAT_CD = #strEDU_CAT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CRS_CD">
+        		AND A.CRS_CD = #strEDU_CRS_CD#
+        	</isNotEmpty>
+        </dynamic>
+		<![CDATA[
+				ORDER BY A.YR, A.CRS_CD, A.CRS_CDN, A.CRS_NM, A.ORG_CD, B.ORG_NM
+			)
+			SELECT DISTINCT A.YR 
+			   , A.ORG_NM
+			   , AGGR_CONCAT(A.CNT_VALUE, '%%' ORDER BY A.CRS_CD, A.CRS_CDN) AS DATA
+			 FROM (
+			        SELECT YR
+			        	 , ORG_CD
+			        	 , ORG_NM
+			             , CRS_CD
+			             , CRS_CDN
+			             , CRS_CD || '##' || CRS_CDN || '::' ||AGGR_CONCAT( CNT_ORG_CD, '@' ORDER BY CRS_CD, CRS_CDN ) AS CNT_VALUE
+			         FROM (
+			         		SELECT	NVL(D5.CNT_ORG_CD, 0) AS CNT_ORG_CD, D4.ORG_CD, D4.CRS_CD, D4.CRS_CDN, D4.ORG_NM, D4.YR
+			         		FROM	(
+			         					SELECT	D2.YR
+			         							, D2.CRS_CD
+			         							, D2.CRS_CDN
+			         							, D3.ORG_CD
+			         							, D3.ORG_NM
+										FROM	(
+													SELECT 	D1.YR
+															, D1.CRS_CD
+															, D1.CRS_CDN
+													FROM 	TBCSPSAE201D D1
+													        , TBCSPSAE101C D2
+													        , TBCSPSAE102C D3
+													        , TBCSPSAE103C D4
+													WHERE	D2.EDU_DVSN_CD = D3.EDU_DVSN_CD
+													AND		D2.EDU_DVSN_CD = D4.EDU_DVSN_CD
+													AND		D3.EDU_CAT_CD = D4.EDU_CAT_CD
+													AND		D4.CRS_CD = D1.CRS_CD
+													AND		D1.YR = #strFromY#
+													
+			]]>
+         <dynamic>
+        	<isNotEmpty property="strEDU_DVSN_CD">
+        		AND D2.EDU_DVSN_CD = #strEDU_DVSN_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CAT_CD">
+        		AND D3.EDU_CAT_CD = #strEDU_CAT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CRS_CD">
+        		AND D4.CRS_CD = #strEDU_CRS_CD#
+        	</isNotEmpty>
+        </dynamic>
+		<![CDATA[
+												) D2
+												, (
+													SELECT	DISTINCT ORG_CD, ORG_NM
+													FROM	DATA
+												) D3
+									) D4
+									, (
+			                           SELECT DISTINCT CNT_ORG_CD, ORG_CD, CRS_CD, CRS_CDN
+			                             FROM DATA
+			                            ORDER BY CRS_CD, CRS_CDN
+			                        ) D5
+			              	WHERE 	D4.ORG_CD = D5.ORG_CD(+)
+			              	AND		D4.CRS_CD = D5.CRS_CD(+)
+			              	AND		D4.CRS_CDN = D5.CRS_CDN(+)
+			              )
+			            GROUP BY YR, ORG_CD, ORG_NM, CRS_CD, CRS_CDN
+			        ORDER BY CRS_CD, CRS_CDN
+			      ) A
+			WHERE ORG_NM IS NOT NULL
+			GROUP BY A.YR, A.ORG_NM
+       ]]>
+	</select>
+
+	<select id="CSPSAE601QOrgHeaderList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+            WITH DATA AS (
+		    SELECT 	A.YR
+		          , A.CRS_CD
+		          , A.CRS_CDN
+		          , A.CRS_NM
+		          , A.ORG_CD
+		          , B.ORG_NM
+		          , A.CNT_ORG_CD
+				FROM ( 	
+						SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, A.CRS_NM,  
+						        A.EDU_DVSN_CD, A.EDU_CAT_CD,
+								A.ORG_CD, NVL(B.CNT_ORG_CD, 0) CNT_ORG_CD   
+						FROM ( 
+								SELECT 	DISTINCT A.YR, A.CRS_CD, A.CRS_CDN, A.CRS_NM, B.ORG_CD, A.EDU_DVSN_CD, A.EDU_CAT_CD
+								FROM ( 
+										SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, B.CRS_NM, B.EDU_DVSN_CD, B.EDU_CAT_CD
+										FROM ( 
+												SELECT 	B.YR, B.CRS_CD, B.CRS_CDN  
+												FROM ( 
+														SELECT 	DISTINCT YR, CRS_CD, CRS_CDN  
+														FROM 	TBCSPSAE301D 
+														WHERE 	YR 		= #strFromY#
+													  ) A, TBCSPSAE201D B
+												WHERE 	B.YR 		= A.YR(+)
+												AND 	B.CRS_CD 	= A.CRS_CD(+) 
+												AND 	B.CRS_CDN 	= A.CRS_CDN(+)
+											  ) A, TBCSPSAE103C B  
+										WHERE 	B.CRS_CD 			= A.CRS_CD
+										ORDER BY B.EDU_DVSN_CD, B.EDU_CAT_CD, B.CRS_CD
+									  ) A
+									, ( SELECT 	DISTINCT A.YR, A.CRS_CD, A.CRS_CDN, A.ORG_CD  
+										FROM ( 
+											SELECT A.YR
+											     , A.CRS_CD
+											     , A.CRS_CDN
+											     , A.ORG_CD
+											     , NVL(B.CNT_ORG_CD, 0) AS CNT_ORG_CD
+											  FROM (
+													SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, A.ORG_CD, COUNT(A.ORG_CD) CNT_ORG_CD 
+													FROM ( 
+															SELECT 	YR, CRS_CD, CRS_CDN,  
+																	DECODE(ORG_CD, NULL, '', (SUBSTR(ORG_CD, 1, 3) || '000000000')) ORG_CD  
+															FROM 	TBCSPSAE301D 
+															WHERE 	YR 		= #strFromY#
+														  ) A 
+													GROUP BY A.YR, A.CRS_CD, A.CRS_CDN, A.ORG_CD 
+													) A
+												 , (
+													SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, A.ORG_CD, COUNT(A.ORG_CD) CNT_ORG_CD 
+													FROM ( 
+															SELECT 	YR, CRS_CD, CRS_CDN,  
+																	DECODE(ORG_CD, NULL, '', (SUBSTR(ORG_CD, 1, 3) || '000000000')) ORG_CD  
+															FROM 	TBCSPSAE301D 
+															WHERE 	YR 		= #strFromY#
+															  AND FIN_YN = 'Y'
+														  ) A 
+													GROUP BY A.YR, A.CRS_CD, A.CRS_CDN, A.ORG_CD 
+													) B
+											 WHERE B.YR(+) = A.YR
+											   AND B.CRS_CD(+) = A.CRS_CD
+											   AND B.CRS_CDN(+) = A.CRS_CDN
+											   AND B.ORG_CD(+) = A.ORG_CD
+										) A, TBCSPSAE103C B  
+										WHERE 	B.CRS_CD 			= A.CRS_CD 
+										  AND A.ORG_CD IS NOT NULL
+								) B 
+								WHERE B.YR(+) = A.YR
+								  AND B.CRS_CD(+) = A.CRS_CD
+								  AND B.CRS_CDN(+) = A.CRS_CDN
+							    ORDER BY A.EDU_DVSN_CD, A.EDU_CAT_CD
+						) A, ( 
+								SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, A.ORG_CD, A.CNT_ORG_CD 
+								FROM ( 
+										SELECT A.YR
+										     , A.CRS_CD
+										     , A.CRS_CDN
+										     , A.ORG_CD
+										     , NVL(B.CNT_ORG_CD, 0) AS CNT_ORG_CD
+										  FROM (
+												SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, A.ORG_CD, COUNT(A.ORG_CD) CNT_ORG_CD 
+												FROM ( 
+														SELECT 	YR, CRS_CD, CRS_CDN,  
+																DECODE(ORG_CD, NULL, '', (SUBSTR(ORG_CD, 1, 3) || '000000000')) ORG_CD  
+														FROM 	TBCSPSAE301D 
+														WHERE 	YR 		= #strFromY#
+												) A 
+												GROUP BY A.YR, A.CRS_CD, A.CRS_CDN, A.ORG_CD 
+													  ) A
+											 , (
+												SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, A.ORG_CD, COUNT(A.ORG_CD) CNT_ORG_CD 
+												FROM ( 
+														SELECT 	YR, CRS_CD, CRS_CDN,  
+																DECODE(ORG_CD, NULL, '', (SUBSTR(ORG_CD, 1, 3) || '000000000')) ORG_CD  
+														FROM 	TBCSPSAE301D 
+														WHERE 	YR 		= #strFromY#
+														  AND FIN_YN = 'Y'
+													  ) A 
+												GROUP BY A.YR, A.CRS_CD, A.CRS_CDN, A.ORG_CD 
+												) B
+										 WHERE B.YR(+) = A.YR
+										   AND B.CRS_CD(+) = A.CRS_CD
+										   AND B.CRS_CDN(+) = A.CRS_CDN
+										   AND B.ORG_CD(+) = A.ORG_CD
+								) A
+								, TBCSPSAE103C B  
+								WHERE 	B.CRS_CD 			= A.CRS_CD 
+						) B 
+						WHERE 	B.YR(+) 		= A.YR 
+						AND 	B.CRS_CD(+) 	= A.CRS_CD 
+						AND 	B.CRS_CDN(+) 	= A.CRS_CDN 
+						AND 	B.ORG_CD(+) 	= A.ORG_CD 
+				) A
+				, TBDCMACM015M B
+				, TBCSPSAE101C C
+				, TBCSPSAE102C D
+				WHERE B.ORG_CD(+) 	= A.ORG_CD 
+				  AND C.EDU_DVSN_CD = A.EDU_DVSN_CD
+				  AND D.EDU_DVSN_CD = A.EDU_DVSN_CD
+				  AND D.EDU_CAT_CD = A.EDU_CAT_CD
+				  AND A.YR = #strFromY#
+         ]]>
+         <dynamic>
+        	<isNotEmpty property="strEDU_DVSN_CD">
+        		AND A.EDU_DVSN_CD = #strEDU_DVSN_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CAT_CD">
+        		AND A.EDU_CAT_CD = #strEDU_CAT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CRS_CD">
+        		AND A.CRS_CD = #strEDU_CRS_CD#
+        	</isNotEmpty>
+        </dynamic>
+        <![CDATA[
+			ORDER BY A.YR, A.CRS_CD, A.CRS_CDN, A.CRS_NM, A.ORG_CD, B.ORG_NM
+			)
+			SELECT CRS_NM
+		 		, CRS_CD
+		 		, AGGR_CONCAT( CRS_CDN, '@' ORDER BY CRS_CDN ) AS HEADER_CDN
+			 FROM (
+			       SELECT DISTINCT CRS_NM, CRS_CD, CRS_CDN
+			         FROM DATA
+			      )
+			GROUP BY CRS_NM, CRS_CD
+			ORDER BY CRS_CD
+       ]]>
+	</select>
+
+	<select id="CSPSAE601QCrsCdnList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+				SELECT 	NVL2(A.YR, A.YR, '합계') AS YR
+				      , DECODE(NVL2(A.YR, A.YR, '합계'), '합계', '', NVL2(A.EDU_DVSN_NM, A.EDU_DVSN_NM, '소계')) AS EDU_DVSN_NM
+				      , A.CRS_NM
+				      , A.CRS_CDN
+				      , DECODE(A.EDU_STR_DT, NULL, '', SUBSTR(A.EDU_STR_DT, 0, 4) || '-' || SUBSTR(A.EDU_STR_DT, 5, 2) || '-' || SUBSTR(A.EDU_STR_DT, 7, 2) || '~' ||
+				         SUBSTR(A.EDU_END_DT, 0, 4) || '-' || SUBSTR(A.EDU_END_DT, 5, 2) || '-' || SUBSTR(A.EDU_END_DT, 7, 2)) EDU_DT
+				      , SUM(A.ONTM_NOP_CNT) AS ONTM_NOP_CNT
+				      , SUM(A.TANE_ID) AS TANE_ID
+				      , A.AVR_TG_CNT
+				FROM (
+						SELECT 	A.YR, A.EDU_DVSN_CD, B.EDU_DVSN_NM, A.EDU_CAT_CD,
+								A.CNT_CRS_CD, A.CRS_CD, A.CRS_NM, A.CRS_CDN, 
+								A.EDU_STR_DT, A.EDU_END_DT, 
+								A.ONTM_NOP_CNT, A.TANE_ID, A.AVR_TG_CNT
+						FROM (
+								SELECT 	A.YR, B.EDU_DVSN_CD, B.EDU_CAT_CD, 
+										A.CNT_CRS_CD, A.CRS_CD, B.CRS_NM, A.CRS_CDN, 
+										A.EDU_STR_DT, A.EDU_END_DT, 
+										A.ONTM_NOP_CNT, A.TANE_ID, A.AVR_TG_CNT
+								FROM (
+										SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, COUNT(A.CRS_CD) CNT_CRS_CD, 
+												A.EDU_STR_DT, A.EDU_END_DT, 
+												A.ONTM_NOP_CNT, A.TANE_ID, 
+												( CASE NVL(A.ONTM_NOP_CNT, 0) 
+													WHEN 0 THEN 0
+													ELSE ROUND( (( A.TANE_ID / A.ONTM_NOP_CNT ) * 100), 0)
+												END ) AVR_TG_CNT
+										FROM (
+												SELECT 	B.YR, B.CRS_CD, B.CRS_CDN, B.EDU_STR_DT, B.EDU_END_DT, 
+														B.ONTM_NOP_CNT, NVL(A.TANE_ID, 0) TANE_ID 
+												FROM (
+														SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, 
+																COUNT(A.TANE_ID) TANE_ID 
+														FROM 	TBCSPSAE301D A
+												        WHERE   A.FIN_YN = 'Y'
+												        AND 	A.YR 		BETWEEN #strFromY# AND #strToY#
+														GROUP BY A.YR, A.CRS_CD, A.CRS_CDN
+												) A, (
+														SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, 
+																A.EDU_STR_DT, A.EDU_END_DT, 
+																NVL(ONTM_NOP_CNT, 0) ONTM_NOP_CNT 
+														FROM 	TBCSPSAE201D A, TBCSPSAE201M B
+														WHERE 	B.YR 		= A.YR
+														AND 	B.CRS_CD 	= A.CRS_CD
+														AND 	A.YR 		BETWEEN #strFromY# AND #strToY#
+														AND     SUBSTR(A.EDU_STR_DT, 0, 6) BETWEEN #strFromY# || #strFromM#  AND #strToY# || #strToM#
+												) B
+												WHERE 	B.YR 		= A.YR(+)
+												AND 	B.CRS_CD 	= A.CRS_CD(+)
+												AND 	B.CRS_CDN 	= A.CRS_CDN(+)
+										) A
+										GROUP BY A.YR, A.CRS_CD, A.CRS_CDN,
+												 A.EDU_STR_DT, A.EDU_END_DT, 
+												 A.ONTM_NOP_CNT, A.TANE_ID
+								) A, TBCSPSAE103C B
+								WHERE 	B.CRS_CD = A.CRS_CD
+								AND 	B.USE_YN = 'Y'
+						) A, TBCSPSAE101C B
+						WHERE B.EDU_DVSN_CD = A.EDU_DVSN_CD
+				) A
+				WHERE 1=1
+         ]]>
+         <dynamic>
+        	<isNotEmpty property="strEDU_DVSN_CD">
+        		AND A.EDU_DVSN_CD = #strEDU_DVSN_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CAT_CD">
+        		AND A.EDU_CAT_CD = #strEDU_CAT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CRS_CD">
+        		AND A.CRS_CD = #strEDU_CRS_CD#
+        	</isNotEmpty>
+        </dynamic>
+        <![CDATA[
+				GROUP BY ROLLUP(A.YR, A.EDU_DVSN_CD
+				               , (A.EDU_DVSN_NM
+				                , A.CRS_CD, A.CRS_NM
+				                , A.CNT_CRS_CD
+				                , A.CRS_CDN
+				                , A.EDU_STR_DT
+				                , A.EDU_END_DT
+				                , A.AVR_TG_CNT)
+				                )
+				ORDER BY A.YR, A.EDU_DVSN_CD ASC, A.CRS_CD ASC, A.CRS_CDN ASC
+       ]]>
+	</select>
+
+	<select id="CSPSAE601QCrsCdnReportData" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+				SELECT 	A.YR
+				      , A.EDU_DVSN_NM
+				      , A.CRS_NM
+				      , A.CRS_CD
+				      , A.CRS_CDN
+				      , (SUBSTR(A.EDU_STR_DT, 0, 4) || '-' || SUBSTR(A.EDU_STR_DT, 5, 2) || '-' || SUBSTR(A.EDU_STR_DT, 7, 2) || '~' ||
+				         SUBSTR(A.EDU_END_DT, 0, 4) || '-' || SUBSTR(A.EDU_END_DT, 5, 2) || '-' || SUBSTR(A.EDU_END_DT, 7, 2)) EDU_DT
+				      , A.ONTM_NOP_CNT
+				      , A.TANE_ID
+				      , A.AVR_TG_CNT
+				      , #strFromM# AS FROM_DT
+				      , #strToM# AS TO_DT
+				FROM (
+						SELECT 	A.YR, A.EDU_DVSN_CD, B.EDU_DVSN_NM, A.EDU_CAT_CD,
+								A.CNT_CRS_CD, A.CRS_CD, A.CRS_NM, A.CRS_CDN, 
+								A.EDU_STR_DT, A.EDU_END_DT, 
+								A.ONTM_NOP_CNT, A.TANE_ID, A.AVR_TG_CNT
+						FROM (
+								SELECT 	A.YR, B.EDU_DVSN_CD, B.EDU_CAT_CD, 
+										A.CNT_CRS_CD, A.CRS_CD, B.CRS_NM, A.CRS_CDN, 
+										A.EDU_STR_DT, A.EDU_END_DT, 
+										A.ONTM_NOP_CNT, A.TANE_ID, A.AVR_TG_CNT
+								FROM (
+										SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, COUNT(A.CRS_CD) CNT_CRS_CD, 
+												A.EDU_STR_DT, A.EDU_END_DT, 
+												A.ONTM_NOP_CNT, A.TANE_ID, 
+												( CASE NVL(A.ONTM_NOP_CNT, 0) 
+													WHEN 0 THEN 0
+													ELSE ROUND( (( A.TANE_ID / A.ONTM_NOP_CNT ) * 100), 0)
+												END ) AVR_TG_CNT
+										FROM (
+												SELECT 	B.YR, B.CRS_CD, B.CRS_CDN, B.EDU_STR_DT, B.EDU_END_DT, 
+														B.ONTM_NOP_CNT, NVL(A.TANE_ID, 0) TANE_ID 
+												FROM (
+														SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, 
+																COUNT(A.TANE_ID) TANE_ID 
+														FROM 	TBCSPSAE301D A
+												        WHERE   A.FIN_YN = 'Y'
+												        AND 	A.YR 		BETWEEN #strFromY# AND #strToY#
+														GROUP BY A.YR, A.CRS_CD, A.CRS_CDN
+												) A, (
+														SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, 
+																A.EDU_STR_DT, A.EDU_END_DT, 
+																NVL(ONTM_NOP_CNT, 0) ONTM_NOP_CNT 
+														FROM 	TBCSPSAE201D A, TBCSPSAE201M B
+														WHERE 	B.YR 		= A.YR
+														AND 	B.CRS_CD 	= A.CRS_CD
+														AND 	A.YR 		BETWEEN #strFromY# AND #strToY#
+														AND     SUBSTR(A.EDU_STR_DT, 0, 6) BETWEEN #strFromY# || #strFromM#  AND #strToY# || #strToM#
+												) B
+												WHERE 	B.YR 		= A.YR(+)
+												AND 	B.CRS_CD 	= A.CRS_CD(+)
+												AND 	B.CRS_CDN 	= A.CRS_CDN(+)
+										) A
+										GROUP BY A.YR, A.CRS_CD, A.CRS_CDN,
+												 A.EDU_STR_DT, A.EDU_END_DT, 
+												 A.ONTM_NOP_CNT, A.TANE_ID
+								) A, TBCSPSAE103C B
+								WHERE 	B.CRS_CD = A.CRS_CD
+								AND 	B.USE_YN = 'Y'
+						) A, TBCSPSAE101C B
+						WHERE B.EDU_DVSN_CD = A.EDU_DVSN_CD
+				) A
+				WHERE 1=1
+         ]]>
+         <dynamic>
+        	<isNotEmpty property="strEDU_DVSN_CD">
+        		AND A.EDU_DVSN_CD = #strEDU_DVSN_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CAT_CD">
+        		AND A.EDU_CAT_CD = #strEDU_CAT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CRS_CD">
+        		AND A.CRS_CD = #strEDU_CRS_CD#
+        	</isNotEmpty>
+        </dynamic>
+        <![CDATA[
+				ORDER BY A.YR, A.EDU_DVSN_CD ASC, A.CRS_CD ASC, A.CRS_CDN ASC
+       ]]>
+	</select>
+	
+	<select id="CSPSAE601QWorkPeriodList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT NVL2(A.YR, A.YR, '합계') AS YR
+			     , DECODE(NVL2(A.YR, A.YR, '합계'), '합계', '', NVL2(A.EDU_DVSN_NM, A.EDU_DVSN_NM, '소계')) AS EDU_DVSN_NM
+			     , A.CRS_NM
+			     , A.CRS_CDN
+			     , DECODE(A.EDU_STR_DT, NULL, '', 
+			              SUBSTR(A.EDU_STR_DT, 0, 4) || '-' || SUBSTR(A.EDU_STR_DT, 5, 2) || '-' || SUBSTR(A.EDU_STR_DT, 7, 2) || '~' ||
+			              SUBSTR(A.EDU_END_DT, 0, 4) || '-' || SUBSTR(A.EDU_END_DT, 5, 2) || '-' || SUBSTR(A.EDU_END_DT, 7, 2)) AS EDU_DT
+			     , SUM(A.TOT_PERIOD) AS TOT_PERIOD
+				 , SUM(A.PERIOD_01) AS PERIOD_01
+				 , SUM(A.PERIOD_02) AS PERIOD_02
+				 , SUM(A.PERIOD_03) AS PERIOD_03
+				 , SUM(A.PERIOD_04) AS PERIOD_04
+				 , SUM(A.PERIOD_05) AS PERIOD_05
+			  FROM (
+					SELECT    A.YR
+							, B.EDU_DVSN_NM
+							, B.EDU_DVSN_CD
+							, A.EDU_CAT_CD
+							, A.CRS_NM
+							, A.CRS_CD
+							, A.CRS_CDN
+							, A.EDU_STR_DT
+							, A.EDU_END_DT
+							, NVL(D.PERIOD_01 + D.PERIOD_02 + D.PERIOD_03 + D.PERIOD_04 + D.PERIOD_05, 0) AS TOT_PERIOD
+							, NVL(D.PERIOD_01, 0) AS PERIOD_01
+							, NVL(D.PERIOD_02, 0) AS PERIOD_02
+							, NVL(D.PERIOD_03, 0) AS PERIOD_03
+							, NVL(D.PERIOD_04, 0) AS PERIOD_04
+							, NVL(D.PERIOD_05, 0) AS PERIOD_05
+						FROM (
+							   SELECT B.YR
+									, C.EDU_DVSN_CD
+									, C.EDU_CAT_CD
+									, B.CRS_CD
+									, B.CNT_CRS_CD
+									, C.CRS_NM
+									, B.CRS_CDN
+									, B.EDU_STR_DT
+									, B.EDU_END_DT
+									, SUM(CASE WHEN A.WRK_PRD_TXT < '0006' THEN 1 ELSE 0 END) AS PERIOD_01
+									, SUM(CASE WHEN A.WRK_PRD_TXT >= '0006' AND A.WRK_PRD_TXT < '0100' THEN 1 ELSE 0 END) AS PERIOD_02
+									, SUM(CASE WHEN A.WRK_PRD_TXT >= '0100' AND A.WRK_PRD_TXT < '0300' THEN 1 ELSE 0 END) AS PERIOD_03
+									, SUM(CASE WHEN A.WRK_PRD_TXT >= '0300' AND A.WRK_PRD_TXT < '0500' THEN 1 ELSE 0 END) AS PERIOD_04
+									, SUM(CASE WHEN A.WRK_PRD_TXT >= '0500' THEN 1 ELSE 0 END) AS PERIOD_05
+								FROM TBCSPSAE301D A
+									, (SELECT YR, CRS_CD, CRS_CDN, COUNT(CRS_CD) AS CNT_CRS_CD, EDU_STR_DT, EDU_END_DT
+										FROM TBCSPSAE201D
+										WHERE 1=1
+										AND YR 		BETWEEN #strFromY# AND #strToY#
+										AND SUBSTR(EDU_STR_DT, 0, 6) BETWEEN #strFromY# || #strFromM#  AND #strToY# || #strToM#
+										GROUP BY YR, CRS_CD, CRS_CDN, EDU_STR_DT, EDU_END_DT) B
+									, TBCSPSAE103C C
+								WHERE 1=1
+								AND A.YR(+) = B.YR
+								AND A.CRS_CD(+) = B.CRS_CD
+								AND A.CRS_CDN(+) = B.CRS_CDN
+								AND B.CRS_CD = C.CRS_CD
+								GROUP BY B.YR, C.EDU_DVSN_CD, C.EDU_CAT_CD, B.CRS_CD, C.CRS_NM, B.CNT_CRS_CD, B.CRS_CDN, B.EDU_STR_DT, B.EDU_END_DT
+						) A
+							, TBCSPSAE101C B
+							, TBCSPSAE102C C
+							, ( SELECT B.YR
+									, C.EDU_DVSN_CD
+									, C.EDU_CAT_CD
+									, B.CRS_CD
+									, B.CNT_CRS_CD
+									, C.CRS_NM
+									, B.CRS_CDN
+									, B.EDU_STR_DT
+									, B.EDU_END_DT
+									, SUM(CASE WHEN A.WRK_PRD_TXT < '0006' THEN 1 ELSE 0 END) AS PERIOD_01
+									, SUM(CASE WHEN A.WRK_PRD_TXT >= '0006' AND A.WRK_PRD_TXT < '0100' THEN 1 ELSE 0 END) AS PERIOD_02
+									, SUM(CASE WHEN A.WRK_PRD_TXT >= '0100' AND A.WRK_PRD_TXT < '0300' THEN 1 ELSE 0 END) AS PERIOD_03
+									, SUM(CASE WHEN A.WRK_PRD_TXT >= '0300' AND A.WRK_PRD_TXT < '0500' THEN 1 ELSE 0 END) AS PERIOD_04
+									, SUM(CASE WHEN A.WRK_PRD_TXT >= '0500' THEN 1 ELSE 0 END) AS PERIOD_05
+								FROM TBCSPSAE301D A
+									, (SELECT YR, CRS_CD, CRS_CDN, COUNT(CRS_CD) AS CNT_CRS_CD, EDU_STR_DT, EDU_END_DT
+										FROM TBCSPSAE201D
+										WHERE 1=1
+										AND YR 		BETWEEN #strFromY# AND #strToY#
+										AND SUBSTR(EDU_STR_DT, 0, 6) BETWEEN #strFromY# || #strFromM#  AND #strToY# || #strToM#
+										GROUP BY YR, CRS_CD, CRS_CDN, EDU_STR_DT, EDU_END_DT) B
+									, TBCSPSAE103C C
+								WHERE 1=1
+								AND A.YR(+) = B.YR
+								AND A.CRS_CD(+) = B.CRS_CD
+								AND A.CRS_CDN(+) = B.CRS_CDN
+								AND B.CRS_CD = C.CRS_CD
+								AND A.FIN_YN = 'Y'
+								GROUP BY B.YR, C.EDU_DVSN_CD, C.EDU_CAT_CD, B.CRS_CD, C.CRS_NM, B.CNT_CRS_CD, B.CRS_CDN, B.EDU_STR_DT, B.EDU_END_DT
+						) D
+						WHERE A.EDU_DVSN_CD = B.EDU_DVSN_CD
+						  AND C.EDU_DVSN_CD = B.EDU_DVSN_CD
+						  AND C.EDU_CAT_CD = A.EDU_CAT_CD
+						  AND D.YR(+) = A.YR
+						  AND D.CRS_CD(+) = A.CRS_CD
+						  AND D.CRS_CDN(+) = A.CRS_CDN
+					) A
+					WHERE 1=1
+
+         ]]>
+         <dynamic>
+        	<isNotEmpty property="strEDU_DVSN_CD">
+        		AND A.EDU_DVSN_CD = #strEDU_DVSN_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CAT_CD">
+        		AND A.EDU_CAT_CD = #strEDU_CAT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CRS_CD">
+        		AND A.CRS_CD = #strEDU_CRS_CD#
+        	</isNotEmpty>
+        </dynamic>
+        <![CDATA[
+				GROUP BY ROLLUP(A.YR, A.EDU_DVSN_CD
+				                , (A.EDU_DVSN_NM, A.CRS_CD, A.CRS_NM, A.CRS_CDN, A.EDU_STR_DT, A.EDU_END_DT)
+				               )
+			    ORDER BY A.YR
+			     , A.EDU_DVSN_CD
+			     , A.CRS_CD
+			     , A.CRS_CDN
+       ]]>
+	</select>
+		
+	<select id="CSPSAE602QFinYnList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+				SELECT 	NVL2(A.YR, A.YR, '합계') AS YR
+				      , DECODE(NVL2(A.YR, A.YR, '합계'), '합계', '', NVL2(A.EDU_DVSN_NM, A.EDU_DVSN_NM, '소계')) AS EDU_DVSN_NM
+				      , A.CRS_NM
+				      , A.CRS_CDN
+				      , DECODE(A.EDU_STR_DT, NULL, '', 
+				               SUBSTR(A.EDU_STR_DT, 5, 2) || '.' || SUBSTR(A.EDU_STR_DT, 7, 2) || ' ~ ' ||
+				               SUBSTR(A.EDU_END_DT, 5, 2) || '.' || SUBSTR(A.EDU_END_DT, 7, 2)) EDU_DT
+					  , SUM(A.TANE_ID_FIN_Y) AS TANE_ID_FIN_Y
+					  , SUM(A.TANE_ID_FIN_N) AS TANE_ID_FIN_N
+				FROM (
+						SELECT 	A.YR, A.EDU_DVSN_CD, B.EDU_DVSN_NM, A.EDU_CAT_CD,
+								A.CRS_CD, A.CRS_NM, A.CRS_CDN, 
+								A.EDU_STR_DT, A.EDU_END_DT, 
+								A.ONTM_NOP_CNT,
+								A.TANE_ID_FIN_Y, A.TANE_ID_FIN_N
+						FROM (
+								SELECT 	A.YR, B.EDU_DVSN_CD, B.EDU_CAT_CD, 
+										A.CRS_CD, B.CRS_NM, A.CRS_CDN, 
+										A.EDU_STR_DT, A.EDU_END_DT, 
+										A.ONTM_NOP_CNT,
+										A.TANE_ID_FIN_Y, A.TANE_ID_FIN_N
+								FROM (
+										SELECT 	C.YR, C.CRS_CD, C.CRS_CDN, C.EDU_STR_DT, C.EDU_END_DT, 
+												C.ONTM_NOP_CNT, 
+												NVL(A.TANE_ID_FIN_Y, 0) TANE_ID_FIN_Y, 
+												NVL(B.TANE_ID_FIN_N, 0) TANE_ID_FIN_N 
+										FROM (
+												SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, 
+														COUNT(A.TANE_ID) TANE_ID_FIN_Y
+												FROM 	TBCSPSAE301D A
+												WHERE 	A.YR BETWEEN #strFromY# AND #strToY#
+												AND 	A.FIN_YN = 'Y'
+												GROUP BY A.YR, A.CRS_CD, A.CRS_CDN
+										) A, (
+												SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, 
+														COUNT(A.TANE_ID) TANE_ID_FIN_N
+												FROM 	TBCSPSAE301D A
+												WHERE 	A.YR BETWEEN #strFromY# AND #strToY#
+												AND 	A.FIN_YN = 'N'
+												GROUP BY A.YR, A.CRS_CD, A.CRS_CDN
+										) B, (
+												SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, 
+														A.EDU_STR_DT, A.EDU_END_DT, 
+														NVL(ONTM_NOP_CNT, 0) ONTM_NOP_CNT 
+												FROM 	TBCSPSAE201D A, TBCSPSAE201M B
+												WHERE 	B.YR 		= A.YR
+												AND 	B.CRS_CD 	= A.CRS_CD
+												AND 	A.YR 		BETWEEN #strFromY# AND #strToY#
+										) C
+										WHERE 	C.YR 		= A.YR(+)
+										AND 	C.CRS_CD 	= A.CRS_CD(+)
+										AND 	C.CRS_CDN 	= A.CRS_CDN(+)
+										AND 	C.YR 		= B.YR(+)
+										AND 	C.CRS_CD 	= B.CRS_CD(+)
+										AND 	C.CRS_CDN 	= B.CRS_CDN(+)
+								) A, TBCSPSAE103C B
+								WHERE 	B.CRS_CD = A.CRS_CD
+								AND 	B.USE_YN = 'Y'
+						) A, TBCSPSAE101C B, TBCSPSAE102C C
+						WHERE B.EDU_DVSN_CD = A.EDU_DVSN_CD
+						  AND C.EDU_DVSN_CD = B.EDU_DVSN_CD
+						  AND C.EDU_CAT_CD = A.EDU_CAT_CD
+				) A
+			   WHERE 1=1
+			    AND SUBSTR(A.EDU_STR_DT, 0, 6) BETWEEN #strFromY# || #strFromM#  AND #strToY# || #strToM#
+         ]]>
+         <dynamic>
+        	<isNotEmpty property="strEDU_DVSN_CD">
+        		AND A.EDU_DVSN_CD = #strEDU_DVSN_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CAT_CD">
+        		AND A.EDU_CAT_CD = #strEDU_CAT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CRS_CD">
+        		AND A.CRS_CD = #strEDU_CRS_CD#
+        	</isNotEmpty>
+        </dynamic>
+        <![CDATA[
+				GROUP BY ROLLUP(A.YR, A.EDU_DVSN_CD
+				                 , ( A.EDU_DVSN_NM
+				                   , A.CRS_NM
+				                   , A.CRS_CD                   
+							       , A.CRS_CDN
+							       , A.EDU_STR_DT
+							       , A.EDU_END_DT)
+							    )
+				ORDER BY A.YR, A.EDU_DVSN_CD ASC, A.CRS_CD ASC, A.CRS_CDN ASC
+       ]]>
+	</select>
+	
+	<select id="CSPSAE602QFinYnReportData" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+				SELECT 	A.YR
+				      , A.EDU_DVSN_NM
+				      , A.CRS_CD
+				      , A.CRS_NM
+				      , A.CRS_CDN
+				      , DECODE(A.EDU_STR_DT, NULL, '', 
+				               SUBSTR(A.EDU_STR_DT, 5, 2) || '.' || SUBSTR(A.EDU_STR_DT, 7, 2) || ' ~ ' ||
+				               SUBSTR(A.EDU_END_DT, 5, 2) || '.' || SUBSTR(A.EDU_END_DT, 7, 2)) EDU_DT
+					  , A.TANE_ID_FIN_Y
+					  , A.TANE_ID_FIN_N
+				FROM (
+						SELECT 	A.YR, A.EDU_DVSN_CD, B.EDU_DVSN_NM, A.EDU_CAT_CD,
+								A.CRS_CD, A.CRS_NM, A.CRS_CDN, 
+								A.EDU_STR_DT, A.EDU_END_DT, 
+								A.ONTM_NOP_CNT,
+								A.TANE_ID_FIN_Y, A.TANE_ID_FIN_N
+						FROM (
+								SELECT 	A.YR, B.EDU_DVSN_CD, B.EDU_CAT_CD, 
+										A.CRS_CD, B.CRS_NM, A.CRS_CDN, 
+										A.EDU_STR_DT, A.EDU_END_DT, 
+										A.ONTM_NOP_CNT,
+										A.TANE_ID_FIN_Y, A.TANE_ID_FIN_N
+								FROM (
+										SELECT 	C.YR, C.CRS_CD, C.CRS_CDN, C.EDU_STR_DT, C.EDU_END_DT, 
+												C.ONTM_NOP_CNT, 
+												NVL(A.TANE_ID_FIN_Y, 0) TANE_ID_FIN_Y, 
+												NVL(B.TANE_ID_FIN_N, 0) TANE_ID_FIN_N 
+										FROM (
+												SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, 
+														COUNT(A.TANE_ID) TANE_ID_FIN_Y
+												FROM 	TBCSPSAE301D A
+												WHERE 	A.YR BETWEEN #strFromY# AND #strToY#
+												AND 	A.FIN_YN = 'Y'
+												GROUP BY A.YR, A.CRS_CD, A.CRS_CDN
+										) A, (
+												SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, 
+														COUNT(A.TANE_ID) TANE_ID_FIN_N
+												FROM 	TBCSPSAE301D A
+												WHERE 	A.YR BETWEEN #strFromY# AND #strToY#
+												AND 	A.FIN_YN = 'N'
+												GROUP BY A.YR, A.CRS_CD, A.CRS_CDN
+										) B, (
+												SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, 
+														A.EDU_STR_DT, A.EDU_END_DT, 
+														NVL(ONTM_NOP_CNT, 0) ONTM_NOP_CNT 
+												FROM 	TBCSPSAE201D A, TBCSPSAE201M B
+												WHERE 	B.YR 		= A.YR
+												AND 	B.CRS_CD 	= A.CRS_CD
+												AND 	A.YR 		BETWEEN #strFromY# AND #strToY#
+										) C
+										WHERE 	C.YR 		= A.YR(+)
+										AND 	C.CRS_CD 	= A.CRS_CD(+)
+										AND 	C.CRS_CDN 	= A.CRS_CDN(+)
+										AND 	C.YR 		= B.YR(+)
+										AND 	C.CRS_CD 	= B.CRS_CD(+)
+										AND 	C.CRS_CDN 	= B.CRS_CDN(+)
+								) A, TBCSPSAE103C B
+								WHERE 	B.CRS_CD = A.CRS_CD
+								AND 	B.USE_YN = 'Y'
+						) A, TBCSPSAE101C B, TBCSPSAE102C C
+						WHERE B.EDU_DVSN_CD = A.EDU_DVSN_CD
+						  AND C.EDU_DVSN_CD = B.EDU_DVSN_CD
+						  AND C.EDU_CAT_CD = A.EDU_CAT_CD
+				) A
+			   WHERE 1=1
+			    AND SUBSTR(A.EDU_STR_DT, 0, 6) BETWEEN #strFromY# || #strFromM#  AND #strToY# || #strToM#
+         ]]>
+         <dynamic>
+        	<isNotEmpty property="strEDU_DVSN_CD">
+        		AND A.EDU_DVSN_CD = #strEDU_DVSN_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CAT_CD">
+        		AND A.EDU_CAT_CD = #strEDU_CAT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CRS_CD">
+        		AND A.CRS_CD = #strEDU_CRS_CD#
+        	</isNotEmpty>
+        </dynamic>
+        <![CDATA[
+				ORDER BY A.YR, A.EDU_DVSN_CD ASC, A.CRS_CD ASC, A.CRS_CDN ASC
+       ]]>
+	</select>
+
+	<select id="CSPSAE603QPfsrAmtList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT 	NVL2(A.YR, A.YR, '합계') AS YR
+			      , DECODE(NVL2(A.YR, A.YR, '합계'), '합계', '', NVL2(A.EDU_DVSN_NM, A.EDU_DVSN_NM, '소계')) AS EDU_DVSN_NM
+			      , A.CRS_NM
+			      , SUM(A.CNT_SUBJ_CD_01) AS CNT_SUBJ_CD_01
+			      , SUM(A.CNT_PFSR_ID_01) AS CNT_PFSR_ID_01
+			      , SUM(A.PMT_AMT_01) AS PMT_AMT_01
+			      , SUM(A.CNT_SUBJ_CD_03) AS CNT_SUBJ_CD_03
+			      , SUM(A.CNT_PFSR_ID_03) AS CNT_PFSR_ID_03
+			      , SUM(A.PMT_AMT_03) AS PMT_AMT_03
+			      , SUM(A.PMT_AMT) AS PMT_AMT
+				FROM (
+
+						SELECT 	A.YR, D.EDU_DVSN_NM, D.EDU_DVSN_CD, C.EDU_CAT_CD,
+								A.CRS_CD, B.CRS_NM, 
+								A.CNT_SUBJ_CD_01, A.CNT_PFSR_ID_01, A.PMT_AMT_01, 
+								A.CNT_SUBJ_CD_03, A.CNT_PFSR_ID_03, A.PMT_AMT_03,
+								(A.PMT_AMT_01 + A.PMT_AMT_03) PMT_AMT 
+						FROM (
+								SELECT 	A.YR, A.CRS_CD, 
+										SUM(A.CNT_SUBJ_CD_01) CNT_SUBJ_CD_01, 
+										SUM(A.CNT_PFSR_ID_01) CNT_PFSR_ID_01, 
+										SUM(A.PMT_AMT_01) PMT_AMT_01, 
+										SUM(A.CNT_SUBJ_CD_03) CNT_SUBJ_CD_03, 
+										SUM(A.CNT_PFSR_ID_03) CNT_PFSR_ID_03, 
+										SUM(A.PMT_AMT_03)  PMT_AMT_03 
+								FROM (
+										SELECT 	B.YR, B.CRS_CD, B.CRS_CDN, 
+												NVL(A.CNT_SUBJ_CD_01, 0) CNT_SUBJ_CD_01, 
+												NVL(A.CNT_PFSR_ID_01, 0) CNT_PFSR_ID_01, 
+												NVL(A.PMT_AMT_01, 0) PMT_AMT_01, 
+												NVL(A.CNT_SUBJ_CD_03, 0) CNT_SUBJ_CD_03, 
+												NVL(A.CNT_PFSR_ID_03, 0) CNT_PFSR_ID_03, 
+												NVL(A.PMT_AMT_03, 0) PMT_AMT_03
+										FROM (
+												SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, 
+														( CASE A.PFSR_DVSN_CD WHEN '1'  THEN SUM(A.PMT_AMT) END ) PMT_AMT_01, 
+														( CASE A.PFSR_DVSN_CD WHEN '3' THEN SUM(A.PMT_AMT) END ) PMT_AMT_03, 
+														0 CNT_SUBJ_CD_01, 0 CNT_SUBJ_CD_03, 
+														0 CNT_PFSR_ID_01, 0 CNT_PFSR_ID_03 
+												FROM (
+														SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, 
+																A.SUBJ_CD, A.PFSR_ID, B.PFSR_DVSN_CD, 
+																A.PMT_AMT
+														FROM 	TBCSPSAE305D A, TBCSPSAE109M B
+														WHERE 	B.PFSR_ID = A.PFSR_ID
+														AND 	A.YR 		BETWEEN #strFromY# AND #strToY#
+												) A
+												GROUP BY A.YR, A.CRS_CD, A.CRS_CDN, A.PFSR_DVSN_CD
+											UNION ALL
+												SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, 
+														0 PMT_AMT_01, 0 PMT_AMT_03, 
+														( CASE A.PFSR_DVSN_CD WHEN '1'  THEN COUNT(A.SUBJ_CD) END ) CNT_SUBJ_CD_01, 
+														( CASE A.PFSR_DVSN_CD WHEN '3' THEN COUNT(A.SUBJ_CD) END ) CNT_SUBJ_CD_03, 
+														0 CNT_PFSR_ID_01, 0 CNT_PFSR_ID_03 
+												FROM (
+														SELECT 	DISTINCT A.YR, A.CRS_CD, A.CRS_CDN, A.SUBJ_CD, B.PFSR_DVSN_CD
+														FROM 	TBCSPSAE305D A, TBCSPSAE109M B
+														WHERE 	B.PFSR_ID = A.PFSR_ID
+														AND 	A.YR 		BETWEEN #strFromY# AND #strToY#
+												) A
+												GROUP BY A.YR, A.CRS_CD, A.CRS_CDN, A.PFSR_DVSN_CD, A.SUBJ_CD
+											UNION ALL
+												SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, 
+														0 PMT_AMT_01, 0 PMT_AMT_03, 
+														0 CNT_SUBJ_CD_01, 0 CNT_SUBJ_CD_03, 
+														( CASE A.PFSR_DVSN_CD WHEN '1' THEN COUNT(A.PFSR_ID) END ) CNT_PFSR_ID_01, 
+														( CASE A.PFSR_DVSN_CD WHEN '3' THEN COUNT(A.PFSR_ID) END ) CNT_PFSR_ID_03 
+												FROM (
+														SELECT 	DISTINCT A.YR, A.CRS_CD, A.CRS_CDN, A.PFSR_ID, B.PFSR_DVSN_CD
+														FROM 	TBCSPSAE305D A, TBCSPSAE109M B
+														WHERE 	B.PFSR_ID = A.PFSR_ID
+														AND 	A.YR 		BETWEEN #strFromY# AND #strToY#
+												) A
+												GROUP BY A.YR, A.CRS_CD, A.CRS_CDN, A.PFSR_DVSN_CD, A.PFSR_ID
+										) A, (
+												SELECT 	YR, CRS_CD, CRS_CDN
+												FROM 	TBCSPSAE201D
+												WHERE 	YR 		BETWEEN #strFromY# AND #strToY#
+			    								AND     SUBSTR(EDU_STR_DT, 0, 6) BETWEEN #strFromY# || #strFromM#  AND #strToY# || #strToM#
+										) B
+										WHERE 	B.YR 		= A.YR(+)
+										AND 	B.CRS_CD 	= A.CRS_CD(+)
+										AND 	B.CRS_CDN 	= A.CRS_CDN(+)
+								) A
+								GROUP BY A.YR, A.CRS_CD
+						) A
+						, TBCSPSAE103C B
+						, TBCSPSAE102C C
+						, TBCSPSAE101C D
+						WHERE 	B.CRS_CD = A.CRS_CD
+						  AND   C.EDU_CAT_CD = B.EDU_CAT_CD
+						  AND   C.EDU_DVSN_CD = B.EDU_DVSN_CD
+						  AND   D.EDU_DVSN_CD = B.EDU_DVSN_CD
+				) A
+				WHERE 1=1
+         ]]>
+         <dynamic>
+        	<isNotEmpty property="strEDU_DVSN_CD">
+        		AND A.EDU_DVSN_CD = #strEDU_DVSN_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CAT_CD">
+        		AND A.EDU_CAT_CD = #strEDU_CAT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CRS_CD">
+        		AND A.CRS_CD = #strEDU_CRS_CD#
+        	</isNotEmpty>
+        </dynamic>
+        <![CDATA[
+			GROUP BY ROLLUP(A.YR, A.EDU_DVSN_CD, (A.EDU_DVSN_NM, A.CRS_CD, A.CRS_NM))
+			ORDER BY A.YR, A.EDU_DVSN_CD ASC, A.CRS_CD ASC	
+       ]]>
+	</select>
+	
+	<select id="CSPSAE603QPfsrAmtReportData" parameterClass="paramMap" resultClass="resultMap">
+	    <![CDATA[
+				SELECT 	A.YR
+				      , A.EDU_DVSN_NM
+				      , A.CRS_NM
+				      , A.CRS_CD
+				      , A.CNT_SUBJ_CD_01
+				      , A.CNT_PFSR_ID_01
+				      , A.PMT_AMT_01
+				      , A.CNT_SUBJ_CD_03
+				      , A.CNT_PFSR_ID_03
+				      , A.PMT_AMT_03
+				      , A.PMT_AMT
+					FROM (
+	
+							SELECT 	A.YR, D.EDU_DVSN_NM, D.EDU_DVSN_CD, C.EDU_CAT_CD,
+									A.CRS_CD, B.CRS_NM, 
+									A.CNT_SUBJ_CD_01, A.CNT_PFSR_ID_01, A.PMT_AMT_01, 
+									A.CNT_SUBJ_CD_03, A.CNT_PFSR_ID_03, A.PMT_AMT_03,
+									(A.PMT_AMT_01 + A.PMT_AMT_03) PMT_AMT 
+							FROM (
+									SELECT 	A.YR, A.CRS_CD, 
+											SUM(A.CNT_SUBJ_CD_01) CNT_SUBJ_CD_01, 
+											SUM(A.CNT_PFSR_ID_01) CNT_PFSR_ID_01, 
+											SUM(A.PMT_AMT_01) PMT_AMT_01, 
+											SUM(A.CNT_SUBJ_CD_03) CNT_SUBJ_CD_03, 
+											SUM(A.CNT_PFSR_ID_03) CNT_PFSR_ID_03, 
+											SUM(A.PMT_AMT_03)  PMT_AMT_03 
+									FROM (
+											SELECT 	B.YR, B.CRS_CD, B.CRS_CDN, 
+													NVL(A.CNT_SUBJ_CD_01, 0) CNT_SUBJ_CD_01, 
+													NVL(A.CNT_PFSR_ID_01, 0) CNT_PFSR_ID_01, 
+													NVL(A.PMT_AMT_01, 0) PMT_AMT_01, 
+													NVL(A.CNT_SUBJ_CD_03, 0) CNT_SUBJ_CD_03, 
+													NVL(A.CNT_PFSR_ID_03, 0) CNT_PFSR_ID_03, 
+													NVL(A.PMT_AMT_03, 0) PMT_AMT_03
+											FROM (
+													SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, 
+															( CASE A.PFSR_DVSN_CD WHEN '1'  THEN SUM(A.PMT_AMT) END ) PMT_AMT_01, 
+															( CASE A.PFSR_DVSN_CD WHEN '3' THEN SUM(A.PMT_AMT) END ) PMT_AMT_03, 
+															0 CNT_SUBJ_CD_01, 0 CNT_SUBJ_CD_03, 
+															0 CNT_PFSR_ID_01, 0 CNT_PFSR_ID_03 
+													FROM (
+															SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, 
+																	A.SUBJ_CD, A.PFSR_ID, B.PFSR_DVSN_CD, 
+																	A.PMT_AMT
+															FROM 	TBCSPSAE305D A, TBCSPSAE109M B
+															WHERE 	B.PFSR_ID = A.PFSR_ID
+															AND 	A.YR 		BETWEEN #strFromY# AND #strToY#
+													) A
+													GROUP BY A.YR, A.CRS_CD, A.CRS_CDN, A.PFSR_DVSN_CD
+												UNION ALL
+													SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, 
+															0 PMT_AMT_01, 0 PMT_AMT_03, 
+															( CASE A.PFSR_DVSN_CD WHEN '1'  THEN COUNT(A.SUBJ_CD) END ) CNT_SUBJ_CD_01, 
+															( CASE A.PFSR_DVSN_CD WHEN '3' THEN COUNT(A.SUBJ_CD) END ) CNT_SUBJ_CD_03, 
+															0 CNT_PFSR_ID_01, 0 CNT_PFSR_ID_03 
+													FROM (
+															SELECT 	DISTINCT A.YR, A.CRS_CD, A.CRS_CDN, A.SUBJ_CD, B.PFSR_DVSN_CD
+															FROM 	TBCSPSAE305D A, TBCSPSAE109M B
+															WHERE 	B.PFSR_ID = A.PFSR_ID
+															AND 	A.YR 		BETWEEN #strFromY# AND #strToY#
+													) A
+													GROUP BY A.YR, A.CRS_CD, A.CRS_CDN, A.PFSR_DVSN_CD, A.SUBJ_CD
+												UNION ALL
+													SELECT 	A.YR, A.CRS_CD, A.CRS_CDN, 
+															0 PMT_AMT_01, 0 PMT_AMT_03, 
+															0 CNT_SUBJ_CD_01, 0 CNT_SUBJ_CD_03, 
+															( CASE A.PFSR_DVSN_CD WHEN '1' THEN COUNT(A.PFSR_ID) END ) CNT_PFSR_ID_01, 
+															( CASE A.PFSR_DVSN_CD WHEN '3' THEN COUNT(A.PFSR_ID) END ) CNT_PFSR_ID_03 
+													FROM (
+															SELECT 	DISTINCT A.YR, A.CRS_CD, A.CRS_CDN, A.PFSR_ID, B.PFSR_DVSN_CD
+															FROM 	TBCSPSAE305D A, TBCSPSAE109M B
+															WHERE 	B.PFSR_ID = A.PFSR_ID
+															AND 	A.YR 		BETWEEN #strFromY# AND #strToY#
+													) A
+													GROUP BY A.YR, A.CRS_CD, A.CRS_CDN, A.PFSR_DVSN_CD, A.PFSR_ID
+											) A, (
+													SELECT 	YR, CRS_CD, CRS_CDN
+													FROM 	TBCSPSAE201D
+													WHERE 	YR 		BETWEEN #strFromY# AND #strToY#
+				    								AND     SUBSTR(EDU_STR_DT, 0, 6) BETWEEN #strFromY# || #strFromM#  AND #strToY# || #strToM#
+											) B
+											WHERE 	B.YR 		= A.YR(+)
+											AND 	B.CRS_CD 	= A.CRS_CD(+)
+											AND 	B.CRS_CDN 	= A.CRS_CDN(+)
+									) A
+									GROUP BY A.YR, A.CRS_CD
+							) A
+							, TBCSPSAE103C B
+							, TBCSPSAE102C C
+							, TBCSPSAE101C D
+							WHERE 	B.CRS_CD = A.CRS_CD
+							  AND   C.EDU_CAT_CD = B.EDU_CAT_CD
+							  AND   C.EDU_DVSN_CD = B.EDU_DVSN_CD
+							  AND   D.EDU_DVSN_CD = B.EDU_DVSN_CD
+					) A
+					WHERE 1=1
+	         ]]>
+	         <dynamic>
+	        	<isNotEmpty property="strEDU_DVSN_CD">
+	        		AND A.EDU_DVSN_CD = #strEDU_DVSN_CD#
+	        	</isNotEmpty>
+	        	<isNotEmpty property="strEDU_CAT_CD">
+	        		AND A.EDU_CAT_CD = #strEDU_CAT_CD#
+	        	</isNotEmpty>
+	        	<isNotEmpty property="strEDU_CRS_CD">
+	        		AND A.CRS_CD = #strEDU_CRS_CD#
+	        	</isNotEmpty>
+	        </dynamic>
+	        <![CDATA[
+				ORDER BY A.YR, A.EDU_DVSN_CD ASC, A.CRS_CD ASC	
+	       ]]>
+	</select> 
+
+	<select id="CSPSAE604QPfsrList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+				SELECT 	NVL2(A.YR, A.YR, '합계') AS YR
+				      , DECODE(NVL2(A.YR, A.YR, '합계'), '합계', '', NVL2(A.PFSR_DVSN_NM, A.PFSR_DVSN_NM, '소계')) AS PFSR_DVSN_NM
+				      , A.PFSR_ID
+				      , DECODE(NVL2(A.PFSR_DVSN_NM, A.PFSR_DVSN_NM, '소계'), '소계', '', NVL2(A.NAM, A.NAM, '소계')) AS NAM
+				      , A.SUBJ_NM
+				      , A.EDU_DVSN_NM
+				      , A.CRS_NM
+				      , A.EDU_DVSN_CD
+				      , A.EDU_CAT_CD
+				      , A.CRS_CD
+				      , NVL2(A.CRS_CDN, A.CRS_CDN, COUNT(A.CRS_CDN)) AS CRS_CDN
+				      , DECODE(B.EDU_STR_DT, NULL, '', SUBSTR(B.EDU_STR_DT, 5, 2) || '.' || SUBSTR(B.EDU_STR_DT, 7, 2) || ' ~ ' || SUBSTR(B.EDU_END_DT, 5, 2) || '.' || 
+				         SUBSTR(B.EDU_END_DT, 7, 2)) EDU_DATE
+				      , SUM(A.LCT_TM_HM) AS LCT_TM_HM
+				FROM (
+						SELECT 	A.YR, A.SUBJ_CD, A.SUBJ_NM,
+								A.EDU_DVSN_CD, A.EDU_DVSN_NM, 
+								A.EDU_CAT_CD,
+								A.CRS_CD, A.CRS_NM, 
+								A.CRS_CDN, A.LCT_TM_HM,
+								A.PFSR_DVSN_NM, A.PFSR_DVSN_CD, A.PFSR_ID, A.NAM
+						FROM (
+								SELECT 	A.YR, A.SUBJ_CD, A.SUBJ_NM, 
+										B.EDU_DVSN_CD, 
+										D.EDU_DVSN_NM,
+										C.EDU_CAT_CD,
+										A.CRS_CD, B.CRS_NM, 
+										A.CRS_CDN, A.LCT_TM_HM, 
+										A.PFSR_DVSN_NM, A.PFSR_DVSN_CD, A.PFSR_ID, A.NAM
+								FROM (
+										SELECT 	A.YR, A.SUBJ_CD, A.SUBJ_NM, 
+												A.CRS_CD, A.CRS_CDN, A.LCT_TM_HM, 
+												( 	SELECT 	CD_NM 
+													FROM 	TBDCMACM013C
+													WHERE 	TSK_CAT_CD = 'SP'
+													AND 	FUNC_CAT_CD = 'AE'
+													AND 	CMM_CD_DVSN_CD = '1000312'
+													AND 	CD = B.PFSR_DVSN_CD 
+												) PFSR_DVSN_NM, B.PFSR_DVSN_CD,
+												A.PFSR_ID, B.NAM 
+										FROM (
+												SELECT 	A.YR, A.SUBJ_CD, 
+														( SELECT SUBJ_NM FROM TBCSPSAE101M WHERE SUBJ_CD = A.SUBJ_CD ) SUBJ_NM, 
+														A.CRS_CD, A.CRS_CDN, SUM(A.LCT_TM_HM) LCT_TM_HM, A.PFSR_ID 
+												FROM 	TBCSPSAE202D A
+												WHERE 	A.YR 		BETWEEN #strFromY# AND #strToY#
+												GROUP BY A.YR, A.SUBJ_CD, A.CRS_CD, A.CRS_CDN, A.PFSR_ID
+										) A, TBCSPSAE109M B
+										WHERE 	B.PFSR_ID = A.PFSR_ID
+								) A
+								, TBCSPSAE103C B
+								, TBCSPSAE102C C
+								, TBCSPSAE101C D
+								WHERE 	B.CRS_CD = A.CRS_CD
+								AND		C.EDU_CAT_CD = B.EDU_CAT_CD
+								AND		C.EDU_DVSN_CD = B.EDU_DVSN_CD
+								AND		D.EDU_DVSN_CD = B.EDU_DVSN_CD
+						) A
+				) A, TBCSPSAE201D B
+				WHERE 	B.YR = A.YR
+				AND 	B.CRS_CD = A.CRS_CD
+				AND 	B.CRS_CDN = A.CRS_CDN
+				AND     SUBSTR(B.EDU_STR_DT, 0, 6) BETWEEN #strFromY# || #strFromM#  AND #strToY# || #strToM#
+
+         ]]>
+         <dynamic>
+        	<isNotEmpty property="strEDU_DVSN_CD">
+        		AND A.EDU_DVSN_CD = #strEDU_DVSN_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CAT_CD">
+        		AND A.EDU_CAT_CD = #strEDU_CAT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CRS_CD">
+        		AND A.CRS_CD = #strEDU_CRS_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strCRS_CDN">
+        		AND A.CRS_CDN = #strCRS_CDN#
+        	</isNotEmpty>
+        	<isNotEmpty property="strNAM">
+        		AND	A.NAM LIKE '%' || #strNAM# || '%'
+        	</isNotEmpty>
+        	<isNotEmpty property="strPFSR_DVSN_CD">
+        		AND A.PFSR_DVSN_CD = #strPFSR_DVSN_CD#
+        	</isNotEmpty>
+        </dynamic>
+        <![CDATA[
+				GROUP BY ROLLUP(A.YR, A.PFSR_DVSN_NM, A.PFSR_ID, 
+				                (A.NAM, A.SUBJ_NM, A.EDU_DVSN_NM, A.CRS_CD, A.CRS_NM, A.EDU_DVSN_CD, A.EDU_CAT_CD, A.CRS_CDN, B.EDU_STR_DT, B.EDU_END_DT)
+				               )
+				ORDER BY A.YR ASC, A.PFSR_DVSN_NM ASC, A.PFSR_ID, A.SUBJ_NM, A.EDU_DVSN_NM, A.CRS_CD, EDU_DATE
+       ]]>
+	</select>
+
+	<select id="CSPSAE604QPfsrReportData" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+				SELECT 	A.YR
+				      , A.PFSR_DVSN_NM
+				      , A.NAM
+				      , A.PFSR_ID
+				      , A.SUBJ_NM
+				      , A.EDU_DVSN_NM
+				      , A.CRS_CD
+				      , A.CRS_NM
+				      , A.CRS_CDN
+				      , DECODE(B.EDU_STR_DT, NULL, '', SUBSTR(B.EDU_STR_DT, 5, 2) || '.' || SUBSTR(B.EDU_STR_DT, 7, 2) || ' ~ ' || SUBSTR(B.EDU_END_DT, 5, 2) || '.' || 
+				         SUBSTR(B.EDU_END_DT, 7, 2)) EDU_DATE
+				      , A.LCT_TM_HM
+				FROM (
+						SELECT 	A.YR, A.SUBJ_CD, A.SUBJ_NM,
+								A.EDU_DVSN_CD, A.EDU_DVSN_NM, 
+								A.EDU_CAT_CD,
+								A.CRS_CD, A.CRS_NM, 
+								A.CRS_CDN, A.LCT_TM_HM,
+								A.PFSR_DVSN_NM, A.PFSR_DVSN_CD, A.PFSR_ID, A.NAM
+						FROM (
+								SELECT 	A.YR, A.SUBJ_CD, A.SUBJ_NM, 
+										B.EDU_DVSN_CD, 
+										D.EDU_DVSN_NM,
+										C.EDU_CAT_CD,
+										A.CRS_CD, B.CRS_NM, 
+										A.CRS_CDN, A.LCT_TM_HM, 
+										A.PFSR_DVSN_NM, A.PFSR_DVSN_CD, A.PFSR_ID, A.NAM
+								FROM (
+										SELECT 	A.YR, A.SUBJ_CD, A.SUBJ_NM, 
+												A.CRS_CD, A.CRS_CDN, A.LCT_TM_HM, 
+												( 	SELECT 	CD_NM 
+													FROM 	TBDCMACM013C
+													WHERE 	TSK_CAT_CD = 'SP'
+													AND 	FUNC_CAT_CD = 'AE'
+													AND 	CMM_CD_DVSN_CD = '1000312'
+													AND 	CD = B.PFSR_DVSN_CD 
+												) PFSR_DVSN_NM, B.PFSR_DVSN_CD,
+												A.PFSR_ID, B.NAM 
+										FROM (
+												SELECT 	A.YR, A.SUBJ_CD, 
+														( SELECT SUBJ_NM FROM TBCSPSAE101M WHERE SUBJ_CD = A.SUBJ_CD ) SUBJ_NM, 
+														A.CRS_CD, A.CRS_CDN, SUM(A.LCT_TM_HM) LCT_TM_HM, A.PFSR_ID 
+												FROM 	TBCSPSAE202D A
+												WHERE 	A.YR 		BETWEEN #strFromY# AND #strToY#
+												GROUP BY A.YR, A.SUBJ_CD, A.CRS_CD, A.CRS_CDN, A.PFSR_ID
+										) A, TBCSPSAE109M B
+										WHERE 	B.PFSR_ID = A.PFSR_ID
+								) A
+								, TBCSPSAE103C B
+								, TBCSPSAE102C C
+								, TBCSPSAE101C D
+								WHERE 	B.CRS_CD = A.CRS_CD
+								AND		C.EDU_CAT_CD = B.EDU_CAT_CD
+								AND		C.EDU_DVSN_CD = B.EDU_DVSN_CD
+								AND		D.EDU_DVSN_CD = B.EDU_DVSN_CD
+						) A
+				) A, TBCSPSAE201D B
+				WHERE 	B.YR = A.YR
+				AND 	B.CRS_CD = A.CRS_CD
+				AND 	B.CRS_CDN = A.CRS_CDN
+				AND     SUBSTR(B.EDU_STR_DT, 0, 6) BETWEEN #strFromY# || #strFromM#  AND #strToY# || #strToM#
+
+         ]]>
+         <dynamic>
+        	<isNotEmpty property="strEDU_DVSN_CD">
+        		AND A.EDU_DVSN_CD = #strEDU_DVSN_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CAT_CD">
+        		AND A.EDU_CAT_CD = #strEDU_CAT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CRS_CD">
+        		AND A.CRS_CD = #strEDU_CRS_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strCRS_CDN">
+        		AND A.CRS_CDN = #strCRS_CDN#
+        	</isNotEmpty>
+        	<isNotEmpty property="strNAM">
+        		AND	A.NAM LIKE '%' || #strNAM# || '%'
+        	</isNotEmpty>
+        	<isNotEmpty property="strPFSR_DVSN_CD">
+        		AND A.PFSR_DVSN_CD = #strPFSR_DVSN_CD#
+        	</isNotEmpty>
+        </dynamic>
+        <![CDATA[
+				ORDER BY A.YR ASC, A.PFSR_DVSN_NM ASC, A.PFSR_ID, A.SUBJ_NM, A.EDU_DVSN_NM, A.CRS_CD, EDU_DATE
+       ]]>
+	</select>
+	
+	<select id="CSPSAE605QSvQestList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+	          SELECT SUBSTR(E.SV_DT, 0, 4) || '-' || SUBSTR(E.SV_DT, 5, 2) AS SV_DT
+	               , A.EDU_DVSN_NM
+	               , B.EDU_CAT_NM
+	               , C.CRS_NM
+	               , X.CRS_CDN
+	               , X.SV_QEST_NO || '. ' || X.SV_QEST_TXT AS SV_QEST_TXT
+	               , X.SV_QEST_NO
+	               , X.SUM_CNT
+	               , D.TANE_CNT
+	               , DECODE(D.TANE_CNT, 0, 0, CASE X.SUM_CNT WHEN 0 THEN 0 
+	                     ELSE ROUND (X.SUM_CNT/D.TANE_CNT*100, 2) 
+	                     END) AS RATE
+	           FROM	
+	           		(
+					SELECT DATA.YR
+					       , DATA.CRS_CD
+					       , DATA.CRS_CDN
+					       , DATA.SV_QEST_TXT
+					       , DATA.SV_QEST_NO
+					       , MIN(DATA.SV_CLU_NO) AS SV_CLU_NO
+					       , SUM(DATA.SUM_CNT) AS SUM_CNT
+					FROM (
+							SELECT  D.YR
+									, D.CRS_CD
+							        , D.CRS_CDN
+							        , B.SV_QEST_TXT
+			           				, B.SV_QEST_NO
+			           				, C.SV_CLU_NO
+									, SUM(E.RP_CNT_1) + SUM(E.RP_CNT_2) + SUM(E.RP_CNT_3) +SUM(E.RP_CNT_4) + SUM(E.RP_CNT_5) + SUM(E.RP_CNT_6) AS SUM_CNT
+							FROM	TBCSPSAE121C A
+							      , TBCSPSAE122C B
+							      , TBCSPSAE123C C
+							      , TBCSPSAE302D D
+							      , (
+									SELECT	D.YR
+							 			    , B.QEST_DVSN_CD
+									     	, D.SV_TIT_CD
+									     	, A.SV_TIT_NM
+									     	, B.SV_QEST_NO
+									     	, C.SV_CLU_NO
+									     	, D.CRS_CD
+									     	, D.CRS_CDN
+									        , DECODE(C.SV_CLU_NO, 1, SUM(D.RP_CNT), 0) AS RP_CNT_1
+									        , DECODE(C.SV_CLU_NO, 2, SUM(D.RP_CNT), 0) AS RP_CNT_2
+									        , DECODE(C.SV_CLU_NO, 3, SUM(D.RP_CNT), 0) AS RP_CNT_3
+									        , DECODE(C.SV_CLU_NO, 4, SUM(D.RP_CNT), 0) AS RP_CNT_4
+									        , DECODE(C.SV_CLU_NO, 5, SUM(D.RP_CNT), 0) AS RP_CNT_5
+									        , DECODE(C.SV_CLU_NO, 6, SUM(D.RP_CNT), 0) AS RP_CNT_6
+									FROM	TBCSPSAE121C A, TBCSPSAE122C B, TBCSPSAE123C C, TBCSPSAE302D D
+									WHERE 	A.SV_TIT_CD = B.SV_TIT_CD
+									AND 	B.SV_QEST_NO = C.SV_QEST_NO
+									AND		B.SV_TIT_CD = C.SV_TIT_CD		
+									AND		D.SV_QEST_NO = C.SV_QEST_NO
+									AND		D.SV_CLU_NO = C.SV_CLU_NO
+									AND 	D.SV_TIT_CD = C.SV_TIT_CD
+									AND		A.USE_YN = 'Y'
+									AND 	D.YR 		BETWEEN #strFromY# AND #strToY#
+									AND 	B.QEST_DVSN_CD = '1'
+									GROUP BY D.YR, B.QEST_DVSN_CD, D.SV_TIT_CD, A.SV_TIT_NM, B.SV_QEST_NO, C.SV_CLU_NO, D.CRS_CD, D.CRS_CDN
+									ORDER BY D.YR, B.QEST_DVSN_CD, D.SV_TIT_CD, A.SV_TIT_NM, B.SV_QEST_NO, C.SV_CLU_NO, D.CRS_CD, D.CRS_CDN
+							        ) E
+							WHERE 	A.SV_TIT_CD = B.SV_TIT_CD
+							AND 	B.SV_QEST_NO = C.SV_QEST_NO
+							AND		B.SV_TIT_CD = C.SV_TIT_CD		
+							AND		D.SV_QEST_NO = C.SV_QEST_NO
+							AND		D.SV_CLU_NO = C.SV_CLU_NO
+							AND 	D.SV_TIT_CD = C.SV_TIT_CD
+							AND		E.SV_QEST_NO = D.SV_QEST_NO
+							AND		E.SV_CLU_NO = D.SV_CLU_NO
+							AND		E.SV_TIT_CD = D.SV_TIT_CD
+			           		AND		E.QEST_DVSN_CD = B.QEST_DVSN_CD
+			           		AND		E.SV_TIT_NM	= A.SV_TIT_NM
+			           		AND		E.CRS_CD = D.CRS_CD
+			           		AND		E.CRS_CDN = D.CRS_CDN
+			           		AND 	E.YR = D.YR
+				           	AND		A.USE_YN = 'Y'
+				           	AND 	D.YR 		BETWEEN #strFromY# AND #strToY#
+				           	AND 	B.QEST_DVSN_CD = '1'	  
+			            	GROUP BY D.YR, D.CRS_CD, D.CRS_CDN, B.SV_QEST_TXT, B.SV_QEST_NO, C.SV_CLU_NO
+			            	ORDER BY D.YR, D.CRS_CD, D.CRS_CDN, B.SV_QEST_TXT, B.SV_QEST_NO, C.SV_CLU_NO
+			         	) DATA
+			         	GROUP BY DATA.YR, DATA.CRS_CD, DATA.CRS_CDN, DATA.SV_QEST_TXT, DATA.SV_QEST_NO
+			         	ORDER BY DATA.YR, DATA.CRS_CD, DATA.CRS_CDN, DATA.SV_QEST_NO
+	           ) X
+	           , TBCSPSAE101C A
+	           , TBCSPSAE102C B
+	           , TBCSPSAE103C C
+	           , (
+		           SELECT Y.YR
+		                , Y.CRS_CD
+		                , Y.CRS_CDN
+		                , NVL(MAX(X.TANE_CNT), 0) AS TANE_CNT
+		             FROM (
+				            SELECT YR
+							     , CRS_CD
+							     , CRS_CDN
+							     , COUNT(TANE_ID) AS TANE_CNT
+							  FROM TBCSPSAE301D
+							 WHERE FIN_YN = 'Y'
+							 AND   YR 		BETWEEN #strFromY# AND #strToY#
+							GROUP BY YR, CRS_CD, CRS_CDN
+						   ) X
+						 , TBCSPSAE301D Y
+				    WHERE 	X.YR(+) = Y.YR
+				    AND		X.CRS_CD(+) = Y.CRS_CD
+				    AND		X.CRS_CDN(+) = Y.CRS_CDN
+				    GROUP BY Y.YR, Y.CRS_CD, Y.CRS_CDN
+	           	 ) D
+           	 	, TBCSPSAE201D E
+	           WHERE 	C.CRS_CD = X.CRS_CD
+	           AND		B.EDU_CAT_CD = C.EDU_CAT_CD
+	           AND		A.EDU_DVSN_CD = B.EDU_DVSN_CD
+	           AND		A.EDU_DVSN_CD = C.EDU_DVSN_CD
+	           AND		D.YR = X.YR
+	           AND		D.CRS_CD = X.CRS_CD
+	           AND		D.CRS_CDN = X.CRS_CDN
+	           AND		E.YR = X.YR
+           	   AND		E.CRS_CD = X.CRS_CD
+               AND		E.CRS_CDN = X.CRS_CDN
+               AND		SUBSTR(E.SV_DT, 0, 6) BETWEEN #strFromY# || #strFromM#  AND #strToY# || #strToM#
+         ]]>
+         <dynamic>
+        	<isNotEmpty property="strEDU_DVSN_CD">
+        		AND A.EDU_DVSN_CD = #strEDU_DVSN_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CAT_CD">
+        		AND B.EDU_CAT_CD = #strEDU_CAT_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strEDU_CRS_CD">
+        		AND X.CRS_CD = #strEDU_CRS_CD#
+        	</isNotEmpty>
+        	<isNotEmpty property="strCRS_CDN">
+        		AND X.CRS_CDN = #strCRS_CDN#
+        	</isNotEmpty>
+        </dynamic>
+        <![CDATA[
+				ORDER BY SV_DT, A.EDU_DVSN_CD, B.EDU_CAT_CD, C.CRS_CD, X.CRS_CDN, X.SV_QEST_NO, X.SV_CLU_NO
+       ]]>
+	</select>
+	
+	<!-- 개인별교육이수현황 조회 -->
+	<select id="CSPSAE606QPsonEduDesc" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT A.BTDT
+				 , A.NAM
+				 , B.EDU_DVSN_NM
+				 , C.EDU_CAT_NM
+				 , D.CRS_NM
+				 , A.CRS_CDN
+				 , SUBSTR(E.EDU_STR_DT, 0, 4) || '.' || SUBSTR(E.EDU_STR_DT, 5, 2) || '.' || SUBSTR(E.EDU_STR_DT, 7, 2) || ' ~ ' || 
+				   SUBSTR(E.EDU_END_DT, 0, 4) || '.' || SUBSTR(E.EDU_END_DT, 5, 2) || '.' || SUBSTR(E.EDU_END_DT, 7, 2) AS EDU_DT
+				 , F.ORG_NM
+				 , A.DPT_NM
+				 , A.FIN_YN          /*수료여부*/
+			     , A.FIN_TIME		 /*수료시간*/
+                 , A.EVAL_RESULT     /*평가결과*/
+                 , D.NEED_YN         /*필수과정여부*/
+			FROM	TBCSPSAE301D A 
+			      , TBCSPSAE101C B
+			      , TBCSPSAE102C C
+			      , TBCSPSAE103C D
+			      , TBCSPSAE201D E
+			      , TBDCMACM015M F
+			WHERE 	D.CRS_CD = A.CRS_CD
+			AND		C.EDU_CAT_CD = D.EDU_CAT_CD
+			AND		C.EDU_DVSN_CD = D.EDU_DVSN_CD
+			AND		B.EDU_DVSN_CD = D.EDU_DVSN_CD
+			AND		E.YR = A.YR
+			AND		E.CRS_CD = A.CRS_CD
+			AND		E.CRS_CDN = A.CRS_CDN
+			AND		F.ORG_CD = A.ORG_CD
+         ]]>
+         <dynamic>
+        	<isNotEmpty property="strFromBTDT">
+        		<isNotEmpty property="strToBTDT">
+        			AND 	A.BTDT BETWEEN #strFromBTDT# AND #strToBTDT#
+        		</isNotEmpty>
+        	</isNotEmpty>
+        	<isNotEmpty property="strNAM">
+        		AND 	A.NAM LIKE '%' ||  #strNAM# || '%' 
+        	</isNotEmpty>        	    	
+        	<isEqual property="strDvsnCd" compareValue="1">
+        		AND 	A.CNB IS NOT NULL 	/*감사원직원*/
+        	</isEqual>
+        	<isEqual property="strDvsnCd" compareValue="2">
+        		AND 	A.CNB IS NULL 		/*외부인*/
+        	</isEqual>        	        	
+        </dynamic>
+	</select>
+	
+	
+	<!-- 개인별교육이수현황 조회(개인용) -->
+	<select id="CSPSAE607QPsonEduDesc" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT A.BTDT
+				 , A.NAM
+				 , B.EDU_DVSN_NM
+				 , C.EDU_CAT_NM
+				 , D.CRS_NM
+				 , A.CRS_CDN
+				 , SUBSTR(E.EDU_STR_DT, 0, 4) || '.' || SUBSTR(E.EDU_STR_DT, 5, 2) || '.' || SUBSTR(E.EDU_STR_DT, 7, 2) || ' ~ ' || 
+				   SUBSTR(E.EDU_END_DT, 0, 4) || '.' || SUBSTR(E.EDU_END_DT, 5, 2) || '.' || SUBSTR(E.EDU_END_DT, 7, 2) AS EDU_DT
+				 , F.ORG_NM
+				 , A.DPT_NM
+				 , A.FIN_YN          /*수료여부*/
+			     , A.FIN_TIME		 /*수료시간*/
+                 , A.EVAL_RESULT     /*평가결과*/
+                 , D.NEED_YN         /*필수과정여부*/
+                 , A.CNB
+			FROM	TBCSPSAE301D A 
+			      , TBCSPSAE101C B
+			      , TBCSPSAE102C C
+			      , TBCSPSAE103C D
+			      , TBCSPSAE201D E
+			      , TBDCMACM015M F
+			WHERE 	D.CRS_CD = A.CRS_CD
+			AND		C.EDU_CAT_CD = D.EDU_CAT_CD
+			AND		C.EDU_DVSN_CD = D.EDU_DVSN_CD
+			AND		B.EDU_DVSN_CD = D.EDU_DVSN_CD
+			AND		E.YR = A.YR
+			AND		E.CRS_CD = A.CRS_CD
+			AND		E.CRS_CDN = A.CRS_CDN
+			AND		F.ORG_CD = A.ORG_CD
+         ]]>
+         <dynamic>        	
+        	<isNotEmpty property="strNAM">
+        		AND 	A.NAM LIKE '%' ||  #strNAM# || '%' 
+        	</isNotEmpty>
+        	<isNotEmpty property="strNevltCnb">
+        		AND 	A.CNB LIKE '%' ||  #strNevltCnb# || '%' 
+        	</isNotEmpty>
+        	<isNotEmpty property="strYR_CD">
+        		AND 	SUBSTR(E.EDU_STR_DT, 0, 4) LIKE '%' ||  #strYR_CD# || '%' 
+        	</isNotEmpty>
+        </dynamic>
+	</select>
+	
+	<!--파일업로드 insert-->
+	<insert id="CSPSAE606QFileUploadInsert" parameterClass="paramMap">
+		<![CDATA[  
+			INSERT
+			  INTO TBCSPSAE606D( 			       
+			     DOC_ID
+			     , DOC_TYP_CD
+			     , FRT_USR_ID
+			     , FNL_USR_ID
+			     , FNL_DEAL_DPT_CD
+			     , FNL_MNU_ID
+			     , FRT_REGI_DH
+			     , FNL_MDF_DH  
+			)
+			VALUES( 
+			     #DOC_ID#
+			     , #DOC_TYP_CD#
+			     , #FRT_USR_ID#
+			     , #FNL_USR_ID#
+			     , #FNL_DEAL_DPT_CD#
+			     , #FNL_MNU_ID#
+			     , SYSDATE
+			     , SYSDATE 
+			) 	
+		]]>
+	</insert>
+	
+	<!--파일업로드 update-->
+	<update id="CSPSAE606QFileUploadUpdate" parameterClass="paramMap">
+		<![CDATA[ 	
+			UPDATE TBCSPSAE606D
+			   SET DOC_ID        = #DOC_ID#
+		]]>	 		
+		<isNotNull  property="FNL_USR_ID">	       
+			     , FNL_USR_ID      = #FNL_USR_ID#
+		</isNotNull>	
+		<isNotNull  property="FNL_DEAL_DPT_CD">	       
+			     , FNL_DEAL_DPT_CD  = #FNL_DEAL_DPT_CD#
+		</isNotNull>		
+		<isNotNull  property="FNL_MNU_ID">	       
+			     , FNL_MNU_ID        = #FNL_MNU_ID#
+		</isNotNull>
+		<![CDATA[ 	
+				 , FNL_MDF_DH        = SYSDATE			
+			  WHERE 1=1
+			    AND DOC_ID = #DOC_ID#
+			    AND DOC_TYP_CD = #DOC_TYP_CD#
+		]]>			    					        
+	</update>
+	
+	<!--파일업로드 delete-->
+	<update id="CSPSAE606QFileUploadDelete" parameterClass="paramMap">
+		   DELETE FROM TBCSPSAE606D
+			WHERE DOC_ID = #DOC_ID#			  
+	</update>	
+	
+	<!-- 첨부파일 조회 -->
+	<select id="CSPSAE606QSelectFile" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT MAX(DECODE(D1.DOC_TYP_CD,'1', D1.DOC_ID))      AS TYPE1_DOC_ID
+			      , MAX(DECODE(D1.DOC_TYP_CD,'1', D2.FILE_NAME))  AS TYPE1_FILE_NAME
+			      , MAX(DECODE(D1.DOC_TYP_CD,'2', D1.DOC_ID))     AS TYPE2_DOC_ID
+			      , MAX(DECODE(D1.DOC_TYP_CD,'2', D2.FILE_NAME))  AS TYPE2_FILE_NAME
+			      , MAX(DECODE(D1.DOC_TYP_CD,'3', D1.DOC_ID))     AS TYPE3_DOC_ID
+			      , MAX(DECODE(D1.DOC_TYP_CD,'3', D2.FILE_NAME))  AS TYPE3_FILE_NAME
+			      , MAX(DECODE(D1.DOC_TYP_CD,'4', D1.DOC_ID))     AS TYPE4_DOC_ID
+			      , MAX(DECODE(D1.DOC_TYP_CD,'4', D2.FILE_NAME))  AS TYPE4_FILE_NAME
+			FROM TBCSPSAE606D D1
+			    , ECM_FILE_LIST_VIEW2 D2
+			WHERE 1=1
+			  AND D1.DOC_ID = D2.DOC_ID
+         ]]>         
+	</select>
+	
+	<!-- 년도조회 -->
+	<select id="CSPSAE607QCbbYr" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+            SELECT YR AS YR_CD 
+              FROM TBCSPSAE201D
+             GROUP BY YR
+             ORDER BY YR DESC
+        ]]>
+	</select>
+	
+	
+	
+	<select id="CSPSAE608QCbbYr" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+            SELECT YYYY AS YR_CD, 
+                 YYYY AS YR_NM 
+            FROM (
+                  SELECT YR - LEVEL +1 YYYY 
+                    FROM (
+                 			SELECT MAX(YR) AS YR
+							  FROM TBCSPSAE201M
+                         ) 
+                  CONNECT BY TO_CHAR(SYSDATE,'YYYY') - LEVEL + 3 >= 2000
+                 )
+        ]]>
+	</select>
+	
+	
+	
+		<!-- 개인별교육이수현황 조회(개인용) -->
+	<select id="CSPSAE608QPsonEduDesc" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT B.EDU_DVSN_NM
+				 , C.EDU_CAT_NM
+				 , D.CRS_NM
+				 , E.LCT_NM
+				 , A.CRS_CDN
+				 , SUBSTR(E.EDU_STR_DT, 0, 4) || '.' || SUBSTR(E.EDU_STR_DT, 5, 2) || '.' || SUBSTR(E.EDU_STR_DT, 7, 2) || ' ~ ' || 
+				   SUBSTR(E.EDU_END_DT, 0, 4) || '.' || SUBSTR(E.EDU_END_DT, 5, 2) || '.' || SUBSTR(E.EDU_END_DT, 7, 2) AS EDU_DT
+				 , CASE
+       				   WHEN to_char(to_date(SUBSTR(E.EDU_STR_DT, 0, 8))-to_date(sysdate)) <= 0 then '교육중'
+       				   ELSE to_char(to_date(SUBSTR(E.EDU_STR_DT, 0, 8))-to_date(sysdate)) 
+       			   END D_DAY 
+			FROM	TBCSPSAE301D A 
+			      , TBCSPSAE101C B
+			      , TBCSPSAE102C C
+			      , TBCSPSAE103C D
+			      , TBCSPSAE201D E
+			WHERE 	D.CRS_CD = A.CRS_CD
+			AND		C.EDU_CAT_CD = D.EDU_CAT_CD
+			AND		C.EDU_DVSN_CD = D.EDU_DVSN_CD
+			AND		B.EDU_DVSN_CD = D.EDU_DVSN_CD
+			AND		E.YR = A.YR
+			AND		E.CRS_CD = A.CRS_CD
+			AND		E.CRS_CDN = A.CRS_CDN
+			AND 	SUBSTR(E.EDU_END_DT, 0, 8) BETWEEN to_char(sysdate,'yyyymmdd') AND SUBSTR(#strToYm#, 0, 8)
+         ]]>
+         <dynamic>        	
+        	<isNotEmpty property="strNAM">
+        		AND 	A.NAM LIKE '%' ||  #strNAM# || '%' 
+        	</isNotEmpty>
+        	<isNotEmpty property="strNevltCnb">
+        		AND 	A.CNB LIKE '%' ||  #strNevltCnb# || '%' 
+        	</isNotEmpty>
+        </dynamic>
+        ORDER BY E.EDU_STR_DT, A.CRS_CDN
+	</select>
+	
+	
+		<select id="CSPSAE608QPsonLecDesc" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			SELECT (SELECT CD_NM FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD = '1000312' AND CD = B.PFSR_DVSN_CD) AS PFSR_DVSN_NM
+			     , B.NAM
+			     , F.EDU_DVSN_NM
+			     , E.EDU_CAT_NM
+			     , D.CRS_NM
+			     , A.CRS_CDN
+				 , C.SUBJ_NM      
+			     , (SUBSTRING(A.LCT_DT, 0, 4) || '-' || SUBSTRING(A.LCT_DT, 5, 2) || '-' || SUBSTRING(A.LCT_DT, 7, 2) || '(' || SUBSTRING(UPPER(TO_CHAR(TO_DATE(A.LCT_DT), 'DAY', 'NLS_DATE_LANGUAGE=KOREAN')), 0, 1) || ')') AS LCT_DT
+			     , A.HUC_TXT || '(' || G.CONSECUTIVE_LEC || ')' AS HUC
+			     , CASE
+       				   WHEN to_char(to_date(SUBSTR(A.LCT_DT, 0, 8))-to_date(sysdate)) = 0 then '강의일'
+       				   ELSE to_char(to_date(SUBSTR(A.LCT_DT, 0, 8))-to_date(sysdate)) 
+       			   END D_DAY 
+			  FROM TBCSPSAE202D A
+			     , TBCSPSAE109M B
+			     , TBCSPSAE101M C
+			     , TBCSPSAE103C D
+			     , TBCSPSAE102C E
+			     , TBCSPSAE101C F
+			     , (SELECT YR
+			             , CRS_CD
+			             , CRS_CDN
+			             , SUBJ_CD
+			             , LCT_DT 
+			             , COUNT(YR) AS CONSECUTIVE_LEC
+			          FROM TBCSPSAE202D
+			        GROUP BY YR , CRS_CD , CRS_CDN , SUBJ_CD , LCT_DT 
+			         HAVING YR BETWEEN SUBSTR(#strFromYm#, 0, 4) AND SUBSTR(#strToYm#, 0, 4)) G
+			     , ( SELECT A.YR, A.CRS_CD, A.CRS_CDN, A.SUBJ_CD, A.LCT_DT, MIN(ASG_SNO) AS ASG_SNO FROM TBCSPSAE202D A
+      					GROUP BY A.YR, A.CRS_CD, A.CRS_CDN, A.SUBJ_CD, A.LCT_DT) H
+			 WHERE B.PFSR_ID		= A.PFSR_ID
+			   AND D.CRS_CD			= A.CRS_CD
+			   AND E.EDU_CAT_CD		= D.EDU_CAT_CD
+			   AND F.EDU_DVSN_CD	= D.EDU_DVSN_CD
+			   AND F.EDU_DVSN_CD	= E.EDU_DVSN_CD
+			   AND C.SUBJ_CD		= A.SUBJ_CD
+			   AND G.YR 			= A.YR
+			   AND G.CRS_CD 		= A.CRS_CD
+			   AND G.CRS_CDN		= A.CRS_CDN
+			   AND G.SUBJ_CD		= A.SUBJ_CD
+			   AND G.LCT_DT         = A.LCT_DT
+			   AND H.YR 			= A.YR
+			   AND H.CRS_CD 		= A.CRS_CD
+			   AND H.CRS_CDN 		= A.CRS_CDN
+			   AND H.SUBJ_CD 		= A.SUBJ_CD
+			   AND A.ASG_SNO 		= H.ASG_SNO
+			   AND A.LCT_DT         = H.LCT_DT
+			   AND SUBSTR(A.LCT_DT, 0, 8) BETWEEN to_char(sysdate,'yyyymmdd') AND SUBSTR(#strToYm#, 0, 8)
+        ]]>
+        <dynamic>
+	        <isNotEmpty property="strNAM">
+				AND B.NAM LIKE '%' || #strNAM# || '%'
+	       	</isNotEmpty>
+	    </dynamic>
+       	<![CDATA[
+			ORDER BY A.LCT_DT, B.PFSR_DVSN_CD, B.NAM, F.EDU_DVSN_NM, E.EDU_CAT_NM, D.CRS_NM, A.CRS_CDN, C.SUBJ_NM
+       	]]>
+	</select>
+	
+</sqlMap> 

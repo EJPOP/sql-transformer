@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd" >
+<sqlMap namespace="csp/nbk/316">
+	
+	<select id="CSPNBK316PPiaDvdRtsListSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT	/* CSPNBK316PPiaDvdRtsListSelect */
+				D1.ITR_APC_DT
+				, D1.LEND_KND_CD
+				, D1.PIA_DVD_RTS
+				, (
+					CASE
+						WHEN D1.ITR_APC_DT <= #BEGIN_DT#
+						THEN #BEGIN_DT#
+						ELSE D1.ITR_APC_DT
+					END
+				) AS BEGIN_DT
+				, (
+					SELECT	CASE
+								WHEN MIN(D3.ITR_APC_DT) <= #END_DT#
+								THEN MIN(D3.ITR_APC_DT)
+								ELSE #END_DT#
+							END
+					FROM	TBCSPNBK201M D3
+					WHERE	D3.LEND_KND_CD = D1.LEND_KND_CD
+					AND		D3.ITR_APC_DT > D1.ITR_APC_DT
+				) AS END_DT
+		FROM	TBCSPNBK201M D1
+		WHERE	D1.LEND_KND_CD = '1'
+		AND		D1.ITR_APC_DT BETWEEN ( SELECT MAX(D2.ITR_APC_DT) FROM TBCSPNBK201M D2 WHERE D2.LEND_KND_CD = '1' AND ITR_APC_DT <= #BEGIN_DT#)
+								AND ( SELECT MAX(D2.ITR_APC_DT) FROM TBCSPNBK201M D2 WHERE D2.LEND_KND_CD = '1' AND ITR_APC_DT <= #END_DT#)
+		ORDER BY D1.ITR_APC_DT
+	]]>
+	</select>
+	
+	<select id="CSPNBK316PPiaDvdAmSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		WITH /* CSPNBK316PPiaDvdAmSelect */
+		OP_DATA AS
+		(
+			SELECT	D8.SET_TXT
+			FROM	TBCSPNBK003M D8
+			WHERE	D8.OP_MTRL_MNG_CD = '0'
+		)
+		, INV_DATA AS
+		(
+			SELECT	D1.INV_DEAL_DT
+					, D1.INV_DEAL_SLN
+					, (
+						CASE
+							WHEN D1.DEAL_AF_LEDG_BL > TO_NUMBER( (SELECT SET_TXT FROM OP_DATA) )
+							THEN TO_NUMBER( (SELECT SET_TXT FROM OP_DATA) )
+							ELSE D1.DEAL_AF_LEDG_BL
+						END
+					) AS DEAL_AF_LEDG_BL
+			FROM	TBCSPNBK102L D1
+			WHERE	D1.MOUI_NO = #MOUI_NO#
+			AND		D1.CNL_YN = 'N'
+			AND		D1.INV_DEAL_DT BETWEEN ( SELECT MAX(D2.INV_DEAL_DT) FROM TBCSPNBK102L D2 WHERE D2.MOUI_NO = #MOUI_NO# AND D2.INV_DEAL_DT <= #BEGIN_DT#) 
+										AND ( SELECT MAX(D3.INV_DEAL_DT) FROM TBCSPNBK102L D3 WHERE D3.MOUI_NO = #MOUI_NO# AND D3.INV_DEAL_DT <= #END_DT#)
+		)
+		SELECT	#MOUI_NO# AS MOUI_NO
+				, TO_CHAR(TO_DATE(#BEGIN_DT#,'YYYYMMDD'), 'YYYY-MM-DD') || ' ~ ' || TO_CHAR(TO_DATE(#END_DT#,'YYYY-MM-DD'), 'YYYY-MM-DD') AS DATE_PRI
+				, NVL(SUM( D7.DEAL_AF_LEDG_BL * ( TO_DATE(D7.END_DT, 'YYYYMMDD') - TO_DATE(D7.STA_DT, 'YYYYMMDD') ) ), 0) AS JUKSU
+				, #PIA_DVD_RTS# AS PIA_DVD_RTS
+				, NVL(TRUNC((SUM( D7.DEAL_AF_LEDG_BL * ( TO_DATE(D7.END_DT, 'YYYYMMDD') - TO_DATE(D7.STA_DT, 'YYYYMMDD') ) ) / 365 ) * ( #PIA_DVD_RTS# / 100 )), 0) AS PIA_DVD_AM
+		FROM	(
+					SELECT	D4.INV_DEAL_DT
+							, D4.INV_DEAL_SLN
+							, D4.DEAL_AF_LEDG_BL
+							, (
+								CASE
+									WHEN D4.INV_DEAL_DT <= #BEGIN_DT#
+									THEN #BEGIN_DT#
+									ELSE D4.INV_DEAL_DT
+								END
+							) AS STA_DT
+							, NVL( (
+								SELECT	MIN(INV_DEAL_DT)
+								FROM	INV_DATA D6
+								WHERE	D6.INV_DEAL_DT > D4.INV_DEAL_DT
+							), #END_DT#) AS END_DT
+					FROM	INV_DATA D4
+					WHERE	( D4.INV_DEAL_DT
+							, D4.INV_DEAL_SLN ) IN (
+														SELECT	D5.INV_DEAL_DT
+																, MAX(D5.INV_DEAL_SLN)
+														FROM	INV_DATA D5
+														GROUP BY D5.INV_DEAL_DT
+													)
+				) D7
+	]]>
+	</select>
+	
+	<update id="CSPNBK316PInvTmnUpdate" parameterClass="paramMap">
+	<![CDATA[
+		UPDATE	/* CSPNBK316PInvTmnUpdate */ TBCSPNBK101M D1
+		SET		INV_TMN_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+				, TMN_OPT_MOUI_NO = #OPT_MOUI_NO#
+				, INV_BL = 0
+				, FNL_USR_ID = #USR_ID#
+				, FNL_DEAL_DPT_CD = #DPT_CD#
+				, FNL_MNU_ID = #MNU_ID#
+				, FNL_MDF_DH = SYSDATE
+		WHERE	D1.MOUI_NO = #MOUI_NO#
+	]]>
+	</update>
+	
+	<update id="CSPNBK316PMouiSecedeUpdate" parameterClass="paramMap">
+	<![CDATA[
+		UPDATE	/* CSPNBK316PMouiSecedeUpdate */ TBCSPNBK001M D1
+		SET		SCS_YN = 'Y'
+				, SCS_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+				, FNL_USR_ID = #USR_ID#
+				, FNL_DEAL_DPT_CD = #DPT_CD#
+				, FNL_MNU_ID = #MNU_ID#
+				, FNL_MDF_DH = SYSDATE
+		WHERE	D1.MOUI_NO = #MOUI_NO#
+	]]>
+	</update>
+	
+	<delete id="CSPNBK316PInvTracListDelete" parameterClass="paramMap">
+	<![CDATA[
+		DELETE	/* CSPNBK316PInvTracListDelete */
+		FROM	TBCSPNBK103M D1
+		WHERE	D1.MOUI_NO = #MOUI_NO#
+	]]>
+	</delete>
+</sqlMap>

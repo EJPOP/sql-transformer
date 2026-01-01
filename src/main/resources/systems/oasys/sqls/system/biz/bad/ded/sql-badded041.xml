@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/ded/041">
+	<!-- 현황을 조회한다.  -->
+	<select id="BADDED041QMainSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+			WITH BASE AS (
+			SELECT 
+			      CASE WHEN trim(A.ENF_APV_DT)         IS NOT NULL THEN '8'
+			           WHEN trim(A.CHF_CMTR_APV_DT)    IS NOT NULL THEN '7'
+			           WHEN trim(A.OW_DHD_APV_DT)      IS NOT NULL THEN '6'
+			           WHEN trim(A.JA_JDG_SSEC_APV_DT) IS NOT NULL THEN '5'
+			           WHEN trim(A.MDT_DDG_APV_DT)     IS NOT NULL THEN '4'
+			           WHEN trim(A.MDT_OFER_APV_DT)    IS NOT NULL THEN '3'
+			           WHEN trim(A.AUD_BRDV_APV_DT)    IS NOT NULL THEN '2'
+			           WHEN trim(A.RTN_RPT_DT)         IS NOT NULL THEN '1'
+			     ELSE '0'
+			     END AS GRADE
+			    , A.AUD_EXEC_HNDL_STA_CD
+			    , A.RTN_RPT_DT
+			    , A.AUD_BRDV_APV_DT
+			    , A.MDT_OFER_APV_DT
+			    , A.MDT_DDG_APV_DT
+			    , A.JA_JDG_SSEC_APV_DT
+			    , A.OW_DHD_APV_DT
+			    , A.CHF_CMTR_APV_DT
+			    , B.SPV_BRDV_CD
+			    , B.AUD_KND_CD
+			    , A.HNDL_DDLN_DT
+			FROM TBBADDED003M A
+			    ,TBBADDED001M B
+			WHERE 1=1
+			  AND B.BZT_BGT_DVSN_CD = '1' /* 확인출장(실국배정)은 제외 - 2015.04.28 yyh, 실국배정 조건 로직 변경(AUD_KND_CD 에서 BZT_BGT_DVSN_CD 로) - 2016.09.29 yyh */
+			  AND A.AUD_YR(+) = B.AUD_YR
+			  AND A.AUD_NO(+) = B.AUD_NO
+			  AND SUBSTRING(B.MNG_DPT_CD, 1, 1) = '0'
+			  AND ((A.AUD_EXEC_HNDL_STA_CD = '1' AND TO_DATE(NVL(A.RTN_DT ,'99991231')) - TO_DATE(SYSDATE) <= 0)
+			    OR  A.AUD_EXEC_HNDL_STA_CD = '3')
+			)
+			/*원전체*/
+			SELECT COUNT(*) TOTAL_CNT
+			      ,SUM(CASE WHEN substr(AUD_KND_CD,-1) IN ('0','1','2','3','4','5','6','7','8','9') AND GRADE ='0'  then 1 else 0 end) SOGE_CNT1
+			      ,sum(case when substr(AUD_KND_CD,-1) ='0' AND  GRADE ='0'  then 1 else 0 end) aud_0  /*특정감사(종합분석형)*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='1' AND  GRADE ='0'  then 1 else 0 end) aud_1  /*재무감사*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='2' AND  GRADE ='0'  then 1 else 0 end) aud_2  /*특정감사*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='3' AND  GRADE ='0'  then 1 else 0 end) aud_3  /*성과감사*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='4' AND  GRADE ='0'  then 1 else 0 end) aud_4  /*기관운영감사*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='5' AND  GRADE ='0'  then 1 else 0 end) aud_5  /*확인출장*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='6' AND  GRADE ='0'  then 1 else 0 end) aud_6  /*재무감사(결산)*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='7' AND  GRADE ='0'  then 1 else 0 end) aud_7  /*민원/손망실등*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='8' AND  GRADE ='0'  then 1 else 0 end) aud_8  /*기타*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='9' AND  GRADE ='0'  then 1 else 0 end) aud_9  /*서면/모니터링*/
+			      ,SUM(CASE WHEN GRADE IN ('1','2','3','4','5','6','7','8')  then 1 else 0 end) SOGE_CNT2
+			      ,sum(case when GRADE ='1' THEN 1 else 0 end) RTN_cnt       /*귀청보고결재건수 */
+			      ,sum(case when GRADE ='2' THEN 1 else 0 end) AUD_BRDV_cnt  /*감사국과결재건수 */
+			      ,sum(case when GRADE ='3' THEN 1 else 0 end) MDT_OFER_cnt  /*조정담당자결재건수 */
+			      ,sum(case when GRADE ='4' THEN 1 else 0 end) MDT_DDG_cnt   /*조정담당관결재건수 */
+			      ,sum(case when GRADE ='5' THEN 1 else 0 end) JA_JDG_cnt    /*심의실장결재건수 */
+			      ,sum(case when GRADE ='6' THEN 1 else 0 end) OW_DHD_cnt    /*총차장결재건수 */
+			      ,sum(case when GRADE ='7' THEN 1 else 0 end) OW_DHD_cnt1    /*주심위원건수 */
+			      ,sum(case when GRADE ='8' THEN 1 else 0 end) ENF_cnt       /*시행결재건수 */
+			      ,sum(CASE WHEN AUD_EXEC_HNDL_STA_CD = '3' THEN 1 ELSE 0 END) AS DELAY_CNT  /*보류건수*/
+			      ,SUM(CASE WHEN TO_DATE(NVL(HNDL_DDLN_DT,'99991231')) - TO_DATE(SYSDATE) < 0 THEN 1 ELSE 0 END) OVER_DLINE_CNT
+			FROM BASE
+		]]>	
+	</select>
+	
+
+	<select id="BADDED041QSub1Select" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+			WITH BASE AS (
+			SELECT 
+			      CASE WHEN trim(A.ENF_APV_DT)         IS NOT NULL THEN '8'
+			           WHEN trim(A.CHF_CMTR_APV_DT)    IS NOT NULL THEN '7'
+			           WHEN trim(A.OW_DHD_APV_DT)      IS NOT NULL THEN '6'
+			           WHEN trim(A.JA_JDG_SSEC_APV_DT) IS NOT NULL THEN '5'
+			           WHEN trim(A.MDT_DDG_APV_DT)     IS NOT NULL THEN '4'
+			           WHEN trim(A.MDT_OFER_APV_DT)    IS NOT NULL THEN '3'
+			           WHEN trim(A.AUD_BRDV_APV_DT)    IS NOT NULL THEN '2'
+			           WHEN trim(A.RTN_RPT_DT)         IS NOT NULL THEN '1'
+			     ELSE '0'
+			     END AS GRADE
+			    , A.AUD_EXEC_HNDL_STA_CD
+			    , A.RTN_RPT_DT
+			    , A.AUD_BRDV_APV_DT
+			    , A.MDT_OFER_APV_DT
+			    , A.MDT_DDG_APV_DT
+			    , A.JA_JDG_SSEC_APV_DT
+			    , A.OW_DHD_APV_DT
+			    , A.CHF_CMTR_APV_DT
+			    , B.SPV_BRDV_CD
+			    , B.AUD_KND_CD
+			    , A.HNDL_DDLN_DT
+			    , B.MNG_DPT_CD
+			FROM TBBADDED003M A
+			    ,TBBADDED001M B
+			WHERE 1=1
+			  AND B.BZT_BGT_DVSN_CD = '1' /* 확인출장(실국배정)은 제외 - 2015.04.28 yyh, 실국배정 조건 로직 변경(AUD_KND_CD 에서 BZT_BGT_DVSN_CD 로) - 2016.09.29 yyh */
+			  AND A.AUD_YR(+) = B.AUD_YR
+			  AND A.AUD_NO(+) = B.AUD_NO
+			  AND SUBSTRING(B.MNG_DPT_CD, 1, 1) = '0'
+			  AND ((A.AUD_EXEC_HNDL_STA_CD = '1' AND TO_DATE(NVL(A.RTN_DT ,'99991231')) - TO_DATE(SYSDATE) <= 0)
+			    OR  A.AUD_EXEC_HNDL_STA_CD = '3')
+			)	
+			/*국별 */
+			SELECT SUBSTRB(MNG_DPT_CD, 1, 3) || '000' SPV_BRDV_CD
+			      ,F_DPT_INFO(SUBSTRB(MNG_DPT_CD, 1, 3) || '000',1) SPV_BRDV_NM      
+			      ,COUNT(*) TOTAL_CNT
+			      ,sum(case when substr(AUD_KND_CD,-1) IN ('0','1','2','3','4','5','6','7','8','9') AND  GRADE ='0'  then 1 else 0 end) SOGE_CNT1  /*소계*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='0' AND  GRADE ='0'  then 1 else 0 end) aud_0  /*특정감사(종합분석형)*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='1' AND  GRADE ='0'  then 1 else 0 end) aud_1  /*재무감사*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='2' AND  GRADE ='0'  then 1 else 0 end) aud_2  /*특정감사*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='3' AND  GRADE ='0'  then 1 else 0 end) aud_3  /*성과감사*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='4' AND  GRADE ='0'  then 1 else 0 end) aud_4  /*기관운영감사*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='5' AND  GRADE ='0'  then 1 else 0 end) aud_5  /*확인출장*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='6' AND  GRADE ='0'  then 1 else 0 end) aud_6  /*재무감사(결산)*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='7' AND  GRADE ='0'  then 1 else 0 end) aud_7  /*민원/손망실등*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='8' AND  GRADE ='0'  then 1 else 0 end) aud_8  /*기타*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='9' AND  GRADE ='0'  then 1 else 0 end) aud_9  /*서면/모니터링*/
+			      ,sum(case when GRADE IN ('1','2','3','4','5','6','7','8') THEN 1 else 0 end) SOGE_CNT2       /*소계 */
+			      ,sum(case when GRADE ='1' THEN 1 else 0 end) RTN_cnt       /*귀청보고결재건수 */
+			      ,sum(case when GRADE ='2' THEN 1 else 0 end) AUD_BRDV_cnt  /*감사국과결재건수 */
+			      ,sum(case when GRADE ='3' THEN 1 else 0 end) MDT_OFER_cnt  /*조정담당자결재건수 */
+			      ,sum(case when GRADE ='4' THEN 1 else 0 end) MDT_DDG_cnt   /*조정담당관결재건수 */
+			      ,sum(case when GRADE ='5' THEN 1 else 0 end) JA_JDG_cnt    /*심의실장결재건수 */
+			      ,sum(case when GRADE ='6' THEN 1 else 0 end) OW_DHD_cnt    /*총차장결재건수 */
+			      ,sum(case when GRADE ='7' THEN 1 else 0 end) OW_DHD_cnt1    /*주심위원건수 */
+			      ,sum(case when GRADE ='8' THEN 1 else 0 end) ENF_cnt       /*시행결재건수  */
+			      ,sum(CASE WHEN AUD_EXEC_HNDL_STA_CD = '3' THEN 1 ELSE 0 END) AS DELAY_CNT  /*보류건수*/
+			      ,SUM(CASE WHEN TO_DATE(NVL(HNDL_DDLN_DT,'99991231')) - TO_DATE(SYSDATE) < 0 THEN 1 ELSE 0 END) OVER_DLINE_CNT
+			      ,(SELECT DPT_SNO  FROM TBDCMACM002M WHERE DPT_CD = SUBSTRB(MNG_DPT_CD, 1, 3) || '000') AS DPT_ORDER
+			FROM BASE
+			GROUP BY SUBSTRB(MNG_DPT_CD, 1, 3) || '000'
+			ORDER BY DPT_ORDER	
+		]]>	
+	</select>
+	
+	
+	<select id="BADDED041QSub2Select" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+			WITH BASE AS (
+			SELECT 
+			      CASE WHEN trim(A.ENF_APV_DT)         IS NOT NULL THEN '8'
+			           WHEN trim(A.CHF_CMTR_APV_DT)    IS NOT NULL THEN '7'
+			           WHEN trim(A.OW_DHD_APV_DT)      IS NOT NULL THEN '6'
+			           WHEN trim(A.JA_JDG_SSEC_APV_DT) IS NOT NULL THEN '5'
+			           WHEN trim(A.MDT_DDG_APV_DT)     IS NOT NULL THEN '4'
+			           WHEN trim(A.MDT_OFER_APV_DT)    IS NOT NULL THEN '3'
+			           WHEN trim(A.AUD_BRDV_APV_DT)    IS NOT NULL THEN '2'
+			           WHEN trim(A.RTN_RPT_DT)         IS NOT NULL THEN '1'
+			     ELSE '0'
+			     END AS GRADE
+			    , A.AUD_EXEC_HNDL_STA_CD
+			    , A.RTN_RPT_DT
+			    , A.AUD_BRDV_APV_DT
+			    , A.MDT_OFER_APV_DT
+			    , A.MDT_DDG_APV_DT
+			    , A.JA_JDG_SSEC_APV_DT
+			    , A.OW_DHD_APV_DT
+			    , A.CHF_CMTR_APV_DT
+			    , B.SPV_BRDV_CD
+			    , B.AUD_KND_CD
+			    , A.HNDL_DDLN_DT
+			    , B.MNG_DPT_CD
+			FROM TBBADDED003M A
+			    ,TBBADDED001M B
+			WHERE 1=1
+			  AND B.BZT_BGT_DVSN_CD = '1' /* 확인출장(실국배정)은 제외 - 2015.04.28 yyh, 실국배정 조건 로직 변경(AUD_KND_CD 에서 BZT_BGT_DVSN_CD 로) - 2016.09.29 yyh */			 
+			  AND A.AUD_YR(+) = B.AUD_YR
+			  AND A.AUD_NO(+) = B.AUD_NO
+			  AND SUBSTRING(B.MNG_DPT_CD, 1, 1) = '0'
+			  AND ((A.AUD_EXEC_HNDL_STA_CD = '1' AND TO_DATE(NVL(A.RTN_DT ,'99991231')) - TO_DATE(SYSDATE) <= 0)
+			    OR  A.AUD_EXEC_HNDL_STA_CD = '3')
+			)	
+			/*부서별*/
+			SELECT MNG_DPT_CD AS SPV_BRDV_CD
+			      ,F_DPT_INFO(MNG_DPT_CD,1) SPV_BRDV_NM      
+			      ,COUNT(*) TOTAL_CNT
+			      ,sum(case when substr(AUD_KND_CD,-1) IN ('0','1','2','3','4','5','6','7','8','9') AND  GRADE ='0'  then 1 else 0 end) SOGE_CNT1  /*소계*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='0' AND  GRADE ='0'  then 1 else 0 end) aud_0  /*특정감사(종합분석형)*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='1' AND  GRADE ='0'  then 1 else 0 end) aud_1  /*재무감사*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='2' AND  GRADE ='0'  then 1 else 0 end) aud_2  /*특정감사*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='3' AND  GRADE ='0'  then 1 else 0 end) aud_3  /*성과감사*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='4' AND  GRADE ='0'  then 1 else 0 end) aud_4  /*기관운영감사*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='5' AND  GRADE ='0'  then 1 else 0 end) aud_5  /*확인출장*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='6' AND  GRADE ='0'  then 1 else 0 end) aud_6  /*재무감사(결산)*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='7' AND  GRADE ='0'  then 1 else 0 end) aud_7  /*민원/손망실등*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='8' AND  GRADE ='0'  then 1 else 0 end) aud_8  /*기타*/
+			      ,sum(case when substr(AUD_KND_CD,-1) ='9' AND  GRADE ='0'  then 1 else 0 end) aud_9  /*서면/모니터링*/
+			      ,sum(case when GRADE IN ('1','2','3','4','5','6','7','8') THEN 1 else 0 end) SOGE_CNT2       /*소계 */
+			      ,sum(case when GRADE ='1' THEN 1 else 0 end) RTN_cnt       /*귀청보고결재건수 */
+			      ,sum(case when GRADE ='2' THEN 1 else 0 end) AUD_BRDV_cnt  /*감사국과결재건수 */
+			      ,sum(case when GRADE ='3' THEN 1 else 0 end) MDT_OFER_cnt  /*조정담당자결재건수 */
+			      ,sum(case when GRADE ='4' THEN 1 else 0 end) MDT_DDG_cnt   /*조정담당관결재건수 */
+			      ,sum(case when GRADE ='5' THEN 1 else 0 end) JA_JDG_cnt    /*심의실장결재건수 */
+			      ,sum(case when GRADE ='6' THEN 1 else 0 end) OW_DHD_cnt    /*총차장결재건수 */
+			      ,sum(case when GRADE ='7' THEN 1 else 0 end) CHF_CMTR_cnt  /*주심위원건수 */
+			      ,sum(case when GRADE ='7' THEN 1 else 0 end) OW_DHD_cnt    /*주심위원건수 */
+			      ,sum(case when GRADE ='8' THEN 1 else 0 end) ENF_cnt       /*시행결재건수  */
+			      ,sum(CASE WHEN AUD_EXEC_HNDL_STA_CD = '3' THEN 1 ELSE 0 END) AS DELAY_CNT  /*보류건수*/
+			      ,SUM(CASE WHEN TO_DATE(NVL(HNDL_DDLN_DT,'99991231')) - TO_DATE(SYSDATE) < 0 THEN 1 ELSE 0 END) OVER_DLINE_CNT
+			      ,(SELECT DPT_SNO  FROM TBDCMACM002M WHERE DPT_CD = MNG_DPT_CD) AS DPT_ORDER
+			FROM BASE
+			WHERE SUBSTRB(MNG_DPT_CD, 1, 3) || '000' = #strSpvBrdvCd#
+			GROUP BY MNG_DPT_CD
+			ORDER BY DPT_ORDER
+		]]>	
+	</select>	
+</sqlMap> 
+

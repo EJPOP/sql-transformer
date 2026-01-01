@@ -1,0 +1,157 @@
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd" >
+<sqlMap namespace="csp/bii/921-ndw">
+	<!-- 추진실적(공문) 목록 조회-->
+	<select id="CSPBII921EMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT A.RESPONSEORGNAME                                    /* 요청대상기관 */
+			     , A.RESPONSEDEPTNAME                                   /* 요청대상부서 */
+			     , (SELECT MAX(D.PJTNAME)
+			          FROM AM_ONNARA_DOC D
+			         WHERE D.PJTID = A.PJTID)        AS PJTNAME         /* 대상과제 */
+			     , A.REQUESTTITLE                                       /* 요청제목 */
+			     , A.REQUESTUSERNAME                                    /* 요청자명 */
+			     , SUBSTR(A.REQUESTDATE, 1, 8)       AS REQUESTDATE     /* 요청일 */
+			     , SUBSTR(B.RESPONSEDATE, 1, 8)      AS RESPONSEDATE    /* 제출일 */
+			     , CASE A.SHAREYN WHEN 'A' THEN '○'
+			                      WHEN 'D' THEN '△'
+			                      WHEN 'P' THEN 'X'
+			       END                               AS SHAREYN         /* 공유범위 */
+			     , A.REQUESTCOMMENT                                     /* 요청내용 */
+			     , B.ACCEPTSTATCD                                       /* 수락상태코드 */
+			     , CASE WHEN B.SEQ IS NULL THEN '요청'
+			            WHEN B.ACCEPTSTATCD = '0' THEN '미접수'
+			            WHEN B.ACCEPTSTATCD = '1' THEN '접수'                                 
+			       END                               AS ACCEPTSTATNM    /* 수락상태명 */
+			     , C.FILETITLE
+			     , C.FILEPATH
+			     , C.FILENAME
+			     , A.SHAREYN                         AS SHAREYN2
+			     , B.RESPONSEUSERNAME
+			     , B.RESPONSEDATE
+			     , B.RESPONSECOMMENT
+			     , A.REQUESTID
+			     , B.SEQ
+			     , A.REQUESTUSERID
+			  FROM AM_ONNARA_REQUEST A LEFT JOIN AM_ONNARA_RESPONSE B ON A.REQUESTID = B.REQUESTID
+			     , AM_ONNARA_REQUEST A LEFT JOIN AM_ONNARA_ATTACH_FILE C ON A.REQUESTID = C.REQUESTID AND C.FILETYPECD = '1'
+			 WHERE 1=1
+		]]>
+		
+		<!-- 진행상태 -->
+		<isEqual property="strPrssStatCd" compareValue="0">
+			AND B.SEQ IS NULL
+		</isEqual>
+		<isEqual property="strPrssStatCd" compareValue="1">
+			AND B.ACCEPTSTATCD = '0'
+		</isEqual>
+		<isEqual property="strPrssStatCd" compareValue="2">
+			AND B.ACCEPTSTATCD = '1'
+		</isEqual>
+			
+		<!-- 공유범위 -->
+		<isNotEmpty property="strShareYn">
+			AND A.SHAREYN = #strShareYn#
+		</isNotEmpty>
+		<isEqual property="strShareYn" compareValue="D">
+			AND A.REQUESTBAIDEPTCD = #strRequestBaiDeptCd#
+		</isEqual>
+		<isEqual property="strShareYn" compareValue="P">
+			AND A.REQUESTUSERID = #strRequestUserId#
+		</isEqual>
+		
+		<!-- 시작요청일 -->
+		<isNotEmpty property="strStrRequestDate">
+			AND A.REQUESTDATE >= #strStrRequestDate#
+		</isNotEmpty>
+		
+		<!-- 종료요청일 -->
+		<isNotEmpty property="strEndRequestDate">
+			AND A.REQUESTDATE &lt;= #strEndRequestDate#
+		</isNotEmpty>
+		
+		<!-- 요청자명 -->
+		<isNotEmpty property="strRequestUserName">
+			AND A.REQUESTUSERNAME LIKE #strRequestUserName# || '%'
+		</isNotEmpty>
+		
+		<!-- 요청대상기관 -->
+		<isNotEmpty property="strResponseOrgId">
+			AND A.RESPONSEORGID = #strResponseOrgId#
+		</isNotEmpty>
+		
+		<!-- 요청대상부서 -->
+		<isNotEmpty property="strResponseDeptId">
+			AND A.RESPONSEDEPTID = #strResponseDeptId#
+		</isNotEmpty>
+		
+		<!-- 제출기관 -->
+		<isNotEmpty property="strResponseOrgId2">
+			AND A.RESPONSEDEPTID = #strResponseOrgId2#
+			AND B.SEQ IS NOT NULL
+		</isNotEmpty>
+		
+		<!-- 요청제목 -->
+		<isNotEmpty property="strRequestTitle">
+			AND A.REQUESTTITLE LIKE #strRequestTitle# || '%'
+		</isNotEmpty>
+		
+		<!-- 과제명 -->
+		<isNotEmpty property="strPjtName">
+			AND A.PJTID IN (SELECT PJTID
+			                  FROM AM_ONNARA_DOC
+			                 WHERE PJTNAME LIKE #strPjtName# || '%')
+		</isNotEmpty>
+		
+		<!-- 과제명 -->
+		<isNotEmpty property="strRequestId">
+			AND A.REQUESTID = #strRequestId#
+		</isNotEmpty>
+		ORDER BY A.REQUESTID, B.SEQ
+	</select>
+	
+	<!-- 추진실적(공문) 목록 조회-->
+	<select id="CSPBII921ESubSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT A.APPROVAL_APPROVALDATE /* 결재일 */
+			     , A.DOCNO                 /* 문서번호 */
+			     , A.DOCTITLE              /* 문서제목 */
+			     , A.REPORT_USERNAME       /* 보고자명 */
+			     , A.APPROVAL_USERNAME     /* 결재자명 */
+			     , A.REQUESTID             /* 요청ID */
+			     , A.SEQ                   /* 응답일련번호 */
+			     , A.DOCID                 /* 문서관리카드ID */
+			  FROM AM_ONNARA_RESPONSE_DOC A    
+			 WHERE A.REQUESTID = #strRequestId#
+			   AND A.SEQ       = convert(numeric, #strSeq#)
+			ORDER BY A.DOCID   
+		]]>
+	</select>
+	
+	<!-- 온나라제출요청 공유여부 수정 -->
+	<update id="CSPBII921EMainupdate" parameterClass="paramMap">
+		UPDATE AM_ONNARA_REQUEST                       
+		   SET SHAREYN = #SHAREYN2#
+		 WHERE REQUESTID = #REQUESTID#
+	</update>
+	
+	<!-- 온나라제출응답 수락상태코드 수정 -->
+	<update id="CSPBII921EMainAcceptupdate" parameterClass="paramMap">
+		UPDATE AM_ONNARA_RESPONSE             
+		   SET ACCEPTSTATCD = '1'
+		 WHERE REQUESTID = #REQUESTID#
+		   AND SEQ       = convert(numeric, #SEQ#)
+	</update>
+	
+	<!-- 제출받은 자료 건수 조회-->
+	<select id="CSPBII921ESmtMtrlCntSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT COUNT(*) AS CNT 
+			  FROM AM_ONNARA_REQUEST  A
+			     , AM_ONNARA_RESPONSE B			     
+			 WHERE A.REQUESTID     = B.REQUESTID
+			   AND B.ACCEPTSTATCD  = '0'
+			   AND A.REQUESTUSERID = #strUsrId# 
+		]]>
+	</select>
+
+</sqlMap>

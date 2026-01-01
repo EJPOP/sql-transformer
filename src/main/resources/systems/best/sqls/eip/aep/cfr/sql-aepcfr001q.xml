@@ -1,0 +1,307 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.cfr.dao.AEPCFR001QMapper">
+
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap">
+        /*kr.go.bai.eip.aep.cfr.dao.AEPCFR001QMapper.selectMainList*/
+        <include refid="include.pageSelct" />
+        <![CDATA[
+            /*1.회의 SQL*/
+            SELECT T1.CMT_SQ  /*회의회차*/
+                  ,T1.CMT_TIT /*회의제목*/
+                  ,T1.CMT_DY  /*회의일자*/
+                  ,T1.TIME_DVSN_CD  /*오전오후코드*/
+                  ,DECODE(T1.TIME_DVSN_CD, 'AM', '오전',  '오후') AS TIME_DVSN_NM /*오전오후구분명*/
+                  ,T1.CMT_TIME  /*회의시*/
+                  ,T1.CMT_MIN    /*회의분*/
+                  ,T1.CMT_END_YN /*회의상태*/
+                  ,T1.CMT_DVSN_CD /*회의구분*/
+                  ,SUBSTR(CMT_DY,0,4)||'년 '||SUBSTR(CMT_DY, 5, 2)||'월 '||SUBSTR(CMT_DY, 7, 2)||'일 '||'('||TO_CHAR(TO_DATE(CMT_DY), 'DY')||')' AS CMT_DATA
+                  ,DECODE(T1.CMT_END_YN, 'Y', '종료',  '진행중') AS CMT_END_NM  /*회의상태명*/ 
+            FROM (
+            SELECT A.CMT_SQ
+                  ,A.CMT_TIT 
+                  ,A.CMT_DY
+                  ,A.TIME_DVSN_CD
+                  ,A.CMT_TIME
+                  ,A.CMT_MIN
+                  ,A.CMT_END_YN
+                  , A.CMT_DVSN_CD
+             FROM TBBADDED120M A 
+            WHERE A.CMT_DVSN_CD = #{cmtDvsnCd}  /*회의구분 PARAM*/
+            ORDER BY CMT_SQ DESC
+            ) T1 
+            WHERE 1=1
+        ]]>
+        <if test='acpDhs != null and acpDhs != ""'>
+            AND T1.CMT_DY&gt;= #{acpDhs}
+        </if>
+        <if test='acpDhe != null and acpDhe != ""'>
+            AND T1.CMT_DY &lt;= #{acpDhe}
+        </if>
+            ORDER BY CMT_DY DESC, CMT_SQ DESC
+        <include refid="include.pageOrder" />
+    </select>
+    
+    <select id="selectSubList" parameterType="paramMap" resultType="egovMap">
+        /*kr.go.bai.eip.aep.cfr.dao.AEPCFR001QMapper.selectSubList*/
+        <include refid="include.pageSelct" />
+        /*2.회의 안건 SQL*/
+        SELECT 
+        <choose>
+            <when test='cmtDvsnCd == "10"'>
+              CASE WHEN (T1.CMT_SBJ_DVSN_CD = '10' OR T1.CMT_SBJ_DVSN_CD = '20') AND T1.WORK_DVSN_CD != 'Z90' THEN ' ('||T1.AUD_YR_NO ||')'||T1.AUD_SBJ_NM
+                         ELSE T1.AUD_SBJ_NM
+               END AS AUD_SBJ_NM
+               </when>
+            <when test='cmtDvsnCd == "20"'>
+                CASE WHEN T1.CMT_SBJ_DVSN_CD = '10' OR T1.CMT_SBJ_DVSN_CD = '20' THEN ' ('||T1.AUD_YR_NO ||')'||T1.AUD_SBJ_NM
+                         ELSE T1.AUD_SBJ_NM
+               END AS AUD_SBJ_NM
+            </when>
+        </choose>
+              ,T1.CMT_SBJ_DVSN_CD    /*회의구분코드*/
+              ,T1.CMT_SBJ_DVSN_NM    /*회의구분코드*/
+              ,T1.SBCN_PAGE_CNT    /*부의순번*/
+              ,T1.AUD_YR_NO   /*감사연번호*/
+              ,T1.CMT_DVSN_CD
+              ,T1.CNT   /*건수*/
+              ,T1.DPT_NM   /*관련부서명*/
+              ,T1.CMT_ADD_YN   /*회의추가여부*/
+        FROM ( 
+        <choose>
+            <when test='cmtDvsnCd == "10"'>
+                SELECT B.AUD_SBJ_NM||(SELECT REL_TEXT1
+                                                                 FROM TBBADDED121T F
+                                                                WHERE F.AUD_YR = A.AUD_YR
+                                                                   AND F.AUD_NO  = A.AUD_NO
+                                                                   AND F.AUD_YR_DY = A.SBCN_REGI_REQ_DT )  AS AUD_SBJ_NM
+                   ,'10' AS CMT_SBJ_DVSN_CD    /*회의구분 PARAM*/
+                   ,F_CODE_NM('1000789','10') AS CMT_SBJ_DVSN_NM    /*회의구분 PARAM*/
+                   ,NVL(A.SBCN_PAGE_CNT,'0') AS SBCN_PAGE_CNT
+                   ,DECODE(A.REL_TSK_NM,NULL,F_MNG_KND_AUDYRNO(A.AUD_YR, A.AUD_NO, B.AUD_KND_CD, '-')
+                                            ,A.REL_TSK_NM) AS AUD_YR_NO
+                   ,'10'as CMT_DVSN_CD
+                   ,COUNT(A.DSP_RQ_SNO) AS CNT
+                   ,NVL(A.SBCN_PRSS_DPT_NM, F_DPT_INFO(B.MNG_DPT_CD, 1)) AS DPT_NM
+                   ,'N' AS CMT_ADD_YN   /*N : 하드코딩*/
+                   , 'A10' AS WORK_DVSN_CD
+                   , TO_CHAR(A.AUD_MAIN_STEP_SNO) AS AUD_MAIN_STEP_SNO
+                   , (SELECT ST1.RAL_BLT_DIV_CD 
+                        FROM TBDCMACM001M ST1 
+                  INNER JOIN TBBADDED116L ST2 ON (ST2.CHF_CMTR_CNB = ST1.CNB)
+                       WHERE ST2.AUD_YR = A.AUD_YR AND ST2.AUD_NO = A.AUD_NO AND ST2.DOC_ID = A.DOC_ID AND ST2.SRNO = (SELECT MAX(ST3.SRNO) FROM TBBADDED116L ST3 WHERE ST3.AUD_YR = A.AUD_YR AND ST3.AUD_NO = A.AUD_NO AND ST3.DOC_ID = A.DOC_ID)) AS RAL_BLT_DIV_CD
+                   ,A.DOC_ID
+                  FROM TBBADDED113M A 
+                       INNER JOIN TBBADDED001M B
+                       ON (B.AUD_YR = A.AUD_YR
+                          AND B.AUD_NO = A.AUD_NO) 
+                  WHERE A.SBCN_DY = #{cmtDy}   /*회의일자 PARAM*/
+                  GROUP BY  A.AUD_YR ,A.AUD_NO, A.SBCN_DY, B.SPV_BRDV_CD ,B.AUD_SBJ_NM ,A.SBCN_PAGE_CNT , B.AUD_KND_CD , A.REL_TSK_NM,A.SBCN_PRSS_DPT_NM , B.MNG_DPT_CD, A.SBCN_REGI_REQ_DT, A.DOC_ID, A.AUD_MAIN_STEP_SNO
+                  UNION ALL
+                 SELECT (SELECT TIT_NM 
+                           FROM TBBADFRE112M 
+                          WHERE ACP_YR = A.ACP_YR
+                            AND ACP_DVSN_CD = A.ACP_DVSN_CD
+                            AND ACP_SRNO = A.ACP_SRNO) AS AUD_SBJ_NM
+                   ,'10' AS CMT_SBJ_DVSN_CD    /*회의구분 PARAM*/
+                   ,F_CODE_NM('1000789','10') AS CMT_SBJ_DVSN_NM    /*회의구분 PARAM*/
+                   ,NVL(A.SBCN_PAGE_CNT,'0') AS SBCN_PAGE_CNT
+                   ,B.ACP_YR || '-' || DECODE(B.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || B.ACP_SRNO  AS AUD_YR_NO
+                   ,'10'as CMT_DVSN_CD
+                   ,DECODE(B.MG_DIV_CD, NULL, 1, (SELECT COUNT(ST1.ACP_YR)
+                     FROM TBBADFRE012M ST1
+                     WHERE ST1.MG_ACP_YR = A.ACP_YR
+                     AND ST1.MG_ACP_DVSN_CD = A.ACP_DVSN_CD
+                     AND ST1.MG_ACP_SRNO = A.ACP_SRNO)) AS CNT
+                   ,NVL(A.SBCN_PRSS_DPT_NM, F_DPT_INFO(B.DPT_CD, 1)) AS DPT_NM
+                   ,'N' AS CMT_ADD_YN   /*N : 하드코딩*/
+                   ,DECODE(B.ACP_DVSN_CD,'1','D10','2','E10','3','E10') AS WORK_DVSN_CD
+                   , TO_CHAR(A.ACP_MAIN_STEP_SNO) AS AUD_MAIN_STEP_SNO
+                   ,'' AS RAL_BLT_DIV_CD
+                   ,A.DOC_ID
+                  FROM TBBADFRE113M A 
+            INNER JOIN (SELECT ACP_YR
+                             , ACP_SRNO
+                             , ACP_DVSN_CD
+                             , DPT_CD
+                             , TIT_NM
+                             , CASE WHEN (ACP_YR = MG_ACP_YR AND ACP_DVSN_CD = MG_ACP_DVSN_CD AND ACP_SRNO = MG_ACP_SRNO) THEN '대표'
+                                    WHEN MG_DIV_CD IS NULL THEN '대표'
+                                    WHEN MG_DIV_CD = '10' THEN '병합'
+                                    WHEN MG_DIV_CD = '20' THEN '병행' END AS MG_DIV_NM
+                             , MG_DIV_CD
+                         FROM TBBADFRE012M) B ON (B.ACP_YR = A.ACP_YR 
+                                                  AND B.ACP_SRNO = A.ACP_SRNO
+                                                  AND B.ACP_DVSN_CD = A.ACP_DVSN_CD) 
+                  WHERE A.SBCN_DY = #{cmtDy}   /*회의일자 PARAM*/
+                    AND B.MG_DIV_NM = '대표'
+                  UNION ALL
+                  SELECT A.CMT_SBJ_TIT AS AUD_SBJ_NM
+                           ,A.CMT_SBJ_DVSN_CD
+                           ,F_CODE_NM('1000789', A.CMT_SBJ_DVSN_CD) AS CMT_SBJ_DVSN_NM 
+                           ,NVL(A.SBCN_SNO,'0')  AS  SBCN_PAGE_CNT
+                           ,DECODE(A.REL_TSK_NM,NULL,DECODE(A.WORK_DVSN_CD,'D10',REL_AUD_YR||'-심사-'||REL_AUD_NO   /* 심사청구 */
+                                                                          ,'E10',REL_AUD_YR||'-재심-'||REL_AUD_NO   /* 재심의청구 */
+                                                                          ,'A10',(SELECT F_MNG_KND_AUDYRNO(ST1.AUD_YR, ST1.AUD_NO, ST1.AUD_KND_CD, '-')
+                                                                                    FROM TBBADDED001M ST1
+                                                                                   WHERE ST1.AUD_YR = A.REL_AUD_YR
+                                                                                     AND ST1.AUD_NO = A.REL_AUD_NO),NULL)
+                                                    ,A.REL_TSK_NM) AS AUD_YR_NO
+                           ,A.CMT_DVSN_CD
+                           ,DECODE(A.BFR_SBCN_CNT,NULL,(SELECT COUNT(1)
+                                                           FROM TBBADDED122M ST1
+                                                          WHERE ST1.CMT_DY = A.CMT_DY
+                                                            AND ST1.CMT_DVSN_CD = A.CMT_DVSN_CD
+                                                            AND ST1.CMT_SQ = A.CMT_SQ
+                                                            AND ST1.CMT_SBJ_DVSN_CD = A.CMT_SBJ_DVSN_CD
+                                                            AND ST1.CMT_SBJ_SNO = A.CMT_SBJ_SNO),A.BFR_SBCN_CNT) AS CNT
+                           ,NVL(PRSS_DPT_NM, F_DPT_INFO(REL_DPT_CD, 1)) AS DPT_NM
+                           ,'Y' AS CMT_ADD_YN /*N : 하드코딩*/
+                           , WORK_DVSN_CD
+                           , '' AS AUD_MAIN_STEP_SNO
+                           ,'' AS RAL_BLT_DIV_CD
+                           ,A.DOC_ID
+                  FROM TBBADDED121M A  
+                  WHERE A.CMT_DY = #{cmtDy}  /*회의일자 PARAM( '20161130' )*/
+                  AND A.CMT_DVSN_CD = #{cmtDvsnCd}   /*회의구분 PARAM('10')*/
+                  AND A.CMT_SQ =#{cmtSq}
+                   ) T1
+                WHERE T1.CMT_DVSN_CD = #{cmtDvsnCd}
+             ORDER BY T1.SBCN_PAGE_CNT, T1.RAL_BLT_DIV_CD, AUD_MAIN_STEP_SNO
+            </when>
+            <when test='cmtDvsnCd == "20"'>
+                SELECT 
+                    T1.TITLE_NM AS AUD_SBJ_NM           /*회의 안건명*/
+                    , '20' AS CMT_SBJ_DVSN_CD
+                    , F_CODE_NM('1000789', '20') AS CMT_SBJ_DVSN_NM    /*안건구분코드명*/
+                    , T1.SBMT_NO AS SBCN_PAGE_CNT        /*부의순번*/
+                    , F_MNG_KND_AUDYRNO(T2.AUD_YR, T2.AUD_NO, T2.AUD_KND_CD, '-')||'-'||T1.AFF_CD  AS AUD_YR_NO /*감사연번호*/
+                    , '20' AS CMT_DVSN_CD
+                    , 1 AS CNT
+                    , NVL(T1.SBCN_PRSS_DPT_NM, F_DPT_INFO(T2.MNG_DPT_CD,'1')) AS DPT_NM
+                    , 'N' AS CMT_ADD_YN
+                  FROM TBBADDED114M T1
+                       INNER JOIN TBBADDED001M T2
+                       ON (T1.AUD_YR = T2.AUD_YR AND T1.AUD_NO = T2.AUD_NO)
+                       INNER JOIN TBBADDED120M T3
+                       ON (T1.SBMT_FIX_DT = T3.CMT_DY AND T1.SBMT_DVSN_NO = T3.SBMT_DVSN_NO)
+                 WHERE T3.CMT_DY = #{cmtDy}
+                   AND T3.CMT_DVSN_CD = #{cmtDvsnCd}
+                   AND T3.CMT_SQ =#{cmtSq}
+                UNION ALL
+                
+                SELECT
+                    T1.CMT_SBJ_TIT AS AUD_SBJ_NM
+                    , '20' AS CMT_SBJ_DVSN_CD
+                    , F_CODE_NM('1000789', '20') AS CMT_SBJ_DVSN_NM    /*안건구분코드명*/
+                    , T1.SBCN_SNO AS SBCN_PAGE_CNT        /*부의순번*/
+                    , DECODE(T1.WORK_DVSN_CD, 'A10', F_MNG_KND_AUDYRNO(T1.REL_AUD_YR, T1.REL_AUD_NO, (SELECT AUD_KND_CD FROM TBBADDED001M WHERE AUD_YR = T1.REL_AUD_YR AND AUD_NO = T1.REL_AUD_NO), '-') 
+                                                             , T1.REL_AUD_YR || '-' || DECODE(T1.WORK_DVSN_CD, 'D10', '심사', 'E10', '재심', '') || '-' || TO_CHAR(T1.REL_AUD_NO)) AS AUD_YR_NO
+                    , '20' AS CMT_DVSN_CD
+                    , 1 AS CNT
+                    , SBMT_MNG_DPT_NM
+                    , 'Y' AS CMT_ADD_YN
+                  FROM TBBADDED121M T1
+                 WHERE T1.CMT_DY = #{cmtDy}
+                   AND T1.CMT_DVSN_CD =#{cmtDvsnCd}
+                   AND T1.CMT_SQ =#{cmtSq}
+                
+                UNION ALL   
+                SELECT 
+                T1.TITLE_NM AS AUD_SBJ_NM           /*회의 안건명*/
+                , '20' AS CMT_SBJ_DVSN_CD
+                ,'소위원회' AS CMT_SBJ_DVSN_NM 
+                , T1.SBMT_NO AS SBCN_PAGE_CNT        /*부의순번*/
+                , T1.ACP_YR||'-'|| DECODE(T1.ACP_DVSN_CD,1,'심사','재심') || '-'|| T1.ACP_SRNO AS AUD_YR_NO /*감사연번호*/
+                , '20' AS CMT_DVSN_CD
+                , 1 AS CNT
+                , NVL(T1.SBCN_PRSS_DPT_NM, F_DPT_INFO(T2.DPT_CD,'1')) AS DPT_NM
+                , 'N' AS CMT_ADD_YN
+              FROM TBBADFRE114M T1
+                   INNER JOIN TBBADFRE012M T2
+                   ON (T1.ACP_YR = T2.ACP_YR AND T1.ACP_DVSN_CD = T2.ACP_DVSN_CD AND T1.ACP_SRNO = T2.ACP_SRNO)
+                   INNER JOIN TBBADDED120M T3
+                   ON (T1.SBMT_FIX_DT = T3.CMT_DY AND T1.SBMT_DVSN_NO = T3.SBMT_DVSN_NO)
+             WHERE T3.CMT_DY = #{cmtDy}
+                   AND T3.CMT_DVSN_CD = #{cmtDvsnCd}
+                   AND T3.CMT_SQ =#{cmtSq}
+                ) T1
+        WHERE T1.CMT_DVSN_CD = #{cmtDvsnCd}
+        ORDER BY T1.SBCN_PAGE_CNT
+            </when>
+        </choose>
+        <include refid="include.pageOrder" /> 
+    </select>
+    
+    <select id="selectMainChart" parameterType="paramMap" resultType="egovMap">
+        /*kr.go.bai.eip.aep.cfr.dao.AEPCFR001QMapper.selectMainChart*/
+        <![CDATA[
+        /*3.감사위원회의 의결현황 chart SQL*/
+        SELECT T.CD
+                  ,T.CD_NM AS SBCN_VT_NM 
+                  ,COUNT(A.SBCN_VT_CD) AS CNT 
+                  ,ROUND(NVL(COUNT(A.SBCN_VT_CD)/
+                       DECODE((SELECT COUNT(D.SBCN_DY) AS CNT
+                                 FROM TBBADDED113M D INNER JOIN TBBADDED120M E
+                                   ON E.CMT_DY = D.SBCN_DY
+                                WHERE SUBSTR(D.SBCN_DY, 1,4)  = SUBSTR(TO_CHAR(SYSDATE, 'YYYYMMDD'), 1,4) 
+                                   AND D.SBCN_VT_CD IS NOT NULL), 0, NULL, 
+                                                                       (SELECT COUNT(D.SBCN_DY) AS CNT
+                                                                          FROM TBBADDED113M D INNER JOIN TBBADDED120M E
+                                                                            ON E.CMT_DY = D.SBCN_DY
+                                                                         WHERE SUBSTR(D.SBCN_DY, 1,4)  = SUBSTR(TO_CHAR(SYSDATE, 'YYYYMMDD'), 1,4) 
+                                                                           AND D.SBCN_VT_CD IS NOT NULL)), 0) *100) AS RATIO
+        FROM TBDCMACM013C T 
+        LEFT OUTER JOIN 
+        (SELECT A.SBCN_VT_CD
+                  ,A.SBCN_DY
+         FROM TBBADDED113M A
+         WHERE SUBSTR(A.SBCN_DY, 1,4)  = SUBSTR(TO_CHAR(SYSDATE, 'YYYYMMDD'), 1,4) 
+         AND A.SBCN_VT_CD IS NOT NULL
+         AND EXISTS (SELECT 1 FROM TBBADDED120M C WHERE C.CMT_DY = A.SBCN_DY)) A
+         ON T.CD = A.SBCN_VT_CD 
+         WHERE 1=1
+         AND T.CMM_CD_DVSN_CD = '1000772'
+         AND T.CD <> '000000000'
+         GROUP BY T.CD, A.SBCN_VT_CD , T.CD_NM
+         ORDER BY T.CD, A.SBCN_VT_CD 
+        ]]>
+    </select>
+    
+    <select id="selectMainChart2" parameterType="paramMap" resultType="egovMap">
+        /*kr.go.bai.eip.aep.cfr.dao.AEPCFR001QMapper.selectMainChart2*/
+        <![CDATA[
+        /*4.연도별 회의 통계 chart SQL*/
+        SELECT A.G_YEAR
+               ,B.CMT_DVSN_CD
+                ,CASE WHEN A.G_YEAR  ='2013' THEN 39 
+                      WHEN A.G_YEAR  ='2014' THEN 42 
+                      WHEN A.G_YEAR  ='2015' THEN 40
+                      WHEN A.G_YEAR  ='2016' THEN 43
+                      WHEN A.G_YEAR  ='2017' THEN SUM(DECODE(B.CMT_DVSN_CD, '10', 1, 0)) + 8
+                      ELSE SUM(DECODE(B.CMT_DVSN_CD, '10', 1, 0)) 
+                       END AS DVSN_CD10
+               --,SUM(DECODE(B.CMT_DVSN_CD, '10', 1, 0)) AS DVSN_CD10
+               ,SUM(DECODE(B.CMT_DVSN_CD, '20', 1, 0)) AS DVSN_CD20
+               ,SUM(DECODE(B.CMT_DVSN_CD, '30', 1, 0)) AS DVSN_CD30
+         FROM(
+                  (SELECT TO_NUMBER(SUBSTR(TO_CHAR(SYSDATE, 'YYYYMMDD'), 1, 4) ) AS G_YEAR FROM DUAL 
+                   UNION ALL
+                   SELECT TO_NUMBER(SUBSTR(TO_CHAR(SYSDATE, 'YYYYMMDD'), 1, 4) ) -1 AS G_YEAR FROM DUAL 
+                   UNION ALL 
+                   SELECT TO_NUMBER(SUBSTR(TO_CHAR(SYSDATE, 'YYYYMMDD'), 1, 4) ) -2 AS G_YEAR FROM DUAL 
+                   UNION ALL 
+                   SELECT TO_NUMBER(SUBSTR(TO_CHAR(SYSDATE, 'YYYYMMDD'), 1, 4) ) -3 AS G_YEAR FROM DUAL
+                   UNION ALL 
+                   SELECT TO_NUMBER(SUBSTR(TO_CHAR(SYSDATE, 'YYYYMMDD'), 1, 4) ) -4 AS G_YEAR FROM DUAL)  
+                 )  A LEFT OUTER JOIN TBBADDED120M B 
+         ON A.G_YEAR = SUBSTR(B.CMT_DY, 1, 4) AND B.CMT_DVSN_CD = '10'
+         WHERE 1=1
+         GROUP BY A.G_YEAR, B.CMT_DVSN_CD
+         ORDER BY A.G_YEAR ASC  
+        ]]>
+    </select>
+    
+</mapper> 

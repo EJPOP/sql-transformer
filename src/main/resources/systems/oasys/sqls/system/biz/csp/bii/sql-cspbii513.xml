@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/bii/513">
+	<!-- 직무역량평가내역 상세조회 맵 -->
+	<resultMap class="java.util.HashMap" id="CSPBII513EMainSelectMap">
+		<result property="NAM"				column="NAM" 				jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="EIN"				column="EIN" 				jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="BLT_ORG_CD"		column="BLT_ORG_CD"			jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="BLT_ORG_NM"		column="BLT_ORG_NM"			jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="PST_NM"			column="PST_NM"				jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="PST_RANK_NM"		column="PST_RANK_NM"		jdbcType="VARCHAR2" javaType="java.lang.String"/>	
+		<result property="EVL_DT"			column="EVL_DT" 			jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="MTRL_NO"			column="MTRL_NO" 			jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="EVL_MTRL_DVSN_CD"	column="EVL_MTRL_DVSN_CD" 	jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="EVL_DPT_CD"		column="EVL_DPT_CD" 		jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="EVL_DPT_NM"		column="EVL_DPT_NM" 		jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="DTY_CABT_EVL_TXT"	column="DTY_CABT_EVL_TXT"	jdbcType="CLOB"		javaType="java.lang.String"/>
+		<result property="YE"				column="YE"					jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="SRNO"				column="SRNO"				jdbcType="VARCHAR2" javaType="java.lang.String"/>
+	</resultMap>
+	
+	<!-- 직무역량평가내역 상세조회 -->   
+	<select id="CSPBII513EMainSelect" parameterClass="paramMap" resultMap="CSPBII513EMainSelectMap">
+		<![CDATA[       
+			SELECT (SELECT B.NAM
+			          FROM TBCSPBII300M B
+			         WHERE B.EIN = A.EIN)                                                                        AS NAM		    /* 성명 */	     
+			     , A.EIN                                                                                                        /* 암호화주민등록번호 */
+			     , A.BLT_ORG_CD                                                                                                 /* 소속기관코드 */
+			     , (SELECT B.ORG_NM
+			          FROM TBDCMACM015M B
+			         WHERE B.ORG_CD = A.BLT_ORG_CD)                                                              AS BLT_ORG_NM  /* 소속기관명 */
+			     , A.PST_NM                                                                                                     /* 직위명 */
+			     , A.PST_NM
+			    || CASE WHEN B.CRSP_OD_RANK_CD IS NOT NULL THEN ' / ' || F_CODE_NM('1000058', B.CRSP_OD_RANK_CD)
+			            ELSE ''
+			       END
+			    || CASE WHEN B.RANK_NM IS NOT NULL THEN ', ' || B.RANK_NM
+			            ELSE ''
+			       END
+			    || CASE WHEN B.DTY_RK_CD IS NOT NULL THEN '(' || F_CODE_NM('1000174', B.DTY_RK_CD) || ')'
+			            ELSE ''
+			       END                                                                                           AS PST_RANK_NM /* 직위/직급명 */
+			     , A.EVL_DT                                                                                                     /* 평가일 */
+			     , A.YE || '-' || LPAD(A.SRNO, 5, '0')                                                           AS MTRL_NO		/* 자료번호 */
+			     , A.EVL_MTRL_DVSN_CD                                                                                            /* 평가자료구분코드 */
+			     , A.EVL_DPT_CD                                                                                                 /* 평가부서코드 */
+			     , (SELECT B.DPT_NM
+			          FROM TBDCMACM002M B
+			         WHERE B.DPT_CD = A.EVL_DPT_CD)                                                              AS EVL_DPT_NM  /* 평가부서명 */
+			     , A.DTY_CABT_EVL_TXT                                                                                           /* 직무역량평가내용 */
+			     , A.YE                                                                                                         /* 연도 */
+			     , A.SRNO                                                                                                       /* 일련번호 */
+			  FROM TBCSPBII500L A  /* 기타감찰자료정보내역 */
+			     , TBCSPBII300M B  /* 대인정보기본 */  
+			 WHERE A.EIN  = B.EIN
+		]]>
+		<!-- 연도 -->
+		<isNotEmpty property="strYe">
+			AND A.YE   = #strYe#
+		</isNotEmpty>
+		
+		<!-- 일련번호 -->
+		<isNotEmpty property="strYe">
+			AND A.SRNO   = #strSrno#
+		</isNotEmpty>
+		
+		<!-- 연도/일련번호 리스트(직무역량 출력 팝업화면에서 사용)-->
+		<isNotEmpty property="strYeList">
+			AND (A.YE, A.SRNO) IN (SELECT REGEXP_SUBSTR(#strYeList#, '[^||]+', 1, LEVEL)
+                                        , REGEXP_SUBSTR(#strSrnoList#, '[^||]+', 1, LEVEL)
+                                     FROM DUAL
+                                   CONNECT BY LEVEL &lt;= REGEXP_COUNT(#strYeList#, '[^|]+'))
+		</isNotEmpty>
+	</select>
+	
+	<!-- 직무역량평가내역 키 생성 -->
+	<select id="CSPBII513EMainKeyValueSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[       
+			SELECT TO_CHAR(SYSDATE, 'YYYY')               AS YE
+			     , (SELECT NVL(MAX(SRNO), 0) + 1
+		              FROM TBCSPBII500L
+		             WHERE YE = TO_CHAR(SYSDATE, 'YYYY')) AS SRNO 
+		      FROM DUAL
+		]]>
+	</select>
+		
+	<!-- 직무역량평가내역 등록  -->
+	<insert id="CSPBII513EinsertMain" parameterClass="paramMap">
+		INSERT INTO TBCSPBII500L (
+		                          YE              /* 연도 */
+		                        , SRNO            /* 일련번호 */
+		                        , EIN             /* 암호화주민등록번호 */
+		                        , BLT_ORG_CD      /* 소속기관코드 */
+		                        , PST_NM          /* 직위명 */
+		                        , EVL_DT          /* 평가일 */
+		                        , EVL_MTRL_DVSN_CD /* 평가자료구분코드 */
+		                        , EVL_DPT_CD      /* 평가부서코드 */
+		                        , CNB             /* 전산번호 */
+		                        , DTY_CABT_EVL_TXT/* 직무역량평가내용 */
+		                        , FRT_USR_ID      /* 최초사용자ID */
+		                        , FNL_USR_ID      /* 최종사용자ID */
+		                        , FNL_DEAL_DPT_CD /* 최종거래부서코드 */
+		                        , FNL_MNU_ID      /* 최종메뉴ID */
+		                        , FRT_REGI_DH     /* 최초등록일시 */
+		                        , FNL_MDF_DH      /* 최종수정일시 */
+		                         ) 
+		                  VALUES (
+		                          #YE#
+		                        , #SRNO#
+		                        , #EIN#
+		                        , #BLT_ORG_CD#
+		                        , #PST_NM#
+		                        , #EVL_DT#
+		                        , #EVL_MTRL_DVSN_CD#
+		                        , #EVL_DPT_CD#
+		                        , #CNB#
+		                        , #DTY_CABT_EVL_TXT#
+		                        , #FRT_USR_ID#
+		                        , #FNL_USR_ID#
+		                        , #FNL_DEAL_DPT_CD#
+		                        , #FNL_MNU_ID#
+		                        , SYSDATE
+		                        , SYSDATE
+				                 )
+	</insert>
+	
+	<!-- 직무역량평가내역 수정 -->
+	<update id="CSPBII513EupdateMain" parameterClass="paramMap">
+		UPDATE TBCSPBII500L                       
+		   SET EIN              = #EIN#               /* 암호화주민등록번호 */
+		     , BLT_ORG_CD       = #BLT_ORG_CD#        /* 소속기관코드 */
+		     , PST_NM           = #PST_NM#            /* 직위명 */
+		     , EVL_DT           = #EVL_DT#            /* 평가일 */
+		     , EVL_MTRL_DVSN_CD  = #EVL_MTRL_DVSN_CD#  /* 평가자료구분코드 */
+		     , EVL_DPT_CD       = #EVL_DPT_CD#        /* 평가부서코드 */
+		     , DTY_CABT_EVL_TXT = #DTY_CABT_EVL_TXT#  /* 직무역량평가내용 */
+		     , FNL_USR_ID       = #FNL_USR_ID#        /* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD  = #FNL_DEAL_DPT_CD#   /* 최종거래부서코드 */
+		     , FNL_MNU_ID       = #FNL_MNU_ID#        /* 최종메뉴ID */
+		     , FNL_MDF_DH       = SYSDATE             /* 최종수정일시 */
+		 WHERE YE = #YE#
+		   AND SRNO = #SRNO#
+	</update>
+	
+	<!-- 직무역량평가내역 삭제 -->
+	<delete id="CSPBII513EdeleteMain" parameterClass="paramMap">
+		DELETE TBCSPBII500L
+		 WHERE YE   = #YE#
+		   AND SRNO = #SRNO#		   
+	</delete>
+</sqlMap> 

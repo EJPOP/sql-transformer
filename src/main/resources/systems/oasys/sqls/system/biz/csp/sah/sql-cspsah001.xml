@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/sah/001">
+
+	<select id="CSPSAH001QMainList" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT * FROM(
+				    SELECT 
+				        ROW_NUMBER() OVER(ORDER BY A.FRT_REGI_DH) AS SNO
+				        , A.APL_NO 			        				       
+				        , F_USR_INFO(A.APL_USR, '2') AS APL_USR
+	                    , CASE WHEN A.SMT_YN = 'Y' THEN TO_CHAR(A.SMT_DT,'YYYYMMDD')
+	                           ELSE '' END AS SMT_DT   
+	                    , F_CODE_NM('1001000',NVL(PRSS_STA_CD,'10')) AS PRSS_STA_NM                    
+				        , A.TIT 			        			        			      			      
+						, A.SMT_YN 					
+						, CASE WHEN A.APL_USR = #S_CNB# THEN 'Y'
+						       ELSE 'N' END AS WRT_DVSN					
+				    FROM TBCSPSAH001M A
+				    WHERE 1=1
+					AND ((F_USR_INFO(#S_CNB#,'5') = '122600' AND A.SMT_YN='Y') OR A.APL_USR = #S_CNB#)
+		]]>
+			<dynamic>
+				<isNotEmpty property="strSCH_TITLE">
+					AND REPLACE(A.TIT,' ','') LIKE REPLACE('%$strSCH_TITLE$%',' ','')
+				</isNotEmpty>
+				<isNotEmpty property="strACP_DH_START">
+				<isNotEmpty property="strACP_DH_END">
+					AND ((TO_CHAR(A.SMT_DT,'YYYYMMDD') BETWEEN #strACP_DH_START# AND #strACP_DH_END#) OR SMT_DT IS NULL)
+				</isNotEmpty>
+				</isNotEmpty>
+				<isNotEmpty property="strPRSS_STA_CD">
+					AND A.PRSS_STA_CD = #strPRSS_STA_CD#
+				</isNotEmpty>
+			</dynamic>
+		<![CDATA[
+			    ORDER BY SNO
+			) WHERE 1=1
+		]]>
+		<![CDATA[
+			ORDER BY SNO DESC
+		]]>
+	</select>
+	
+	<resultMap class="java.util.HashMap" id="CSPSAH002ESelectMainMap">
+			<result property="APL_NO" column="APL_NO" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="APL_USR" column="APL_USR" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="SMT_YN" column="SMT_YN" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="SMT_DT" column="SMT_DT" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="PRSS_STA_CD" column="PRSS_STA_CD" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="PRSS_STA_NM" column="PRSS_STA_NM" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="TIT" column="TIT" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="TXT" column="TXT" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="DOC_ID" column="DOC_ID" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="EXAM_TXT" column="EXAM_TXT" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="EXAM_DOC_ID" column="EXAM_DOC_ID" jdbcType="VARCHAR2" javaType="java.lang.String" />
+	</resultMap>
+	<select id="CSPSAH002EMainSelect" parameterClass="paramMap" resultMap="CSPSAH002ESelectMainMap">
+		<![CDATA[
+			    SELECT A.APL_NO ,
+		               F_USR_INFO(A.APL_USR, '2') ||'('||
+		                         F_DPT_INFO(F_USR_INFO(A.APL_USR, '5'),'1') ||')'
+		                    AS APL_USR ,
+		               A.SMT_YN ,     
+		               CASE WHEN A.SMT_YN = 'Y' THEN TO_CHAR(A.SMT_DT, 'YYYY-MM-DD')
+		                    ELSE '' END AS SMT_DT ,
+		               A.PRSS_STA_CD ,                    
+		               F_CODE_NM('1001000',NVL(PRSS_STA_CD,'10')) AS PRSS_STA_NM ,
+		               A.TIT ,
+		               A.TXT ,
+		               A.DOC_ID ,
+		               A.EXAM_TXT ,
+		               A.EXAM_DOC_ID
+		          FROM TBCSPSAH001M A
+		         WHERE 1=1
+		]]>
+				AND APL_NO = #strAPL_NO#
+	</select>
+	
+	<insert id="CSPSAH002EMainInsert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT 
+			    INTO TBCSPSAH001M ( APL_NO 
+			    			, APL_USR 
+			    			, PRSS_STA_CD 
+			    			, TIT 
+			    			, TXT 
+			    			, DOC_ID			    		
+			    			, FRT_REGI_DH 
+			    			, FNL_MDF_DH 
+			                )
+			    VALUES ( (SELECT TO_CHAR(SYSDATE,'YYYY')||'-'||NVL(MAX(TO_NUMBER(SUBSTR(APL_NO, INSTR(APL_NO,'-')+1)))+1,1) FROM TBCSPSAH001M WHERE SUBSTR(APL_NO,1,INSTR(APL_NO,'-') - 1) = TO_CHAR(SYSDATE,'YYYY'))			               
+			               , #S_CNB#
+			               , '10'
+			               , #TIT#
+			               , #TXT#
+			               , #DOC_ID#
+			               , SYSDATE
+			               , SYSDATE
+               )
+		]]>
+	</insert>
+	
+	<select id="CSPSAH002EGetAplNo" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			    SELECT TO_CHAR(SYSDATE, 'YYYY')||'-'||NVL(MAX(TO_NUMBER(SUBSTR(APL_NO, INSTR(APL_NO, '-')+1))), 1) AS APL_NO
+				  FROM TBCSPSAH001M
+				 WHERE SUBSTR(APL_NO, 1, INSTR(APL_NO, '-') - 1) = TO_CHAR(SYSDATE, 'YYYY')
+		]]>
+	</select>
+	
+	<update id="CSPSAH002EMainUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE TBCSPSAH001M
+				SET 
+					TIT = #TIT#
+				  , TXT = #TXT#
+				  , DOC_ID = #DOC_ID#
+				  , FNL_MDF_DH = SYSDATE
+			WHERE APL_NO = #APL_NO# 
+		]]>
+	</update>
+	
+	<update id="CSPSAH002Esubmit" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE TBCSPSAH001M
+			   SET SMT_YN = 'Y'
+			     , PRSS_STA_CD = '20'
+				 , SMT_DT = SYSDATE
+				 , FNL_MDF_DH = SYSDATE
+			 WHERE APL_NO = #APL_NO# 
+		]]>
+	</update>
+	
+	<update id="CSPSAH002EsubmitCancel" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE TBCSPSAH001M
+			   SET SMT_YN = 'N'
+			     , PRSS_STA_CD = '10'
+			     , SMT_DT = ''
+				 , FNL_MDF_DH = SYSDATE
+			 WHERE APL_NO = #APL_NO# 
+		]]>
+	</update>
+
+	<delete id="CSPSAH002Edelete" parameterClass="paramMap">
+		<![CDATA[
+			DELETE TBCSPSAH001M
+ 			WHERE APL_NO = #APL_NO#
+	
+		]]>
+	</delete>
+	
+	<update id="CSPSAH003EexamSave" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE TBCSPSAH001M
+			   SET EXAM_TXT = #EXAM_TXT#
+			     , PRSS_STA_CD = '30'
+			     , EXAM_DOC_ID = #EXAM_DOC_ID#				 
+				 , FNL_MDF_DH = SYSDATE
+			 WHERE APL_NO = #APL_NO# 
+		]]>
+	</update>
+	
+	<update id="CSPSAH003EendSave" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE TBCSPSAH001M
+			   SET EXAM_TXT = #EXAM_TXT#
+			     , PRSS_STA_CD = '40'	
+			     , EXAM_DOC_ID = #EXAM_DOC_ID#			 
+				 , FNL_MDF_DH = SYSDATE
+			 WHERE APL_NO = #APL_NO# 
+		]]>
+	</update>
+
+	<update id="CSPSAH003EprocCancel" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE TBCSPSAH001M
+			   SET EXAM_TXT = NULL
+			     , PRSS_STA_CD = '20'	
+			     , EXAM_DOC_ID = NULL			 
+				 , FNL_MDF_DH = SYSDATE
+			 WHERE APL_NO = #APL_NO# 
+		]]>
+	</update>
+	
+</sqlMap> 

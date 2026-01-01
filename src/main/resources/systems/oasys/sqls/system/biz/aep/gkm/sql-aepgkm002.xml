@@ -1,0 +1,290 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap namespace="aep/gkm/002">
+	<!-- 보관지식 트리 -->
+	<select id="AEPGKM002EAchivedselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	CNB, 
+				CTG_ID, 
+				CTG_NM, 
+				HIRK_CTG_ID,
+				SRT_SNO,
+				SRT_VAL_NM
+		FROM TBAEPGKM003L AS A
+		WHERE CNB = #strUsrCnb#
+		<isNotEmpty property="strCtgId" prepend="AND">
+			  CTG_ID = #strCtgId#
+		</isNotEmpty>
+		ORDER BY SRT_VAL_NM	
+	</select>
+	<!-- 공유지식 트리 -->
+	<select id="AEPGKM002ESharedselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	DPT_CD AS CTG_ID,
+				DPT_NM AS CTG_NM,
+				'S' AS HIRK_CTG_ID
+		FROM	TBDCMACM002M
+		WHERE	DPT_CD IN	(#DPT_CD#, 
+							(
+							SELECT	HIRK_DPT_CD 
+							FROM	TBDCMACM002M 
+							WHERE	DPT_CD = #DPT_CD#
+							)
+						)
+		ORDER BY DPT_CD
+	</select>
+	<!-- 지식목록 조회 -->
+	<select id="AEPGKM002EMainselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	A.CNB,
+				A.KNB,
+				A.CTG_ID,
+				CTG_NM,
+				KLD_NM,
+				TG_CAT_ID AS CAT_ID,
+				TG_CAT_NM AS CAT_NM,
+				STRG_KLD_SNO
+		FROM	TBAEPGKM004L AS A,
+				(
+				SELECT CTG_ID
+				     , CTG_NM
+				  FROM (
+				SELECT CTG_ID
+				     , CTG_NM
+				     , HIRK_CTG_ID
+				  FROM TBAEPGKM003L 
+				 WHERE CNB = #CNB#
+				 )
+				<isNotEmpty property="CTG_ID">
+					START WITH CTG_ID = #CTG_ID#
+				</isNotEmpty>
+				CONNECT BY PRIOR CTG_ID = HIRK_CTG_ID
+				  GROUP BY CTG_ID, CTG_NM
+				  ORDER BY CTG_ID
+				) AS B,
+				TBAEPGKM001M AS C,
+				TBAEPGKM017M AS D
+		WHERE	1=1
+		AND		A.CTG_ID = B.CTG_ID
+		AND		A.KNB = C.KNB
+		AND		C.KLD_CAT_CD = D.TG_CAT_ID
+		AND		CNB = #CNB#
+		ORDER BY STRG_KLD_SNO DESC
+	</select>
+	
+	<!-- 지식목록 조회 (공유지식탭) -->
+	<select id="AEPGKM002ETrv2mainselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT A.CNB,
+			   A.KNB,
+			   A.CTG_ID,
+			   KLD_NM,
+			   TG_CAT_ID AS CAT_ID,
+			   TG_CAT_NM AS CAT_NM,
+			   STRG_KLD_SNO
+		  FROM TBAEPGKM004L AS A,
+			   TBAEPGKM001M AS C,
+			   TBAEPGKM017M AS D
+		 WHERE 1=1
+		   AND A.KNB = C.KNB
+		   AND C.KLD_CAT_CD = D.TG_CAT_ID
+		   AND CNB = #CNB#
+		   AND A.DPT_CD IS NOT NULL
+			<isNotEmpty property="CTG_ID">
+				  AND A.DPT_CD = #CTG_ID#
+			</isNotEmpty> 		   
+		ORDER BY STRG_KLD_SNO DESC
+	</select>
+	
+	<!--  보관지식 트리 추가 -->
+	<insert id="AEPGKM002ETreeinsert" parameterClass="java.util.Map">
+		INSERT INTO TBAEPGKM003L
+				(CNB, 
+				 CTG_ID,
+				 CTG_NM,
+				 SRT_SNO,
+				 SRT_VAL_NM,
+				 HIRK_CTG_ID,
+				 FRT_USR_ID,
+				 FNL_USR_ID,
+				 FNL_DEAL_DPT_CD,
+				 FNL_MNU_ID,
+				 FRT_REGI_DH,
+				 FNL_MDF_DH)
+		VALUES	(#CNB#, 
+			     #CTG_ID#,
+				 #CTG_NM#,
+				 (SELECT	NVL(MAX(TO_NUMBER(SRT_SNO)), 0) + 1
+				 FROM	TBAEPGKM003L
+				 WHERE	CNB = #CNB#
+				 AND	HIRK_CTG_ID = #HIRK_CTG_ID#),
+				 #SRT_VAL_NM#,
+				 #HIRK_CTG_ID#,
+				 #FRT_USR_ID#,
+				 #FNL_USR_ID#,
+				 #FNL_DEAL_DPT_CD#,
+				 #FNL_MNU_ID#,
+				 SYSDATE,
+				 SYSDATE
+		)
+	</insert>
+	<!-- 보관지식 인덱스/ID MAX -->
+	<select id="AEPGKM002EMaxselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	LPAD(TO_NUMBER(SUBSTR(MAX(SRT_VAL_NM), -3)) + 1, '3', '0') AS SRT_VAL_NM
+			   ,(
+			   	SELECT	SRT_VAL_NM
+			   	FROM	TBAEPGKM003L
+			   	WHERE	CNB = #CNB#
+			   	AND		CTG_ID = #HIRK_CTG_ID#
+			    ) AS HIRK_SRT_VAL_NM
+			   ,(
+			    SELECT  TO_CHAR(MAX(TO_NUMBER(CTG_ID)) + 1)
+		        FROM    TBAEPGKM003L
+		        WHERE   CNB = #CNB#
+			   	) AS CTG_ID
+		FROM	TBAEPGKM003L
+		WHERE	CNB = #CNB#
+		AND		HIRK_CTG_ID = #HIRK_CTG_ID#
+	</select>
+	<!-- 보관지식 수정 -->
+	<update id="AEPGKM002ETreeupdate" parameterClass="java.util.Map">
+		UPDATE	TBAEPGKM003L 
+		SET		CTG_NM			= #CTG_NM#, 
+				FNL_USR_ID		= #FNL_USR_ID#, 
+				FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#, 
+				FNL_MNU_ID		= #FNL_MNU_ID#, 
+				FNL_MDF_DH		= SYSDATE
+		WHERE	CNB = #CNB#
+		AND		CTG_ID = #CTG_ID#
+	</update>
+	
+	<update id="AEPGKM002ETreeup" parameterClass="java.util.Map">
+		DECLARE
+			BEGIN
+				FOR CS IN (
+					SELECT A.SRT_VAL_NM AS NEXT_NM
+						  ,B.SRT_VAL_NM AS CURR_NM
+						  ,A.SRT_SNO	AS NEXT_NO
+						  ,B.SRT_SNO	AS CURR_NO
+					FROM TBAEPGKM003L A, TBAEPGKM003L B
+					WHERE A.CNB = B.CNB
+					AND A.CNB = #CNB#
+					AND A.CTG_ID = #CHANGE_CTG_ID#
+					AND B.CTG_ID = #CTG_ID#
+				)
+			LOOP
+				UPDATE	TBAEPGKM003L
+				SET		SRT_VAL_NM		= CS.NEXT_NM,
+						SRT_SNO			= CS.NEXT_NO,
+						FNL_USR_ID		= #FNL_USR_ID#, 
+						FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#, 
+						FNL_MNU_ID		= #FNL_MNU_ID#, 
+						FNL_MDF_DH		= SYSDATE 
+				WHERE CTG_ID = #CTG_ID#
+				AND CNB = #CNB#
+				;
+				UPDATE	TBAEPGKM003L
+				SET 	SRT_VAL_NM		= CS.CURR_NM,
+						SRT_SNO			= CS.CURR_NO,
+						FNL_USR_ID		= #FNL_USR_ID#, 
+						FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#, 
+						FNL_MNU_ID		= #FNL_MNU_ID#, 
+						FNL_MDF_DH		= SYSDATE 
+				WHERE CTG_ID = #CHANGE_CTG_ID#
+				AND CNB = #CNB#
+				;
+			END LOOP
+			;
+		END
+		;
+	</update>
+	
+	<update id="AEPGKM002ETreedown" parameterClass="java.util.Map">
+		DECLARE
+			BEGIN
+				FOR CS IN (
+					SELECT A.SRT_VAL_NM AS PREV_NM
+						  ,B.SRT_VAL_NM AS CURR_NM
+						  ,A.SRT_SNO	AS PREV_NO
+						  ,B.SRT_SNO	AS CURR_NO
+					FROM TBAEPGKM003L A, TBAEPGKM003L B
+					WHERE	A.CNB = B.CNB
+					AND		A.HIRK_CTG_ID = B.HIRK_CTG_ID
+					AND A.CNB = #CNB#
+					AND A.CTG_ID = #CHANGE_CTG_ID#
+					AND B.CTG_ID = #CTG_ID#
+				)
+			LOOP
+				UPDATE	TBAEPGKM003L
+				SET		SRT_VAL_NM		= CS.PREV_NM,
+						SRT_SNO			= CS.PREV_NO,
+						FNL_USR_ID		= #FNL_USR_ID#, 
+						FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#, 
+						FNL_MNU_ID		= #FNL_MNU_ID#, 
+						FNL_MDF_DH		= SYSDATE 
+				WHERE CTG_ID = #CTG_ID#
+				AND CNB = #CNB#
+				;
+				UPDATE	TBAEPGKM003L
+				SET 	SRT_VAL_NM		= CS.CURR_NM,
+						SRT_SNO			= CS.CURR_NO,
+						FNL_USR_ID		= #FNL_USR_ID#, 
+						FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#, 
+						FNL_MNU_ID		= #FNL_MNU_ID#, 
+						FNL_MDF_DH		= SYSDATE 
+				WHERE CTG_ID = #CHANGE_CTG_ID#
+				AND CNB = #CNB#
+				;
+			END LOOP
+			;
+		END
+		;
+	</update>
+	
+	<delete id="AEPGKM002ETreedelete" parameterClass="java.util.Map">
+		DELETE	FROM	TBAEPGKM003L
+		WHERE	CNB = #CNB#
+		AND		CTG_ID = #CTG_ID#
+	</delete>
+	
+	<delete id="AEPGKM002ETabledelete" parameterClass="java.util.Map">
+		DELETE FROM TBAEPGKM004L
+		WHERE	KNB = #KNB#
+		AND		CNB = #CNB#
+		AND		CTG_ID = #CTG_ID#
+	</delete>
+	
+	<!-- 이동할 카테고리아이디들을 가져온다. -->
+	<select id="AEPGKM002EMoveCtgIdselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT CTG_ID 
+		     , #CHANGE_SRT_VAL_NM# || SUBSTR(SRT_VAL_NM, (TO_NUMBER(#DEPTH#)*3)+1) AS CHANGE_SRT_VAL_NM
+		     , CNB
+		     , #FNL_USR_ID# AS FNL_USR_ID
+		     , #FNL_DEAL_DPT_CD# AS FNL_DEAL_DPT_CD
+		     , #FNL_MNU_ID# AS FNL_MNU_ID
+		  FROM TBAEPGKM003L
+		 WHERE CNB = #CNB#
+		   AND SRT_VAL_NM LIKE #SRT_VAL_NM# || '%'
+	</select>
+	
+	<!-- 이동할 카테고리아이디들을 가져온다. -->
+	<select id="AEPGKM002EMoveChangeCtgIdselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT CTG_ID 
+		     , #SRT_VAL_NM# || SUBSTR(SRT_VAL_NM, (TO_NUMBER(#DEPTH#)*3)+1) AS CHANGE_SRT_VAL_NM
+		     , CNB
+		     , #FNL_USR_ID# AS FNL_USR_ID
+		     , #FNL_DEAL_DPT_CD# AS FNL_DEAL_DPT_CD
+		     , #FNL_MNU_ID# AS FNL_MNU_ID
+		  FROM TBAEPGKM003L
+		 WHERE CNB = #CNB#
+		   AND SRT_VAL_NM LIKE #CHANGE_SRT_VAL_NM# || '%'
+	</select>
+	
+	<!-- 이동한다 폴터를 -->
+	<update id="AEPGKM002EMoveTreesave" parameterClass="java.util.Map">
+		UPDATE TBAEPGKM003L
+		   SET SRT_VAL_NM		= #CHANGE_SRT_VAL_NM#
+			 , FNL_USR_ID		= #FNL_USR_ID#
+			 , FNL_DEAL_DPT_CD  = #FNL_DEAL_DPT_CD#
+			 , FNL_MNU_ID		= #FNL_MNU_ID#
+			 , FNL_MDF_DH		= SYSDATE 
+		 WHERE CTG_ID = #CTG_ID#
+		   AND CNB = #CNB#
+	</update>
+</sqlMap>

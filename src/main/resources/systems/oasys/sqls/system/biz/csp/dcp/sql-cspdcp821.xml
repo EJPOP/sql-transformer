@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/dcp/821">
+ 	
+ 	<select id="CSPDCP821QMainSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<include refid = "include.pageSelct"/>
+		<![CDATA[
+		WITH TBCSPDCP815 AS (SELECT   *
+            FROM    TBCSPDCP815L T1
+            WHERE   (T1.STTM_DVSN_CD, T1.ACP_YR, T1.STTM_ACP_NO, T1.SRNO) IN (	SELECT	Z.STTM_DVSN_CD, Z.ACP_YR, Z.STTM_ACP_NO, MIN(Z.SRNO) AS SRNO
+																			FROM	TBCSPDCP815L Z
+																			WHERE	T1.STTM_DVSN_CD = Z.STTM_DVSN_CD
+																			AND		T1.ACP_YR = Z.ACP_YR
+																			AND		T1.STTM_ACP_NO = Z.STTM_ACP_NO
+																			GROUP BY Z.STTM_DVSN_CD, Z.ACP_YR, Z.STTM_ACP_NO
+																		))
+			SELECT	T1.STTM_DVSN_CD
+					,T1.ACP_YR
+					,T1.STTM_ACP_NO
+					,DECODE(T1.RM_STTM_ACP_NO,NULL,NULL,T1.ACP_YR||'-'||'청금-'||T1.RM_STTM_ACP_NO) AS ACP_NO
+					,T1.HMP_APL_NO
+					,T1.STTM_KND_CD
+					,F_CODE_NM('1000758',T1.STTM_KND_CD) AS STTM_KND_NM
+					,T1.STTM_KND_DTL_CD
+					,F_CODE_NM('1000759',T1.STTM_KND_DTL_CD) AS STTM_KND_DTL_NM
+					,T1.NAM
+					,CASE WHEN ( SELECT COUNT(*)
+							       FROM TBCSPDCP819L S1
+							      WHERE S1.STTM_DVSN_CD = T1.STTM_DVSN_CD
+							        AND S1.ACP_YR = T1.ACP_YR
+							        AND S1.STTM_ACP_NO = T1.STTM_ACP_NO ) > 0 
+						THEN T1.TIT_NM||'(합건 : '||
+						       ( SELECT AGGR_CONCAT(S3.ACP_YR||'-청금-'||S3.RM_STTM_ACP_NO, ', ')||' )'
+						           FROM TBCSPDCP819L S2, TBCSPDCP811M S3
+						          WHERE T1.STTM_DVSN_CD = S2.STTM_DVSN_CD
+						            AND T1.ACP_YR = S2.ACP_YR
+						            AND T1.STTM_ACP_NO = S2.STTM_ACP_NO
+						            AND S2.SUC_STTM_DVSN_CD = S3.STTM_DVSN_CD
+						            AND S2.SUC_ACP_YR = S3.ACP_YR
+						            AND S2.SUC_STTM_ACP_NO = S3.STTM_ACP_NO
+						        )
+						WHEN ( SELECT COUNT(*) 
+						         FROM TBCSPDCP819L S1
+						        WHERE S1.SUC_STTM_DVSN_CD = T1.STTM_DVSN_CD
+						          AND S1.SUC_ACP_YR = T1.ACP_YR
+						          AND S1.SUC_STTM_ACP_NO = T1.STTM_ACP_NO) > 0
+						THEN T1.TIT_NM ||'(합건 : '|| 
+						      ( SELECT S3.ACP_YR||'-청금-'||S3.RM_STTM_ACP_NO
+						          FROM TBCSPDCP819L S2, TBCSPDCP811M S3
+						         WHERE S2.STTM_DVSN_CD = S3.STTM_DVSN_CD
+						           AND S2.ACP_YR = S3.ACP_YR
+						           AND S2.STTM_ACP_NO = S3.STTM_ACP_NO
+						           AND S2.SUC_STTM_DVSN_CD = T1.STTM_DVSN_CD
+						           AND S2.SUC_ACP_YR = T1.ACP_YR
+						           AND S2.SUC_STTM_ACP_NO = T1.STTM_ACP_NO
+						       ) ||
+						       ( SELECT ', '||AGGR_CONCAT(S4.ACP_YR||'-청금-'||S4.RM_STTM_ACP_NO, ', ')
+						           FROM TBCSPDCP819L S2, TBCSPDCP819L S3, TBCSPDCP811M S4
+						          WHERE S2.SUC_STTM_DVSN_CD = T1.STTM_DVSN_CD
+						            AND S2.SUC_ACP_YR = T1.ACP_YR
+						            AND S2.SUC_STTM_ACP_NO = T1.STTM_ACP_NO
+						            AND S2.STTM_DVSN_CD = S3.STTM_DVSN_CD
+						            AND S2.ACP_YR = S3.ACP_YR
+						            AND S2.STTM_ACP_NO = S3.STTM_ACP_NO
+						            AND S3.SUC_STTM_DVSN_CD = S4.STTM_DVSN_CD
+						            AND S3.SUC_ACP_YR = S4.ACP_YR
+						            AND S3.SUC_STTM_ACP_NO = S4.STTM_ACP_NO
+						            AND (S4.STTM_DVSN_CD, S4.ACP_YR, S4.STTM_ACP_NO) <> (T1.STTM_DVSN_CD, T1.ACP_YR, T1.STTM_ACP_NO) )||')'
+					ELSE T1.TIT_NM END AS TIT_NM
+					,TO_CHAR(T1.ACP_DH,'YYYY-MM-DD HH24:MI') AS ACP_DH
+					,TO_CHAR(T1.FRT_REGI_DH,'YYYY-MM-DD HH24:MI') AS FRT_REGI_DH
+					,T1.ACP_RUT_CD
+					,F_CODE_NM('1000761',T1.ACP_RUT_CD) AS ACP_RUT_NM
+					,T1.HNDL_STA_CD
+					,F_CODE_NM('1000760',T1.HNDL_STA_CD) AS HNDL_STA_NM
+					,T1.RM_STTM_ACP_NO
+					,TO_CHAR(T3.FNL_HNDL_DH,'YYYY-MM-DD HH24:MI') AS FNL_HNDL_DH 
+					,TO_CHAR(TO_DATE(F_GET_NEXT_WORK_DT(TO_CHAR(T1.ACP_DH, 'YYYYMMDD'),31)),'YYYY-MM-DD') AS HNDL_LIMIT__DT
+					,TO_CHAR(T1.DELETE_DH,'YYYY-MM-DD HH24:MI') AS DELETE_DH
+					,T2.RES_NAM
+					,T2.RES_TNB
+					,T2.RES_JB_NM
+					,T2.RES_AD
+					,T2.CRP_NM
+					,T1.JB_NM
+					,T1.AD
+					,T1.TNB
+					,(	SELECT	COUNT(*)
+   						FROM	TBCSPDCP811M S1
+   						WHERE	S1.STTM_DVSN_CD = '1' 
+   						AND		S1.EIN = T1.EIN
+   					) AS JEBOCNT
+   					,F_DPT_INFO(T1.ACP_DPT_CD,'1') AS ACP_DPT_NM
+   					,F_DPT_INFO(T3.HNDL_DPT_CD,'1') AS HNDL_DPT_NM
+   					,F_USR_INFO_BY_ID(T3.HNDL_CHGR_ID,'2') AS HNDL_CHGR_NAM
+   					,F_CODE_NM(T4.HNDL_DVSN_CD,'1000764') AS HNDL_DVSN_NM
+   					,F_DPT_INFO(T4.TRNF_DPT_CD,'1') AS TRNF_DPT_NM
+   					,(	SELECT	F_ORG_INFO(MIN(S1.ORG_CD),'1') AS ORG_NM
+   						FROM	TBCSPDCP816L S1
+   						WHERE	T4.STTM_DVSN_CD = S1.STTM_DVSN_CD
+   						AND		T4.ACP_YR = S1.ACP_YR
+   						AND		T4.STTM_ACP_NO = S1.STTM_ACP_NO
+   						AND		T4.SRNO = S1.SRNO
+   					) AS TRNF_ORG_NM
+   					,T1.INSPC_AGR_YN
+			FROM	TBCSPDCP811M T1
+					,TBCSPDCP812M T2
+					,TBCSPDCP813M T3
+					,TBCSPDCP815 T4
+			WHERE	T1.STTM_DVSN_CD = '1'
+			AND		T1.STTM_DVSN_CD = T2.STTM_DVSN_CD
+			AND		T1.ACP_YR = T2.ACP_YR
+			AND		T1.STTM_ACP_NO = T2.STTM_ACP_NO
+			AND		T1.STTM_DVSN_CD = T3.STTM_DVSN_CD(+)
+			AND		T1.ACP_YR = T3.ACP_YR(+)
+			AND		T1.STTM_ACP_NO = T3.STTM_ACP_NO(+)
+			AND		T1.STTM_DVSN_CD = T4.STTM_DVSN_CD(+)
+			AND		T1.ACP_YR = T4.ACP_YR(+)
+			AND		T1.STTM_ACP_NO = T4.STTM_ACP_NO(+)
+
+		]]>
+		<dynamic>
+			<isNotEmpty property="strACP_YR">
+				AND	T1.ACP_YR = #strACP_YR#
+			</isNotEmpty>
+			<isNotEmpty property="strRM_STTM_ACP_NO">
+				AND	T1.RM_STTM_ACP_NO = #strRM_STTM_ACP_NO#
+			</isNotEmpty>
+			<isNotEmpty property="strACP_DHS">
+				AND	TO_CHAR(T1.ACP_DH,'YYYYMMDD') &gt;= #strACP_DHS#
+			</isNotEmpty>
+			<isNotEmpty property="strACP_DHE">
+				AND	TO_CHAR(T1.ACP_DH,'YYYYMMDD') &lt;= #strACP_DHE#
+			</isNotEmpty>
+			<isNotEmpty property="strSTTM_KND_CD">
+				AND T1.STTM_KND_CD = #strSTTM_KND_CD#
+			</isNotEmpty>
+			<isNotEmpty property="strSTTM_KND_DTL_CD">
+				AND T1.STTM_KND_DTL_CD = #strSTTM_KND_DTL_CD#
+			</isNotEmpty>
+			<isNotEmpty property="strHNDL_STA_CD">
+				AND	T1.HNDL_STA_CD = #strHNDL_STA_CD#
+			</isNotEmpty>
+			<isNotEmpty property="strTIT_NM">
+				AND	T1.TIT_NM LIKE '%'||#strTIT_NM#||'%'
+			</isNotEmpty>
+			
+			<isNotEmpty property="strNAM">
+				AND	T1.NAM LIKE '%'||#strNAM#||'%'
+			</isNotEmpty>
+			
+			<isEqual property="strRESULT_YN"  compareValue="Y">
+				AND	T1.HNDL_STA_CD IN ('9','10')
+			</isEqual>
+			<isEqual property="strRESULT_YN"  compareValue="N">
+				AND	T1.HNDL_STA_CD NOT IN ('9','10')
+			</isEqual>
+			
+		</dynamic>
+		<![CDATA[
+			ORDER BY T1.ACP_YR DESC,TO_NUMBER(T1.RM_STTM_ACP_NO) DESC
+		]]>
+		 <include refid = "include.pageOrder"/> 
+	</select>
+</sqlMap> 
+

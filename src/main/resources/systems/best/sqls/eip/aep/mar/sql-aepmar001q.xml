@@ -1,0 +1,387 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.mar.dao.AEPMAR001QMapper">
+
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.aep.mar.dao.AEPMAR001QMapper.selectMainList*/
+        <include refid="include.pageSelct" />
+            <![CDATA[
+            WITH AUTH_DEPT AS (
+                SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#{cnb}, #{dptAuth}, '', #{schSpvBrdvCd}))
+            )
+            SELECT D1.AUD_YR AS AUD_YR
+                 , D1.AUD_NO AS AUD_NO
+                 , D1.AUD_KND_CD AS AUD_KND_CD
+                 , D1.AUD_GRN_NO AS AUD_GRN_NO
+                 , F_CODE_NM('1000753',D1.AUD_CTRL_CD) AS AUD_CTRL_NM
+                 , F_MNG_KND_AUDYRNO(D1.AUD_YR, D1.AUD_NO, D1.AUD_KND_CD, '-') AS AUD_YR_N0
+                 , CASE WHEN D1.AUD_YR >= '2016' 
+                        THEN SUBSTR(D1.AUD_KND_CD,3,1)
+                        ELSE '' END AS AUD_YR_NO_KND_CD /*감사연번호종류코드*/
+                 , CASE WHEN D1.AUD_YR >= '2016' 
+                        THEN F_CODE_NM('1000739',D1.AUD_KND_CD)   
+                        ELSE '-' END AS AUD_YR_NO_KND_NM /*감사연번호종류코드명*/
+                 , D1.AUD_YR||'-'||SUBSTR(D1.AUD_TASK_CD,-1)||'-'||D1.ORG_DVSN_CD||'-'||SUBSTR(D1.AUD_KND_CD,-1)
+                    ||'-'||SUBSTR(D1.SPV_BRDV_CD,1,2)||SUBSTR(D1.SPV_BRDV_CD,4,2)||'-'||SUBSTR(D1.AUD_WAY_CD,-1)||'-'||D1.AUD_NO AS AUD_DTL_NO /*세부연번호*/
+                 , D1.AUD_YR||'-'||D1.AUD_KND_CD||'-'||D1.AUD_NO AS AUD_YR_KND_NO_CD
+                 , F_DPT_INFO(D1.SPV_BRDV_CD,'1')        AS SPV_BRDV_NM
+                 , F_CODE_NM('1000007', D1.AUD_KND_CD) AS AUD_KND_NM
+                 , F_CODE_NM('1000751',D1.BZT_BGT_DVSN_CD) AS BZT_BGT_DVSN_NM
+                 , D1.AUD_SBJ_NM        AS AUD_SBJ_NM
+                 , F_ORG_INFO(D1.AUD_RPST_ORG_CD,'1')  AS AUD_RPST_ORG_NM
+                 , F_DPT_INFO(D1.MNG_DPT_CD,'1')         AS MNG_DPT_NM
+                 , D1.MNG_DPT_CD         AS  MNG_DPT_CD  /*관리국코드 - 2017.02.01 EUNOK */
+                 , F_CODE_NM('1000742',D1.REQ_DVSN_CD) AS REQ_DVSN_NM /*관련업무 코드 변경 1000337 -> 1000742  2017.07.07 EUNOK */
+                 , CASE WHEN D1.PRSS_STEP_CD LIKE 'A10%' THEN (SELECT AUD_STEP_NM 
+                                                                 FROM TBBADDED101M 
+                                                                WHERE AUD_YR = D1.AUD_YR
+                                                                  AND AUD_NO = D1.AUD_NO
+                                                                  AND AUD_STEP_CD = D1.PRSS_STEP_CD)
+                        ELSE F_CODE_NM('1000475',CASE WHEN SUBSTR(D1.AUD_KND_CD,3) = '55' THEN '' 
+                                                      WHEN D3.AUD_EXEC_HNDL_STA_CD = '9'  THEN '10'
+                                                      ELSE
+                                                        CASE WHEN TRIM(D3.ENF_APV_DT) IS NOT NULL THEN '10'
+                                                             WHEN TRIM(D3.CHF_CMTR_APV_DT)IS NOT NULL THEN '09'
+                                                             WHEN TRIM(D3.OW_DHD_APV_DT)  IS NOT NULL THEN '08'
+                                                             WHEN TRIM(D3.JA_JDG_SSEC_APV_DT) IS NOT NULL THEN '07'
+                                                             WHEN TRIM(D3.MDT_DDG_APV_DT) IS NOT NULL THEN '06'
+                                                             WHEN TRIM(D3.MDT_OFER_APV_DT)IS NOT NULL THEN '05'
+                                                             WHEN TRIM(D3.AUD_BRDV_APV_DT)IS NOT NULL THEN '04'
+                                                             WHEN TRIM(D3.RTN_RPT_DT) IS NOT NULL THEN '03'
+                                                        ELSE
+                                                            (CASE WHEN
+                                                                        (CASE WHEN (D3.AUD_EXEC_HNDL_STA_CD = '1' AND TO_DATE(D3.RTN_DT) > TO_DATE(SYSDATE)) THEN '7'
+                                                                              WHEN ((D3.AUD_EXEC_HNDL_STA_CD = '1' AND TRIM(NVL(D3.EXTN_HNDL_DDLN_DT, D3.HNDL_DDLN_DT)) IS NULL) OR D3.AUD_EXEC_HNDL_STA_CD = '3') OR (D3.AUD_EXEC_HNDL_STA_CD = '1'AND NVL(TO_DATE(NVL(D3.EXTN_HNDL_DDLN_DT, D3.HNDL_DDLN_DT)),'99991231') < TO_DATE(SYSDATE) )THEN '8'
+                                                                              WHEN D3.AUD_EXEC_HNDL_STA_CD = '1'AND NVL(TO_DATE(NVL(D3.EXTN_HNDL_DDLN_DT, D3.HNDL_DDLN_DT)),'99991231') < TO_DATE(SYSDATE) THEN '6'
+                                                                              WHEN D3.AUD_EXEC_HNDL_STA_CD = '3' THEN '3'
+                                                                              WHEN D3.AUD_EXEC_HNDL_STA_CD = '9' THEN '9'
+                                                                              ELSE '8' END) = '8' AND D3.RTN_RPT_DT IS NULL AND D3.FLD_AUD_END_DT IS NULL THEN '02'
+                                                                  WHEN
+                                                                        (CASE WHEN (D3.AUD_EXEC_HNDL_STA_CD = '1' AND TO_DATE(D3.RTN_DT) > TO_DATE(SYSDATE)) THEN '7'
+                                                                              WHEN ((D3.AUD_EXEC_HNDL_STA_CD = '1' AND TRIM(NVL(D3.EXTN_HNDL_DDLN_DT, D3.HNDL_DDLN_DT)) IS NULL) OR D3.AUD_EXEC_HNDL_STA_CD = '3') OR (D3.AUD_EXEC_HNDL_STA_CD = '1'AND NVL(TO_DATE(NVL(D3.EXTN_HNDL_DDLN_DT, D3.HNDL_DDLN_DT)),'99991231') < TO_DATE(SYSDATE) )THEN '8'
+                                                                              WHEN D3.AUD_EXEC_HNDL_STA_CD = '1'AND NVL(TO_DATE(NVL(D3.EXTN_HNDL_DDLN_DT, D3.HNDL_DDLN_DT)),'99991231') < TO_DATE(SYSDATE) THEN '6'
+                                                                              WHEN D3.AUD_EXEC_HNDL_STA_CD = '3' THEN '3'
+                                                                              WHEN D3.AUD_EXEC_HNDL_STA_CD = '9' THEN '9'
+                                                                              ELSE '8' END) = '8' AND D3.RTN_RPT_DT IS NULL THEN '11'
+                                                                  WHEN
+                                                                        (CASE WHEN (D3.AUD_EXEC_HNDL_STA_CD = '1' AND TO_DATE(D3.RTN_DT) > TO_DATE(SYSDATE)) THEN '7'
+                                                                              WHEN ((D3.AUD_EXEC_HNDL_STA_CD = '1' AND TRIM(NVL(D3.EXTN_HNDL_DDLN_DT, D3.HNDL_DDLN_DT)) IS NULL) OR D3.AUD_EXEC_HNDL_STA_CD = '3') OR (D3.AUD_EXEC_HNDL_STA_CD = '1'AND NVL(TO_DATE(NVL(D3.EXTN_HNDL_DDLN_DT, D3.HNDL_DDLN_DT)),'99991231') < TO_DATE(SYSDATE) )THEN '8'
+                                                                              WHEN D3.AUD_EXEC_HNDL_STA_CD = '1'AND NVL(TO_DATE(NVL(D3.EXTN_HNDL_DDLN_DT, D3.HNDL_DDLN_DT)),'99991231') < TO_DATE(SYSDATE) THEN '6'
+                                                                              WHEN D3.AUD_EXEC_HNDL_STA_CD = '3' THEN '3'
+                                                                              WHEN D3.AUD_EXEC_HNDL_STA_CD = '9' THEN '9'
+                                                                              ELSE '8' END) = '7' THEN '02'
+                                                                   END)
+                                                        END
+                                                      END)
+                        END    AS PRSS_STEP_NM
+                 ,DECODE(NVL((SELECT SUM(NVL(CNT,0)) AS SBCN_CNT
+                                              FROM (
+                                                    SELECT 
+                                                        REL_AUD_YR AS AUD_YR
+                                                        , REL_AUD_NO AS AUD_NO
+                                                        , COUNT(1) CNT
+                                                    FROM TBBADDED121M
+                                                    WHERE WORK_DVSN_CD = 'A10'
+                                                    GROUP BY REL_AUD_YR, REL_AUD_NO
+                                                    UNION
+                                                    SELECT 
+                                                        AUD_YR
+                                                        , AUD_NO
+                                                        , COUNT(1) CNT
+                                                    FROM TBBADDED113M T1
+                                                    WHERE EXISTS (SELECT 1
+                                                                                 FROM TBBADDED120M ST1
+                                                                               WHERE ST1.CMT_DY = T1.SBCN_DY
+                                                                                    AND ST1.CMT_DVSN_CD = '10')
+                                                    GROUP BY AUD_YR, AUD_NO
+                                                    UNION
+                                                    SELECT 
+                                                        AUD_YR
+                                                        , AUD_NO
+                                                        , COUNT(1) CNT
+                                                    FROM TBBADDED114M T1
+                                                    WHERE EXISTS (SELECT 1
+                                                                                 FROM TBBADDED120M ST1
+                                                                               WHERE ST1.CMT_DY = REPLACE(T1.SBMT_FIX_DT,'-')
+                                                                                    AND ST1.CMT_DVSN_CD = '20')
+                                                    GROUP BY AUD_YR, AUD_NO
+                                                   )
+                                             WHERE AUD_YR = D1.AUD_YR
+                                               AND AUD_NO = D1.AUD_NO
+                                             GROUP BY AUD_YR, AUD_NO),0),0,'N','Y') AS SBCN_YN /*부의 실시 여부 */
+                 , D1.PRSS_STEP_CD
+                 , D3.REQ_NTAS_DCS_DT  /*20170817 EUNOK 청구국회결정일 */
+            FROM TBBADDED001M AS D1
+ LEFT OUTER JOIN TBBADDED003M AS D3 ON D1.AUD_YR = D3.AUD_YR AND D1.AUD_NO = D3.AUD_NO
+           WHERE 1=1
+           AND 
+                (
+                     ( EXISTS (SELECT ST1.DPT_CD FROM AUTH_DEPT ST1 WHERE D1.MNG_DPT_CD = ST1.DPT_CD)
+                        OR  (#{schSpvBrdvCd}  = (SELECT D4.HIRK_DPT_CD FROM TBDCMACM002M D4 WHERE D4.DPT_CD  = D1.MNG_DPT_CD AND D4.USE_YN = 'Y') 
+                            AND D1.AUD_SCL_CD =  2  )
+                     )
+                   /* 부서권한은 없으나 출장 배정자로 등록 된 경우 감사사항 조회 가능하도록 수정 MJ */
+                   OR EXISTS (
+                        SELECT 1
+                          FROM TBBADDED002M ST4
+                         INNER JOIN TBBADDED005L ST5
+                            ON ST4.BZT_YR = ST5.BZT_YR
+                           AND ST4.BZT_SNO = ST5.BZT_SNO
+                         WHERE D1.AUD_YR = ST4.REL_AUD_YR
+                           AND D1.AUD_NO = ST4.REL_AUD_NO
+                           AND ST5.PCT_CNB = #{cnb}
+                   )
+                )
+
+            AND SUBSTR(D1.AUD_KND_CD, 3, 1) <> '5' /*확인출장은 조회하지 않음*/
+            ]]>
+            
+            /*20170202 EUNOK 관리부서 != 감찰담당관, 감찰관, 유지보수,구축용역이 아니면 감찰관부서의 데이터는 검색되지 않음*/
+            <if test='searchChk != "Y"  and  dptCd != "140100" '>
+               AND D1.MNG_DPT_CD NOT IN ('100000','100100')
+            </if>
+            <if test="schAudYr != null and schAudYr != ''">
+                    AND D1.AUD_YR  = #{schAudYr}
+            </if>
+            <if test="schAudYrNoKndCd != null and schAudYrNoKndCd != ''">
+                    AND D1.AUD_KND_CD = #{schAudYrNoKndCd}
+            </if>
+            <if test="schAudNo != null and schAudNo != ''">
+                    AND D1.AUD_GRN_NO = #{schAudNo}
+            </if>
+            <if test="schAudSbjNm != null and schAudSbjNm != ''">
+                    AND D1.AUD_SBJ_NM LIKE '%'||#{schAudSbjNm}||'%'
+            </if>
+            <if test="schPrssStepCd != null and schPrssStepCd != ''">
+                <![CDATA[
+                AND (
+                CASE WHEN #{schAudYr} < 2017 THEN (CASE WHEN SUBSTR(D1.AUD_KND_CD,3) = '55' THEN ''
+                                                        WHEN D3.AUD_EXEC_HNDL_STA_CD = '9'  THEN '10'
+                                                   ELSE 
+                                                        CASE WHEN TRIM(D3.ENF_APV_DT) IS NOT NULL THEN '10'
+                                                             WHEN TRIM(D3.CHF_CMTR_APV_DT)IS NOT NULL THEN '09'
+                                                             WHEN TRIM(D3.OW_DHD_APV_DT)  IS NOT NULL THEN '08'
+                                                             WHEN TRIM(D3.JA_JDG_SSEC_APV_DT) IS NOT NULL THEN '07'
+                                                             WHEN TRIM(D3.MDT_DDG_APV_DT) IS NOT NULL THEN '06'
+                                                             WHEN TRIM(D3.MDT_OFER_APV_DT)IS NOT NULL THEN '05'
+                                                             WHEN TRIM(D3.AUD_BRDV_APV_DT)IS NOT NULL THEN '04'
+                                                             WHEN TRIM(D3.RTN_RPT_DT) IS NOT NULL THEN '03'
+                                                        ELSE 
+                                                            (CASE WHEN
+                                                                        (CASE WHEN (D3.AUD_EXEC_HNDL_STA_CD = '1' AND TO_DATE(D3.RTN_DT) > TO_DATE(SYSDATE)) THEN '7'
+                                                                              WHEN ((D3.AUD_EXEC_HNDL_STA_CD = '1' AND TRIM(NVL(D3.EXTN_HNDL_DDLN_DT, D3.HNDL_DDLN_DT)) IS NULL) OR D3.AUD_EXEC_HNDL_STA_CD = '3') OR (D3.AUD_EXEC_HNDL_STA_CD = '1'AND NVL(TO_DATE(NVL(D3.EXTN_HNDL_DDLN_DT, D3.HNDL_DDLN_DT)),'99991231') < TO_DATE(SYSDATE) )THEN '8'
+                                                                              WHEN D3.AUD_EXEC_HNDL_STA_CD = '1'AND NVL(TO_DATE(NVL(D3.EXTN_HNDL_DDLN_DT, D3.HNDL_DDLN_DT)),'99991231') < TO_DATE(SYSDATE) THEN '6'
+                                                                              WHEN D3.AUD_EXEC_HNDL_STA_CD = '3' THEN '3'
+                                                                              WHEN D3.AUD_EXEC_HNDL_STA_CD = '9' THEN '9'
+                                                                              ELSE '8'
+                                                                              END) = '8' AND D3.RTN_RPT_DT IS NULL AND D3.FLD_AUD_END_DT IS NULL THEN '02'
+                                                                  WHEN
+                                                                        (CASE WHEN (D3.AUD_EXEC_HNDL_STA_CD = '1' AND TO_DATE(D3.RTN_DT) > TO_DATE(SYSDATE)) THEN '7'
+                                                                              WHEN ((D3.AUD_EXEC_HNDL_STA_CD = '1' AND TRIM(NVL(D3.EXTN_HNDL_DDLN_DT, D3.HNDL_DDLN_DT)) IS NULL) OR D3.AUD_EXEC_HNDL_STA_CD = '3') OR (D3.AUD_EXEC_HNDL_STA_CD = '1'AND NVL(TO_DATE(NVL(D3.EXTN_HNDL_DDLN_DT, D3.HNDL_DDLN_DT)),'99991231') < TO_DATE(SYSDATE) )THEN '8'
+                                                                              WHEN D3.AUD_EXEC_HNDL_STA_CD = '1'AND NVL(TO_DATE(NVL(D3.EXTN_HNDL_DDLN_DT, D3.HNDL_DDLN_DT)),'99991231') < TO_DATE(SYSDATE) THEN '6'
+                                                                              WHEN D3.AUD_EXEC_HNDL_STA_CD = '3' THEN '3'
+                                                                              WHEN D3.AUD_EXEC_HNDL_STA_CD = '9' THEN '9'
+                                                                              ELSE '8'
+                                                                              END) = '8' AND D3.RTN_RPT_DT IS NULL THEN '11'
+                                                                  WHEN
+                                                                        (CASE WHEN (D3.AUD_EXEC_HNDL_STA_CD = '1' AND TO_DATE(D3.RTN_DT) > TO_DATE(SYSDATE)) THEN '7'
+                                                                              WHEN ((D3.AUD_EXEC_HNDL_STA_CD = '1' AND TRIM(NVL(D3.EXTN_HNDL_DDLN_DT, D3.HNDL_DDLN_DT)) IS NULL) OR D3.AUD_EXEC_HNDL_STA_CD = '3') OR (D3.AUD_EXEC_HNDL_STA_CD = '1'AND NVL(TO_DATE(NVL(D3.EXTN_HNDL_DDLN_DT, D3.HNDL_DDLN_DT)),'99991231') < TO_DATE(SYSDATE) )THEN '8'
+                                                                              WHEN D3.AUD_EXEC_HNDL_STA_CD = '1'AND NVL(TO_DATE(NVL(D3.EXTN_HNDL_DDLN_DT, D3.HNDL_DDLN_DT)),'99991231') < TO_DATE(SYSDATE) THEN '6'
+                                                                              WHEN D3.AUD_EXEC_HNDL_STA_CD = '3' THEN '3'
+                                                                              WHEN D3.AUD_EXEC_HNDL_STA_CD = '9' THEN '9'
+                                                                              ELSE '8'
+                                                                              END) = '7' THEN '02'
+                                                                  END)
+                                                        END
+                                                   END)
+                     ELSE (SELECT AUD_STEP_CD FROM TBBADDED101M WHERE AUD_YR = D1.AUD_YR AND AUD_NO = D1.AUD_NO AND AUD_STEP_CD = D1.PRSS_STEP_CD)
+                     END	
+                  ) = #{schPrssStepCd}
+                ]]>
+            </if>
+            <if test="schAudKndCd != null and schAudKndCd != ''">
+                    AND D1.AUD_KND_CD  = #{schAudKndCd}
+            </if>
+            <if test="schDeptCd != null and schDeptCd != ''">
+                    AND D1.MNG_DPT_CD = #{schDeptCd}
+            </if>
+            <if test="schReqDvsnCd != null and schReqDvsnCd != ''">
+            		/* 관련업무 조건 수정 - 2017.02.13 yyh */
+                    AND EXISTS (SELECT 1
+                                  FROM TBBADDED030L 
+                                 WHERE AUD_YR  = D1.AUD_YR
+                                   AND AUD_NO  = D1.AUD_NO
+                                   AND DVSN_CD = #{schReqDvsnCd})        
+            </if>
+            ORDER BY D1.FRT_REGI_DH DESC /* 20170721 EUNOK 수정 ORDER BY D1.AUD_YR DESC, D1.AUD_KND_CD, D1.AUD_GRN_NO DESC */
+               
+        <include refid="include.pageOrder" />
+    </select>
+
+	<select id="chkFnlBaiRprtYn" parameterType="paramMap" resultType="String">
+		/*kr.go.bai.eip.aep.mar.dao.AEPMAR001QMapper.chkFnlBaiRprtYn*/
+		SELECT DECODE(COUNT(DOC_ID),0,'N','Y')
+		  FROM TBBADDED103M 
+		 WHERE AUD_YR = #{audYr}
+		   AND AUD_NO = #{audNo}
+		   AND RPRT_CD = 'A10600200' /*감사보고서*/
+		   AND AUD_STEP_CD = 'A1070'
+		   AND FNL_BAI_RPRT_YN = 'Y'
+		   AND APV_STA_CD = '30'
+	</select>
+
+	<select id="selectMajorAudDocList" parameterType="paramMap" resultType="egovMap">
+		/*kr.go.bai.eip.aep.mar.dao.AEPMAR001QMapper.selectMajorAudDocList*/
+		<![CDATA[
+			SELECT 
+			 	  DECODE(DT.RPRT_CD, 'A10700500', '부의안/부의안요약문', F_CODE_NM('1000786',DT.RPRT_CD)) AS AUD_DOC_NM
+			      ,DT.RPRT_NM
+			      ,DT.DISP_APV_STA_NM 
+			      ,DT.RPRT_CD
+			      ,DT.APV_RQS_ID
+			      ,DT.APV_STA_CD
+			      ,DT.APV_DVSN_CD
+			      ,DT.DOC_ID
+			      ,DT.REF_ID
+			      ,DT.AUD_STEP_CD
+			      ,DT.DOC_TYPE
+			  FROM (
+					SELECT T1.RPRT_NM
+					      ,F_CODE_NM('1000773',T1.APV_STA_CD) || '(' || TO_CHAR(APV.FNL_APV_DH,'YYYY-MM-DD') || ')' AS DISP_APV_STA_NM 
+					      ,T1.RPRT_CD
+					      ,T1.APV_RQS_ID
+					      ,T1.APV_STA_CD
+					      ,T1.DOC_ID
+					      ,T1.REF_ID
+					      ,APV.APV_DVSN_CD
+					      ,T1.AUD_STEP_CD
+					      ,F_OPEN_EDIT(T1.LINK_URL) AS DOC_TYPE
+					  FROM (
+					  		/*예비조사계획서, 감사실시계획서, 감사종료보고서, 부의안/부의안요약문, 공개문전문*/
+							SELECT  A.RPRT_CD
+							       ,CASE WHEN A.RPRT_CD = 'A10700500'     /*부의안 요약 + 부의안 한줄로 처리 */
+							             THEN A.RPRT_NM ||'/'|| (SELECT ST1.RPRT_NM
+										                           FROM TBBADDED103M ST1
+										                          WHERE ST1.AUD_YR = A.AUD_YR
+										                            AND ST1.AUD_NO = A.AUD_NO
+										                            AND ST1.AUD_STEP_CD = A.AUD_STEP_CD
+										                            AND ST1.AUD_KND_CD = A.AUD_KND_CD
+										                            AND ST1.REF_DY  = A.REF_DY
+										                            AND ST1.REF_DOC_ID = A.REF_DOC_ID
+										                            AND ST1.REF_ID = A.DOC_ID
+										                            AND ST1.RPRT_CD = 'A10700800')   
+							             ELSE A.RPRT_NM
+							        END AS RPRT_NM
+							       ,A.APV_STA_CD
+							       ,A.APV_RQS_ID
+							       ,A.DOC_ID
+							       ,CASE WHEN A.RPRT_CD = 'A10700500'     /*부의안 인 경우 부의안요약문(원장용) DOC_ID를 조회*/
+							             THEN (SELECT ST1.DOC_ID
+							                     FROM TBBADDED103M ST1
+					                            WHERE ST1.AUD_YR = A.AUD_YR
+					                              AND ST1.AUD_NO = A.AUD_NO
+					                              AND ST1.AUD_STEP_CD = A.AUD_STEP_CD
+					                              AND ST1.AUD_KND_CD = A.AUD_KND_CD
+					                              AND ST1.REF_DY  = A.REF_DY
+					                              AND ST1.REF_DOC_ID = A.REF_DOC_ID
+					                              AND ST1.REF_ID = A.DOC_ID
+					                              AND ST1.RPRT_CD = 'A10700800')
+							        	 ELSE REF_ID
+							        END AS REF_ID
+							      ,A.AUD_STEP_CD
+							      ,A.LINK_URL
+							  FROM TBBADDED103M A
+							 WHERE A.AUD_YR = #{audYr}
+							   AND A.AUD_NO = #{audNo}
+							   AND A.RPRT_CD IN ('A10200100','A10300100','A10500200','A10700500') 
+							   AND A.APV_STA_CD = '30'
+							UNION
+							/*감사보고서 : 결재완료된 최종보고서가 있으면 기존의 결재완료된 보고서(감사결과 처리단계의 보고서)가 아니라 최종보고서만 조회 */
+							SELECT  A.RPRT_CD
+							       ,A.RPRT_NM
+							       ,A.APV_STA_CD
+							       ,CASE WHEN A.APV_RQS_ID IS NULL AND A.FNL_BAI_RPRT_YN='Y' THEN (SELECT B.APV_RQS_ID 
+                                                                           FROM TBBADDED103M B 
+                                                                          WHERE B.AUD_YR = A.AUD_YR
+                                                                            AND B.AUD_NO = A.AUD_NO
+                                                                            AND B.RPRT_CD = 'A10700100'
+                                                                            AND B.REF_ID = A.REF_ID) 
+                                          ELSE A.APV_RQS_ID END AS APV_RQS_ID
+							       ,A.DOC_ID
+							       ,A.REF_ID     
+							       ,A.AUD_STEP_CD
+							       ,A.LINK_URL
+							  FROM TBBADDED103M A
+							 WHERE A.AUD_YR = #{audYr}
+							   AND A.AUD_NO = #{audNo}
+							   AND A.RPRT_CD = 'A10600200' 
+					 		   AND A.APV_STA_CD = '30'
+						]]>
+					 		<if test='fnlBaiRprtYn != null and fnlBaiRprtYn != "" and fnlBaiRprtYn == "Y"'>
+					 		   /*최종보고서가 결재 완료면 최종보고서만 조회*/
+							   AND AUD_STEP_CD = 'A1070' 
+							   AND FNL_BAI_RPRT_YN = 'Y'
+							</if>
+					<![CDATA[
+					 	   ) T1
+					 	 , TBDCMACM022L APV
+					 WHERE T1.APV_RQS_ID = APV.APV_DOC_NO(+)
+					   AND APV.APV_STA_CD(+) = '3'
+				UNION
+				/*공개문전문 : 공개문 전문은 REF_ID, 감사보고서의 DOC_ID 가 있음*/
+					SELECT A.RPRT_NM
+					      ,'제출일자('|| TO_CHAR(TO_DATE(MAX(B.PRL_SMT_DT)),'YYYY-MM-DD') || ')' AS DISP_APV_STA_NM
+					      ,A.RPRT_CD
+					      ,B.APV_DOC_NO
+					      ,B.PRSS_STA_CD
+					      ,A.DOC_ID
+					      ,A.REF_ID
+					      ,C.APV_DVSN_CD
+					      ,A.AUD_STEP_CD
+					      ,F_OPEN_EDIT(A.LINK_URL) AS DOC_TYPE
+					  FROM TBBADDED103M A
+					      ,TBBADEAR028M B
+					      ,TBDCMACM022L C
+					 WHERE A.AUD_YR = SUBSTR(B.AUD_SLN, 0, 4)
+					   AND A.AUD_NO = SUBSTR(B.AUD_SLN, 5, 3)
+					   AND A.AUD_YR = #{audYr}
+					   AND A.AUD_NO = #{audNo}
+					   AND A.RPRT_CD = 'A10800500' 
+					   AND B.TSK_CAT_CD = 'KP1'
+					   AND B.PRSS_STA_CD IN ( '50' ,'30')
+					   AND A.REF_ID IN (SELECT AA.DOC_ID FROM TBBADDED103M AA
+					                   WHERE AA.AUD_YR = A.AUD_YR
+					                     AND AA.AUD_NO = A.AUD_NO
+					                     AND AA.RPRT_CD = 'A10600200'
+					                     AND AA.AUD_STEP_CD ='A1070'
+					                     AND AA.FNL_BAI_RPRT_YN ='Y')
+					   AND B.APV_DOC_NO = C.APV_DOC_NO                   
+					 GROUP BY A.RPRT_NM, A.RPRT_CD, B.APV_DOC_NO, B.PRSS_STA_CD, A.DOC_ID, A.REF_ID, C.APV_DVSN_CD, A.AUD_STEP_CD, A.LINK_URL
+				) DT
+			ORDER BY DT.RPRT_CD 
+	   ]]>
+	</select>
+	
+	<select id="selectMajorAudDocListBfEip" parameterType="paramMap" resultType="egovMap">
+		/*kr.go.bai.eip.aep.mar.dao.AEPMAR001QMapper.selectMajorAudDocListBfEip*/
+		<![CDATA[
+			SELECT DECODE(D1.DOC_TYP_CD,'AD-AR-002','실지감사계획서','AD-AR-003','실지감사종료보고','AD-AR-001','감사결과보고서') AS AUD_DOC_NM
+			      ,D2.FILE_NAME AS RPRT_NM
+			      ,'' AS DISP_APV_STA_NM
+			      ,D1.DOC_TYP_CD AS RPRT_CD
+			      ,'' AS APV_RQS_ID
+			      ,'' AS APV_STA_CD
+			      ,D1.DOC_ID
+			 FROM TBBADDED021M D1
+			    , ECM_FILE_LIST_VIEW2 D2
+			WHERE 1=1
+			  AND D1.DOC_ID = D2.DOC_ID
+			  AND D1.AUD_YR = #{audYr}
+			  AND D1.AUD_NO = #{audNo}
+			  AND D1.DOC_TYP_CD IN ('AD-AR-003','AD-AR-001','AD-AR-002')
+			ORDER BY DECODE(D1.DOC_TYP_CD,  'AD-AR-002', 1, 'AD-AR-003', 2,  'AD-AR-001', 3)
+		]]>
+	</select>
+
+</mapper> 

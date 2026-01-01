@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.go.bai.eip.aep.cam.dao.AEPCAM007PMapper">
+    
+    <select id="selectRepDocInfo" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.aep.cam.dao.AEPCAM007PMapper.selectRepDocInfo*/
+        SELECT A.RPRT_NM                                           AS RPRT_NM
+              ,F_CODE_NM('1000776', B.EVI_DCM_DVSN_CD)             AS RPT_NM
+              ,A.RCNT_ID                                           AS RCNT_ID
+              ,NVL(F_CODE_NM('1000780', A.DOC_STA_CD),'미발신')      AS DOC_STA_NM
+              ,F_DPT_INFO(A.RCPT_DPT_CD,  1)                       AS RCPT_DPT_NM
+              ,TO_CHAR(A.SND_DH,'YYYY-MM-DD')                      AS SND_DH
+              ,A.AUD_YR
+              ,A.AUD_NO
+              ,A.AUD_STEP_CD
+              ,A.DOC_ID
+              ,A.AUD_KND_CD
+              ,A.AUD_GRN_NO
+              ,A.RPRT_NM
+              ,A.REF_ID AS SRNO
+          FROM TBBADDED111M AS A
+    INNER JOIN TBBADDED108D AS B ON A.AUD_YR  = B.AUD_YR
+                                 AND A.AUD_NO = B.AUD_NO
+                                 AND A.REF_ID = B.AFF_SNO
+                                 AND A.DOC_ID = B.AUD_DCM_DOC_ID
+         WHERE A.AUD_YR = #{audYr}
+           AND A.AUD_NO = #{audNo}
+           AND A.REF_ID = #{srno}
+           AND A.DOC_KND_CD NOT IN ('50')
+           AND A.DOC_STA_CD NOT IN ('10')
+           AND A.RCPT_DPT_CD = '160201'
+           <!-- AND ROWNUM = '1' -->
+    </select>
+    
+    <select id="selectMainDetail" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.aep.cam.dao.AEPCAM007PMapper.selectMainDetail*/
+         SELECT D.AUD_YR,
+                F_CODE_NM('1000739', D.AUD_KND_CD) AS AUD_KND_NM,
+                D.AUD_KND_CD,
+                D.AUD_NO,
+                D.AUD_GRN_NO,
+                D.AUD_SBJ_NM,
+                D.AUD_YR AS AUD_YR2,
+                F_CODE_NM('1000739', D.AUD_KND_CD)AS AUD_KND_NM2,
+                D.AUD_GRN_NO AS AUD_GRN_NO2,
+                B.AFF_CD,
+                B.TITLE_NM,
+                F_ORG_INFO(A.RLTN_ORG_CD, 1) AS RLTN_ORG_NM,
+                TO_CHAR(TO_DATE(A.SMT_DT),'YYYY-MM-DD') AS SMT_DT,
+                A.PRSR,
+                TO_CHAR(A.FRT_REGI_DH,'YYYY-MM-DD') AS FRT_REGI_DH,
+                A.SRNO,
+                A.AFF_SNO
+           FROM TBCSPKDE103M AS A 
+     INNER JOIN TBBADDED001M AS D ON D.AUD_YR  = A.AUD_YR
+                                 AND D.AUD_NO  = A.AUD_NO
+LEFT OUTER JOIN TBBADDED145M AS B ON A.AUD_YR  = B.AUD_YR
+                                 AND A.AUD_NO  = B.AUD_NO
+                                 AND A.AFF_SNO = B.AFF_SNO
+          WHERE A.AUD_YR  = #{audYr}
+            AND A.AUD_NO  = #{audNo}
+            AND A.SRNO    = #{srno}
+            AND A.AFF_SNO = #{affSno}
+    </select>
+    
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.aep.cam.dao.AEPCAM007PMapper.selectMainList*/
+        <include refid="include.pageSelct" />
+         <![CDATA[
+            SELECT A.RPRT_NM
+                  ,A.DOC_ID
+                  ,A.DOC_KND_CD AS DOC_KND_CD
+                  ,CASE A.DOC_KND_CD WHEN '40' THEN '소명자료' ELSE A.DOC_KND_NM END AS DOC_KND_NM
+                  ,NVL(F_CODE_NM('1000780', B.DOC_STA_CD),'미발신') AS DOC_STA_NM
+                  ,'권익보호관' AS RECP_DPT_NM
+                  ,CASE WHEN B.DOC_STA_CD IS NULL THEN 'N' ELSE 'Y' END AS SEND_YN
+                  ,NVL(B.DOC_STA_CD,'N') AS DOC_STA_CD
+                  ,B.SNDR_ID
+                  ,TO_CHAR(B.SND_DH, 'YYYY-MM-DD') AS SND_DH
+                  ,A.AUD_YR
+                  ,A.AUD_NO
+                  ,'A1099' AS AUD_STEP_CD
+                  ,A.AUD_KND_CD
+                  ,A.AUD_GRN_NO
+                  ,A.SRNO
+                  ,A.AFF_SNO
+                  ,'권익보호관' AS MNG_DPT_CD
+            FROM (
+                 SELECT B.AUD_YR                   /*감사년도*/
+                       ,B.AUD_NO                   /*감사번호*/
+                       ,B.DOC_ID                   /*문서ID*/
+                       ,B.AUD_KND_CD               /*감사종류코드*/
+                       ,B.AUD_GRN_NO               /*감사부여번호*/
+                       ,B.FILE_NM AS RPRT_NM       /*보고서명*/
+                       ,#{dptCd} AS SND_DPT_CD     /*송신부서코드(로그인 부서코드)*/
+                       ,#{usrId} AS SNDR_ID        /*송신자ID( 로그인 ID)*/
+                       ,SYSDATE AS SND_DH          /*송신일시*/
+                       ,'160201' AS RCPT_DPT_CD    /*수신부서코드(권익보호관 부서)*/
+                       ,'ljn' AS RCNT_ID           /*수신자ID (감사 전담자)*/
+                       ,SYSDATE AS RCPT_DH         /*수신일시*/
+                       ,B.DOC_KND_CD
+                       ,F_CODE_NM('1000778', B.DOC_KND_CD) AS DOC_KND_NM        /*문서구분명*/
+                       ,B.AFF_SNO                  /*사건순번*/
+                       ,B.SRNO                     /*소명자료 일련번호*/
+                   FROM TBCSPKDE103M AS A
+             INNER JOIN TBCSPKDE104M AS B ON A.AUD_YR  = B.AUD_YR
+                                         AND A.AUD_NO  = B.AUD_NO
+                                         AND A.SRNO    = B.SRNO
+             INNER JOIN TBBADDED001M AS D ON D.AUD_YR  = A.AUD_YR
+                                         AND D.AUD_NO  = A.AUD_NO
+             INNER JOIN TBBADDED111M AS C ON A.AUD_YR  = C.AUD_YR
+                                         AND A.AUD_NO  = C.AUD_NO
+                                         AND A.SRNO    = C.REF_ID
+                                         AND B.DOC_ID  = C.DOC_ID
+                                         AND C.RCPT_DPT_CD <> '160201'
+                  WHERE B.AUD_YR = #{audYr}
+                    AND B.AUD_NO = #{audNo}
+                    AND B.SRNO = #{srno}
+                    AND B.AFF_SNO = #{affSno}
+                 UNION ALL
+                 SELECT AUD_YR
+                       ,AUD_NO                         /*감사번호*/
+                       ,AUD_DCM_DOC_ID                 /*문서ID*/
+                       ,AUD_KND_CD                     /*감사종류코드*/
+                       ,AUD_GRN_NO                     /*감사부여번호*/
+                       ,FILE_NM AS RPRT_NM             /*보고서명*/
+                       ,#{dptCd} AS SND_DPT_CD         /*송신부서코드(로그인 부서코드)*/
+                       ,#{usrId} AS SNDR_ID            /*송신자ID( 로그인 ID)*/
+                       ,SYSDATE AS SND_DH              /*송신일시*/
+                       ,'160201' AS RCPT_DPT_CD        /*수신부서코드(권익보호관 부서)*/
+                       ,'ljn' AS RCNT_ID               /*수신자ID (감사 전담자)*/
+                       ,SYSDATE AS RCPT_DH             /*수신일시*/
+                       ,EVI_DCMB_DVSN_CD AS DOC_KND_CD /*문서구분코드*/
+                       ,F_CODE_NM('1000776', EVI_DCM_DVSN_CD)  AS DOC_KND_NM
+                       ,AFF_SNO                        /*사건순번*/
+                       ,TO_NUMBER(#{srno}) AS SRNO     /*소명자료 일련번호*/
+                   FROM TBBADDED108D
+                  WHERE AUD_YR = #{audYr}
+                    AND AUD_NO = #{audNo}
+                    AND EVI_DCM_DVSN_CD IN ('10','20','30')    /*10 : 질문서, 20 :  답변서, 30 : 문답서*/
+                    AND EVI_DCMB_DVSN_CD = '10'   /*서류종류 구분  10: 증거서류*/
+                    AND AFF_SNO = #{affSno}
+                 ) AS A 
+ LEFT OUTER JOIN TBBADDED111M AS B ON A.AUD_YR  = B.AUD_YR
+                                  AND A.AUD_NO  = B.AUD_NO
+                                  AND A.SRNO = B.REF_ID
+                                  AND A.DOC_ID  = B.DOC_ID
+                                  AND B.RCPT_DPT_CD = '160201' /*160201 : 권익보호관 */
+        ORDER BY DOC_KND_CD DESC
+        ]]>
+        <include refid="include.pageOrder" />
+    </select>
+    
+    <select id="selectSubList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.aep.cam.dao.AEPCAM007PMapper.selectSubList*/
+        <include refid="include.pageSelct" />
+            SELECT B.FILE_NM AS rprt_Nm
+                  ,F_CODE_NM('1000776', B.EVI_DCM_DVSN_CD)  AS DOC_KND_NM
+                  ,NVL(F_CODE_NM('1000780', A.DOC_STA_CD),'미발신') AS DOC_STA_NM
+                  ,CASE WHEN A.DOC_STA_CD IS NULL THEN 'N' ELSE 'Y' END AS SEND_YN
+                  ,TO_CHAR(A.SND_DH, 'YYYY-MM-DD') AS SND_DH
+                  ,'권익보호관' AS RECP_DPT_NM
+                  ,A.AUD_YR
+                  ,A.AUD_NO
+                  ,'A1099' AS AUD_STEP_CD
+                  ,A.DOC_ID
+                  ,A.AUD_KND_CD
+                  ,A.AUD_GRN_NO
+                  ,B.FILE_NM AS RPRT_NM
+                  ,A.REF_ID AS SRNO
+              FROM TBBADDED111M AS A 
+        INNER JOIN TBBADDED108D AS B ON A.AUD_YR = B.AUD_YR
+                                    AND A.AUD_NO = B.AUD_NO
+                                    AND A.DOC_ID = B.AUD_DCM_DOC_ID
+             WHERE A.AUD_YR = #{audYr}
+               AND A.AUD_NO =  #{audNo}
+               AND A.REF_ID =  #{srno}
+               AND A.RCPT_DPT_CD = '160201'
+               AND B.EVI_DCM_DVSN_CD NOT IN ('10', '20', '30')
+        <include refid="include.pageOrder" />
+    </select>
+    
+    <insert id="insertBADDED111M" parameterType="paramMap">
+        INSERT INTO TBBADDED111M(AUD_YR             /*감사년도*/
+                                ,AUD_NO             /*감사번호*/
+                                ,AUD_STEP_CD        /*감사단계코드*/
+                                ,DOC_ID             /*문서ID*/
+                                ,SR_DOC_SNO         /*송수신문서순번*/
+                                ,AUD_KND_CD         /*감사종류코드*/
+                                ,AUD_GRN_NO         /*감사부여번호*/
+                                ,RPRT_NM            /*보고서명*/
+                                ,DOC_STA_CD         /*문서상태코드*/
+                                ,SND_DPT_CD         /*송신부서코드*/
+                                ,SNDR_ID            /*송신자ID*/
+                                ,SND_DH             /*송신일시*/
+                                ,RCPT_DPT_CD        /*수신부서코드*/
+                                ,RCNT_ID            /*수신자ID*/
+                                ,RCPT_DH            /*수신일시*/
+                                ,DOC_KND_CD         /*문서구분코드*/
+                                ,REF_ID
+                                ,FRT_USR_ID         /*최초사용자ID*/
+                                ,FNL_USR_ID         /*최종사용자ID*/
+                                ,FNL_DEAL_DPT_CD    /*최종거래부서코드*/
+                                ,FNL_MNU_ID         /*최종메뉴ID*/
+                                ,FRT_REGI_DH        /*최초등록일시*/
+                                ,FNL_MDF_DH         /*최종수정일시*/ )
+                          vALUES(#{audYr}
+                                ,#{audNo}
+                                ,#{audStepCd}
+                                ,#{docId}
+                                ,(SELECT NVL(MAX(SR_DOC_SNO),0)+1 FROM TBBADDED111M WHERE AUD_YR = #{audYr} AND AUD_NO = #{audNo} AND REF_ID = #{srno})
+                                ,#{audKndCd}
+                                ,#{audGrnNo}
+                                ,#{rprtNm}
+                                ,'10'
+                                ,#{dptCd}
+                                ,#{usrId}
+                                ,SYSDATE
+                                ,'160201'
+                                ,'ljn'
+                                ,SYSDATE
+                                ,'50'
+                                ,#{srno}
+                                ,#{usrId}
+                                ,#{usrId}
+                                ,#{dptCd}
+                                ,#{menuNo}
+                                ,SYSDATE
+                                ,SYSDATE)
+    </insert>
+    
+</mapper> 

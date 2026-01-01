@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/fre/031">
+
+	<!--처분요구관리 조회-->
+	<select id="BADFRE031PMainSelect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT MASTER.AUD_YR      AS AUD_YR
+			     , MASTER.AUD_NO      AS AUD_NO
+			     , T1.AUD_GRN_NO      AS AUD_GRN_NO                  /* 감사부여번호 - 2016.06.02 yyh */
+			     , MASTER.DSP_RQ_SNO  AS DSP_RQ_SNO
+                 , F_MNG_KND_AUDYRNO(MASTER.AUD_YR, MASTER.AUD_NO, T1.AUD_KND_CD, '-') || '-' || MASTER.DSP_RQ_SNO      
+                                                                AS DSP_RQ_SNO_NM
+ 		     	, CASE WHEN T1.AUD_YR >= '2016' 
+			                THEN SUBSTR(T1.AUD_KND_CD,3,1)
+			           ELSE '' 
+			       END                                          AS AUD_YR_NO_KND_CD /*감사연번호종류코드 추가 - 2015.12.24 yyh*/	 			     
+			     , RELORG.RLTN_ORG_CD                           AS RLTN_ORG_CD
+			     , (SELECT ORG_NM
+			          FROM TBDCMACM015M
+			          WHERE ORG_CD = RELORG.RLTN_ORG_CD)        AS AUD_ORG_CNT
+			     , MASTER.DSP_RQ_KND_CD                         AS DSP_RQ_KND_CD
+			     , (SELECT CD_NM
+			          FROM TBDCMACM013C
+			         WHERE CMM_CD_DVSN_CD = '1000002'
+			           AND CD = MASTER.DSP_RQ_KND_CD)           AS DSP_RQ_KND_NM
+			     , DETAIL.ENF_BRDV_CD ENF_BRDV_CD
+			     , (SELECT DPT_NM
+			          FROM TBDCMACM002M
+			         WHERE DPT_CD = DETAIL.ENF_BRDV_CD)         AS OPER_BURDIV_NM
+			     , DETAIL.ENFM_MNG_BRDV_CD                      AS ENFM_MNG_BRDV_CD
+			     , (SELECT DPT_NM
+			          FROM TBDCMACM002M
+			         WHERE DPT_CD = DETAIL.ENFM_MNG_BRDV_CD)    AS ENFM_MNG_BRDV_NM
+			     , DETAIL.PNL_DRIN_PSVT_AM                      AS PNL_DRIN_PSVT_AM
+			     , DETAIL.ENF_DT                                AS ENF_DT
+			     , RELPSN.DFNT_NAM                              AS DETAILUSR_NAM
+			     , RELPSN.AD                                    AS AD
+			     , RELPSN.AM                                    AS AM
+			     , DETAIL.ENF_DT                                AS ENF_DT                          /*시행일*/
+			     , DETAIL.ENF_BRDV_CD                           AS ENF_BRDV_CD                     /*시행국과코드*/
+			     , F_DPT_INFO(DETAIL.ENF_BRDV_CD,'1')	        AS ENF_BRDV_NM                     /*시행국과명*/     
+			     , MASTER.TIT_TXT                               AS TIT_TXT                         /*제목내용*/   
+			     , DETAIL.EXAM_RPRT_DSP_RQ_SBT                  AS EXAM_RPRT_DSP_RQ_SBT            /*검토보고서처분요구요지*/
+			  FROM TBBADEAR001M MASTER
+			     , TBBADEAR002D DETAIL
+			     , TBBADEAR006M RELORG
+			     , TBBADEAR007M RELPSN
+			     , TBBADDED001M T1
+			 WHERE 1=1
+			   AND MASTER.AUD_YR 		= DETAIL.AUD_YR
+			   AND MASTER.AUD_NO 		= DETAIL.AUD_NO
+			   AND MASTER.DSP_RQ_SNO 	= DETAIL.DSP_RQ_SNO
+			   AND MASTER.AUD_YR 		= RELORG.AUD_YR(+)
+			   AND MASTER.AUD_NO 		= RELORG.AUD_NO(+)
+			   AND MASTER.DSP_RQ_SNO 	= RELORG.DSP_RQ_SNO(+)
+			   AND MASTER.DSP_RQ_KND_CD = '110'
+			   AND RELORG.AUD_YR 		= RELPSN.AUD_YR(+)
+			   AND RELORG.AUD_NO 		= RELPSN.AUD_NO(+)
+			   AND RELORG.DSP_RQ_SNO 	= RELPSN.DSP_RQ_SNO(+)
+			   AND RELORG.RLTN_ORG_CD 	= RELPSN.RLTN_ORG_CD(+)
+			   AND MASTER.AUD_YR 		= T1.AUD_YR
+			   AND MASTER.AUD_NO 		= T1.AUD_NO			   
+			   
+		]]>
+		<isNotEmpty property="strEnfDtSt">	 
+			<![CDATA[  		
+			   AND DETAIL.ENF_DT     >= #strEnfDtSt#
+			]]>
+		</isNotEmpty>
+		<isNotEmpty property="strEnfDtEnd">	 
+        	<![CDATA[  			
+			   AND DETAIL.ENF_DT     <= #strEnfDtEnd#
+			]]>   
+		</isNotEmpty>		
+		<isNotEmpty property="strAudYrSt">	 
+        	<![CDATA[  		
+			   AND MASTER.AUD_YR   >= #strAudYrSt#
+			]]>    
+		</isNotEmpty>		
+		<isNotEmpty property="strAudGrnNoSt">	 
+        	<![CDATA[  		
+			    AND T1.AUD_GRN_NO      >= #strAudGrnNoSt#
+			]]>    
+		</isNotEmpty>		
+		<isNotEmpty property="strAudYrEnd">	 
+        	<![CDATA[  		
+			   AND MASTER.AUD_YR  <= #strAudYrEnd#
+			]]>   
+		</isNotEmpty>		
+		<isNotEmpty property="strAudGrnNoEnd">	 
+        	<![CDATA[  			
+			   AND T1.AUD_GRN_NO     <= #strAudGrnNoEnd#
+			]]>   
+		</isNotEmpty>		
+		
+		/* 감사연번종류코드 추가 - 2015.12.24 yyh */		
+		<isNotEmpty property="strAudYrNoKndCdSt">
+            AND SUBSTR(T1.AUD_KND_CD,3,1) = NVL(#strAudYrNoKndCdSt#,'0')  
+		</isNotEmpty>		
+		
+		<isNotEmpty property="strEnfBrdvCd">	 
+			   AND DETAIL.ENF_BRDV_CD  = #strEnfBrdvCd#
+		</isNotEmpty>		
+		<isNotEmpty property="strTitTxt">	 
+			    AND MASTER.TIT_TXT LIKE '%'||#strTitTxt#||'%'
+		</isNotEmpty>		
+		<isNotEmpty property="strRltnOrgCd">	 
+			   AND RELORG.RLTN_ORG_CD = #strRltnOrgCd#
+		</isNotEmpty>		
+		<isNotEmpty property="strDfntNam">	 
+			   AND RELPSN.DFNT_NAM LIKE #strDfntNam#||'%'	
+		</isNotEmpty>	
+
+        <![CDATA[       
+			  ORDER BY MASTER.AUD_YR DESC
+			          ,MASTER.AUD_NO DESC
+			          ,MASTER.DSP_RQ_SNO DESC
+        ]]>
+	</select>
+
+
+</sqlMap> 

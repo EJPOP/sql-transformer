@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/oep/012">
+
+	<select id="CSPOEP012EinitSelect" parameterClass="paramMap"	resultClass="resultMap">
+		<![CDATA[       
+				SELECT CD, CD_NM 
+				  FROM
+				      (select * from TBDCMACM013C where CMM_CD_DVSN_CD ='1000291' AND CD IN ('1', '2') )
+				 ORDER BY CD
+				 
+		]]>
+	</select>
+	
+	<select id="CSPOEP012EMainListSelect" parameterClass="paramMap"	resultClass="resultMap">
+		<![CDATA[       
+				SELECT A.BOKG_APL_DH,
+				       A.LOUNGE_ID,
+				   	   B.LOUNGE_NM,
+					   C.USR_NAM,
+					   D.DPT_NM,
+					   TO_CHAR(TO_DATE(A.BOKG_DT), 'YYYY-MM-DD') AS BOKG_DT,
+					   A.TIT_NM,
+					   C.TNB,
+				   	   (SELECT CD_NM FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD ='1000291' AND CD = A.COFM_CD) AS COFM_CD_NM,
+				  	   (SELECT CD FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD ='1000291' AND CD = A.COFM_CD) AS COFM_CD
+				  FROM TBCSPOEP012M A,
+				       TBCSPOEP011M B,
+				       TBDCMACM001M C,
+				       TBDCMACM002M D
+				 WHERE 1=1
+				   AND A.LOUNGE_ID = B.LOUNGE_ID
+				   AND A.BOKG_PEN_ID = C.USR_ID
+				   AND C.DPT_CD = D.DPT_CD
+				   AND A.COFM_CD IS NOT NULL
+		]]>
+			<dynamic>
+				<isNotEmpty property="rdbState">
+					 AND A.COFM_CD = #rdbState# 	/* 상태값*/
+				</isNotEmpty>
+			</dynamic>  
+			<dynamic>
+				<isNotEmpty property="fromYmd">
+			   		  AND A.BOKG_DT &gt;= #fromYmd#  
+				</isNotEmpty>
+			</dynamic>
+			<dynamic>
+				<isNotEmpty property="toYmd">
+			   		  AND A.BOKG_DT &lt;= #toYmd#  
+				</isNotEmpty>
+			</dynamic>
+		<![CDATA[
+				 ORDER BY  BOKG_DT DESC
+		]]>
+        
+	</select>
+	<select id="CSPOEP012EExcelExportSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[  
+		SELECT   A.BOKG_DT,
+		 		 B.LOUNGE_NM,
+		 		    (SELECT   COUNT(BOKG_DT)      FROM          
+                        TBCSPOEP012M T1, TBCSPOEP011M T2
+							WHERE	1=1
+							AND		T1.LOUNGE_ID = T2.LOUNGE_ID 
+				            AND     T1.BOKG_DT= A.BOKG_DT) AS RESERV_CNT, /*예약자수*/
+            
+					D.DPT_NM,                   
+			        F_CODE_NM('1000173', C.RANK_CD) AS RANK_NAM,
+					C.USR_NAM,
+                    A.TIT_NM
+			FROM	TBCSPOEP012M A,
+					TBCSPOEP011M B,
+					TBDCMACM001M C,
+					TBDCMACM002M D
+			WHERE	1=1
+			AND		A.LOUNGE_ID = B.LOUNGE_ID
+			AND		A.BOKG_PEN_ID  = C.USR_ID
+			AND		C.DPT_CD = D.DPT_CD
+			AND		A.COFM_CD IS NOT NULL
+           ]]> 	
+		<![CDATA[  
+			AND		A.BOKG_DT BETWEEN  #toYmd# AND  #fromYmd#
+			]]>
+			<dynamic>
+				<isNotEmpty property="rdbState">
+					 AND A.COFM_CD = #rdbState# 	/* 상태값*/
+				</isNotEmpty>
+			</dynamic> 
+		<![CDATA[ 
+			GROUP BY A.BOKG_DT, D.DPT_NM, C.USR_NAM, C.RANK_CD,A.TIT_NM,B.LOUNGE_NM
+			ORDER BY A.BOKG_DT, D.DPT_NM
+		]]>
+	</select>
+	
+	
+		
+	<select id="CSPOEP012ESelectCnb" parameterClass="paramMap"	resultClass="resultMap">
+		<![CDATA[       
+			SELECT B.CNB
+			  FROM TBCSPOEP012M A,
+			  	   TBDCMACM001M B
+			 WHERE A.BOKG_APL_DH = #BOKG_APL_DH#
+			   AND A.LOUNGE_ID = #LOUNGE_ID#
+			   AND A.BOKG_PEN_ID = B.USR_ID  
+		]]>
+	</select>
+	
+	<delete id="CSPOEP012EDelete" parameterClass="paramMap">
+			DELETE FROM TBCSPOEP012M
+			 WHERE 1 = 1
+			   AND LOUNGE_ID = #LOUNGE_ID#
+			   AND BOKG_APL_DH = #BOKG_APL_DH#
+	</delete>
+
+	<update id="CSPOEP012EApproveUpdate" parameterClass="paramMap">
+		UPDATE TBCSPOEP012M 
+			   SET COFM_CD = '1',
+				   FNL_USR_ID = #FNL_USR_ID#,
+			       FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#,
+			       FNL_MNU_ID = #FNL_MNU_ID#,
+			       FNL_MDF_DH = SYSDATE
+			 WHERE 1=1
+			   AND LOUNGE_ID = #LOUNGE_ID#
+			   AND BOKG_APL_DH = #BOKG_APL_DH#
+	</update>
+
+	<update id="CSPOEP012ERejectUpdate" parameterClass="paramMap">
+			UPDATE TBCSPOEP012M 
+			   SET COFM_CD = '3',
+			       FNL_USR_ID = #FNL_USR_ID#,
+			       FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#,
+			       FNL_MNU_ID = #FNL_MNU_ID#,
+			       FNL_MDF_DH = SYSDATE
+			 WHERE 1=1
+			   AND LOUNGE_ID = #LOUNGE_ID#
+			   AND BOKG_APL_DH = #BOKG_APL_DH#
+	</update>
+	
+	
+	<insert id="CSPOEP012EMsg206Insert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO
+			TBDCMACM026L
+			(
+			  MSG_SNO
+			, TSK_CAT_CD
+			, FUNC_CAT_CD
+			, SEND_ID
+	        , MSG_TP_YN
+	  
+	        , MSG_TXT_2
+	        , RCNT_CNT
+	        , RCNT_HIS
+	        , MSG_REGI_DH
+	
+			, FRT_USR_ID
+			, FNL_USR_ID
+			, FNL_DEAL_DPT_CD
+			, FNL_MNU_ID
+			, FRT_REGI_DH
+			,
+			FNL_MDF_DH
+	
+			)
+			VALUES
+			(
+			  (SELECT NVL(MAX(MSG_SNO),0)+1 FROM TBDCMACM026L)
+			, 'SP'
+			, 'MR'
+			, #FNL_USR_ID#
+	        , '0'
+	     
+	        , #MSG#
+	        , 1
+	        , #MSG_CNB#
+	        , SYSDATE
+	        
+	        
+			, #FNL_USR_ID#
+			, #FNL_USR_ID#
+			, #FNL_DEAL_DPT_CD#
+			, #FNL_MNU_ID#
+			, SYSDATE
+			, SYSDATE
+	
+			);
+			
+		]]>
+	</insert>
+	
+	
+	
+</sqlMap> 

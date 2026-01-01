@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.csp.ear.dao.CSPEAR017Mapper">
+ 	<select id="CSPEAR017QMainSelect" parameterType="paramMap"
+		resultType="egovMap">
+		/* kr.go.bai.eip.csp.ear.dao.CSPEAR017Mapper.CSPEAR017EMainSelect */
+		<include refid="include.pageSelct" />
+		<![CDATA[
+			SELECT A.CMT_OEN_YE||'-'||DECODE(A.CMT_DVSN_CD, 1, '심사', 2, '자문')||'-'||A.CMT_DGE AS CMT_NO /* 분류번호 */
+			        ,A.CMT_OEN_YE /* 개최년도 */
+			        ,A.CMT_DVSN_CD /* 위원회구분코드 */
+			        ,A.CMT_DGE /* 위원회차수 */
+   					,DECODE(A.CMT_DVSN_CD, 1, '심사위원회', 2, '자문위원회') AS CMT_DVSN_NM /* 위원회구분명 */
+   					,TO_CHAR(TO_DATE(A.CMT_OEN_DT),'YYYY-MM-DD') AS CMT_OEN_DT /* 위원회 개최일 */
+   					,DECODE(A.WT_VT_YN,  'Y', 'O', 'N', 'X') AS WT_VT_YN /* 서면의결여부 */
+   					,F_OPEN_EDIT('hancom') AS DOC_TYPE -- 편집기구분
+   			FROM	TBCSPEAR010M A
+   			WHERE	1=1
+		]]>
+		<if test='cmtDvsnCd != null and cmtDvsnCd != ""'>
+			AND	A.CMT_DVSN_CD = #{cmtDvsnCd}
+		</if>
+		<if test='cmtOenYe != null and cmtOenYe != ""'>
+			AND	A.CMT_OEN_YE = #{cmtOenYe}
+		</if>
+		<if test='cmtDge != null and cmtDge != ""'>
+			AND	A.CMT_DGE = #{cmtDge}
+		</if>
+		<if test='cmtOenDt != null and cmtOenDt != ""'>
+			AND	TO_CHAR(TO_DATE(A.CMT_OEN_DT),'YYYYMMDD') = #{cmtOenDt}
+		</if>
+		<if test='wtVtYn != null and wtVtYn != ""'>
+			AND	A.WT_VT_YN = #{wtVtYn}
+		</if>
+		<![CDATA[
+			ORDER BY A.CMT_OEN_DT DESC
+		]]>
+		<include refid="include.pageOrder" />
+	</select>
+
+	<select id="CSPEAR017QSubSelect" parameterType="paramMap"
+		resultType="egovMap">
+		/* kr.go.bai.eip.csp.ear.dao.CSPEAR017Mapper.CSPEAR017ESubSelect */
+		SELECT  A.CMT_DVSN_CD
+				 , A.CMT_OEN_YE
+				 , A.CMT_DGE
+				 , B.ACP_YR
+				 , B.CVPT_ACP_NO
+                 , B.REQ_DVSN_CD /* 구분코드 */
+			     , F_CODE_NM('1000740',B.REQ_DVSN_CD) AS REQ_DVSN_NM /* 구분명 */
+			     , B.ACP_YR||'-'||F_CODE_NM('1000740',B.REQ_DVSN_CD)||'-'||substring(B.CVPT_ACP_NO, 3, 3) AS ACP_NO /* 접수번호 */
+			     , C.TIT_NM /* 제목 */
+			     , B.CMT_RSLT_CD /* 처리결과코드 */
+			     , F_CODE_NM('1000380',B.CMT_RSLT_CD) AS CMT_RSLT_NM /* 처리결과명 */
+			     , C.RPST_PEN_NM /* 대표자명 */
+			     , (	SELECT	S1.DPT_NM
+   						FROM	TBDCMACM002M S1
+   						WHERE	S1.DPT_CD = D.HNDL_DPT_CD
+   					) AS HNDL_DPT_NM /* 처리부서 */
+			     , F_USR_INFO_BY_ID(D.HNDL_CHGR_ID,'2') AS HNDL_CHGR_NM /* 처리자 */
+			     , CASE
+			         WHEN C.REQ_DVSN_CD IN ('2','3') AND EXAM_RPT_APV_DT IS NULL  THEN CASE WHEN C.REQ_DVSN_CD = '2' THEN TO_CHAR(C.ACP_DH+30+F_GET_DAY_CNT(C.REQ_DVSN_CD,C.ACP_YR,C.CVPT_ACP_NO),'YYYY-MM-DD')
+			            ELSE TO_CHAR(ADD_MONTHS(C.ACP_DH ,1)+F_GET_DAY_CNT(C.REQ_DVSN_CD,C.ACP_YR,C.CVPT_ACP_NO),'YYYY-MM-DD') END
+			         WHEN C.REQ_DVSN_CD = '2' THEN TO_CHAR(TO_DATE(EXAM_RPT_APV_DT)+60, 'YYYY-MM-DD')
+			         ELSE TO_CHAR(ADD_MONTHS(TO_DATE(EXAM_RPT_APV_DT) , 6), 'YYYY-MM-DD')
+			       END AS HNDL_DDLN_DT /* 처리기한 */
+		  FROM TBCSPEAR010M A,
+			       TBCSPEAR011M B,
+			       TBCSPDCP101M C,
+			       TBCSPEAR001M D
+		 WHERE A.CMT_DVSN_CD = B.CMT_DVSN_CD
+		    AND A.CMT_OEN_YE = B.CMT_OEN_YE
+		    AND A.CMT_DGE = B.CMT_DGE
+		    AND B.ACP_YR = C.ACP_YR
+		    AND B.CVPT_ACP_NO = C.CVPT_ACP_NO
+		    AND B.REQ_DVSN_CD = C.REQ_DVSN_CD
+		    AND B.ACP_YR = D.ACP_YR
+		    AND B.CVPT_ACP_NO = D.CVPT_ACP_NO
+		    AND B.REQ_DVSN_CD = D.REQ_DVSN_CD
+		<if test='cmtDvsnCd != null and cmtDvsnCd != ""'>
+			AND	A.CMT_DVSN_CD = #{cmtDvsnCd}
+		</if>
+		<if test='cmtOenYe != null and cmtOenYe != ""'>
+			AND	A.CMT_OEN_YE = #{cmtOenYe}
+		</if>
+		<if test='cmtDge != null and cmtDge != ""'>
+			AND	A.CMT_DGE = #{cmtDge}
+		</if>
+	</select>
+</mapper>

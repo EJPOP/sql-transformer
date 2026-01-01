@@ -1,0 +1,497 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.go.bai.eip.faa.cav.dao.FAACAV009QMapper">
+    
+    <select id="selectLoadSttcList" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.faa.cav.dao.FAACAV009QMapper.selectLoadSttcList */
+        <![CDATA[
+      SELECT AUD_YR
+      		,ROW_KND_CD
+      		,VIEW_YN
+           ,STTC_TIT1
+           ,STTC_TIT2
+           ,STTC_TIT3
+           ,STTC_COL1
+           ,STTC_COL2
+           ,STTC_COL3
+           ,STTC_COL4
+           ,STTC_COL5
+           ,STTC_COL6
+           ,STTC_COL7      		
+      		FROM
+             (SELECT AUD_YR
+                   ,STAT_CD AS ROW_KND_CD
+                   ,CASE WHEN AUD_YR IS NULL THEN 'Y'
+                         WHEN SUBSTR(ADD_MONTHS(#{proStadDt}, -1), 0, 4) - 1 > AUD_YR THEN 'N'
+                         ELSE 'Y'
+                    END VIEW_YN
+                   ,STTC_TIT1
+                   ,STTC_TIT2
+                   ,STTC_TIT3
+                   ,STTC_COL1
+                   ,STTC_COL2
+                   ,STTC_COL3
+                   ,STTC_COL4
+                   ,STTC_COL5
+                   ,STTC_COL6
+                   ,STTC_COL7
+               FROM (
+                 SELECT SUBSTR(ADD_MONTHS(#{proStadDt}, -1), 0, 4) AS AUD_YR,
+                        B.STAT_CD,
+                        SUBSTR(ADD_MONTHS(#{proStadDt}, -1), 0, 4) || '년' AS STTC_TIT1,
+                        CASE WHEN B.STAT_CD IN ('A', 'B', 'C') THEN '접수'
+                             WHEN B.STAT_CD IN ('D', 'E', 'F', 'G') THEN '처리'
+                             WHEN B.STAT_CD IN ('H') THEN '처리중'
+                         END AS STTC_TIT2,
+                        CASE WHEN B.STAT_CD = 'A' THEN '소계'
+                             WHEN B.STAT_CD = 'B' THEN '이월'
+                             WHEN B.STAT_CD = 'C' THEN '신규접수'
+                             WHEN B.STAT_CD = 'D' THEN '소계'
+                             WHEN B.STAT_CD = 'E' THEN '처분요구'
+                             WHEN B.STAT_CD = 'F' THEN '감사자료'
+                             WHEN B.STAT_CD = 'G' THEN '불문'
+                             WHEN B.STAT_CD = 'H' THEN '처리중'
+                         END                                                       AS STTC_TIT3, 
+                        NVL(SUM(A.CNT1),0) + NVL(SUM(A.CNT2),0) + NVL(SUM(A.CNT3),0) + NVL(SUM(A.CNT4),0)
+                                                                                   AS STTC_COL1,
+                        NVL(SUM(A.PSON_CNT1),0)         AS STTC_COL2,    
+    
+                        NVL(SUM(CNT1),0)                AS STTC_COL3,
+                        NVL(SUM(PSON_CNT1),0)           AS STTC_COL4,        
+                        NVL(SUM(CNT2),0)                AS STTC_COL5,
+                        NVL(SUM(CNT3),0)                AS STTC_COL6,
+                        NVL(SUM(CNT4),0)                AS STTC_COL7
+                   FROM (   
+                         SELECT CASE WHEN (A.ACP_DT BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01') AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1))) THEN 'C' 
+                                     ELSE 'B'
+                                 END AS STAT_CD,  
+                                DECODE(A.NTF_DVSN_CD, '1', 1) AS CNT1,
+                                DECODE(A.NTF_DVSN_CD, '1', B.PSON_CNT) AS PSON_CNT1,
+                                DECODE(A.NTF_DVSN_CD, '2', 1) AS CNT2,
+                                DECODE(A.NTF_DVSN_CD, '2', B.PSON_CNT) AS PSON_CNT2,
+                                0 AS CNT3,
+                                0 AS CNT4
+                           FROM TBBADGDA001M A,
+                                ( SELECT ORG_CD,
+                                         NTF_DVSN_CD,
+                                         NNB,
+                                         COUNT(*) AS PSON_CNT
+                                    FROM TBBADGDA001L 
+                                    WHERE 1=1
+                                    GROUP BY ORG_CD,
+                                          NTF_DVSN_CD,
+                                          NNB) B
+                          WHERE 1=1
+                            AND A.ORG_CD = B.ORG_CD (+ )
+                            AND A.NTF_DVSN_CD = B.NTF_DVSN_CD (+)
+                            AND A.NNB = B.NNB (+)
+                            AND A.ACP_STA_CD  != '51'
+                            AND (A.HNDL_OPIN_CD IS NULL OR A.HNDL_OPIN_CD != '8') 
+                            AND ((A.ACP_DT BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01') AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1)))  OR (TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01')> A.ACP_DT AND (TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01')<= A.CPLT_DT OR A.CPLT_DT IS NULL ) ) )
+                                                          
+                          UNION ALL
+                          
+                         SELECT CASE WHEN (A.ACP_DT BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01') AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1))) THEN 'C' 
+                                     ELSE 'B'
+                                 END AS STAT_CD,                          
+                                0 AS CNT1,
+                                0 AS PSON_CNT1,
+                                0 AS CNT2,
+                                0 AS PSON_CNT2,
+                                DECODE(A.LAW_NTF_DVSN_CD, '100', 1) AS CNT3,
+                                DECODE(A.LAW_NTF_DVSN_CD, '200', 1) AS CNT4
+                           FROM TBBADGDA004M A
+                          WHERE 1=1
+                            AND A.ACP_STA_CD  != '51'
+                            AND (A.HNDL_OPIN_CD IS NULL OR A.HNDL_OPIN_CD != '8') 
+                            AND ((A.ACP_DT BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01') AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1))) OR (TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01')> A.ACP_DT AND (TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01')<= A.CPLT_DT OR A.CPLT_DT IS NULL ) ) )
+            
+                 UNION ALL
+                 
+                         SELECT 'A' AS STAT_CD,  
+                                 DECODE(A.NTF_DVSN_CD, '1', 1) AS CNT1,
+                                 DECODE(A.NTF_DVSN_CD, '1', B.PSON_CNT) AS PSON_CNT1,
+                                 DECODE(A.NTF_DVSN_CD, '2', 1) AS CNT2,
+                                 DECODE(A.NTF_DVSN_CD, '2', B.PSON_CNT) AS PSON_CNT2,
+                                 0 AS CNT3,
+                                 0 AS CNT4
+                           FROM TBBADGDA001M A,
+                                (SELECT ORG_CD,
+                                        NTF_DVSN_CD,
+                                        NNB,
+                                        COUNT(*) AS PSON_CNT
+                                   FROM TBBADGDA001L 
+                                  WHERE 1=1
+                                  GROUP BY ORG_CD, NTF_DVSN_CD, NNB) B
+                          WHERE 1=1
+                            AND A.ORG_CD = B.ORG_CD (+ )
+                            AND A.NTF_DVSN_CD = B.NTF_DVSN_CD (+)
+                            AND A.NNB = B.NNB (+)
+                            AND A.ACP_STA_CD  != '51'
+                            AND (A.HNDL_OPIN_CD IS NULL OR A.HNDL_OPIN_CD != '8') 
+                            AND ((A.ACP_DT BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01') AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1))) OR (TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01')> A.ACP_DT AND (TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01')<= A.CPLT_DT OR A.CPLT_DT IS NULL ) ) )
+                                              
+                         UNION ALL
+                                
+                         SELECT 'A' AS STAT_CD,                        
+                                 0 AS CNT1,
+                                 0 AS PSON_CNT1,
+                                 0 AS CNT2,
+                                 0 AS PSON_CNT2,
+                                 DECODE(A.LAW_NTF_DVSN_CD, '100', 1) AS CNT3,
+                                 DECODE(A.LAW_NTF_DVSN_CD, '200', 1) AS CNT4
+                            FROM TBBADGDA004M A
+                           WHERE 1=1
+                             AND A.ACP_STA_CD  != '51'
+                             AND (A.HNDL_OPIN_CD IS NULL OR A.HNDL_OPIN_CD != '8') 
+                             AND ((A.ACP_DT BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01') AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1))) OR (TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01')> A.ACP_DT AND (TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01')<= A.CPLT_DT OR A.CPLT_DT IS NULL ) ) )
+    
+                  UNION ALL
+            
+                         SELECT CASE WHEN (A.CPLT_DT BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01')  AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1))) THEN 'D' 
+                                     ELSE 'H'
+                                 END AS STAT_CD,  
+                                DECODE(A.NTF_DVSN_CD, '1', 1) AS CNT1,
+                                DECODE(A.NTF_DVSN_CD, '1', B.PSON_CNT) AS PSON_CNT1,
+                                DECODE(A.NTF_DVSN_CD, '2', 1) AS CNT2,
+                                DECODE(A.NTF_DVSN_CD, '2', B.PSON_CNT) AS PSON_CNT2,
+                                0 AS CNT3,
+                                0 AS CNT4
+                           FROM TBBADGDA001M A,
+                                ( SELECT ORG_CD,
+                                         NTF_DVSN_CD,
+                                         NNB,
+                                         COUNT(*) AS PSON_CNT
+                                    FROM TBBADGDA001L 
+                                   WHERE 1=1
+                                   GROUP BY ORG_CD, NTF_DVSN_CD, NNB) B
+                          WHERE 1=1
+                            AND A.ORG_CD = B.ORG_CD (+)
+                            AND A.NTF_DVSN_CD = B.NTF_DVSN_CD (+)
+                            AND A.NNB = B.NNB (+)
+                            AND A.ACP_STA_CD  != '51'
+                            AND (A.HNDL_OPIN_CD IS NULL OR A.HNDL_OPIN_CD != '8')
+                            AND ((A.ACP_DT BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01') AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1))) OR (TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01')> A.ACP_DT AND (TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01')<= A.CPLT_DT OR A.CPLT_DT IS NULL ) ) )
+                                             
+                          UNION ALL
+                                
+                         SELECT CASE WHEN (A.CPLT_DT BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01')  AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1))) THEN 'D' 
+                                           ELSE 'H'
+                                 END AS STAT_CD,                       
+                                0 AS CNT1,
+                                0 AS PSON_CNT1,
+                                0 AS CNT2,
+                                0 AS PSON_CNT2,
+                                DECODE(A.LAW_NTF_DVSN_CD, '100', 1) AS CNT3,
+                                DECODE(A.LAW_NTF_DVSN_CD, '200', 1) AS CNT4
+                           FROM TBBADGDA004M A
+                          WHERE 1=1
+                            AND A.ACP_STA_CD  != '51'
+                            AND (A.HNDL_OPIN_CD IS NULL OR A.HNDL_OPIN_CD != '8')
+                            AND ((A.ACP_DT BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01') AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1))) OR (TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01')> A.ACP_DT AND (TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01')<= A.CPLT_DT OR A.CPLT_DT IS NULL ) ) )                        
+                            
+                  UNION ALL
+            
+                         SELECT CASE WHEN A.HNDL_OPIN_CD IN ('1','2','5','6') THEN 'E'
+                                     WHEN A.HNDL_OPIN_CD = '3'                THEN 'F'
+                                     WHEN A.HNDL_OPIN_CD IN ('4','7')         THEN 'G'
+                                 END AS STAT_CD,  
+                                DECODE(A.NTF_DVSN_CD, '1', 1) AS CNT1,
+                                DECODE(A.NTF_DVSN_CD, '1', B.PSON_CNT) AS PSON_CNT1,
+                                DECODE(A.NTF_DVSN_CD, '2', 1) AS CNT2,
+                                DECODE(A.NTF_DVSN_CD, '2', B.PSON_CNT) AS PSON_CNT2,
+                                0 AS CNT3,
+                                0 AS CNT4
+                           FROM TBBADGDA001M A,
+                                ( SELECT ORG_CD,
+                                         NTF_DVSN_CD,
+                                         NNB,
+                                         COUNT(*) AS PSON_CNT
+                                    FROM TBBADGDA001L 
+                                   WHERE 1=1
+                                   GROUP BY ORG_CD, NTF_DVSN_CD, NNB) B
+                          WHERE 1=1
+                            AND A.ORG_CD = B.ORG_CD (+)
+                            AND A.NTF_DVSN_CD = B.NTF_DVSN_CD (+)
+                            AND A.NNB = B.NNB (+)
+                            AND A.ACP_STA_CD  != '51'
+                            AND (A.HNDL_OPIN_CD IS NULL OR A.HNDL_OPIN_CD != '8')
+                            AND ((A.ACP_DT BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01') AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1))) OR (TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01')> A.ACP_DT AND (TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01')<= A.CPLT_DT OR A.CPLT_DT IS NULL ) ) )
+                            AND A.CPLT_DT BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01')  AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1))
+                                             
+                  UNION ALL
+                                
+                         SELECT CASE WHEN A.HNDL_OPIN_CD IN ('1','2','5','6') THEN 'E'
+                                     WHEN A.HNDL_OPIN_CD = '3'                THEN 'F'
+                                     WHEN A.HNDL_OPIN_CD IN ('4','7')         THEN 'G'
+                                 END AS STAT_CD,                    
+                                0 AS CNT1,
+                                0 AS PSON_CNT1,
+                                0 AS CNT2,
+                                0 AS PSON_CNT2,
+                                DECODE(A.LAW_NTF_DVSN_CD, '100', 1) AS CNT3,
+                                DECODE(A.LAW_NTF_DVSN_CD, '200', 1) AS CNT4
+                           FROM TBBADGDA004M A
+                          WHERE 1=1
+                            AND A.ACP_STA_CD  != '51'
+                            AND (A.HNDL_OPIN_CD IS NULL OR A.HNDL_OPIN_CD != '8')
+                            AND ((A.ACP_DT BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01') AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1))) OR (TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01')> A.ACP_DT AND (TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01')<= A.CPLT_DT OR A.CPLT_DT IS NULL ) ) ) 
+                            AND A.CPLT_DT BETWEEN TO_DATE(TO_CHAR(ADD_MONTHS(#{proStadDt}, -1), 'YYYY')||'-01-01')  AND  LAST_DAY(ADD_MONTHS(#{proStadDt}, -1))                        
+             ) A, 
+             (SELECT CHR(64+LEVEL) AS STAT_CD
+                FROM DUAL 
+             CONNECT BY LEVEL < 9) B 
+          WHERE A.STAT_CD (+)= B.STAT_CD
+          GROUP BY B.STAT_CD)
+          ORDER BY ROW_KND_CD)
+      UNION ALL
+      	   SELECT  T2.AUD_YR
+                  ,T2.ROW_KND_CD
+            	  ,CASE WHEN SUBSTR(ADD_MONTHS(#{proStadDt}, -1),6,2) = '01' AND T2.AUD_YR = (SELECT TO_CHAR(MAX(T2.AUD_YR)-1) 
+              																		FROM TWFAACAV200D T2
+																					WHERE T2.STTC_CLSF_CD = '009' 
+																					 AND T2.STTC_TYP_SEQ = (SELECT MAX(T3.STTC_TYP_SEQ) 
+																												FROM TWFAACAV200M T3
+																												WHERE T3.STTC_CLSF_CD = '009' 
+																													AND T3.STTC_DTM_DY IS NOT NULL)) THEN 'N' 
+	                    WHEN T1.STTC_YR  > T2.AUD_YR THEN 'N'
+	               		ELSE 'Y'
+	               END VIEW_YN                   
+                  ,T2.STTC_TIT1
+                  ,T2.STTC_TIT2
+                  ,T2.STTC_TIT3
+                  ,T2.STTC_COL1
+                  ,T2.STTC_COL2
+                  ,T2.STTC_COL3
+                  ,T2.STTC_COL4
+                  ,T2.STTC_COL5
+                  ,T2.STTC_COL6
+                  ,T2.STTC_COL7
+              FROM TWFAACAV200M T1
+             INNER JOIN TWFAACAV200D T2 ON (
+                        T1.STTC_TYP_CD = T2.STTC_TYP_CD
+                    AND T1.STTC_CLSF_CD = T2.STTC_CLSF_CD
+                    AND T1.STTC_TYP_SEQ = T2.STTC_TYP_SEQ )
+ 				 WHERE T1.STTC_CLSF_CD = '009'
+		               AND T2.STTC_TYP_SEQ = (SELECT MAX(T3.STTC_TYP_SEQ) 
+												FROM TWFAACAV200M  T3
+												WHERE T3.STTC_CLSF_CD = '009' 
+													AND T3.STTC_DTM_DY IS NOT NULL)
+					   AND T2.AUD_YR BETWEEN SUBSTR(ADD_MONTHS(#{proStadDt}, -25),0,4) AND SUBSTR(ADD_MONTHS(#{proStadDt},-13),0,4)
+			ORDER BY AUD_YR DESC, ROW_KND_CD
+        ]]>
+    </select>
+    
+    <select id="selectComboList" parameterType="paramMap" resultType="egovMap">
+        <![CDATA[
+        /* kr.go.bai.eip.aep.arp.dao.FAACAV009QMapper.selectAffComboList */
+            SELECT STTC_TYP_SEQ AS CD,
+                   STTC_YR || '년 ' || STTC_STR_MON || '월' || DECODE(STTC_END_MON, '01', '', ' ~ ' || STTC_END_MON || '월') AS CD_NM
+              FROM TWFAACAV200M 
+             WHERE STTC_TYP_CD = '10'
+               AND STTC_CLSF_CD = '009'
+        ]]>
+        <if test='mngDptYn != "Y"'>
+               AND STTC_DTM_DY IS NOT NULL
+        </if>
+        <![CDATA[
+        	ORDER BY STTC_TYP_SEQ DESC
+        ]]>
+    </select>
+    
+    <select id="selectSttcList" parameterType="paramMap" resultType="egovMap">
+        <![CDATA[
+        /* kr.go.bai.eip.aep.arp.dao.FAACAV009QMapper.selectSttcList */
+            SELECT T1.RMK
+                  ,T1.ADM_OPIN
+                  ,TO_CHAR(T1.STTC_PROD_STAD_DY,'YYYY-MM-DD') AS STTC_PROD_STAD_DY
+                  ,CASE WHEN T1.STTC_DTM_DY IS NULL THEN 'N'
+                        ELSE 'Y'
+                   END AS STTC_DTM_YN
+                  ,T2.STTC_TYP_CD
+                  ,T2.STTC_CLSF_CD
+                  ,T2.STTC_TYP_SEQ
+                  ,T2.STTC_DATA_SNO
+                  ,T2.STTC_TIT1
+                  ,T2.STTC_TIT2
+                  ,T2.STTC_TIT3
+                  ,T2.STTC_COL1
+                  ,T2.STTC_COL2
+                  ,T2.STTC_COL3
+                  ,T2.STTC_COL4
+                  ,T2.STTC_COL5
+                  ,T2.STTC_COL6
+                  ,T2.STTC_COL7
+                  ,CASE WHEN T1.STTC_YR - 1 > T2.AUD_YR THEN 'N'
+                        ELSE 'Y'
+                   END VIEW_YN
+                  ,T2.AUD_YR
+                  ,T2.ROW_KND_CD
+                  ,NVL(TO_CHAR(T1.STTC_DTM_DY,'YYYY"-"MM"-"DD'),'미확정') AS STTC_DTM_DY
+              FROM TWFAACAV200M T1
+             INNER JOIN TWFAACAV200D T2 ON (
+                        T1.STTC_TYP_CD = T2.STTC_TYP_CD
+                    AND T1.STTC_CLSF_CD = T2.STTC_CLSF_CD
+                    AND T1.STTC_TYP_SEQ = T2.STTC_TYP_SEQ )
+             WHERE T1.STTC_CLSF_CD = '009'
+               AND T1.STTC_TYP_SEQ = #{sttcTypSeq}
+             ORDER BY STTC_DATA_SNO
+        ]]>
+    </select>
+    
+    <insert id="insertMaster">
+        /* kr.go.bai.eip.faa.cav.dao.FAACAV009QMapper.insertMaster */
+        <![CDATA[
+            INSERT INTO TWFAACAV200M (
+                 STTC_TYP_CD
+                ,STTC_CLSF_CD
+                ,STTC_TYP_SEQ
+                ,STTC_YR
+                ,STTC_STR_MON
+                ,STTC_END_MON
+                ,STTC_PROD_STAD_DY
+                ,STTC_DTM_DY
+                ,RMK
+                ,ADM_OPIN
+                ,FRT_USR_ID
+                ,FNL_USR_ID
+                ,FNL_DEAL_DPT_CD
+                ,FNL_MNU_ID
+                ,FRT_REGI_DH
+                ,FNL_MDF_DH )
+            VALUES (
+                 '10'
+                ,'009'
+                ,( SELECT NVL(MAX(STTC_TYP_SEQ), 0) + 1
+                     FROM TWFAACAV200M
+                    WHERE STTC_TYP_CD = '10'
+                      AND STTC_CLSF_CD = '009' )
+                ,SUBSTR(ADD_MONTHS(#{proStadDt}, -1), 0, 4)
+                ,'01'
+                ,TO_CHAR(TO_DATE(ADD_MONTHS(#{proStadDt}, -1)), 'MM')
+                ,#{proStadDt}
+                ,''
+                ,#{rmk}
+                ,#{admOpin}
+                ,#{usrId}
+                ,#{usrId}
+                ,#{dptCd}
+                ,#{mnuId}
+                ,SYSDATE
+                ,SYSDATE )
+        ]]>
+    </insert>
+    
+    <insert id="insertDetail">
+        /* kr.go.bai.eip.faa.cav.dao.FAACAV009QMapper.insertDetail */
+        <![CDATA[
+            INSERT INTO TWFAACAV200D (
+                 STTC_TYP_CD
+                ,STTC_CLSF_CD
+                ,STTC_TYP_SEQ
+                ,STTC_DATA_SNO
+                ,STTC_TIT1
+                ,STTC_TIT2
+                ,STTC_TIT3
+                ,STTC_COL1
+                ,STTC_COL2
+                ,STTC_COL3
+                ,STTC_COL4
+                ,STTC_COL5
+                ,STTC_COL6
+                ,STTC_COL7
+                ,AUD_YR
+                ,ROW_KND_CD
+                ,FRT_USR_ID
+                ,FNL_USR_ID
+                ,FNL_DEAL_DPT_CD
+                ,FNL_MNU_ID
+                ,FRT_REGI_DH
+                ,FNL_MDF_DH )
+            VALUES (
+                 '10'
+                ,'009'
+                ,( SELECT NVL(MAX(STTC_TYP_SEQ), 0)
+                     FROM TWFAACAV200M
+                    WHERE STTC_TYP_CD = '10'
+                      AND STTC_CLSF_CD = '009' )
+                ,( SELECT NVL(MAX(STTC_DATA_SNO), 0) + 1
+                     FROM TWFAACAV200D
+                    WHERE STTC_TYP_CD = '10'
+                      AND STTC_CLSF_CD = '009' 
+                      AND STTC_TYP_SEQ = ( SELECT NVL(MAX(STTC_TYP_SEQ), 0)
+                                             FROM TWFAACAV200M
+                                            WHERE STTC_TYP_CD = '10'
+                                              AND STTC_CLSF_CD = '009' ))
+                ,#{sttcTit1}
+                ,#{sttcTit2}
+                ,#{sttcTit3}
+                ,#{sttcCol1}
+                ,#{sttcCol2}
+                ,#{sttcCol3}
+                ,#{sttcCol4}
+                ,#{sttcCol5}
+                ,#{sttcCol6}
+                ,#{sttcCol7}
+                ,#{audYr}
+                ,#{rowKndCd}
+                ,#{usrId}
+                ,#{usrId}
+                ,#{dptCd}
+                ,#{mnuId}
+                ,SYSDATE
+                ,SYSDATE )
+        ]]>
+    </insert>
+    
+    <insert id="updateMaster">
+        /* kr.go.bai.eip.faa.cav.dao.FAACAV009QMapper.updateMaster */
+        <![CDATA[
+            UPDATE TWFAACAV200M
+               SET RMK = #{rmk}
+                  ,ADM_OPIN = #{admOpin}
+                  ,FNL_USR_ID = #{usrId}
+                  ,FNL_DEAL_DPT_CD = #{dptCd}
+                  ,FNL_MDF_DH = SYSDATE
+             WHERE STTC_TYP_CD = #{sttcTypCd}
+               AND STTC_CLSF_CD = #{sttcClsfCd}
+               AND STTC_TYP_SEQ = #{sttcTypSeq}
+        ]]>
+    </insert>
+    
+    <insert id="updateDetail">
+        /* kr.go.bai.eip.faa.cav.dao.FAACAV009QMapper.updateDetail */
+        <![CDATA[
+            UPDATE TWFAACAV200D
+               SET STTC_COL1 = #{sttcCol1}
+                  ,STTC_COL2 = #{sttcCol2}
+                  ,STTC_COL3 = #{sttcCol3}
+                  ,STTC_COL4 = #{sttcCol4}
+                  ,STTC_COL5 = #{sttcCol5}
+                  ,STTC_COL6 = #{sttcCol6}
+                  ,STTC_COL7 = #{sttcCol7}
+                  ,FNL_USR_ID = #{usrId}
+                  ,FNL_DEAL_DPT_CD = #{dptCd}
+                  ,FNL_MDF_DH = SYSDATE
+             WHERE STTC_TYP_CD = #{sttcTypCd}
+               AND STTC_CLSF_CD = #{sttcClsfCd}
+               AND STTC_TYP_SEQ = #{sttcTypSeq}
+               AND STTC_DATA_SNO = #{sttcDataSno}
+        ]]>
+    </insert>
+    
+    <insert id="updateMasterDtmDy">
+        /* kr.go.bai.eip.faa.cav.dao.FAACAV009QMapper.updateMasterDtmDy */
+        <![CDATA[
+            UPDATE TWFAACAV200M
+               SET STTC_DTM_DY = SYSDATE
+                  ,FNL_USR_ID = #{usrId}
+                  ,FNL_DEAL_DPT_CD = #{dptCd}
+                  ,FNL_MDF_DH = SYSDATE
+             WHERE STTC_TYP_CD = #{sttcTypCd}
+               AND STTC_CLSF_CD = #{sttcClsfCd}
+               AND STTC_TYP_SEQ = #{sttcTypSeq}
+        ]]>
+    </insert>
+    
+</mapper>

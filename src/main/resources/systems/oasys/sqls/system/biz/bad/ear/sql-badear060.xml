@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/ear/060">
+
+	<!-- 키워드 미입력 대상건 조회 -->
+	<select id="BADEAR060PMainSelect" parameterClass="paramMap" resultClass="resultMap">	
+    	<include refid="include.pageSelct" />	
+        <![CDATA[    
+                   SELECT A.AUD_YR                                                             AS AUD_YR         /* 감사년도 */
+                         ,A.AUD_NO                                                             AS AUD_NO         /* 감사번호 */
+                         ,B.DSP_RQ_SNO                                                         AS DSP_RQ_SNO     /* 처분요구번호 */
+                         ,F_MNG_KND_AUDYRNO(A.AUD_YR, A.AUD_NO, '', '-') ||'-'|| A.DSP_RQ_SNO  AS AUD_YR_NO      /* 분류번호 */
+                         ,C.AUD_SBJ_NM                                                         AS AUD_SBJ_NM     /* 감사사항명 */
+                         ,TO_CHAR(TO_DATE(B.ENF_DT),'YYYY-MM-DD')                              AS ENF_DT         /* 시행일자 */
+                         ,A.TIT_TXT                                                            AS TIT_TXT        /* 처분요구제목 */
+                         ,F_CODE_NM('1000002', A.DSP_RQ_KND_CD)                                AS DSP_RQ_KND_NM  /* 처분종류 */
+                         ,D.KYWD1                                                              AS KYWD1          /* 키워드1 */
+                         ,D.KYWD2                                                              AS KYWD2          /* 키워드2 */
+                         ,D.KYWD3                                                              AS KYWD3          /* 키워드3 */
+                         ,D.KYWD4                                                              AS KYWD4          /* 키워드4 */
+                         ,D.KYWD5                                                              AS KYWD5          /* 키워드5 */
+                         ,(SELECT MIN(ST2.ORG_NM) || DECODE((COUNT(DISTINCT ST1.RLTN_ORG_CD) - 1),0,'',' 외 ' || (COUNT(DISTINCT ST1.RLTN_ORG_CD) - 1))			       
+                              FROM TBBADEAR006M ST1
+                                  ,TBDCMACM015M ST2
+                             WHERE ST1.RLTN_ORG_CD = ST2.ORG_CD
+                               AND ST1.AUD_YR      = A.AUD_YR
+                               AND ST1.AUD_NO      = A.AUD_NO
+                               AND ST1.DSP_RQ_SNO  = A.DSP_RQ_SNO
+                             GROUP BY ST1.AUD_YR
+                                     ,ST1.AUD_NO
+                                     ,ST1.DSP_RQ_SNO)                                          AS RLTN_ORG_NM    /* 소관기관 */
+
+                         ,'공개문보기'                                                          AS OPEN_TXT                                                 
+                         ,(SELECT T2.DOC_ID
+                             FROM TBBADEAR001M T1
+                       INNER JOIN TBBADDED103M T2
+                               ON T1.AUD_YR      = T2.AUD_YR
+                              AND T1.AUD_NO      = T2.AUD_NO
+                              AND TO_CHAR(T1.AUD_DSP_RQ_SNO) = T2.REF_ID
+                            WHERE T1.AUD_YR      = A.AUD_YR
+                              AND T1.AUD_NO      = A.AUD_NO
+                              AND T1.DSP_RQ_SNO  = A.DSP_RQ_SNO
+                              AND T2.AUD_STEP_CD = 'A1080'
+                              AND T2.RPRT_CD     = 'A10800500')                                AS ELCT_DOC_ID /* 전자감사 공개문 DOC_ID */  
+                                                     
+                     FROM TBBADEAR001M A
+                         ,TBBADEAR002D B
+                         ,TBBADDED001M C
+                         ,(SELECT AUD_YR
+                                 ,AUD_NO
+                                 ,DSP_RQ_SNO
+                                 ,MAX(CASE WHEN SNO=1 THEN KYWD END) AS KYWD1
+                                 ,MAX(CASE WHEN SNO=2 THEN KYWD END) AS KYWD2
+                                 ,MAX(CASE WHEN SNO=3 THEN KYWD END) AS KYWD3
+                                 ,MAX(CASE WHEN SNO=4 THEN KYWD END) AS KYWD4
+                                 ,MAX(CASE WHEN SNO=5 THEN KYWD END) AS KYWD5
+                            FROM TBBADEAR037M
+                           GROUP BY AUD_YR, AUD_NO, DSP_RQ_SNO) D                     
+                    WHERE 1=1
+                      AND A.AUD_YR     = B.AUD_YR
+                      AND A.AUD_NO     = B.AUD_NO
+                      AND A.DSP_RQ_SNO = B.DSP_RQ_SNO
+                      AND A.AUD_YR     = C.AUD_YR
+                      AND A.AUD_NO     = C.AUD_NO
+			          AND A.AUD_YR     = D.AUD_YR(+)
+			          AND A.AUD_NO     = D.AUD_NO(+)
+			          AND A.DSP_RQ_SNO = D.DSP_RQ_SNO(+)
+                      AND B.ENF_DT     >= '20130101'              
+                      AND EXISTS (SELECT 1
+                                    FROM TBBADEAR004M
+                                   WHERE AUD_YR     = A.AUD_YR
+                                     AND AUD_NO     = A.AUD_NO
+                                     AND DSP_RQ_SNO = A.DSP_RQ_SNO
+                                     AND ETR_PEN_ID = #strEtrPenCnb#)         /* 적출자 */
+		]]>
+				
+				<isEqual property="strInsDvsn" compareValue="1">                                     
+                      AND EXISTS (SELECT 1
+                                        FROM TBBADEAR037M
+                                       WHERE AUD_YR     = A.AUD_YR
+                                         AND AUD_NO     = A.AUD_NO
+                                         AND DSP_RQ_SNO = A.DSP_RQ_SNO)  /* 입력 */
+				</isEqual>				
+								                                     
+				<isEqual property="strInsDvsn" compareValue="2">                                     
+                      AND NOT EXISTS (SELECT 1
+                                        FROM TBBADEAR037M
+                                       WHERE AUD_YR     = A.AUD_YR
+                                         AND AUD_NO     = A.AUD_NO
+                                         AND DSP_RQ_SNO = A.DSP_RQ_SNO)  /* 미입력 */
+				</isEqual>
+
+    	<include refid="include.pageOrder" />		
+	</select>
+	
+	<!-- 키워드 건 조회 -->
+	<select id="BADEAR060PMainKywdCntSelect" parameterClass="paramMap" resultClass="Integer">	
+          SELECT COUNT(1) AS CNT 
+            FROM TBBADEAR037M
+           WHERE AUD_YR     = #AUD_YR#
+             AND AUD_NO     = #AUD_NO#
+             AND DSP_RQ_SNO = #DSP_RQ_SNO# 
+	</select>
+	
+	
+	<!--키워드 delete-->
+	<update id="BADEAR060PMainDelete" parameterClass="paramMap">
+		  DELETE 
+			FROM TBBADEAR037M
+           WHERE AUD_YR     = #AUD_YR#
+             AND AUD_NO     = #AUD_NO#
+             AND DSP_RQ_SNO = #DSP_RQ_SNO# 
+	</update>	
+		
+	<!--키워드 insert-->
+	<insert id="BADEAR060PMainInsert" parameterClass="paramMap">
+	
+		<![CDATA[  
+			INSERT INTO TBBADEAR037M(
+			       AUD_YR
+			     , AUD_NO
+			     , DSP_RQ_SNO
+			     , SNO
+			     , KYWD			     
+			     , FRT_USR_ID
+			     , FNL_USR_ID
+			     , FNL_DEAL_DPT_CD
+			     , FNL_MNU_ID
+			     , FRT_REGI_DH
+			     , FNL_MDF_DH
+			) VALUES (
+			       #AUD_YR#
+			     , #AUD_NO#
+			     , #DSP_RQ_SNO#
+			     , (SELECT NVL(MAX(SNO),0) + 1 
+			          FROM TBBADEAR037M
+			         WHERE AUD_YR     = #AUD_YR#
+			           AND AUD_NO     = #AUD_NO#
+			           AND DSP_RQ_SNO = #DSP_RQ_SNO#)
+			     , #KYWD#
+			     , #FRT_USR_ID#
+			     , #FNL_USR_ID#
+			     , #FNL_DEAL_DPT_CD#
+			     , #FNL_MNU_ID#
+			     , SYSDATE
+			     , SYSDATE
+			);
+		]]>
+			
+	</insert>	  	
+</sqlMap> 

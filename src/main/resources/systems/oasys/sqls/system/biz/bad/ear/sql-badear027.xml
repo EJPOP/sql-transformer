@@ -1,0 +1,790 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/ear/027">
+
+	<!--##################### 소관별 처분종류별 통계 시작 #################################-->
+	<select id="BADEAR27Qselect1" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT  RLTN_ORG_CD                                      AS COPT_OFI_CD
+			       ,RLTN_ORG_NM                                      AS COMPTAUTH_NM  /*소관별명칭*/
+			       ,NVL(A_GUNSU,0)+NVL(B_GUNSU,0)+NVL(C_GUNSU,0)
+			       +NVL(D_GUNSU,0)+NVL(E_GUNSU,0)+NVL(F_GUNSU,0)
+			       +NVL(G_GUNSU,0)+NVL(H_GUNSU,0)                    AS T_GUNSU  /*합계_건수*/
+			       ,NVL(A_AM,0)+NVL(C_AM,0)+NVL(G_AM,0)              AS T_AM     /*합계_금액_상*/
+			       ,NVL(B_PSON,0)+NVL(G_PSON,0)+NVL(H_PSON,0)        AS T_PSON   /*합계_인원*/
+			       ,NVL(A_AM2,0)+NVL(C_AM2,0)+NVL(G_AM2,0)           AS T_AM2    /*합계_금액_하*/
+			       ,NVL(A_GUNSU,0)                                   AS A_GUNSU  /*변상판정건수*/
+			       ,NVL(A_AM,0)                                      AS A_AM     /*변상판정 금액_상*/
+			       ,NVL(A_AM2,0)                                     AS A_AM2    /*변상판정 금액_하*/
+			       ,NVL(B_GUNSU,0)                                   AS B_GUNSU  /*징계문책 건수*/
+			       ,NVL(B_PSON,0)                                    AS B_PSON    /*징계문책 인원*/
+			       ,NVL(C_GUNSU,0)                                   AS C_GUNSU   /*시정 건수*/
+			       ,NVL(C_AM,0)                                      AS C_AM      /*시정 금액_상*/
+			       ,NVL(C_AM2,0)                                     AS C_AM2     /*시정 금액_하*/
+			       ,NVL(D_GUNSU,0)                                   AS D_GUNSU   /*주의 건수*/
+			       ,NVL(E_GUNSU,0)                                   AS E_GUNSU   /*개선 건수*/
+			       ,NVL(F_GUNSU,0)                                   AS F_GUNSU   /*권고 건수*/
+			       ,NVL(G_GUNSU,0)                                   AS G_GUNSU   /*통보 건수*/
+			       ,NVL(G_PSON,0)                                    AS G_PSON    /*통보 인원*/
+                   ,NVL(G_AM,0)                                      AS G_AM      /*통보 금액 상 - 2018.04.16 yyh */
+                   ,NVL(G_AM2,0)                                     AS G_AM2     /*통보 금액 하 - 2018.04.16 yyh */			       
+			       ,NVL(H_GUNSU,0)                                   AS H_GUNSU   /*고발 건수*/
+			       ,NVL(H_PSON,0)                                    AS H_PSON   /*고발 인원*/
+			       ,NVL(EPT_EFCT_AM,0)                               AS EPT_EFCT_AM   /*기대효과금액*/
+			       ,NVL(IJS_AM,0)                                    AS IJS_AM   /*부당금액*/
+			FROM (
+			        SELECT   RLTN.RLTN_ORG_CD
+			                ,F_ORG_INFO(RLTN.RLTN_ORG_CD,'1') RLTN_ORG_NM
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD = '110'                      THEN 1                                     ELSE 0 END) AS A_GUNSU /* 변상판정 건수*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD = '110'                      THEN NVL(DETAIL.PNL_DRIN_PSVT_AM,0)        ELSE 0 END) AS A_AM   /* 변상판정 금액*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD = '210'                      THEN 1                                     ELSE 0 END) AS B_GUNSU /* 징계문책 건수*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD = '210'                      THEN NVL(DETAIL.NOP_CNT,0)                 ELSE 0 END) AS B_PSON  /* 징계문책 인원*/
+			                ,SUM(CASE WHEN SUBSTR(MASTER.DSP_RQ_KND_CD,1,1) = '3'            THEN 1                                     ELSE 0 END) AS C_GUNSU /* 시정 건수*/
+			                ,SUM(CASE WHEN SUBSTR(MASTER.DSP_RQ_KND_CD,1,1) = '3'            THEN NVL(DETAIL.PNL_DRIN_PSVT_AM,0)        ELSE 0 END) AS C_AM   /* 시정 금액*/
+			                ,SUM(CASE WHEN SUBSTR(MASTER.DSP_RQ_KND_CD,1,1) = '4'            THEN 1                                     ELSE 0 END) AS D_GUNSU /* 주의 건수*/
+			                ,SUM(CASE WHEN SUBSTR(MASTER.DSP_RQ_KND_CD,1,1) = '5'            THEN 1                                     ELSE 0 END) AS E_GUNSU /* 개선 건수*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD = '611'                      THEN 1                                     ELSE 0 END) AS F_GUNSU /* 권고 건수*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD IN ('610','620','621','623','630','625') THEN 1                         ELSE 0 END) AS G_GUNSU /* 통보 건수 (통보(시정완료):625 추가 - 2016.11.23 yyh) */
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD IN ('610','620','621','623','630','625') THEN NVL(DETAIL.NOP_CNT,0)     ELSE 0 END) AS G_PSON  /* 통보 인원*/			                
+                            ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD IN ('610','620','621','623','630','625') THEN NVL(DETAIL.PNL_DRIN_PSVT_AM,0) ELSE 0 END)                 AS G_AM    /* 통보금액 상 */
+                            ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD IN ('610','620','621','623','630','625') THEN NVL(DETAIL.RSR_AM,0) + NVL(DETAIL.SPLP_AM,0) ELSE 0 END)   AS G_AM2   /* 통보금액 하 */			                
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD IN ('710','720','730')       THEN 1                                     ELSE 0 END) AS H_GUNSU /* 고발 건수*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD IN ('710','720','730')       THEN NVL(DETAIL.NOP_CNT,0)                 ELSE 0 END) AS H_PSON  /* 고발 인원*/
+			                ,SUM( NVL(DETAIL.BGT_RDC_AM,0)+ NVL(DETAIL.INC_ICR_AM,0)+ NVL(DETAIL.PPL_BDN_RDT_AM,0))                                 AS EPT_EFCT_AM /*기대효과금액*/
+			                ,SUM( NVL(DETAIL.IJS_AM,0))                                                                                             AS IJS_AM /*부당금액*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD = '110'                      THEN NVL(DETAIL.RSR_AM,0)+NVL(DETAIL.SPLP_AM,0) ELSE 0 END)    AS A_AM2   /* 변상판정 금액2*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD IN ('310','320','390','391','395','396') THEN NVL(DETAIL.RSR_AM,0)+NVL(DETAIL.SPLP_AM,0) ELSE 0 END)    AS C_AM2   /* 시정 금액2*/
+			        FROM  TBBADEAR001M MASTER
+			             ,TBBADEAR002D DETAIL
+			             ,(SELECT AUD_YR
+			                     ,AUD_NO
+			                     ,DSP_RQ_SNO
+			                     ,RLTN_ORG_CD
+			                FROM TBBADEAR008M
+			                WHERE 1=1
+			                AND RLTN_ORG_CD BETWEEN NVL(#strRltnOrgCdF#,'000')||'000000000' AND NVL(#strRltnOrgCdT#,'ZZZ') ||'000000000'                
+			              GROUP BY AUD_YR
+			                     ,AUD_NO
+			                     ,DSP_RQ_SNO
+			                     ,RLTN_ORG_CD) RLTN
+			        WHERE  MASTER.AUD_YR      = DETAIL.AUD_YR
+			          AND  MASTER.AUD_NO      = DETAIL.AUD_NO
+			          AND  MASTER.DSP_RQ_SNO  = DETAIL.DSP_RQ_SNO
+			          AND  MASTER.AUD_YR      = RLTN.AUD_YR(+)
+			          AND  MASTER.AUD_NO      = RLTN.AUD_NO(+)
+			          AND  MASTER.DSP_RQ_SNO  = RLTN.DSP_RQ_SNO(+)
+			          AND  DETAIL.ENF_DT BETWEEN #strStartFromDt# AND #strStartToDt# /*화면 시행기간범위 FROM~ TO*/
+			          AND  MASTER.DSP_RQ_KND_CD <= '730'
+			          AND  NVL(DETAIL.DTM_STA_CD,'0') != '0'
+			          
+			]]>
+			
+				<isNotEmpty property="strOrgDvsnCd">
+					<isEqual property="strOrgDvsnCd" compareValue="1">
+						AND MASTER.ORG_DVSN_CD = '10' 
+					</isEqual>
+					<isEqual property="strOrgDvsnCd" compareValue="2">
+						AND MASTER.ORG_DVSN_CD IN ('21', '22')  
+					</isEqual>
+					<isEqual property="strOrgDvsnCd" compareValue="3">
+						AND MASTER.ORG_DVSN_CD = '30'
+					</isEqual>
+					<isEqual property="strOrgDvsnCd" compareValue="4">
+						AND (MASTER.ORG_DVSN_CD NOT IN ('10', '21', '22', '30') OR MASTER.ORG_DVSN_CD IS NULL)  
+					</isEqual>					
+				</isNotEmpty>
+				
+			<![CDATA[   
+						          
+			          AND  (
+			               1=1
+			               OR  
+			               EXISTS (SELECT 1
+			                         FROM TBBADEAR003M ACNT
+			                        WHERE  ACNT.AUD_YR      = MASTER.AUD_YR
+			                          AND  ACNT.AUD_NO      = MASTER.AUD_NO
+			                          AND  ACNT.DSP_RQ_SNO  = MASTER.DSP_RQ_SNO
+			                          AND(
+			                                  (   
+			                                       NVL(MASTER.ORG_DVSN_CD, '  ') IN('10', '30')  AND NVL(SUBSTR(DETAIL.WRDO_CAU_CD, 1, 1), ' ') = '1'
+			                                       
+			                                       AND (
+			                                                (
+			                                                      SUBSTR(DETAIL.ENF_DT, 1, 6) >= SUBSTR(#strStartFromDt#,1,4)||'01' /*화면 시행기간범위 FROM*/
+			                                                  AND SUBSTR(DETAIL.ENF_DT, 1, 6) <= SUBSTR(#strStartFromDt#,1,4)||SUBSTR(#strStartToDt#,5,2)  /*화면 시행기간범위 FROM~ TO*/
+			                                                  AND NVL(SUBSTR(ACNT.ACNT_YE, 3, 2), '00') = SUBSTR(#strAcntYe#, 3, 2)  /*화면 결산년도*/
+			                                                )
+			                                            OR 
+			                                                (
+			                                                     SUBSTR(DETAIL.ENF_DT, 1, 6) >= SUBSTR(#strStartFromDt#,1,6)  /*화면 시행기간범위 FROM*/
+			                                                 AND SUBSTR(DETAIL.ENF_DT, 1, 6) <= SUBSTR(#strStartToDt#,1,6)  /*화면 시행기간범위 TO*/
+			                                                 AND NVL(SUBSTR(ACNT.ACNT_YE, 3, 2), '00') != SUBSTR(#strAcntYe#+1, 3, 2)  /*화면 결산년도*/
+			                                                ) 
+			                                           )
+			                                  )
+			                                  OR
+			                                  (
+			                                       (NVL(MASTER.ORG_DVSN_CD, '  ') NOT IN ('10','30')  OR  NVL(SUBSTR(DETAIL.WRDO_CAU_CD, 1, 1), ' ') != '1')                               
+			                                        AND SUBSTR(DETAIL.ENF_DT, 1, 6) >= SUBSTR(#strStartFromDt#,1,6) /*화면 시행기간범위 FROM*/
+			                                        AND SUBSTR(DETAIL.ENF_DT, 1, 6) <= SUBSTR(#strStartToDt#,1,6) /*화면 시행기간범위 TO*/
+			                                  )
+			                             ) 
+			                       )
+			               )
+			               
+			          GROUP BY RLTN.RLTN_ORG_CD
+			)
+			ORDER BY RLTN_ORG_CD
+        ]]>
+	</select>
+	<!--##################### 소관별 처분종류별 통계 끝 #################################-->
+	
+	<!--##################### 사무별 처분종류별 통계 시작 #################################-->
+	<select id="BADEAR27Qselect2" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT UNLAW_HIGH_GB
+			      ,UNLAW_HIGH_GB_NM
+			      ,UNLAW_LOW_GB
+			      ,UNLAW_LOW_GB_NM
+			      ,C1+C3+C5+C7+C8+C9+C10+C12 AS T_GUNSU  /*합계건수*/
+			      ,C2+C6+C16                 AS T_AM1    /*합계금액_상*/
+			      ,C4+C11+C13                AS T_PSON   /*합계인원*/
+			      ,C14+C15+C17               AS T_AM2    /*합계금액_하*/
+			      ,C1  /* 변상판정 건수  */
+			      ,C2  /* 변상판정 금액_상*/
+			      ,C3  /* 징계문책 건수  */
+			      ,C4  /* 징계문책 인원  */
+			      ,C5  /* 시정 건수      */
+			      ,C6  /* 시정 금액_상   */
+			      ,C7  /* 주의 건수      */
+			      ,C8  /* 개선 건수      */
+			      ,C9  /* 권고 건수      */
+			      ,C10 /* 통보 건수      */
+			      ,C11 /* 통보 인원      */
+			      ,C16 /* 통보 금액 상   */
+			      ,C17 /* 통보 금액 하   */
+			      ,C12 /* 고발 건수      */
+			      ,C13 /* 고발 인원      */
+			      ,C14  /* 변상판정 금액_하 */
+			      ,C15  /* 시정 금액_하     */
+			FROM (
+			        SELECT   SUBSTR(DETAIL.WRDO_TYP_CD,1,1)                                                                                         AS UNLAW_HIGH_GB
+			                ,ETCCD1.CD_NM                                                                                                           AS UNLAW_HIGH_GB_NM
+			                ,CASE WHEN SUBSTR(DETAIL.WRDO_TYP_CD,1,1) = '2' THEN '01'||SUBSTR(DETAIL.WRDO_TYP_CD,4,1)
+			                 ELSE (CASE WHEN SUBSTR(DETAIL.WRDO_TYP_CD,1,4) IN ('1023','1024') THEN '022'
+			                            WHEN SUBSTR(DETAIL.WRDO_TYP_CD,1,4) = '1026'           THEN '025'
+			                            WHEN SUBSTR(DETAIL.WRDO_TYP_CD,1,4) IN ('1063','1064') THEN '062'
+			                            WHEN SUBSTR(DETAIL.WRDO_TYP_CD,1,4) = '1066'           THEN '065'
+			                       ELSE SUBSTR(DETAIL.WRDO_TYP_CD,2,3)
+			                       END)
+			                 END                                                                                                                    AS UNLAW_LOW_GB
+			                ,ETCCD2.CD_NM                                                                                                           AS UNLAW_LOW_GB_NM
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD = '110'                            THEN 1                              ELSE 0 END) AS C1  /*변상판정 건수*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD = '110'                            THEN NVL(DETAIL.PNL_DRIN_PSVT_AM,0) ELSE 0 END) AS C2  /*변상판정 금액*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD = '210'                            THEN 1                              ELSE 0 END) AS C3  /*징계문책 건수*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD = '210'                            THEN NVL(DETAIL.NOP_CNT,0)          ELSE 0 END) AS C4  /*징계문책 인원*/
+			                ,SUM(CASE WHEN SUBSTR(MASTER.DSP_RQ_KND_CD,1,1) = '3'                  THEN 1                              ELSE 0 END) AS C5  /*시정 건수*/
+			                ,SUM(CASE WHEN SUBSTR(MASTER.DSP_RQ_KND_CD,1,1) = '3'                  THEN NVL(DETAIL.PNL_DRIN_PSVT_AM,0) ELSE 0 END) AS C6  /*시정 금액*/
+			                ,SUM(CASE WHEN SUBSTR(MASTER.DSP_RQ_KND_CD,1,1) = '4'                  THEN 1                              ELSE 0 END) AS C7  /*주의 건수*/
+			                ,SUM(CASE WHEN SUBSTR(MASTER.DSP_RQ_KND_CD,1,1) = '5'                  THEN 1                              ELSE 0 END) AS C8  /*개선 건수*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD = '611'                            THEN 1                              ELSE 0 END) AS C9  /*권고 건수*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD IN ('610','620','621','623','630','625') THEN 1                        ELSE 0 END) AS C10 /*통보 건수 (통보(시정완료):625 추가 - 2016.11.23 yyh)*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD IN ('620','621','623')             THEN NVL(DETAIL.NOP_CNT,0)          ELSE 0 END) AS C11 /*통보 인원 - 610,630 제거 - 2016.02.22 yyh */
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD IN ('610','620','621','623','630','625') THEN NVL(DETAIL.PNL_DRIN_PSVT_AM,0)               ELSE 0 END) AS C16 /*통보 금액 상 - 2018.04.16 yyh */
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD IN ('610','620','621','623','630','625') THEN NVL(DETAIL.RSR_AM,0) + NVL(DETAIL.SPLP_AM,0) ELSE 0 END) AS C17 /*통보 금액 하 - 2018.04.16 yyh */
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD IN ('710','720','730'      )       THEN 1                              ELSE 0 END) AS C12 /*고발 건수*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD IN ('710','720','730'      )       THEN NVL(DETAIL.NOP_CNT,0)          ELSE 0 END) AS C13 /*고발 인원*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD = '110'                            THEN NVL(DETAIL.RSR_AM,0)+NVL(DETAIL.SPLP_AM,0) ELSE 0 END) AS C14  /*변상판정 금액*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD IN ('310','320','390','391','395','396')       THEN NVL(DETAIL.RSR_AM,0)+NVL(DETAIL.SPLP_AM,0) ELSE 0 END) AS C15  /*시정 금액*/
+			           FROM  TBBADEAR001M   MASTER
+			                ,TBBADEAR002D   DETAIL
+			                ,TBDCMACM013C   ETCCD1
+			                ,TBDCMACM013C   ETCCD2
+			          WHERE  1=1
+			            AND  MASTER.AUD_YR      = DETAIL.AUD_YR
+			            AND  MASTER.AUD_NO      = DETAIL.AUD_NO
+			            AND  MASTER.DSP_RQ_SNO  = DETAIL.DSP_RQ_SNO
+			            AND  EXISTS (SELECT 1 
+			                           FROM TBBADEAR008M
+			                          WHERE 1=1
+			                            AND RLTN_ORG_CD BETWEEN NVL(#strRltnOrgCdF#,'000')||'000000000' AND NVL(#strRltnOrgCdT#,'ZZZ') ||'000000000'
+			                            AND MASTER.AUD_YR      = AUD_YR
+							            AND MASTER.AUD_NO      = AUD_NO
+							            AND MASTER.DSP_RQ_SNO  = DSP_RQ_SNO          
+			                         )			            
+			]]>
+			
+				<isNotEmpty property="strOrgDvsnCd">
+					<isEqual property="strOrgDvsnCd" compareValue="1">
+						AND MASTER.ORG_DVSN_CD = '10' 
+					</isEqual>
+					<isEqual property="strOrgDvsnCd" compareValue="2">
+						AND MASTER.ORG_DVSN_CD IN ('21', '22')  
+					</isEqual>
+					<isEqual property="strOrgDvsnCd" compareValue="3">
+						AND MASTER.ORG_DVSN_CD = '30'
+					</isEqual>
+					<isEqual property="strOrgDvsnCd" compareValue="4">
+						AND (MASTER.ORG_DVSN_CD NOT IN ('10', '21', '22', '30') OR MASTER.ORG_DVSN_CD IS NULL)  
+					</isEqual>					
+				</isNotEmpty>
+				
+			<![CDATA[             
+			            
+			            AND  SUBSTR(DETAIL.WRDO_TYP_CD,1,1)||'00000000' = ETCCD1.CD
+			            AND  ETCCD1.CMM_CD_DVSN_CD = '1000121'
+			            AND  SUBSTR(DETAIL.WRDO_TYP_CD,1,1)||
+			                 (CASE WHEN SUBSTR(DETAIL.WRDO_TYP_CD,1,1) = '2' THEN '01'||SUBSTR(DETAIL.WRDO_TYP_CD,4,1)
+			                       ELSE (CASE WHEN SUBSTR(DETAIL.WRDO_TYP_CD,1,4) IN ('1023','1024') THEN '022'
+			                                  WHEN SUBSTR(DETAIL.WRDO_TYP_CD,1,4) = '1026'           THEN '025'
+			                                  WHEN SUBSTR(DETAIL.WRDO_TYP_CD,1,4) IN ('1063','1064') THEN '062'
+			                                  WHEN SUBSTR(DETAIL.WRDO_TYP_CD,1,4) = '1066'           THEN '065'
+			                                  ELSE SUBSTR(DETAIL.WRDO_TYP_CD,2,3)
+			                             END)
+			                  END)||'00000' = ETCCD2.CD
+			            AND  ETCCD2.CMM_CD_DVSN_CD = '1000121'
+			            AND  SUBSTR(DETAIL.WRDO_TYP_CD,1,1) IN('1', '2')  
+			            AND  DETAIL.ENF_DT BETWEEN #strStartFromDt# AND #strStartToDt# /*화면 시행기간범위 FROM~ TO*/  
+			            AND  MASTER.DSP_RQ_KND_CD <= '730'
+			            AND  NVL(DETAIL.DTM_STA_CD,'0') != '0'
+			            
+			            AND (   1=1 
+			                  OR 
+			                    EXISTS (SELECT 1
+			                                 FROM TBBADEAR003M ACNT
+			                                WHERE  ACNT.AUD_YR      = MASTER.AUD_YR
+			                                  AND  ACNT.AUD_NO      = MASTER.AUD_NO
+			                                  AND  ACNT.DSP_RQ_SNO  = MASTER.DSP_RQ_SNO
+			                                  AND(
+			                                          (   
+			                                               NVL(MASTER.ORG_DVSN_CD, '  ') IN('10', '30')  AND NVL(SUBSTR(DETAIL.WRDO_CAU_CD, 1, 1), ' ') = '1'
+			                                               
+			                                               AND (
+			                                                        (
+			                                                              SUBSTR(DETAIL.ENF_DT, 1, 6) >= SUBSTR(#strStartFromDt#,1,4)||'01' /*화면 시행기간범위 FROM*/
+			                                                          AND SUBSTR(DETAIL.ENF_DT, 1, 6) <= SUBSTR(#strStartFromDt#,1,4)||SUBSTR(#strStartToDt#,5,2)  /*화면 시행기간범위 FROM~ TO*/
+			                                                          AND NVL(SUBSTR(ACNT.ACNT_YE, 3, 2), '00') = SUBSTR(#strAcntYe#, 3, 2)  /*화면 결산년도*/
+			                                                        )
+			                                                    OR 
+			                                                        (
+			                                                             DETAIL.ENF_DT >= #strStartFromDt#  /*화면 시행기간범위 FROM*/
+			                                                         AND DETAIL.ENF_DT <= #strStartToDt#  /*화면 시행기간범위 TO*/
+			                                                         AND NVL(SUBSTR(ACNT.ACNT_YE, 3, 2), '00') != SUBSTR(#strAcntYe#+1, 3, 2)  /*화면 결산년도*/
+			                                                        ) 
+			                                                   )
+			                                          )
+			                                          OR
+			                                          (
+			                                               (NVL(MASTER.ORG_DVSN_CD, '  ') NOT IN ('10','30')  OR  NVL(SUBSTR(DETAIL.WRDO_CAU_CD, 1, 1), ' ') != '1')                               
+			                                                AND DETAIL.ENF_DT >= #strStartFromDt# /*화면 시행기간범위 FROM*/
+			                                                AND DETAIL.ENF_DT <= #strStartToDt# /*화면 시행기간범위 TO*/
+			                                          )
+			                                     ) 
+			                               )
+			                    )
+			                            
+			        GROUP BY SUBSTR(DETAIL.WRDO_TYP_CD,1,1)
+			                 ,ETCCD1.CD_NM
+			                 ,CASE WHEN SUBSTR(DETAIL.WRDO_TYP_CD,1,1) = '2' THEN '01'||SUBSTR(DETAIL.WRDO_TYP_CD,4,1)
+			                       ELSE (CASE WHEN SUBSTR(DETAIL.WRDO_TYP_CD,1,4) IN ('1023','1024') THEN '022'
+			                                  WHEN SUBSTR(DETAIL.WRDO_TYP_CD,1,4) = '1026'           THEN '025'
+			                                  WHEN SUBSTR(DETAIL.WRDO_TYP_CD,1,4) IN ('1063','1064') THEN '062'
+			                                  WHEN SUBSTR(DETAIL.WRDO_TYP_CD,1,4) = '1066'           THEN '065'
+			                                  ELSE SUBSTR(DETAIL.WRDO_TYP_CD,2,3)
+			                             END)
+			                  END
+			                ,ETCCD2.CD_NM
+			)
+			order by UNLAW_HIGH_GB
+        ]]>
+	</select>	
+	<!--##################### 사무별 처분종류별 통계 끝 #################################-->
+	
+	<!--##################### 회계별 처분종류별 통계 시작 #################################-->
+	<select id="BADEAR27Qselect3" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+        
+         SELECT NVL(T1.HOIGYE_NM1, '총계') AS HOIGYE_NM1
+               ,NVL(T1.HOIGYE_NM,  DECODE(T1.HOIGYE_NM1,'','[총    계]', '['||T1.HOIGYE_NM1 || ' 소계]')) AS HOIGYE_NM 
+		       ,SUM(T1.T_GUNSU)           AS T_GUNSU   
+		       ,SUM(T1.T_AM)              AS T_AM       
+		       ,SUM(T1.T_PSON)            AS T_PSON    
+		       ,SUM(T1.T_AM2)             AS T_AM2     
+		       ,SUM(T1.A_GUNSU)           AS A_GUNSU   
+		       ,SUM(T1.A_AM)              AS A_AM      
+		       ,SUM(T1.A_AM2)             AS A_AM2     
+		       ,SUM(T1.B_GUNSU)           AS B_GUNSU   
+		       ,SUM(T1.B_PSON)            AS B_PSON    
+		       ,SUM(T1.C_GUNSU)           AS C_GUNSU   
+		       ,SUM(T1.C_AM)              AS C_AM      
+		       ,SUM(T1.C_AM2)             AS C_AM2     
+		       ,SUM(T1.D_GUNSU)           AS D_GUNSU   
+		       ,SUM(T1.E_GUNSU)           AS E_GUNSU   
+		       ,SUM(T1.F_GUNSU)           AS F_GUNSU   
+		       ,SUM(T1.G_GUNSU)           AS G_GUNSU   
+		       ,SUM(T1.G_PSON)            AS G_PSON  
+		       ,SUM(T1.G_AM)              AS G_AM
+		       ,SUM(T1.G_AM2)             AS G_AM2
+		       ,SUM(T1.H_GUNSU)           AS H_GUNSU   
+		       ,SUM(T1.H_PSON)            AS H_PSON    
+       FROM (
+  
+  
+			SELECT  A.HOIGYE_CD                                           AS HOIGYE_CD
+			       ,A.HOIGYE_NM                                           AS HOIGYE_NM
+			       ,CASE WHEN A.HOIGYE_NM LIKE '%특별회계' THEN '특별회계'
+			             WHEN A.HOIGYE_NM LIKE '%기금'    THEN '기금'
+			             ELSE A.HOIGYE_NM
+			         END                             	                  AS HOIGYE_NM1			       
+			       ,NVL(A_GUNSU,0)+NVL(B_GUNSU,0)+NVL(C_GUNSU,0)
+			       +NVL(D_GUNSU,0)+NVL(E_GUNSU,0)+NVL(F_GUNSU,0)
+			       +NVL(G_GUNSU,0)+NVL(H_GUNSU,0)                         AS T_GUNSU
+			       ,NVL(A_AM,0)+NVL(C_AM,0)+NVL(G_AM,0)                   AS T_AM
+			       ,NVL(B_PSON,0)+NVL(G_PSON,0)+NVL(H_PSON,0)             AS T_PSON
+			       ,NVL(A_AM2,0)+NVL(C_AM2,0)+NVL(G_AM2,0)                AS T_AM2
+			       ,NVL(A_GUNSU,0)                                        AS A_GUNSU
+			       ,NVL(A_AM,0)                                           AS A_AM
+			       ,NVL(A_AM2,0)                                          AS A_AM2
+			       ,NVL(B_GUNSU,0)                                        AS B_GUNSU
+			       ,NVL(B_PSON,0)                                         AS B_PSON
+			       ,NVL(C_GUNSU,0)                                        AS C_GUNSU
+			       ,NVL(C_AM,0)                                           AS C_AM
+			       ,NVL(C_AM2,0)                                          AS C_AM2
+			       ,NVL(D_GUNSU,0)                                        AS D_GUNSU
+			       ,NVL(E_GUNSU,0)                                        AS E_GUNSU
+			       ,NVL(F_GUNSU,0)                                        AS F_GUNSU
+			       ,NVL(G_GUNSU,0)                                        AS G_GUNSU
+			       ,NVL(G_PSON,0)                                         AS G_PSON
+			       ,NVL(G_AM,0)                                           AS G_AM
+			       ,NVL(G_AM2,0)                                          AS G_AM2			       
+			       ,NVL(H_GUNSU,0)                                        AS H_GUNSU
+			       ,NVL(H_PSON,0)                                         AS H_PSON
+			FROM (
+			        SELECT   CASE WHEN TRIM(ACNT.DSP_RQ_ACNT_CD) IS NULL THEN '999' ELSE NVL(ACNT.DSP_RQ_ACNT_CD,'999')    END                           AS HOIGYE_CD
+			                ,CASE WHEN (CASE WHEN TRIM(ACNT.DSP_RQ_ACNT_CD) IS NULL   THEN '999' 
+			                            ELSE NVL(ACNT.DSP_RQ_ACNT_CD,'999') 
+			                            END) = '999' THEN '기타' ELSE F_CODE_NM('1000004', ACNT.DSP_RQ_ACNT_CD)   END                                AS HOIGYE_NM
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD = '110'                              THEN 1                              ELSE 0 END) AS A_GUNSU /*변상판정 건수*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD = '110'                              THEN NVL(DETAIL.PNL_DRIN_PSVT_AM,0) ELSE 0 END) AS A_AM   /*변상판정 금액*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD = '210'                              THEN 1                              ELSE 0 END) AS B_GUNSU /*징계문책 건수*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD = '210'                              THEN NVL(DETAIL.NOP_CNT,0)          ELSE 0 END) AS B_PSON  /*징계문책 인원*/
+			                ,SUM(CASE WHEN SUBSTR(MASTER.DSP_RQ_KND_CD,1,1) = '3'                    THEN 1                              ELSE 0 END) AS C_GUNSU /*시정 건수*/
+			                ,SUM(CASE WHEN SUBSTR(MASTER.DSP_RQ_KND_CD,1,1) = '3'                    THEN NVL(DETAIL.PNL_DRIN_PSVT_AM,0) ELSE 0 END) AS C_AM   /*시정 금액*/
+			                ,SUM(CASE WHEN SUBSTR(MASTER.DSP_RQ_KND_CD,1,1) = '4'                    THEN 1                              ELSE 0 END) AS D_GUNSU /*주의 건수*/
+			                ,SUM(CASE WHEN SUBSTR(MASTER.DSP_RQ_KND_CD,1,1) = '5'                    THEN 1                              ELSE 0 END) AS E_GUNSU /*개선 건수*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD = '611'                              THEN 1                              ELSE 0 END) AS F_GUNSU /*권고 건수*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD IN ('610','620','621','623','630','625')   THEN 1                        ELSE 0 END)                     AS G_GUNSU /*통보 수, (통보(시정완료):625 추가 - 2016.11.23 yyh)*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD IN ('610','620','621','623','630','625')   THEN NVL(DETAIL.PNL_DRIN_PSVT_AM,0)               ELSE 0 END) AS G_AM  /*통보 금액 상 - 2018.04.17 yyh */
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD IN ('610','620','621','623','630','625')   THEN NVL(DETAIL.RSR_AM,0) + NVL(DETAIL.SPLP_AM,0) ELSE 0 END) AS G_AM2 /*통보 금액 하 - 2018.04.17 yyh */
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD IN ('620','621','623')               THEN NVL(DETAIL.NOP_CNT,0)          ELSE 0 END)                     AS G_PSON /*통보 인원 - 610,630 제거 - 2016.02.22 yyh */
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD IN ('710','720','730')               THEN 1                              ELSE 0 END) AS H_GUNSU /*고발 건수*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD IN ('710','720','730')               THEN NVL(DETAIL.NOP_CNT,0)          ELSE 0 END) AS H_PSON  /*고발 인원*/
+			                ,SUM(CASE WHEN MASTER.DSP_RQ_KND_CD = '110'                              THEN NVL(DETAIL.RSR_AM,0)+NVL(DETAIL.SPLP_AM,0) ELSE 0 END) AS A_AM2   /*변상판정 금액2*/
+			                ,SUM(CASE WHEN SUBSTR(MASTER.DSP_RQ_KND_CD,1,1) = '3' AND MASTER.DSP_RQ_KND_CD IN ('110', '310', '320', '390', '391','395','396') THEN 
+			                          NVL(DETAIL.RSR_AM,0)+NVL(DETAIL.SPLP_AM,0) ELSE 0 END)                                                            AS C_AM2   /*시정 금액2*/
+			           FROM  TBBADEAR001M   MASTER
+			                ,TBBADEAR002D   DETAIL
+			                ,(SELECT AUD_YR
+			                        ,AUD_NO
+			                        ,DSP_RQ_SNO
+			                        ,MIN(DSP_RQ_ACNT_CD)  DSP_RQ_ACNT_CD
+			                  FROM TBBADEAR003M
+			                  GROUP BY  AUD_YR
+			                           ,AUD_NO
+			                           ,DSP_RQ_SNO          
+			                 ) ACNT
+			                 
+			          WHERE  MASTER.AUD_YR     = DETAIL.AUD_YR
+			            AND  MASTER.AUD_NO      = DETAIL.AUD_NO
+			            AND  MASTER.DSP_RQ_SNO     = DETAIL.DSP_RQ_SNO
+			            AND  MASTER.AUD_YR      = ACNT.AUD_YR(+)
+			            AND  MASTER.AUD_NO      = ACNT.AUD_NO(+)
+			            AND  MASTER.DSP_RQ_SNO  = ACNT.DSP_RQ_SNO(+)		            
+			            AND  DETAIL.ENF_DT BETWEEN #strStartFromDt# AND #strStartToDt# /*화면 시행기간범위 FROM~ TO*/
+			            AND  EXISTS (SELECT 1 
+			                           FROM TBBADEAR008M
+			                          WHERE 1=1
+			                            AND RLTN_ORG_CD BETWEEN NVL(#strRltnOrgCdF#,'000')||'000000000' AND NVL(#strRltnOrgCdT#,'ZZZ') ||'000000000'
+			                            AND MASTER.AUD_YR      = AUD_YR
+							            AND MASTER.AUD_NO      = AUD_NO
+							            AND MASTER.DSP_RQ_SNO  = DSP_RQ_SNO          
+			                         )
+			]]>
+			
+				<isNotEmpty property="strOrgDvsnCd">
+					<isEqual property="strOrgDvsnCd" compareValue="1">
+						AND MASTER.ORG_DVSN_CD = '10' 
+					</isEqual>
+					<isEqual property="strOrgDvsnCd" compareValue="2">
+						AND MASTER.ORG_DVSN_CD IN ('21', '22')  
+					</isEqual>
+					<isEqual property="strOrgDvsnCd" compareValue="3">
+						AND MASTER.ORG_DVSN_CD = '30'
+					</isEqual>
+					<isEqual property="strOrgDvsnCd" compareValue="4">
+						AND (MASTER.ORG_DVSN_CD NOT IN ('10', '21', '22', '30') OR MASTER.ORG_DVSN_CD IS NULL)  
+					</isEqual>					
+				</isNotEmpty>
+				
+			<![CDATA[             
+			            AND  MASTER.DSP_RQ_KND_CD NOT IN ('904','905')
+			            AND  NVL(DETAIL.DTM_STA_CD,'0') != '0'
+			            AND  ( 1=1
+			                   OR 
+			                   EXISTS (SELECT 1
+			                           FROM TBBADEAR003M ACNT
+			                          WHERE  ACNT.AUD_YR      = MASTER.AUD_YR
+			                            AND  ACNT.AUD_NO      = MASTER.AUD_NO
+			                            AND  ACNT.DSP_RQ_SNO  = MASTER.DSP_RQ_SNO
+			                            AND(
+			                                  (   
+			                                       NVL(MASTER.ORG_DVSN_CD, '  ') IN('10', '30')  AND NVL(SUBSTR(DETAIL.WRDO_CAU_CD, 1, 1), ' ') = '1'
+			                                       
+			                                       AND (
+			                                                (
+			                                                      SUBSTR(DETAIL.ENF_DT, 1, 6) >= SUBSTR(#strStartFromDt#,1,4)||'01' /*화면 시행기간범위 FROM*/
+			                                                  AND SUBSTR(DETAIL.ENF_DT, 1, 6) <= SUBSTR(#strStartFromDt#,1,4)||SUBSTR(#strStartToDt#,5,2)  /*화면 시행기간범위 FROM~ TO*/
+			                                                  AND NVL(SUBSTR(ACNT.ACNT_YE, 3, 2), '00') = SUBSTR(#strAcntYe#, 3, 2)  /*화면 결산년도*/
+			                                                )
+			                                            OR 
+			                                                (
+			                                                     SUBSTR(DETAIL.ENF_DT, 1, 6) >= SUBSTR(#strStartFromDt#,1,6)  /*화면 시행기간범위 FROM*/
+			                                                 AND SUBSTR(DETAIL.ENF_DT, 1, 6) <= SUBSTR(#strStartToDt#,1,6)  /*화면 시행기간범위 TO*/
+			                                                 AND NVL(SUBSTR(ACNT.ACNT_YE, 3, 2), '00') != SUBSTR(#strAcntYe#+1, 3, 2)  /*화면 결산년도*/
+			                                                ) 
+			                                           )
+			                                  )
+			                                  OR
+			                                  (
+			                                       (NVL(MASTER.ORG_DVSN_CD, '  ') NOT IN ('10','30')  OR  NVL(SUBSTR(DETAIL.WRDO_CAU_CD, 1, 1), ' ') != '1')                               
+			                                        AND SUBSTR(DETAIL.ENF_DT, 1, 6) >= SUBSTR(#strStartFromDt#,1,6) /*화면 시행기간범위 FROM*/
+			                                        AND SUBSTR(DETAIL.ENF_DT, 1, 6) <= SUBSTR(#strStartToDt#,1,6) /*화면 시행기간범위 TO*/
+			                                  )
+			                               ) 
+			                       )
+			                  ) 
+			                  
+			          GROUP BY  CASE WHEN TRIM(ACNT.DSP_RQ_ACNT_CD) IS NULL THEN '999' ELSE NVL(ACNT.DSP_RQ_ACNT_CD,'999')    END
+			                   ,CASE WHEN (CASE WHEN TRIM(ACNT.DSP_RQ_ACNT_CD) IS NULL   THEN '999' 
+			                               ELSE NVL(ACNT.DSP_RQ_ACNT_CD,'999') 
+			                               END) = '999' THEN '기타' ELSE F_CODE_NM('1000004', ACNT.DSP_RQ_ACNT_CD)   END 
+			     ) A
+
+    ) T1
+    GROUP BY ROLLUP(T1.HOIGYE_NM1, T1.HOIGYE_NM)
+    ORDER BY T1.HOIGYE_NM1, T1.HOIGYE_NM
+    
+        ]]>
+	</select>	
+	<!--##################### 회계별 처분종류별 통계 끝 #################################-->
+	
+	<!--##################### 소관청별 미집행상황 시작 #################################-->
+	<select id="BADEAR27Qselect4-1" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT
+			    /*소계*/
+			     '합    계' AS COMPTAUTH_NM
+			     , NVL(SUM(1),0)  AS SUM_CNT 
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '110' OR SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' THEN NVL(DE04.PNL_DRIN_PSVT_AM,0) ELSE 0 END),0)  AS SUM_PNL_DRIN_PSVT_AM 
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' THEN NVL(DE04.RSR_AM,0)+NVL(DE04.SPLP_AM,0) ELSE 0 END),0)  AS SUM_RSTORTN_SPLP_AM 
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) != '5' THEN NVL(DE04.NOP_CNT,0) ELSE 0 END),0)  AS SUM_NOP_CNT
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '110' THEN 1 ELSE 0 END),0)  AS CNT1
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '110' THEN NVL(DE04.PNL_DRIN_PSVT_AM,0) ELSE 0 END),0)  AS PNL_DRIN_PSVT_AM1
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '110' THEN NVL(DE04.NOP_CNT, 0) ELSE 0 END), 0) AS NOP_CNT01 /* 2023.05.10 변상판정 인원 추가*/
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '210' THEN 1 ELSE 0 END),0)  AS CNT2
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '210' THEN NVL(DE04.NOP_CNT,0) ELSE 0 END),0)  AS NOP_CNT1
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' THEN 1 ELSE 0 END),0)  AS CNT3
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' THEN NVL(DE04.PNL_DRIN_PSVT_AM,0) ELSE 0 END),0)  AS PNL_DRIN_PSVT_AM2
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' THEN (NVL(DE04.RSR_AM,0)+NVL(DE04.SPLP_AM,0)) ELSE 0 END),0)  AS RSTORTN_SPLP_AM1
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' THEN NVL(DE04.NOP_CNT, 0) ELSE 0 END), 0) AS NOP_CNT001 /* 2023.05.10 시정 인원 추가*/ 
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '5' THEN 1 ELSE 0 END),0)  AS CNT4 
+			    /*기한미경과*/
+			     /* 20140618일자는  화면 집행기준일자를 셋팅*/
+			     , NVL(SUM(CASE WHEN DE04.HNDL_DDLN_DT > #strHndlDdlnDt# THEN 1 ELSE 0 END),0)  AS SUM_CNT1
+			     , NVL(SUM(CASE WHEN DE04.HNDL_DDLN_DT > #strHndlDdlnDt# AND (MAIN.DSP_RQ_KND_CD = '110' OR SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3') THEN NVL(DE04.PNL_DRIN_PSVT_AM,0) ELSE 0 END),0)  AS SUM_PNL_DRIN_PSVT_AM1 
+			     , NVL(SUM(CASE WHEN DE04.HNDL_DDLN_DT > #strHndlDdlnDt# AND SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' THEN NVL(DE04.RSR_AM,0)+NVL(DE04.SPLP_AM,0) ELSE 0 END),0)  AS SUM_RSTORTN_SPLP_AM1 
+			     , NVL(SUM(CASE WHEN DE04.HNDL_DDLN_DT > #strHndlDdlnDt# AND SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) != '5' THEN NVL(DE04.NOP_CNT,0) ELSE 0 END),0)  AS SUM_NOP_CNT1
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '110' AND DE04.HNDL_DDLN_DT > #strHndlDdlnDt# THEN 1 ELSE 0 END),0)  AS CNT5
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '110' AND DE04.HNDL_DDLN_DT > #strHndlDdlnDt# THEN NVL(DE04.PNL_DRIN_PSVT_AM,0) ELSE 0 END),0)  AS PNL_DRIN_PSVT_AM3
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '110' AND DE04.HNDL_DDLN_DT > #strHndlDdlnDt# THEN NVL(DE04.NOP_CNT, 0) ELSE 0 END), 0) AS NOP_CNT02 /* 2023.05.10 변상판정 인원 추가*/
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '210' AND DE04.HNDL_DDLN_DT > #strHndlDdlnDt# THEN 1 ELSE 0 END),0)  AS CNT6
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '210' AND DE04.HNDL_DDLN_DT > #strHndlDdlnDt# THEN NVL(DE04.NOP_CNT,0) ELSE 0 END),0)  AS NOP_CNT2
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' AND DE04.HNDL_DDLN_DT > #strHndlDdlnDt# THEN 1 ELSE 0 END),0)  AS CNT7
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' AND DE04.HNDL_DDLN_DT > #strHndlDdlnDt# THEN NVL(DE04.PNL_DRIN_PSVT_AM,0) ELSE 0 END),0)  AS PNL_DRIN_PSVT_AM4
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' AND DE04.HNDL_DDLN_DT > #strHndlDdlnDt# THEN (NVL(DE04.RSR_AM,0)+NVL(DE04.SPLP_AM,0)) ELSE 0 END),0)  AS RSTORTN_SPLP_AM2
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' AND DE04.HNDL_DDLN_DT > #strHndlDdlnDt# THEN NVL(DE04.NOP_CNT, 0) ELSE 0 END), 0) AS NOP_CNT002 /* 2023.05.10 시정 인원 추가*/ 
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '5' AND DE04.HNDL_DDLN_DT > #strHndlDdlnDt# THEN 1 ELSE 0 END),0)  AS CNT8
+			    /*집행중*/
+			     , NVL(SUM(CASE WHEN DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# THEN 1 ELSE 0 END),0)  AS SUM_CNT2
+			     , NVL(SUM(CASE WHEN DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# AND (MAIN.DSP_RQ_KND_CD = '110' OR SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3') THEN NVL(DE04.PNL_DRIN_PSVT_AM,0) ELSE 0 END),0)  AS SUM_PNL_DRIN_PSVT_AM2 
+			     , NVL(SUM(CASE WHEN DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# AND SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' THEN NVL(DE04.RSR_AM,0)+NVL(DE04.SPLP_AM,0) ELSE 0 END),0)  AS SUM_RSTORTN_SPLP_AM2 
+			     , NVL(SUM(CASE WHEN DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# AND SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) != '5' THEN NVL(DE04.NOP_CNT,0) ELSE 0 END),0)  AS SUM_NOP_CNT2
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '110' AND DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# THEN 1 ELSE 0 END),0)  AS CNT9
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '110' AND DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# THEN NVL(DE04.PNL_DRIN_PSVT_AM,0) ELSE 0 END),0)  AS PNL_DRIN_PSVT_AM5
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '110' AND DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# THEN NVL(DE04.NOP_CNT, 0) ELSE 0 END), 0) AS NOP_CNT03 /* 2023.05.10 변상판정 인원 추가*/
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '210' AND DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# THEN 1 ELSE 0 END),0)  AS CNT10
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '210' AND DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# THEN NVL(DE04.NOP_CNT,0) ELSE 0 END),0)  AS NOP_CNT3
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' AND DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# THEN 1 ELSE 0 END),0)  AS CNT11
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' AND DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# THEN NVL(DE04.PNL_DRIN_PSVT_AM,0) ELSE 0 END),0)  AS PNL_DRIN_PSVT_AM6
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' AND DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# THEN (NVL(DE04.RSR_AM,0)+NVL(DE04.SPLP_AM,0)) ELSE 0 END),0)  AS RSTORTN_SPLP_AM3
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' AND DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# THEN NVL(DE04.NOP_CNT, 0) ELSE 0 END), 0) AS NOP_CNT003 /* 2023.05.10 시정 인원 추가*/ 
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '5' AND DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# THEN 1 ELSE 0 END),0)  AS CNT12
+			    FROM TBBADEAR001M MAIN, TBBADEAR002D DE04
+			    WHERE 1=1
+			     AND MAIN.AUD_YR = DE04.AUD_YR 
+			     AND MAIN.AUD_NO  = DE04.AUD_NO
+			     AND MAIN.DSP_RQ_SNO = DE04.DSP_RQ_SNO
+			     AND NVL(DE04.DTM_STA_CD, '0') != '0'
+			     AND DE04.ENF_DT BETWEEN #strStartFromDt# AND #strStartToDt#   /*화면 시행기간범위 FROM~ TO*/
+			]]>
+			
+				<isNotEmpty property="strOrgDvsnCd">
+					<isEqual property="strOrgDvsnCd" compareValue="1">
+						AND MAIN.ORG_DVSN_CD = '10' 
+					</isEqual>
+					<isEqual property="strOrgDvsnCd" compareValue="2">
+						AND MAIN.ORG_DVSN_CD IN ('21', '22')  
+					</isEqual>
+					<isEqual property="strOrgDvsnCd" compareValue="3">
+						AND MAIN.ORG_DVSN_CD = '30'
+					</isEqual>
+					<isEqual property="strOrgDvsnCd" compareValue="4">
+						AND (MAIN.ORG_DVSN_CD NOT IN ('10', '21', '22', '30') OR MASTER.ORG_DVSN_CD IS NULL)  
+					</isEqual>					
+				</isNotEmpty>
+				
+			<![CDATA[   			     
+			     
+			     AND 
+			     ((DE04.DTM_STA_CD != '2')
+			      OR 
+			     (DE04.DTM_STA_CD = '2' AND DE04.ENFM_WHLS_DTM_DT > #strHndlDdlnDt#)) /*화면 집행기준일자*/
+			     AND ((SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) IN ('2','3','5'))
+			     OR (MAIN.DSP_RQ_KND_CD = '110'))
+        ]]>
+	</select>	
+	
+	<select id="BADEAR27Qselect4-2" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT
+			    /*소계*/
+			     (SELECT ORG_NM FROM TBDCMACM015M WHERE ORG_CD = DE04.COPT_OFI_CD) AS COMPTAUTH_NM
+			     , NVL(SUM(1),0)  AS SUM_CNT
+			     , NVL(SUM(CASE WHEN (MAIN.DSP_RQ_KND_CD = '110' OR SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3') THEN NVL(DE04.PNL_DRIN_PSVT_AM,0) ELSE 0 END),0)  AS SUM_PNL_DRIN_PSVT_AM 
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' THEN NVL(DE04.RSR_AM,0)+NVL(DE04.SPLP_AM,0) ELSE 0 END),0)  AS SUM_RSTORTN_SPLP_AM 
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) != '5' THEN NVL(DE04.NOP_CNT,0) ELSE 0 END),0)  AS SUM_NOP_CNT
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '110' THEN 1 ELSE 0 END),0)  AS CNT1
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '110' THEN NVL(DE04.PNL_DRIN_PSVT_AM,0) ELSE 0 END),0)  AS PNL_DRIN_PSVT_AM1
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '110' THEN NVL(DE04.NOP_CNT, 0) ELSE 0 END), 0) AS NOP_CNT01 /* 2023.05.10 변상판정 인원 추가*/
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '210' THEN 1 ELSE 0 END),0)  AS CNT2
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '210' THEN NVL(DE04.NOP_CNT,0) ELSE 0 END),0)  AS NOP_CNT1
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' THEN 1 ELSE 0 END),0)  AS CNT3
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' THEN NVL(DE04.PNL_DRIN_PSVT_AM,0) ELSE 0 END),0)  AS PNL_DRIN_PSVT_AM2
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' THEN (NVL(DE04.RSR_AM,0)+NVL(DE04.SPLP_AM,0)) ELSE 0 END),0)  AS RSTORTN_SPLP_AM1
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' THEN NVL(DE04.NOP_CNT, 0) ELSE 0 END), 0) AS NOP_CNT001 /* 2023.05.10 시정 인원 추가*/ 
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '5' THEN 1 ELSE 0 END),0)  AS CNT4
+			    /*기한미경과*/
+			     /* 20140618일자는  화면 집행기준일자를 셋팅*/
+			     , NVL(SUM(CASE WHEN DE04.HNDL_DDLN_DT > #strHndlDdlnDt# THEN 1 ELSE 0 END),0)  AS SUM_CNT1  
+			     , NVL(SUM(CASE WHEN DE04.HNDL_DDLN_DT > #strHndlDdlnDt# AND (MAIN.DSP_RQ_KND_CD = '110' OR SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3') THEN NVL(DE04.PNL_DRIN_PSVT_AM,0) ELSE 0 END),0)  AS SUM_PNL_DRIN_PSVT_AM1 
+			     , NVL(SUM(CASE WHEN DE04.HNDL_DDLN_DT > #strHndlDdlnDt# AND SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' THEN NVL(DE04.RSR_AM,0)+NVL(DE04.SPLP_AM,0) ELSE 0 END),0)  AS SUM_RSTORTN_SPLP_AM1 
+			     , NVL(SUM(CASE WHEN DE04.HNDL_DDLN_DT > #strHndlDdlnDt# AND SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) != '5' THEN NVL(DE04.NOP_CNT,0) ELSE 0 END),0)  AS SUM_NOP_CNT1
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '110' AND DE04.HNDL_DDLN_DT > #strHndlDdlnDt# THEN 1 ELSE 0 END),0)  AS CNT5
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '110' AND DE04.HNDL_DDLN_DT > #strHndlDdlnDt# THEN NVL(DE04.PNL_DRIN_PSVT_AM,0) ELSE 0 END),0)  AS PNL_DRIN_PSVT_AM3
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '110' AND DE04.HNDL_DDLN_DT > #strHndlDdlnDt# THEN NVL(DE04.NOP_CNT, 0) ELSE 0 END), 0) AS NOP_CNT02 /* 2023.05.10 변상판정 인원 추가*/
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '210' AND DE04.HNDL_DDLN_DT > #strHndlDdlnDt# THEN 1 ELSE 0 END),0)  AS CNT6
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '210' AND DE04.HNDL_DDLN_DT > #strHndlDdlnDt# THEN NVL(DE04.NOP_CNT,0) ELSE 0 END),0)  AS NOP_CNT2
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' AND DE04.HNDL_DDLN_DT > #strHndlDdlnDt# THEN 1 ELSE 0 END),0)  AS CNT7
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' AND DE04.HNDL_DDLN_DT > #strHndlDdlnDt# THEN NVL(DE04.PNL_DRIN_PSVT_AM,0) ELSE 0 END),0)  AS PNL_DRIN_PSVT_AM4
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' AND DE04.HNDL_DDLN_DT > #strHndlDdlnDt# THEN (NVL(DE04.RSR_AM,0)+NVL(DE04.SPLP_AM,0)) ELSE 0 END),0)  AS RSTORTN_SPLP_AM2
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' AND DE04.HNDL_DDLN_DT > #strHndlDdlnDt# THEN NVL(DE04.NOP_CNT, 0) ELSE 0 END), 0) AS NOP_CNT002 /* 2023.05.10 시정 인원 추가*/ 
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '5' AND DE04.HNDL_DDLN_DT > #strHndlDdlnDt# THEN 1 ELSE 0 END),0)  AS CNT8
+			    /*집행중*/
+			     , NVL(SUM(CASE WHEN DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# THEN 1 ELSE 0 END),0)  AS SUM_CNT2
+			     , NVL(SUM(CASE WHEN DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# AND (MAIN.DSP_RQ_KND_CD = '110' OR SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3') THEN NVL(DE04.PNL_DRIN_PSVT_AM,0) ELSE 0 END),0)  AS SUM_PNL_DRIN_PSVT_AM2 
+			     , NVL(SUM(CASE WHEN DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# AND SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' THEN NVL(DE04.RSR_AM,0)+NVL(DE04.SPLP_AM,0) ELSE 0 END),0)  AS SUM_RSTORTN_SPLP_AM2 
+			     , NVL(SUM(CASE WHEN DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# AND SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) != '5' THEN NVL(DE04.NOP_CNT,0) ELSE 0 END),0)  AS SUM_NOP_CNT2
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '110' AND DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# THEN 1 ELSE 0 END),0)  AS CNT9
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '110' AND DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# THEN NVL(DE04.PNL_DRIN_PSVT_AM,0) ELSE 0 END),0)  AS PNL_DRIN_PSVT_AM5
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '110' AND DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# THEN NVL(DE04.NOP_CNT, 0) ELSE 0 END), 0) AS NOP_CNT03 /* 2023.05.10 변상판정 인원 추가*/
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '210' AND DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# THEN 1 ELSE 0 END),0)  AS CNT10
+			     , NVL(SUM(CASE WHEN MAIN.DSP_RQ_KND_CD = '210' AND DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# THEN NVL(DE04.NOP_CNT,0) ELSE 0 END),0)  AS NOP_CNT3
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' AND DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# THEN 1 ELSE 0 END),0)  AS CNT11
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' AND DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# THEN NVL(DE04.PNL_DRIN_PSVT_AM,0) ELSE 0 END),0)  AS PNL_DRIN_PSVT_AM6
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' AND DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# THEN (NVL(DE04.RSR_AM,0)+NVL(DE04.SPLP_AM,0)) ELSE 0 END),0)  AS RSTORTN_SPLP_AM3
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '3' AND DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# THEN NVL(DE04.NOP_CNT, 0) ELSE 0 END), 0) AS NOP_CNT003 /* 2023.05.10 시정 인원 추가*/ 
+			     , NVL(SUM(CASE WHEN SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) = '5' AND DE04.HNDL_DDLN_DT <= #strHndlDdlnDt# THEN 1 ELSE 0 END),0)  AS CNT12
+			    FROM TBBADEAR001M MAIN
+			        ,TBBADEAR002D DE04
+			    WHERE 1=1
+			     AND MAIN.AUD_YR = DE04.AUD_YR 
+			     AND MAIN.AUD_NO  = DE04.AUD_NO
+			     AND MAIN.DSP_RQ_SNO = DE04.DSP_RQ_SNO
+			     AND NVL(DE04.DTM_STA_CD, '0') != '0'
+			     AND DE04.ENF_DT BETWEEN #strStartFromDt# AND #strStartToDt#  /*화면 시행기간범위 FROM~ TO*/
+			     
+			]]>
+			
+				<isNotEmpty property="strOrgDvsnCd">
+					<isEqual property="strOrgDvsnCd" compareValue="1">
+						AND MAIN.ORG_DVSN_CD = '10' 
+					</isEqual>
+					<isEqual property="strOrgDvsnCd" compareValue="2">
+						AND MAIN.ORG_DVSN_CD IN ('21', '22')  
+					</isEqual>
+					<isEqual property="strOrgDvsnCd" compareValue="3">
+						AND MAIN.ORG_DVSN_CD = '30'
+					</isEqual>
+					<isEqual property="strOrgDvsnCd" compareValue="4">
+						AND (MAIN.ORG_DVSN_CD NOT IN ('10', '21', '22', '30') OR MASTER.ORG_DVSN_CD IS NULL)  
+					</isEqual>					
+				</isNotEmpty>
+				
+			<![CDATA[   			     
+			     
+			     AND 
+			     ((DE04.DTM_STA_CD != '2')
+			      OR 
+			     (DE04.DTM_STA_CD = '2' AND DE04.ENFM_WHLS_DTM_DT > #strHndlDdlnDt#))  /*화면 집행기준일자*/
+			     AND ((SUBSTR(MAIN.DSP_RQ_KND_CD,1,1) IN ('2','3','5'))
+			     OR (MAIN.DSP_RQ_KND_CD = '110'))
+			    GROUP BY DE04.COPT_OFI_CD
+			    ORDER BY 1
+        ]]>
+	</select>	
+	<!--##################### 소관청별 미집행상황 끝 #################################-->	
+	
+	
+	<select id="BADEAR27Qselect5" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+				SELECT
+				      DECODE(T2.COPT_OFI_CD,'', '2', '1')                                                                       AS SORT_RANK            /*정렬순번*/     
+					, NVL(F_ORG_INFO (T2.COPT_OFI_CD,'1'),'일반회계 합계')                                                        AS COPT_OFI_CD_NM       /*기관별*/
+					, SUM(1)                                                                                                    AS SUM_CNT              /*합계-건수*/
+                    , SUM(CASE WHEN T1.DSP_RQ_KND_CD = '110' THEN NVL(T2.PNL_DRIN_PSVT_AM,0) ELSE 0 END) +   
+                      SUM(CASE WHEN SUBSTRING(T1.DSP_RQ_KND_CD,1,1) = '3' THEN NVL(T2.PNL_DRIN_PSVT_AM,0) ELSE 0 END) + 
+                      SUM(CASE WHEN T1.DSP_RQ_KND_CD IN ('610','620','621','623','625') THEN NVL(T2.PNL_DRIN_PSVT_AM,0) ELSE 0 END) + 
+                      SUM(CASE WHEN SUBSTRING(T1.DSP_RQ_KND_CD,1,1) = '3' THEN (NVL(T2.RSR_AM,0)+NVL(T2.SPLP_AM,0)) ELSE 0 END) AS SUM_TOT_AM			/*합계-금액*/		
+					, SUM(CASE WHEN (SUBSTRING(T1.DSP_RQ_KND_CD,1,1) IN ('2','7') OR T1.DSP_RQ_KND_CD IN ('610','620','621','623','625')) 
+					                THEN NVL(T2.NOP_CNT,0) ELSE 0 END)                                                          AS SUM_NOP_CNT          /*합계-인원, (통보(시정완료):625 추가 - 2016.11.23 yyh) */
+					, SUM(CASE WHEN T1.DSP_RQ_KND_CD = '110' THEN 1 ELSE 0 END)                                                 AS CNT1                 /*변상판정-건수*/
+					, SUM(CASE WHEN T1.DSP_RQ_KND_CD = '110' THEN NVL(T2.PNL_DRIN_PSVT_AM,0) ELSE 0 END)                        AS PNL_DRIN_PSVT_AM1    /*변상판정-금액*/
+					, SUM(CASE WHEN SUBSTRING(T1.DSP_RQ_KND_CD,1,1) = '2' THEN 1 ELSE 0 END)                                    AS CNT2                 /*징계-건수*/
+					, SUM(CASE WHEN SUBSTRING(T1.DSP_RQ_KND_CD,1,1) = '2' THEN NVL(T2.NOP_CNT,0) ELSE 0 END)                    AS NOP_CNT1             /*징계-인원*/
+					, SUM(CASE WHEN SUBSTRING(T1.DSP_RQ_KND_CD,1,1) = '3' THEN 1 ELSE 0 END)                                    AS CNT3                 /*시정-건수*/
+					, SUM(CASE WHEN SUBSTRING(T1.DSP_RQ_KND_CD,1,1) = '3' THEN NVL(T2.PNL_DRIN_PSVT_AM,0) ELSE 0 END)           AS PNL_DRIN_PSVT_AM2    /*시정-추징회수보전금액*/
+					, SUM(CASE WHEN SUBSTRING(T1.DSP_RQ_KND_CD,1,1) = '3' THEN (NVL(T2.RSR_AM,0)+NVL(T2.SPLP_AM,0)) ELSE 0 END) AS RSTORTN_SUPPL_AMT1   /*시정-환추급금액*/	 
+					, SUM(CASE WHEN SUBSTRING(T1.DSP_RQ_KND_CD,1,1) = '4' THEN 1 ELSE 0 END)                                    AS CNT4                 /*주의-건수*/
+					, SUM(CASE WHEN SUBSTRING(T1.DSP_RQ_KND_CD,1,1) = '5' THEN 1 ELSE 0 END)                                    AS CNT5                 /*개선-건수*/
+					, SUM(CASE WHEN T1.DSP_RQ_KND_CD = '611' THEN 1 ELSE 0 END)                                                 AS CNT6                 /*권고-건수*/
+					, SUM(CASE WHEN T1.DSP_RQ_KND_CD IN ('610','620','621','623','625') THEN 1 ELSE 0 END)                      AS CNT7                 /*통보-건수*/
+					, SUM(CASE WHEN T1.DSP_RQ_KND_CD IN ('610','620','621','623','625') THEN NVL(T2.NOP_CNT,0) ELSE 0 END)      AS NOP_CNT2             /*통보-인원*/
+					, SUM(CASE WHEN T1.DSP_RQ_KND_CD IN ('610','620','621','623','625') THEN NVL(T2.PNL_DRIN_PSVT_AM,0) ELSE 0 END) AS PNL_DRIN_PSVT_AM3 /*통보-추징회수보전금액 2018.04.17 yyh*/
+					, SUM(CASE WHEN SUBSTRING(T1.DSP_RQ_KND_CD,1,1) = '7' THEN 1 ELSE 0 END)                                    AS CNT8                 /*고발및수사요청-건수*/
+					, SUM(CASE WHEN SUBSTRING(T1.DSP_RQ_KND_CD,1,1) = '7' THEN NVL(T2.NOP_CNT,0) ELSE 0 END)                    AS NOP_CNT3             /*고발및수사요청-인원*/
+				FROM TBBADEAR001M T1
+				   , TBBADEAR002D T2
+				WHERE 1=1
+					AND T1.AUD_YR = T2.AUD_YR 
+					AND T1.AUD_NO  = T2.AUD_NO
+					AND T1.DSP_RQ_SNO = T2.DSP_RQ_SNO
+					AND NVL(T2.DTM_STA_CD, '0') != '0'
+					AND T1.ORG_DVSN_CD = '10'
+					AND T2.ENF_DT BETWEEN #strStartFromDt# AND #strStartToDt#
+					AND EXISTS (
+									SELECT 1
+									  FROM TBBADEAR003M T3
+									 WHERE 1=1
+									   AND T3.AUD_YR     = T1.AUD_YR 
+									   AND T3.AUD_NO     = T1.AUD_NO
+									   AND T3.DSP_RQ_SNO = T1.DSP_RQ_SNO									 
+									   AND T3.DSP_RQ_ACNT_CD IN ('011', '100')
+								)
+					AND SUBSTRING(T1.DSP_RQ_KND_CD,1,1) BETWEEN '1' AND '7' 
+					AND T1.DSP_RQ_KND_CD != '120'
+                  GROUP BY ROLLUP(T2.COPT_OFI_CD)
+                  ORDER BY SORT_RANK DESC, COPT_OFI_CD_NM
+		]]>
+	</select>	
+
+	
+	<!--##################### 징계요구자 조치현황  #################################-->
+	<select id="BADEAR27Qselect6" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+                SELECT
+                       F_MNG_KND_AUDYRNO(T1.AUD_YR, T1.AUD_NO, T1.AUD_KND_CD, '-') || '-' || TO_CHAR(MAIN.DSP_RQ_SNO)         
+                                                                  AS AUD_YR_NO
+                      ,T1.AUD_SBJ_NM                              AS AUD_SBJ_NM
+                      ,DE04.ENF_DT                                AS ENF_DT
+                      ,DE04.ENFM_MNG_BRDV_CD                      AS ENFM_MNG_BRDV_CD
+                      ,F_DPT_INFO(DE04.ENFM_MNG_BRDV_CD,'1')      AS ENFM_MNG_BRDV_NM
+                      ,MAIN.TIT_TXT                               AS TIT_TXT
+                      ,F_CODE_NM('1000011',RPSN.HND_RQ_KND_CD)    AS HND_RQ_KND_NM
+                      ,F_CODE_NM('1000003',ADET.ENFM_SHP_CD)      AS ENFM_SHP_NM
+                      ,F_ORG_INFO(DE04.COPT_OFI_CD,'1')           AS COPT_OFI_NM
+                      ,F_ORG_INFO(RPSN.RLTN_ORG_CD,'1')           AS RLTN_ORG_NM
+                      ,F_CODE_NM('1000057', RPSN.OCP_CD)          AS OCP_NM
+                      ,F_CODE_NM('1000058', RPSN.RANK_CD)         AS RANK_NM
+                      ,RPSN.EIN                                   AS EIN
+                      ,RPSN.DFNT_NAM                              AS DFNT_NAM
+                      ,NVL(RPSN.CPLT_YN,'N')                      AS CPLT_YN
+                      ,CASE WHEN DE04.DTM_YN IN ('9','Y')
+                                  THEN 'Y' 
+                            ELSE 'N' 
+                        END                                        AS DTM_YN
+                      ,CASE WHEN DE04.DTM_STA_CD = '2' 
+                                  THEN 'Y' 
+                            ELSE 'N' 
+                        END                                        AS DTM_STA_CD
+                  FROM TBBADEAR001M MAIN
+                      ,TBBADEAR002D DE04
+                      ,TBBADEAR007M RPSN
+                      ,TBBADDED001M T1
+                      ,(SELECT B.AUD_YR
+                              ,B.AUD_NO
+                              ,B.DSP_RQ_SNO
+                              ,B.RLTN_ORG_CD
+                              ,B.DFNT_SNO
+                              ,B.ENFM_SHP_CD
+                          FROM (SELECT AUD_YR
+                                      ,AUD_NO
+                                      ,DSP_RQ_SNO
+                                      ,RLTN_ORG_CD
+                                      ,DFNT_SNO
+                                      ,MAX(ENFM_SNO) AS ENFM_SNO
+                                  FROM TBBADFRE008M   /* 관계자집행전말 */
+                                 WHERE 1=1
+                                 GROUP BY AUD_YR
+                                         ,AUD_NO
+                                         ,DSP_RQ_SNO
+                                         ,RLTN_ORG_CD
+                                         ,DFNT_SNO) A
+                              ,TBBADFRE008M B
+                         WHERE A.AUD_YR      = B.AUD_YR
+                           AND A.AUD_NO      = B.AUD_NO
+                           AND A.DSP_RQ_SNO  = B.DSP_RQ_SNO
+                           AND A.RLTN_ORG_CD = B.RLTN_ORG_CD
+                           AND A.DFNT_SNO    = B.DFNT_SNO
+                           AND A.ENFM_SNO    = B.ENFM_SNO) ADET
+                 WHERE 1=1
+                   AND MAIN.AUD_YR         = DE04.AUD_YR
+                   AND MAIN.AUD_NO         = DE04.AUD_NO
+                   AND MAIN.AUD_YR         = T1.AUD_YR
+                   AND MAIN.AUD_NO         = T1.AUD_NO
+                   AND MAIN.DSP_RQ_SNO     = DE04.DSP_RQ_SNO
+                   AND MAIN.AUD_YR         = RPSN.AUD_YR
+                   AND MAIN.AUD_NO         = RPSN.AUD_NO
+                   AND MAIN.DSP_RQ_SNO     = RPSN.DSP_RQ_SNO
+                   AND RPSN.AUD_YR         = ADET.AUD_YR(+)
+                   AND RPSN.AUD_NO         = ADET.AUD_NO(+)
+                   AND RPSN.DSP_RQ_SNO     = ADET.DSP_RQ_SNO(+)
+                   AND RPSN.RLTN_ORG_CD    = ADET.RLTN_ORG_CD(+)
+                   AND RPSN.DFNT_SNO       = ADET.DFNT_SNO(+)
+                   AND DE04.DTM_STA_CD    != '0'
+                   AND DE04.ENF_DT         BETWEEN #strStartFromDt# AND #strStartToDt#
+                   AND MAIN.DSP_RQ_KND_CD  = '210'
+                 ORDER BY 1
+		]]>
+	</select>	
+</sqlMap> 

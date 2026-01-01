@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/ear/046">
+
+
+<!-- 업무/비유형 트리 조회 -->
+<select id="badear046pSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+	<![CDATA[
+			WITH BASE AS (
+			]]>
+			
+			<isEqual property="strCodeDvsn" compareValue="1">
+				<![CDATA[
+				SELECT CD
+	             ,CD_NM
+	             ,LENGTH(CD) - LENGTH(REPLACE(CD,'0','')) LEV
+	             ,CASE
+	                         WHEN LENGTH(CD) - LENGTH(REPLACE(CD,'0','')) = 8 THEN NULL
+	                         WHEN LENGTH(CD) - LENGTH(REPLACE(CD,'0','')) = 7 THEN SUBSTR(CD ,1,1) ||'00000000'
+	                         WHEN LENGTH(CD) - LENGTH(REPLACE(CD,'0','')) = 6 THEN SUBSTR(CD ,1,3) ||'000000'
+	                         WHEN LENGTH(CD) - LENGTH(REPLACE(CD,'0','')) = 5 THEN SUBSTR(CD ,1,4) ||'00000'
+	                         WHEN LENGTH(CD) - LENGTH(REPLACE(CD,'0','')) = 4 THEN SUBSTR(CD ,1,6) ||'000'
+	                         ELSE SUBSTR(CD ,1,6) ||'000'
+	                       END HIGH_CD
+	             ,CASE
+	                         WHEN LENGTH(CD) - LENGTH(REPLACE(CD,'0','')) = 8 THEN SUBSTR(CD ,1,1) ||'.'||CD_NM
+	                         WHEN LENGTH(CD) - LENGTH(REPLACE(CD,'0','')) = 7 THEN SUBSTR(CD ,1,3) ||'.'||CD_NM
+	                         WHEN LENGTH(CD) - LENGTH(REPLACE(CD,'0','')) = 6 THEN SUBSTR(CD ,4,1) ||'.'||CD_NM
+	                         WHEN LENGTH(CD) - LENGTH(REPLACE(CD,'0','')) = 5 THEN SUBSTR(CD ,5,2) ||'.'||CD_NM
+	                         WHEN LENGTH(CD) - LENGTH(REPLACE(CD,'0','')) = 4 THEN SUBSTR(CD ,7,2) ||'.'||CD_NM
+	                         ELSE SUBSTR(CD ,7,2) ||'.'||CD_NM
+	                       END FULL_CD_NM
+	          FROM TBDCMACM013C
+	         WHERE 1 = 1
+	           AND CMM_CD_DVSN_CD = '1000121'
+	           AND CD <> '000000000' 
+	           AND USE_YN = 'Y'
+				
+					   ]]>
+					</isEqual>
+					
+					<isEqual property="strCodeDvsn" compareValue="2">
+				<![CDATA[
+						  SELECT CD
+				               , CD_NM 
+				               , CD_NM ||'('||CD||')' FULL_CD_NM
+				               , CASE WHEN SUBSTR(CD, 3, 4) = '0000' THEN NULL
+				                 ELSE SUBSTR(CD, 1, 2) ||'0000' END HIGH_CD
+				               , CASE WHEN SUBSTR(CD, 3, 4) = '0000' THEN '1'
+				                 ELSE '2' END LEV
+				          FROM TBDCMACM013C
+				         WHERE 1 = 1
+				           AND CMM_CD_DVSN_CD     = '1000120'
+				           AND CD <>'000000000'
+				           AND USE_YN = 'Y'
+					   ]]>
+					</isEqual>
+					
+					
+					<![CDATA[
+					)
+					SELECT DISTINCT
+					      CD
+					     ,CD_NM
+					     ,LPAD(' ', 4*(LEVEL-1)) ||decode(level,1, null,'┖▷')||FULL_CD_NM AS NM
+					     ,LEV
+					     ,HIGH_CD
+					     ,FULL_CD_NM
+					     ,CONNECT_BY_ISLEAF CLICK_YN
+					  FROM (SELECT CD
+					             ,CD_NM
+					             ,LEV
+					             ,HIGH_CD
+					             ,FULL_CD_NM
+					             ,CONNECT_BY_ISLEAF
+					          FROM BASE CONNECT BY PRIOR CD = HIGH_CD START WITH CD_NM LIKE '%'||#strCodeNm#||'%'
+					            OR CD LIKE '%'||#strCodeNm#||'%' /*화면 검색 인자값*/
+					         UNION
+					       SELECT CD
+					             ,CD_NM
+					             ,LEV
+					             ,HIGH_CD
+					             ,FULL_CD_NM
+					             ,CONNECT_BY_ISLEAF
+					          FROM BASE CONNECT BY CD = PRIOR HIGH_CD START WITH CD_NM LIKE '%'||#strCodeNm#||'%'
+					            OR CD LIKE '%'||#strCodeNm#||'%' /*화면 검색 인자값*/
+					        ) 
+					   WHERE 1=1
+					            ]]>
+					            
+					   <isNotEmpty property="strPopUp">
+					      AND CONNECT_BY_ISLEAF ='1'
+					   </isNotEmpty>         
+					
+					   CONNECT BY PRIOR CD = HIGH_CD START WITH HIGH_CD IS NULL  
+					   ORDER  SIBLINGS BY CD
+ 
+
+
+
+
+	</select>
+	
+	
+	<!-- 비유형/업무 개수 -->
+	<select id="badear046pCheckSelect" parameterClass="paramMap"
+			resultClass="resultMap">
+			<isEqual property="strCodeDvsn" compareValue="1">
+					<![CDATA[
+				SELECT * FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD ='1000121' AND (CD LIKE '%'||#strCodeNm#||'%' OR CD_NM LIKE '%'||#strCodeNm#||'%')
+	          ]]>
+			</isEqual>
+			<isEqual property="strCodeDvsn" compareValue="2">
+			<![CDATA[
+				SELECT * FROM TBDCMACM013C WHERE CMM_CD_DVSN_CD ='1000120' AND (CD LIKE '%'||#strCodeNm#||'%' OR CD_NM LIKE '%'||#strCodeNm#||'%')
+	          ]]>
+		</isEqual>
+	
+		</select>
+</sqlMap> 

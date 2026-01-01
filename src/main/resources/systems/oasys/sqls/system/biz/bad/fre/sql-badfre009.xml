@@ -1,0 +1,1156 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/fre/009">
+	
+	<!--집행전말 단계별 통계 조회-->
+	<select id="BADFRE009QSelectEnfmStepList" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+			SELECT    AA.HIRK_ENFM_MNG_BRDV_CD
+			          ,CASE WHEN AA.HIRK_ENFM_MNG_BRDV_CD IS NULL THEN ' '
+			               ELSE F_DPT_INFO(AA.HIRK_ENFM_MNG_BRDV_CD,'1')
+			          END AS HIRK_ENFM_MNG_BRDV_NM
+			          ,F_DPT_INFO(AA.HIRK_ENFM_MNG_BRDV_CD,'1') AS HIRK_ENFM_MNG_BRDV_NM
+			          ,CASE WHEN AA.HIRK_ENFM_MNG_BRDV_CD IS NULL THEN '총계'
+			               WHEN AA.ENFM_MNG_BRDV_CD      IS NULL THEN '소계'
+			               ELSE AA.ENFM_MNG_BRDV_CD
+			          END AS ENFM_MNG_BRDV_CD
+			          ,CASE WHEN AA.HIRK_ENFM_MNG_BRDV_CD IS NULL THEN '총계'
+			               WHEN AA.ENFM_MNG_BRDV_CD      IS NULL THEN '소계'
+			               ELSE F_DPT_INFO(AA.ENFM_MNG_BRDV_CD,'1')
+			          END AS ENFM_MNG_BRDV_NM
+			          ,SUM(CASE WHEN  AA.ENFM_STEP_CD ='10' THEN CNT ELSE 0 END 
+			              +CASE WHEN  AA.ENFM_STEP_CD ='11' THEN CNT ELSE 0 END 
+			              +CASE WHEN  AA.ENFM_STEP_CD ='20' THEN CNT ELSE 0 END 
+			              +CASE WHEN  AA.ENFM_STEP_CD ='21' THEN CNT ELSE 0 END 
+			              +CASE WHEN  AA.ENFM_STEP_CD ='30' THEN CNT ELSE 0 END 
+			              +CASE WHEN  AA.ENFM_STEP_CD ='31' THEN CNT ELSE 0 END 
+			              +CASE WHEN  AA.ENFM_STEP_CD ='32' THEN CNT ELSE 0 END ) TOTAL
+			          ,SUM(CASE WHEN  AA.ENFM_STEP_CD ='10' THEN CNT ELSE 0 END
+			              +CASE WHEN  AA.ENFM_STEP_CD ='11' THEN CNT ELSE 0 END ) SUB_TOTAL_READY
+			          ,SUM(CASE WHEN  AA.ENFM_STEP_CD ='10' THEN CNT ELSE 0 END ) ENFM_READY
+			          ,SUM(CASE WHEN  AA.ENFM_STEP_CD ='11' THEN CNT ELSE 0 END ) PLAN_DELAY
+			          ,SUM(CASE WHEN  AA.ENFM_STEP_CD ='20' THEN CNT ELSE 0 END 
+			              +CASE WHEN  AA.ENFM_STEP_CD ='21' THEN CNT ELSE 0 END ) SUB_TOTAL_ING
+			          ,SUM(CASE WHEN  AA.ENFM_STEP_CD ='20' THEN CNT ELSE 0 END ) ENFM_ING
+			          ,SUM(CASE WHEN  AA.ENFM_STEP_CD ='21' THEN CNT ELSE 0 END ) ENFM_DELAY
+			          ,SUM(CASE WHEN  AA.ENFM_STEP_CD ='30' THEN CNT ELSE 0 END 
+			              +CASE WHEN  AA.ENFM_STEP_CD ='31' THEN CNT ELSE 0 END 
+			              +CASE WHEN  AA.ENFM_STEP_CD ='32' THEN CNT ELSE 0 END ) SUB_TOTAL_COMPLETE
+			          ,SUM(CASE WHEN  AA.ENFM_STEP_CD ='30' THEN CNT ELSE 0 END ) ENFM_COMPLETE
+			          ,SUM(CASE WHEN  AA.ENFM_STEP_CD ='31' THEN CNT ELSE 0 END ) ENFM_INCOMPLETE
+			          ,SUM(CASE WHEN  AA.ENFM_STEP_CD ='32' THEN CNT ELSE 0 END ) ENFM_IMPOSSIBLE
+			FROM (
+			SELECT (SELECT HIRK_DPT_CD FROM TBDCMACM002M WHERE DPT_CD = T1.ENFM_MNG_BRDV_CD AND ROWNUM = 1) AS HIRK_ENFM_MNG_BRDV_CD,
+			        T1.ENFM_MNG_BRDV_CD, 
+			        T2.ENFM_STEP_CD,
+			        COUNT(1) CNT
+			  FROM TBBADEAR002D T1,
+			       TBBADFRE001H T2,
+			       TBBADDED001M J1,
+			       (SELECT ST1.AUD_YR,
+			               ST1.AUD_NO,
+			               ST1.DSP_RQ_SNO,
+			               ST1.RLTN_ORG_CD,
+			               MAX(ST1.HST_NO) AS HST_NO
+			          FROM TBBADFRE001H ST1
+			      GROUP BY ST1.AUD_YR, ST1.AUD_NO, ST1.DSP_RQ_SNO, ST1.RLTN_ORG_CD) T3
+			          
+			 WHERE T1.AUD_YR = T2.AUD_YR
+			   AND T1.AUD_NO = T2.AUD_NO
+			   AND T1.DSP_RQ_SNO = T2.DSP_RQ_SNO			      
+			   AND T2.AUD_YR = T3.AUD_YR
+			   AND T2.AUD_NO = T3.AUD_NO
+			   AND T2.DSP_RQ_SNO = T3.DSP_RQ_SNO
+			   AND T2.RLTN_ORG_CD = T3.RLTN_ORG_CD
+			   AND T2.HST_NO = T3.HST_NO
+			   AND T1.AUD_YR = J1.AUD_YR 
+			   AND T1.AUD_NO = J1.AUD_NO
+			   
+               
+            /* 속도개선으로 쿼리로 변경 2015.05.13 yyh */
+            AND 'Y' = (CASE WHEN (#strAudYr# = '' AND #strAudGrnNo# = '' AND #strAudYrTo# = '' AND #strAudGrnNoTo# = '') THEN 'Y'
+                            ELSE (CASE WHEN LPAD(T1.AUD_YR,   4, '0') || LPAD(J1.AUD_GRN_NO,  3,  '0') BETWEEN LPAD(NVL(#strAudYr#,  '1700'),   4,  '0') || LPAD(NVL(#strAudGrnNo#,   '000'), 3, '0')  AND LPAD(NVL(#strAudYrTo#,  '9999'),  4,  '0') || LPAD(NVL(#strAudGrnNoTo#,   '999'),  3,  '0')
+                                       THEN 'Y'
+                                       ELSE 'N' 
+                                   END)
+                        END) 
+               
+               
+               AND NVL(T1.ENF_DT, '19000101') BETWEEN NVL(#strEnfDtFrom#, '17000101') AND NVL(#strEnfDtTo#, '99991231')
+               AND NVL(T1.ENFM_WHLS_DTM_DT, '19000101') BETWEEN NVL(#strConfirmDtFrom#, '17000101') AND NVL(#strConfirmDtTo#, '99991231')
+            AND T1.ENFM_MNG_BRDV_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#S_CNB#, #strDptAuth#, '', #strUpSpvBrdvCd#)))   
+        ]]>
+        
+		/* 
+		   감사연번종류코드 추가 - 2015.12.24 yyh
+		   감사연번종류코드 from ~ to 에서 한개로 변경 - 2016.06.02 yyh
+		*/		
+		<isNotEmpty property="strAudYrNoKndCdSt">
+            AND SUBSTR(J1.AUD_KND_CD,3,1) = NVL(#strAudYrNoKndCdSt#,'0') 
+		</isNotEmpty>
+        
+        <isNotEmpty property="strCoptOfiCd">	 	
+            AND T1.COPT_OFI_CD = #strCoptOfiCd#
+		</isNotEmpty>
+		<isNotEmpty property="strEnfmMngBrdvCd">
+			AND T1.ENFM_MNG_BRDV_CD     = #strEnfmMngBrdvCd#
+		</isNotEmpty>
+		
+		<![CDATA[
+			
+			GROUP BY T1.ENFM_MNG_BRDV_CD, T2.ENFM_STEP_CD
+			) AA
+			WHERE 1 = 1
+			GROUP BY ROLLUP(AA.HIRK_ENFM_MNG_BRDV_CD, AA.ENFM_MNG_BRDV_CD)
+			ORDER BY HIRK_ENFM_MNG_BRDV_CD, ENFM_MNG_BRDV_CD
+		]]>
+	</select>
+	
+	
+	<!--집행상태별 : 처분요구 -->
+	<select id="BADFRE009QSelectEnfmStateList" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+			SELECT 
+			(SELECT HIRK_DPT_CD FROM TBDCMACM002M WHERE DPT_CD = T2.ENFM_MNG_BRDV_CD AND ROWNUM = 1) AS HIRK_ENFM_MNG_BRDV_CD ,
+			(SELECT F_DPT_INFO(ST1.HIRK_DPT_CD, '1') FROM TBDCMACM002M ST1 WHERE ST1.DPT_CD = T2.ENFM_MNG_BRDV_CD AND ROWNUM = 1) AS HIRK_ENFM_MNG_BRDV_NM ,
+			T2.ENFM_MNG_BRDV_CD,
+			F_DPT_INFO(T2.ENFM_MNG_BRDV_CD, '1') AS ENFM_MNG_BRDV_NM,
+			(
+				SELECT AUD_SBJ_NM FROM TBBADDED001M ST1 WHERE 1 = 1
+				AND ST1.AUD_YR||ST1.AUD_NO = T2.AUD_YR||T2.AUD_NO
+			) AS AUD_SBJ_NM,
+			T1.DSP_RQ_KND_CD,
+			F_CODE_NM('1000002', T1.DSP_RQ_KND_CD) AS DSP_RQ_KND_NM,
+			COUNT(T1.AUD_YR) AS "TOT_CNT",
+			SUM(
+			    CASE 
+			    WHEN T2.DTM_STA_CD = '1'
+			         AND NVL(T2.DTM_YN,'N') <> 'Y'
+			    THEN 1
+			    ELSE 0
+			    END
+			) AS "INCOMPLETE_CNT",
+			SUM(
+			    CASE 
+			    WHEN T2.DTM_STA_CD = '1'
+			         AND T2.DTM_YN = 'Y'
+			    THEN 1
+			    ELSE 0
+			    END
+			) AS "COMPLETE_CNT",
+			SUM(
+			    CASE 
+			    WHEN T2.DTM_STA_CD = '2'
+			    THEN 1
+			    ELSE 0
+			    END
+			) AS "DECIDE_CNT",
+			NVL(SUM(T3.PRSU_CNT), 0) AS "PRSU_CNT"
+			FROM TBBADEAR001M T1,
+			     TBBADEAR002D T2,
+			     TBBADDED001M J1,
+			(
+			    SELECT ST1.AUD_YR,
+			           ST1.AUD_NO,
+			           ST1.DSP_RQ_SNO,
+			           COUNT(ST1.ENFM_PRSU_SNO) AS PRSU_CNT
+			      FROM TBBADFRE009M ST1
+			     WHERE 1 = 1
+			     GROUP BY ST1.AUD_YR, ST1.AUD_NO, ST1.DSP_RQ_SNO
+			) T3
+			WHERE 1 = 1
+			AND T1.AUD_YR = T2.AUD_YR
+			AND T1.AUD_NO = T2.AUD_NO
+			AND T1.DSP_RQ_SNO = T2.DSP_RQ_SNO
+			AND T2.AUD_YR = T3.AUD_YR(+)
+			AND T2.AUD_NO = T3.AUD_NO(+)
+			AND T2.DSP_RQ_SNO = T3.DSP_RQ_SNO(+)
+			AND T1.DSP_RQ_KND_CD IN ('110', '210', '310', '320', '391', '800', '810', '820', '830', '840', '850')
+            AND T2.DTM_STA_CD IN ('1','2')
+            AND T1.AUD_YR = J1.AUD_YR
+			AND T1.AUD_NO = J1.AUD_NO            
+            
+            /* 속도개선으로 쿼리로 변경 2015.05.13 yyh */
+            AND 'Y' = (CASE WHEN (#strAudYr# = '' AND #strAudGrnNo# = '' AND #strAudYrTo# = '' AND #strAudGrnNoTo# = '') THEN 'Y'
+                            ELSE (CASE WHEN LPAD(T1.AUD_YR,   4, '0') || LPAD(J1.AUD_GRN_NO,  3,  '0') BETWEEN LPAD(NVL(#strAudYr#,  '1700'),   4,  '0') || LPAD(NVL(#strAudGrnNo#,   '000'), 3, '0')  AND LPAD(NVL(#strAudYrTo#,  '9999'),  4,  '0') || LPAD(NVL(#strAudGrnNoTo#,   '999'),  3,  '0')
+                                       THEN 'Y'
+                                       ELSE 'N' 
+                                   END)
+                        END)             
+            
+            AND NVL(T2.ENF_DT, '19000101') BETWEEN NVL(#strEnfDtFrom#, '17000101') AND NVL(#strEnfDtTo#, '99991231')
+            AND NVL(T2.ENFM_WHLS_DTM_DT, '19000101') BETWEEN NVL(#strConfirmDtFrom#, '17000101') AND NVL(#strConfirmDtTo#, '99991231')
+            AND T2.ENFM_MNG_BRDV_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#S_CNB#, #strDptAuth#, '', #strUpSpvBrdvCd#)))
+        ]]>
+        <isNotEmpty property="strCoptOfiCd">	 	
+            AND T2.COPT_OFI_CD = #strCoptOfiCd#
+		</isNotEmpty>
+		<isNotEmpty property="strEnfmMngBrdvCd">
+			AND T2.ENFM_MNG_BRDV_CD     = #strEnfmMngBrdvCd#
+		</isNotEmpty>
+		
+		/* 
+		   감사연번종류코드 추가 - 2015.12.24 yyh
+		   감사연번종류코드 from ~ to 에서 한개로 변경 - 2016.06.02 yyh
+		*/		
+		<isNotEmpty property="strAudYrNoKndCdSt">
+            AND SUBSTR(J1.AUD_KND_CD,3,1) = NVL(#strAudYrNoKndCdSt#,'0') 
+		</isNotEmpty>
+				
+		<![CDATA[
+			
+			GROUP BY T2.ENFM_MNG_BRDV_CD, T2.AUD_YR||T2.AUD_NO, T1.DSP_RQ_KND_CD
+			ORDER BY T2.ENFM_MNG_BRDV_CD, T2.AUD_YR||T2.AUD_NO, T1.DSP_RQ_KND_CD
+		]]>
+	</select>
+	
+	<!--집행상태별 : 권고통보 -->
+	<select id="BADFRE009QSelectEnfmStateList2" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+			SELECT 
+			(SELECT HIRK_DPT_CD FROM TBDCMACM002M WHERE DPT_CD = T2.ENFM_MNG_BRDV_CD AND ROWNUM = 1) AS HIRK_ENFM_MNG_BRDV_CD ,
+			(SELECT F_DPT_INFO(ST1.HIRK_DPT_CD, '1') FROM TBDCMACM002M ST1 WHERE ST1.DPT_CD = T2.ENFM_MNG_BRDV_CD AND ROWNUM = 1) AS HIRK_ENFM_MNG_BRDV_NM ,
+			T2.ENFM_MNG_BRDV_CD,
+			F_DPT_INFO(T2.ENFM_MNG_BRDV_CD, '1') AS ENFM_MNG_BRDV_NM,
+			(
+				SELECT AUD_SBJ_NM FROM TBBADDED001M ST1 WHERE 1 = 1
+				AND ST1.AUD_YR||ST1.AUD_NO = T2.AUD_YR||T2.AUD_NO
+			) AS AUD_SBJ_NM,
+			T1.DSP_RQ_KND_CD,
+			F_CODE_NM('1000002', T1.DSP_RQ_KND_CD) AS DSP_RQ_KND_NM,
+			COUNT(T1.AUD_YR) AS "TOT_CNT",
+			SUM(
+			    CASE 
+			    WHEN T2.DTM_STA_CD = '1'
+			         AND NVL(T2.DTM_YN,'N') <> 'Y'
+			    THEN 1
+			    ELSE 0
+			    END
+			) AS "INCOMPLETE_CNT",
+			SUM(
+			    CASE 
+			    WHEN T2.DTM_STA_CD = '1'
+			         AND T2.DTM_YN = 'Y'
+			    THEN 1
+			    ELSE 0
+			    END
+			) AS "COMPLETE_CNT",
+			SUM(
+			    CASE 
+			    WHEN T2.DTM_STA_CD = '2'
+			    THEN 1
+			    ELSE 0
+			    END
+			) AS "DECIDE_CNT",
+			NVL(SUM(T3.PRSU_CNT), 0) AS "PRSU_CNT"
+			FROM TBBADEAR001M T1,
+			     TBBADEAR002D T2,
+			     TBBADDED001M J1,
+			(
+			    SELECT ST1.AUD_YR,
+			           ST1.AUD_NO,
+			           ST1.DSP_RQ_SNO,
+			           COUNT(ST1.ENFM_PRSU_SNO) AS PRSU_CNT
+			      FROM TBBADFRE009M ST1
+			     WHERE 1 = 1
+			     GROUP BY ST1.AUD_YR, ST1.AUD_NO, ST1.DSP_RQ_SNO
+			) T3
+			WHERE 1 = 1
+			AND T1.AUD_YR = T2.AUD_YR
+			AND T1.AUD_NO = T2.AUD_NO
+			AND T1.DSP_RQ_SNO = T2.DSP_RQ_SNO
+			AND T2.AUD_YR = T3.AUD_YR(+)
+			AND T2.AUD_NO = T3.AUD_NO(+)
+			AND T2.DSP_RQ_SNO = T3.DSP_RQ_SNO(+)
+			AND T1.DSP_RQ_KND_CD IN ('510','520','530','610','611', '620', '621', '623', '630')
+            AND T2.DTM_STA_CD IN ('1','2')
+			AND T1.AUD_YR = J1.AUD_YR
+			AND T1.AUD_NO = J1.AUD_NO            
+            
+            /* 속도개선으로 쿼리로 변경 2015.05.13 yyh */
+            AND 'Y' = (CASE WHEN (#strAudYr# = '' AND #strAudGrnNo# = '' AND #strAudYrTo# = '' AND #strAudGrnNoTo# = '') THEN 'Y'
+                            ELSE (CASE WHEN LPAD(T1.AUD_YR,   4, '0') || LPAD(J1.AUD_GRN_NO,  3,  '0') BETWEEN LPAD(NVL(#strAudYr#,  '1700'),   4,  '0') || LPAD(NVL(#strAudGrnNo#,   '000'), 3, '0')  AND LPAD(NVL(#strAudYrTo#,  '9999'),  4,  '0') || LPAD(NVL(#strAudGrnNoTo#,   '999'),  3,  '0')
+                                       THEN 'Y'
+                                       ELSE 'N' 
+                                   END)
+                        END)             
+            
+            
+            AND NVL(T2.ENF_DT, '19000101') BETWEEN NVL(#strEnfDtFrom#, '17000101') AND NVL(#strEnfDtTo#, '99991231')
+            AND NVL(T2.ENFM_WHLS_DTM_DT, '19000101') BETWEEN NVL(#strConfirmDtFrom#, '17000101') AND NVL(#strConfirmDtTo#, '99991231')
+			AND T2.ENFM_MNG_BRDV_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#S_CNB#, #strDptAuth#, '', #strUpSpvBrdvCd#)))            
+        ]]>
+        <isNotEmpty property="strCoptOfiCd">	 	
+            AND T2.COPT_OFI_CD = #strCoptOfiCd#
+		</isNotEmpty>
+		<isNotEmpty property="strEnfmMngBrdvCd">
+			AND T2.ENFM_MNG_BRDV_CD     = #strEnfmMngBrdvCd#
+		</isNotEmpty>
+
+		/* 
+		   감사연번종류코드 추가 - 2015.12.24 yyh
+		   감사연번종류코드 from ~ to 에서 한개로 변경 - 2016.06.02 yyh
+		*/		
+		<isNotEmpty property="strAudYrNoKndCdSt">
+            AND SUBSTR(J1.AUD_KND_CD,3,1) = NVL(#strAudYrNoKndCdSt#,'0') 
+		</isNotEmpty>
+		
+		<![CDATA[
+			
+			GROUP BY T2.ENFM_MNG_BRDV_CD, T2.AUD_YR||T2.AUD_NO, T1.DSP_RQ_KND_CD
+			ORDER BY T2.ENFM_MNG_BRDV_CD, T2.AUD_YR||T2.AUD_NO, T1.DSP_RQ_KND_CD
+		]]>
+	</select>
+	
+	<!--결재상태별 : 처분요구 -->
+	<select id="BADFRE009QSelectEnfmResultList" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+SELECT (SELECT HIRK_DPT_CD
+          FROM TBDCMACM002M
+         WHERE DPT_CD = T2.ENFM_MNG_BRDV_CD
+           AND ROWNUM = 1)                                     AS HIRK_ENFM_MNG_BRDV_CD
+     , (SELECT F_DPT_INFO(ST1.HIRK_DPT_CD, '1')                
+          FROM TBDCMACM002M ST1                                
+         WHERE ST1.DPT_CD = T2.ENFM_MNG_BRDV_CD                
+           AND ROWNUM = 1)                                     AS HIRK_ENFM_MNG_BRDV_NM 
+     , T2.ENFM_MNG_BRDV_CD                                     
+     , F_DPT_INFO(T2.ENFM_MNG_BRDV_CD, '1')                    AS ENFM_MNG_BRDV_NM
+     , (SELECT AUD_SBJ_NM
+          FROM TBBADDED001M ST1
+         WHERE 1 = 1
+           AND ST1.AUD_YR||ST1.AUD_NO = T2.AUD_YR||T2.AUD_NO ) AS AUD_SBJ_NM
+     , T1.DSP_RQ_KND_CD                                        AS DSP_RQ_KND_CD
+     , F_CODE_NM('1000002', T1.DSP_RQ_KND_CD)                  AS DSP_RQ_KND_NM
+     , SUM(1)                                   AS "TOT_CNT"
+     , SUM(
+                       CASE
+                         WHEN T2.DSP_RQ_APV_STA_CD = '1' OR T2.DSP_RQ_APV_STA_CD = '5' OR T2.DSP_RQ_APV_STA_CD IS NULL THEN 1
+                         ELSE 0
+                       END )                                   AS "NONEPLAY_CNT"
+     , SUM(
+                       CASE
+                         WHEN T2.DSP_RQ_APV_STA_CD = '2' THEN 1
+                         ELSE 0
+                       END )                                   AS "PLAY_CNT"
+     , SUM(
+                       CASE
+                         WHEN T2.DSP_RQ_APV_STA_CD = '3' THEN 1
+                         ELSE 0
+                       END )                                   AS "ENTER_CNT"
+     , SUM(
+                       CASE
+                         WHEN T2.DSP_RQ_APV_STA_CD = '4' THEN 1
+                         ELSE 0
+                       END )                                   AS "CANCLE_CNT"
+  FROM TBBADEAR001M T1
+     , TBBADEAR002D T2
+     , TBBADDED001M J1
+     , (SELECT ST1.AUD_YR,
+               ST1.AUD_NO,
+               ST1.DSP_RQ_SNO,
+               COUNT(ST1.ENFM_PRSU_SNO) AS PRSU_CNT
+          FROM TBBADFRE009M ST1
+         WHERE 1 = 1
+         GROUP BY ST1.AUD_YR,
+               ST1.AUD_NO,
+               ST1.DSP_RQ_SNO ) T3
+ WHERE 1 = 1
+   AND T1.AUD_YR = T2.AUD_YR
+   AND T1.AUD_NO = T2.AUD_NO
+   AND T1.DSP_RQ_SNO = T2.DSP_RQ_SNO
+   AND T2.AUD_YR = T3.AUD_YR(+)
+   AND T2.AUD_NO = T3.AUD_NO(+)
+   AND T2.DSP_RQ_SNO = T3.DSP_RQ_SNO(+)
+   AND T1.AUD_YR = J1.AUD_YR
+   AND T1.AUD_NO = J1.AUD_NO   
+			
+            
+            /* 속도개선으로 쿼리로 변경 2015.05.13 yyh */
+            AND 'Y' = (CASE WHEN (#strAudYr# = '' AND #strAudGrnNo# = '' AND #strAudYrTo# = '' AND #strAudGrnNoTo# = '') THEN 'Y'
+                            ELSE (CASE WHEN LPAD(T1.AUD_YR,   4, '0') || LPAD(J1.AUD_GRN_NO,  3,  '0') BETWEEN LPAD(NVL(#strAudYr#,  '1700'),   4,  '0') || LPAD(NVL(#strAudGrnNo#,   '000'), 3, '0')  AND LPAD(NVL(#strAudYrTo#,  '9999'),  4,  '0') || LPAD(NVL(#strAudGrnNoTo#,   '999'),  3,  '0')
+                                       THEN 'Y'
+                                       ELSE 'N' 
+                                   END)
+                        END)             
+            
+            
+            AND NVL(T2.ENF_DT, '19000101') BETWEEN NVL(#strEnfDtFrom#, '17000101') AND NVL(#strEnfDtTo#, '99991231')
+            AND NVL(T2.ENFM_WHLS_DTM_DT, '19000101') BETWEEN NVL(#strConfirmDtFrom#, '17000101') AND NVL(#strConfirmDtTo#, '99991231')
+            AND T1.DSP_RQ_KND_CD IN ('110', '210', '310', '320', '391', '800', '810', '820', '830', '840', '850')
+            AND T2.DTM_STA_CD IN ('1','2')
+            AND T2.ENFM_MNG_BRDV_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#S_CNB#, #strDptAuth#, '', #strUpSpvBrdvCd#)))
+        ]]>
+        <isNotEmpty property="strCoptOfiCd">	 	
+            AND T2.COPT_OFI_CD = #strCoptOfiCd#
+		</isNotEmpty>
+		<isNotEmpty property="strEnfmMngBrdvCd">
+			AND T2.ENFM_MNG_BRDV_CD     = #strEnfmMngBrdvCd#
+		</isNotEmpty>		
+		
+		/* 
+		   감사연번종류코드 추가 - 2015.12.24 yyh
+		   감사연번종류코드 from ~ to 에서 한개로 변경 - 2016.06.02 yyh
+		*/		
+		<isNotEmpty property="strAudYrNoKndCdSt">
+            AND SUBSTR(J1.AUD_KND_CD,3,1) = NVL(#strAudYrNoKndCdSt#,'0') 
+		</isNotEmpty>
+			
+		
+		<![CDATA[ 
+    
+ GROUP BY T2.ENFM_MNG_BRDV_CD
+     , T2.AUD_YR||T2.AUD_NO
+     , T1.DSP_RQ_KND_CD
+ ORDER BY T2.ENFM_MNG_BRDV_CD
+     , T2.AUD_YR||T2.AUD_NO
+     , T1.DSP_RQ_KND_CD 
+		]]>
+	</select>
+	
+	<!--결재상태별 : 권고통보 -->
+	<select id="BADFRE009QSelectEnfmResultList2" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+SELECT (SELECT HIRK_DPT_CD
+          FROM TBDCMACM002M
+         WHERE DPT_CD = T2.ENFM_MNG_BRDV_CD
+           AND ROWNUM = 1)                                     AS HIRK_ENFM_MNG_BRDV_CD
+     , (SELECT F_DPT_INFO(ST1.HIRK_DPT_CD, '1')                
+          FROM TBDCMACM002M ST1                                
+         WHERE ST1.DPT_CD = T2.ENFM_MNG_BRDV_CD                
+           AND ROWNUM = 1)                                     AS HIRK_ENFM_MNG_BRDV_NM 
+     , T2.ENFM_MNG_BRDV_CD                                     
+     , F_DPT_INFO(T2.ENFM_MNG_BRDV_CD, '1')                    AS ENFM_MNG_BRDV_NM
+     , (SELECT AUD_SBJ_NM
+          FROM TBBADDED001M ST1
+         WHERE 1 = 1
+           AND ST1.AUD_YR||ST1.AUD_NO = T2.AUD_YR||T2.AUD_NO ) AS AUD_SBJ_NM
+     , T1.DSP_RQ_KND_CD                                        AS DSP_RQ_KND_CD
+     , F_CODE_NM('1000002', T1.DSP_RQ_KND_CD)                  AS DSP_RQ_KND_NM
+     , SUM(1)                                   AS "TOT_CNT"
+     , SUM(
+                       CASE
+                         WHEN T2.DSP_RQ_APV_STA_CD = '1' OR T2.DSP_RQ_APV_STA_CD = '5' OR T2.DSP_RQ_APV_STA_CD IS NULL THEN 1
+                         ELSE 0
+                       END )                                   AS "NONEPLAY_CNT"
+     , SUM(
+                       CASE
+                         WHEN T2.DSP_RQ_APV_STA_CD = '2' THEN 1
+                         ELSE 0
+                       END )                                   AS "PLAY_CNT"
+     , SUM(
+                       CASE
+                         WHEN T2.DSP_RQ_APV_STA_CD = '3' THEN 1
+                         ELSE 0
+                       END )                                   AS "ENTER_CNT"
+     , SUM(
+                       CASE
+                         WHEN T2.DSP_RQ_APV_STA_CD = '4' THEN 1
+                         ELSE 0
+                       END )                                   AS "CANCLE_CNT"
+  FROM TBBADEAR001M T1
+     , TBBADEAR002D T2
+     , TBBADDED001M J1
+     , (SELECT ST1.AUD_YR,
+               ST1.AUD_NO,
+               ST1.DSP_RQ_SNO,
+               COUNT(ST1.ENFM_PRSU_SNO) AS PRSU_CNT
+          FROM TBBADFRE009M ST1
+         WHERE 1 = 1
+         GROUP BY ST1.AUD_YR,
+               ST1.AUD_NO,
+               ST1.DSP_RQ_SNO ) T3
+ WHERE 1 = 1
+   AND T1.AUD_YR = T2.AUD_YR
+   AND T1.AUD_NO = T2.AUD_NO
+   AND T1.DSP_RQ_SNO = T2.DSP_RQ_SNO
+   AND T2.AUD_YR = T3.AUD_YR(+)
+   AND T2.AUD_NO = T3.AUD_NO(+)
+   AND T2.DSP_RQ_SNO = T3.DSP_RQ_SNO(+)
+   AND T1.AUD_YR = J1.AUD_YR
+   AND T1.AUD_NO = J1.AUD_NO
+   			
+            /* 속도개선으로 쿼리로 변경 2015.05.13 yyh */
+            AND 'Y' = (CASE WHEN (#strAudYr# = '' AND #strAudGrnNo# = '' AND #strAudYrTo# = '' AND #strAudGrnNoTo# = '') THEN 'Y'
+                            ELSE (CASE WHEN LPAD(T1.AUD_YR,   4, '0') || LPAD(J1.AUD_GRN_NO,  3,  '0') BETWEEN LPAD(NVL(#strAudYr#,  '1700'),   4,  '0') || LPAD(NVL(#strAudGrnNo#,   '000'), 3, '0')  AND LPAD(NVL(#strAudYrTo#,  '9999'),  4,  '0') || LPAD(NVL(#strAudGrnNoTo#,   '999'),  3,  '0')
+                                       THEN 'Y'
+                                       ELSE 'N' 
+                                   END)
+                        END)             
+            
+            
+            AND NVL(T2.ENF_DT, '19000101') BETWEEN NVL(#strEnfDtFrom#, '17000101') AND NVL(#strEnfDtTo#, '99991231')
+            AND NVL(T2.ENFM_WHLS_DTM_DT, '19000101') BETWEEN NVL(#strConfirmDtFrom#, '17000101') AND NVL(#strConfirmDtTo#, '99991231')
+            AND T1.DSP_RQ_KND_CD IN ('510','520','530','610','611', '620', '621', '623', '630')
+            AND T2.DTM_STA_CD IN ('1','2')
+            AND T2.ENFM_MNG_BRDV_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#S_CNB#, #strDptAuth#, '', #strUpSpvBrdvCd#)))
+        ]]>
+        
+		/* 
+		   감사연번종류코드 추가 - 2015.12.24 yyh
+		   감사연번종류코드 from ~ to 에서 한개로 변경 - 2016.06.02 yyh
+		*/		
+		<isNotEmpty property="strAudYrNoKndCdSt">
+            AND SUBSTR(J1.AUD_KND_CD,3,1) = NVL(#strAudYrNoKndCdSt#,'0') 
+		</isNotEmpty>      
+        
+        <isNotEmpty property="strCoptOfiCd">	 	
+            AND T2.COPT_OFI_CD = #strCoptOfiCd#
+		</isNotEmpty>
+		<isNotEmpty property="strEnfmMngBrdvCd">
+			AND T2.ENFM_MNG_BRDV_CD     = #strEnfmMngBrdvCd#
+		</isNotEmpty>		
+		
+		<![CDATA[ 
+    
+ GROUP BY T2.ENFM_MNG_BRDV_CD
+     , T2.AUD_YR||T2.AUD_NO
+     , T1.DSP_RQ_KND_CD
+ ORDER BY T2.ENFM_MNG_BRDV_CD
+     , T2.AUD_YR||T2.AUD_NO
+     , T1.DSP_RQ_KND_CD 
+		]]>
+	</select>	
+	
+	
+	<!--처리기한별 -->
+	<select id="BADFRE009QSelectEnfmTermtList" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+			SELECT (SELECT '('|| F_MNG_KND_AUDYRNO(ST1.AUD_YR, ST1.AUD_NO, ST1.AUD_KND_CD, '-') ||')'|| AUD_SBJ_NM 
+			          FROM TBBADDED001M ST1 
+			         WHERE ST1.AUD_YR||ST1.AUD_NO = TA.AUD_INFO)  AS AUD_SBJ_NM
+			       , TA.RLTN_ORG_CD
+			       , F_ORG_INFO(TA.RLTN_ORG_CD, '1') AS REL_DPT_NM
+			       , (SELECT '('||F_CODE_NM('1000002', ST1.DSP_RQ_KND_CD)||')'||ST1.TIT_TXT FROM TBBADEAR001M ST1 WHERE ST1.AUD_YR||ST1.AUD_NO = TA.AUD_INFO AND ST1.DSP_RQ_SNO = TA.DSP_RQ_SNO ) AS DSP_RQ_TG_KND_NM
+			       , TB.ENF_DT
+			       , TB.HNDL_DDLN_DT
+			       , TB.ENFM_WHLS_DTM_DT AS DSP_RQ_DTM_DT
+			       , CASE WHEN TB.DTM_STA_CD = '1' AND NVL(TB.DTM_YN,'N') <> 'Y' AND TO_CHAR(SYSDATE,'YYYYMMDD') <= TB.HNDL_DDLN_DT THEN TO_CHAR(TO_DATE(TB.HNDL_DDLN_DT) - TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')))||'일 남음'
+			              WHEN TB.DTM_STA_CD = '1' AND NVL(TB.DTM_YN,'N') <> 'Y' AND TO_CHAR(SYSDATE,'YYYYMMDD') > TB.HNDL_DDLN_DT  THEN TO_CHAR(TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')) - TO_DATE(TB.HNDL_DDLN_DT))||'일 지남'
+			              ELSE '-'
+			         END AS OVER_TERM
+			       , CASE WHEN TB.DTM_STA_CD = '1' AND NVL(TB.DTM_YN,'N') <> 'Y' THEN '미결'
+			              WHEN TB.DTM_STA_CD = '1' AND TB.DTM_YN = 'Y'           THEN '완결'
+			              WHEN TB.DTM_STA_CD = '2'                               THEN '확정'
+			         END AS STATUS_FLAG
+			       , CASE WHEN TB.DSP_RQ_APV_STA_CD = '2'                                        THEN '결재중'
+			              WHEN TB.DSP_RQ_APV_STA_CD = '3'                                        THEN '승인'
+			              WHEN TB.DSP_RQ_APV_STA_CD = '4'                                        THEN '반려'
+			              ELSE '미상신'
+			         END AS PLAY_FLAG
+			FROM (
+			SELECT T1.AUD_YR||T1.AUD_NO AS AUD_INFO, 
+			       T2.RLTN_ORG_CD, 
+			       T1.DSP_RQ_SNO
+			  FROM TBBADEAR002D T1
+			     , TBBADEAR006M T2
+			     , TBBADDED001M T3
+			 WHERE 1 = 1
+			   AND T1.AUD_YR     = T2.AUD_YR
+			   AND T1.AUD_NO     = T2.AUD_NO
+			   AND T1.DSP_RQ_SNO = T2.DSP_RQ_SNO		
+			   AND T1.AUD_YR     = T3.AUD_YR
+			   AND T1.AUD_NO     = T3.AUD_NO
+			   
+            /* 속도개선으로 쿼리로 변경 2015.05.13 yyh */
+            AND 'Y' = (CASE WHEN (#strAudYr# = '' AND #strAudGrnNo# = '' AND #strAudYrTo# = '' AND #strAudGrnNoTo# = '') THEN 'Y'
+                            ELSE (CASE WHEN LPAD(T1.AUD_YR,   4, '0') || LPAD(T3.AUD_GRN_NO,  3,  '0') BETWEEN LPAD(NVL(#strAudYr#,  '1700'),   4,  '0') || LPAD(NVL(#strAudGrnNo#,   '000'), 3, '0')  AND LPAD(NVL(#strAudYrTo#,  '9999'),  4,  '0') || LPAD(NVL(#strAudGrnNoTo#,   '999'),  3,  '0')
+                                       THEN 'Y'
+                                       ELSE 'N' 
+                                   END)
+                        END) 			   
+               
+               AND NVL(T1.ENF_DT, '19000101') BETWEEN NVL(#strEnfDtFrom#, '17000101') AND NVL(#strEnfDtTo#, '99991231')
+               AND NVL(T1.ENFM_WHLS_DTM_DT, '19000101') BETWEEN NVL(#strConfirmDtFrom#, '17000101') AND NVL(#strConfirmDtTo#, '99991231')
+               AND T1.ENFM_MNG_BRDV_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#S_CNB#, #strDptAuth#, '', #strUpSpvBrdvCd#)))
+		]]>		
+		
+		        <isNotEmpty property="strCoptOfiCd">	 	
+		            AND T1.COPT_OFI_CD = #strCoptOfiCd#
+				</isNotEmpty>
+				
+				<isNotEmpty property="strEnfmMngBrdvCd">
+					AND T1.ENFM_MNG_BRDV_CD     = #strEnfmMngBrdvCd#
+				</isNotEmpty>
+				
+		/* 
+		   감사연번종류코드 추가 - 2015.12.24 yyh
+		   감사연번종류코드 from ~ to 에서 한개로 변경 - 2016.06.02 yyh
+		*/		
+		<isNotEmpty property="strAudYrNoKndCdSt">
+            AND SUBSTR(T3.AUD_KND_CD,3,1) = NVL(#strAudYrNoKndCdSt#,'0') 
+		</isNotEmpty>			
+				
+        <![CDATA[    
+			   GROUP BY T1.AUD_YR||T1.AUD_NO, T2.RLTN_ORG_CD, T1.DSP_RQ_SNO
+			) TA,
+			TBBADEAR002D TB
+			WHERE 1 = 1
+			AND TA.AUD_INFO = TB.AUD_YR||TB.AUD_NO
+			AND TA.DSP_RQ_SNO = TB.DSP_RQ_SNO
+			AND TB.DTM_STA_CD IN ('1','2')
+
+        ]]>
+
+		
+		<![CDATA[
+			ORDER BY TB.AUD_YR, TB.AUD_NO
+		]]>
+	</select>
+	
+	<!--집행률별 -->
+	<select id="BADFRE009QSelectEnfmPercentList" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+SELECT CASE WHEN D1.TMP_ID = '1' THEN '집행률'
+            WHEN D1.TMP_ID = '2' THEN '총관리대상'
+            WHEN D1.TMP_ID = '3' THEN '집행건수'
+            WHEN D1.TMP_ID = '4' THEN '미집행사항'
+            WHEN D1.TMP_ID = '5' THEN '(기한도래 미집행사항)'
+            END AS GUBUN
+     , CASE WHEN D1.TMP_ID = '1' THEN TO_CHAR(MAX(CASE WHEN D2.YEAR_GUBUN = #strBeforeYear# THEN D2.ENFORCE_RATE ELSE 0 END))
+            WHEN D1.TMP_ID = '2' THEN TO_CHAR(MAX(CASE WHEN D2.YEAR_GUBUN = #strBeforeYear# THEN D2.TOT_CNT ELSE 0 END))
+            WHEN D1.TMP_ID = '3' THEN TO_CHAR(MAX(CASE WHEN D2.YEAR_GUBUN = #strBeforeYear# THEN D2.ENFORCE_CNT ELSE 0 END))
+            WHEN D1.TMP_ID = '4' THEN TO_CHAR(MAX(CASE WHEN D2.YEAR_GUBUN = #strBeforeYear# THEN D2.INENFORCE_CNT ELSE 0 END))
+            WHEN D1.TMP_ID = '5' THEN '('||TO_CHAR(MAX(CASE WHEN D2.YEAR_GUBUN = #strBeforeYear# THEN D2.INENFORCE_DLINE_CNT ELSE 0 END))||')'
+            END AS FRONT_YEAR
+     , CASE WHEN D1.TMP_ID = '1' THEN TO_CHAR(MAX(CASE WHEN D2.YEAR_GUBUN = #strNowYear# THEN D2.ENFORCE_RATE ELSE 0 END)       )
+            WHEN D1.TMP_ID = '2' THEN TO_CHAR(MAX(CASE WHEN D2.YEAR_GUBUN = #strNowYear# THEN D2.TOT_CNT ELSE 0 END)            )
+            WHEN D1.TMP_ID = '3' THEN TO_CHAR(MAX(CASE WHEN D2.YEAR_GUBUN = #strNowYear# THEN D2.ENFORCE_CNT ELSE 0 END)        )
+            WHEN D1.TMP_ID = '4' THEN TO_CHAR(MAX(CASE WHEN D2.YEAR_GUBUN = #strNowYear# THEN D2.INENFORCE_CNT ELSE 0 END)      )
+            WHEN D1.TMP_ID = '5' THEN '('||TO_CHAR(MAX(CASE WHEN D2.YEAR_GUBUN = #strNowYear# THEN D2.INENFORCE_DLINE_CNT ELSE 0 END))||')'
+            END AS NOW_YEAR
+     , CASE WHEN D1.TMP_ID = '1' THEN TO_CHAR(MAX(CASE WHEN D2.YEAR_GUBUN = #strNowYear# THEN D2.ENFORCE_RATE ELSE 0 END)             - MAX(CASE WHEN D2.YEAR_GUBUN = #strBeforeYear# THEN D2.ENFORCE_RATE ELSE 0 END)       )
+            WHEN D1.TMP_ID = '2' THEN TO_CHAR(MAX(CASE WHEN D2.YEAR_GUBUN = #strNowYear# THEN D2.TOT_CNT ELSE 0 END)                  - MAX(CASE WHEN D2.YEAR_GUBUN = #strBeforeYear# THEN D2.TOT_CNT ELSE 0 END)            )
+            WHEN D1.TMP_ID = '3' THEN TO_CHAR(MAX(CASE WHEN D2.YEAR_GUBUN = #strNowYear# THEN D2.ENFORCE_CNT ELSE 0 END)              - MAX(CASE WHEN D2.YEAR_GUBUN = #strBeforeYear# THEN D2.ENFORCE_CNT ELSE 0 END)        )
+            WHEN D1.TMP_ID = '4' THEN TO_CHAR(MAX(CASE WHEN D2.YEAR_GUBUN = #strNowYear# THEN D2.INENFORCE_CNT ELSE 0 END)            - MAX(CASE WHEN D2.YEAR_GUBUN = #strBeforeYear# THEN D2.INENFORCE_CNT ELSE 0 END)      )
+            WHEN D1.TMP_ID = '5' THEN '('||TO_CHAR(MAX(CASE WHEN D2.YEAR_GUBUN = #strNowYear# THEN D2.INENFORCE_DLINE_CNT ELSE 0 END) - MAX(CASE WHEN D2.YEAR_GUBUN = #strBeforeYear# THEN D2.INENFORCE_DLINE_CNT ELSE 0 END))||')'
+            END AS FRONT_NOW
+
+     , CASE WHEN D1.TMP_ID = '1' THEN DECODE(MAX(CASE WHEN D2.YEAR_GUBUN = #strBeforeYear# THEN D2.ENFORCE_RATE ELSE 0 END),0,'0',TO_CHAR(TRUNC((MAX(CASE WHEN D2.YEAR_GUBUN = #strNowYear# THEN D2.ENFORCE_RATE ELSE 0 END) / MAX(CASE WHEN D2.YEAR_GUBUN = #strBeforeYear# THEN D2.ENFORCE_RATE ELSE 0 END) * 100 ), 1) - 100, 'FM9990D99'))
+            WHEN D1.TMP_ID = '2' THEN DECODE(MAX(CASE WHEN D2.YEAR_GUBUN = #strBeforeYear# THEN D2.TOT_CNT ELSE 0 END),0,'0',TO_CHAR(TRUNC( (MAX(CASE WHEN D2.YEAR_GUBUN = #strNowYear# THEN D2.TOT_CNT ELSE 0 END) / MAX(CASE WHEN D2.YEAR_GUBUN = #strBeforeYear# THEN D2.TOT_CNT ELSE 0 END)         * 100   ), 1)-100, 'FM9990D99'))
+            WHEN D1.TMP_ID = '3' THEN DECODE(MAX(CASE WHEN D2.YEAR_GUBUN = #strBeforeYear# THEN D2.ENFORCE_CNT ELSE 0 END),0,'0',TO_CHAR(TRUNC( (MAX(CASE WHEN D2.YEAR_GUBUN = #strNowYear# THEN D2.ENFORCE_CNT ELSE 0 END) / MAX(CASE WHEN D2.YEAR_GUBUN = #strBeforeYear# THEN D2.ENFORCE_CNT ELSE 0 END)     * 100   ), 1)-100, 'FM9990D99'))
+            WHEN D1.TMP_ID = '4' THEN DECODE(MAX(CASE WHEN D2.YEAR_GUBUN = #strBeforeYear# THEN D2.INENFORCE_CNT ELSE 0 END),0,'0',TO_CHAR(TRUNC( (MAX(CASE WHEN D2.YEAR_GUBUN = #strNowYear# THEN D2.INENFORCE_CNT ELSE 0 END) / MAX(CASE WHEN D2.YEAR_GUBUN = #strBeforeYear# THEN D2.INENFORCE_CNT ELSE 0 END)   * 100   ), 1)-100, 'FM9990D99'))
+            WHEN D1.TMP_ID = '5' THEN '('||DECODE(MAX(CASE WHEN D2.YEAR_GUBUN = #strBeforeYear# THEN D2.INENFORCE_DLINE_CNT ELSE 0 END),0,'0',TO_CHAR(TRUNC( (MAX(CASE WHEN D2.YEAR_GUBUN = #strNowYear# THEN D2.INENFORCE_DLINE_CNT ELSE 0 END) / MAX(CASE WHEN D2.YEAR_GUBUN = #strBeforeYear# THEN D2.INENFORCE_DLINE_CNT ELSE 0 END) * 100 ), 1)-100, 'FM9990D99'))||')'
+            END AS FRONT_NOW_PERCENT
+            
+  FROM (
+        SELECT LEVEL AS TMP_ID
+          FROM DUAL
+        CONNECT BY LEVEL <= 5
+       ) D1
+     ,( 
+			SELECT DECODE(SUM(TOT_CNT),0,0,ROUND((SUM(TOT_CNT) - SUM(INENFORCE_CNT)) / SUM(TOT_CNT) * 100,1)) AS ENFORCE_RATE   /* 집행률 */
+			     , SUM(TOT_CNT)                                                      AS TOT_CNT        /* 전체 */
+			     , SUM(TOT_CNT) - SUM(INENFORCE_CNT)                                 AS ENFORCE_CNT    /* 집행 */
+			     , SUM(INENFORCE_CNT)                                                AS INENFORCE_CNT  /* 미집행 */
+			     , SUM(INENFORCE_DLINE_CNT)                                          AS INENFORCE_DLINE_CNT /* 처리기한지난 미집행 */
+			     , #strBeforeYear#                                                   AS YEAR_GUBUN
+			  FROM (
+			       SELECT SUM(1) AS TOT_CNT,
+			              SUM(CASE WHEN T1.DTM_STA_CD = 1 AND (T1.DTM_YN <> 'Y' OR T1.DTM_YN IS NULL) THEN 1
+			                       ELSE 0
+			                  END) AS INENFORCE_CNT,
+			              SUM(CASE WHEN T1.DTM_STA_CD = 1 AND (T1.DTM_YN <> 'Y' OR T1.DTM_YN IS NULL) AND TO_CHAR(SYSDATE, 'YYYYMMDD') >= HNDL_DDLN_DT THEN 1
+			                       ELSE 0
+			                  END) AS INENFORCE_DLINE_CNT
+			         FROM TBBADEAR001M T0
+			             ,TBBADEAR002D T1
+			             ,TBBADDED001M J1
+			        WHERE 1 = 1
+			          AND T0.AUD_YR = T1.AUD_YR
+			          AND T0.AUD_NO = T1.AUD_NO
+			          AND T0.DSP_RQ_SNO = T1.DSP_RQ_SNO
+			          AND T0.AUD_YR = J1.AUD_YR
+			          AND T0.AUD_NO = J1.AUD_NO			          
+			          AND T1.AUD_YR IN (#strBeforeYear#) /* 감사년도 */
+			          AND T1.DTM_STA_CD IN (1, 2)
+			          AND T0.DSP_RQ_KND_CD IN ('110','210','310','320','391','620','621','623','630','510','520','530','610','611','810','820','830','840','850')
+			          AND T1.ENFM_MNG_BRDV_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#S_CNB#, #strDptAuth#, '', #strUpSpvBrdvCd#)))
+			          ]]>
+				        <isNotEmpty property="strCoptOfiCd">	 	
+				          AND T1.COPT_OFI_CD      = #strCoptOfiCd#
+						</isNotEmpty>
+						<isNotEmpty property="strEnfmMngBrdvCd">
+					      AND T1.ENFM_MNG_BRDV_CD = #strEnfmMngBrdvCd#
+						</isNotEmpty>
+						
+						/* 
+						   감사연번종류코드 추가 - 2015.12.24 yyh
+						   감사연번종류코드 from ~ to 에서 한개로 변경 - 2016.06.02 yyh
+						*/		
+						<isNotEmpty property="strAudYrNoKndCdSt">
+				            AND SUBSTR(J1.AUD_KND_CD,3,1) = NVL(#strAudYrNoKndCdSt#,'0') 
+						</isNotEmpty>
+			
+					  <![CDATA[
+			          
+			          GROUP BY T1.AUD_YR, T1.AUD_NO, T1.DSP_RQ_SNO
+			   )
+UNION ALL
+
+			SELECT DECODE(SUM(TOT_CNT),0,0,ROUND((SUM(TOT_CNT) - SUM(INENFORCE_CNT)) / SUM(TOT_CNT) * 100,1)) AS ENFORCE_RATE   /* 집행률 */
+			     , SUM(TOT_CNT)                                                      AS TOT_CNT        /* 전체 */
+			     , SUM(TOT_CNT) - SUM(INENFORCE_CNT)                                 AS ENFORCE_CNT    /* 집행 */
+			     , SUM(INENFORCE_CNT)                                                AS INENFORCE_CNT  /* 미집행 */
+			     , SUM(INENFORCE_DLINE_CNT)                                          AS INENFORCE_DLINE_CNT /* 처리기한지난 미집행 */
+			     , #strNowYear#                                                      AS YEAR_GUBUN
+			  FROM (
+			       SELECT SUM(1) AS TOT_CNT,
+			              SUM(CASE WHEN T1.DTM_STA_CD = 1 AND (T1.DTM_YN <> 'Y' OR T1.DTM_YN IS NULL) THEN 1
+			                       ELSE 0
+			                  END) AS INENFORCE_CNT,
+			              SUM(CASE WHEN T1.DTM_STA_CD = 1 AND (T1.DTM_YN <> 'Y' OR T1.DTM_YN IS NULL) AND TO_CHAR(SYSDATE, 'YYYYMMDD') >= HNDL_DDLN_DT THEN 1
+			                       ELSE 0
+			                  END) AS INENFORCE_DLINE_CNT
+			         FROM TBBADEAR001M T0
+			             ,TBBADEAR002D T1
+			             ,TBBADDED001M J1
+			        WHERE 1 = 1
+			          AND T0.AUD_YR = T1.AUD_YR
+			          AND T0.AUD_NO = T1.AUD_NO
+			          AND T0.DSP_RQ_SNO = T1.DSP_RQ_SNO
+			          AND T0.AUD_YR = J1.AUD_YR
+			          AND T0.AUD_NO = J1.AUD_NO			          
+			          AND T1.AUD_YR IN (#strNowYear#) /* 감사년도 */
+			          AND T1.DTM_STA_CD IN (1, 2)
+			          AND T0.DSP_RQ_KND_CD IN ('110','210','310','320','391','620','621','623','630','510','520','530','610','611','810','820','830','840','850')
+			          AND T1.ENFM_MNG_BRDV_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#S_CNB#, #strDptAuth#, '', #strUpSpvBrdvCd#)))
+			          ]]>
+				        <isNotEmpty property="strCoptOfiCd">	 	
+				          AND T1.COPT_OFI_CD      = #strCoptOfiCd#
+						</isNotEmpty>
+						<isNotEmpty property="strEnfmMngBrdvCd">
+					      AND T1.ENFM_MNG_BRDV_CD = #strEnfmMngBrdvCd#
+						</isNotEmpty>
+						
+						/* 
+						   감사연번종류코드 추가 - 2015.12.24 yyh
+						   감사연번종류코드 from ~ to 에서 한개로 변경 - 2016.06.02 yyh
+						*/		
+						<isNotEmpty property="strAudYrNoKndCdSt">
+				            AND SUBSTR(J1.AUD_KND_CD,3,1) = NVL(#strAudYrNoKndCdSt#,'0') 
+						</isNotEmpty>	
+			
+					  <![CDATA[
+			          GROUP BY T1.AUD_YR, T1.AUD_NO, T1.DSP_RQ_SNO
+			   )
+) D2
+GROUP BY D1.TMP_ID
+ORDER BY D1.TMP_ID
+		]]>
+	</select>
+		
+	
+	<!--집행상황 -->
+	<select id="BADFRE009QSelectPlayList" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+  
+SELECT T.T6AUD_KEY,
+       T.T6DTM_STA_NM,
+       T.T6ITEM1_CNT+T6ITEM2_CNT+T6ITEM3_CNT+T6ITEM4_CNT+T6ITEM5_CNT+T6ITEM6_CNT+T6ITEM7_CNT+T6ITEM8_CNT AS T6TOT_CNT,       
+       TRIM(TO_CHAR(T.T6ITEM1_AMT+T.T6ITEM3_AMT,'9,999,999,999,999,999')) || DECODE(T6ITEM1_AMT2+T6ITEM3_AMT2,0,'','(' || TRIM(TO_CHAR(T6ITEM1_AMT2+T6ITEM3_AMT2,'9,999,999,999,999,999')) || ')') AS T6TOT_AMT,       
+       T.T6ITEM2_PERSON+T.T6ITEM7_PERSON+T.T6ITEM8_PERSON AS T6PERSON_CNT,
+       T.T6ITEM1_CNT,
+       TRIM(TO_CHAR(T.T6ITEM1_AMT,'9,999,999,999,999,999')) || DECODE(T6ITEM1_AMT2,0,'','(' || TRIM(TO_CHAR(T6ITEM1_AMT2,'9,999,999,999,999,999')) || ')') AS T6ITEM1_AMT,
+       T.T6ITEM2_CNT,
+       T.T6ITEM2_PERSON,
+       T.T6ITEM3_CNT,
+       TRIM(TO_CHAR(T.T6ITEM3_AMT,'9,999,999,999,999,999')) || DECODE(T6ITEM3_AMT2,0,'','(' || TRIM(TO_CHAR(T6ITEM3_AMT2,'9,999,999,999,999,999')) || ')') AS T6ITEM3_AMT,
+       T.T6ITEM4_CNT,
+       T.T6ITEM5_CNT,
+       T.T6ITEM6_CNT,
+       T.T6ITEM7_CNT,
+       T.T6ITEM7_PERSON,
+       T.T6ITEM8_CNT,
+       T.T6ITEM8_PERSON
+FROM (
+select         (SELECT '('|| F_MNG_KND_AUDYRNO(ST1.AUD_YR, ST1.AUD_NO, ST1.AUD_KND_CD, '-') ||') '||AUD_SBJ_NM 
+                  FROM TBBADDED001M ST1 WHERE 1 = 1
+				   AND ST1.AUD_YR||ST1.AUD_NO = detail.AUD_YR||detail.AUD_NO
+			   ) AS "T6AUD_KEY"
+               ,CASE WHEN detail.AUD_YR||detail.AUD_NO IS NULL THEN '총계'
+                     ELSE NVL(CASE WHEN detail.DTM_STA_CD = 1 AND (detail.DTM_YN <> 'Y' OR detail.DTM_YN IS NULL) THEN '미집행' ELSE '집행' END,'소계') 
+                END AS "T6DTM_STA_NM"                
+               ,sum(case when SUBSTR(master.DSP_RQ_KND_CD,1,1) = '1'  then 1  else 0 end)                                            as "T6ITEM1_CNT"
+               ,sum(case when SUBSTR(master.DSP_RQ_KND_CD,1,1) = '1'  then NVL(detail.PNL_DRIN_PSVT_AM,0) else 0 end)                as "T6ITEM1_AMT"
+               ,sum(case when SUBSTR(master.DSP_RQ_KND_CD,1,1) = '1'  then NVL(detail.RSR_AM,0) + NVL(detail.SPLP_AM,0) else 0 end)  as "T6ITEM1_AMT2"
+               ,sum(case when SUBSTR(master.DSP_RQ_KND_CD,1,1) = '2'  then 1 else 0 end)                                             as "T6ITEM2_CNT"
+               ,sum(case when SUBSTR(master.DSP_RQ_KND_CD,1,1) = '2'  then NVL(detail.NOP_CNT,0) else 0 end)                         as "T6ITEM2_PERSON" 
+               ,sum(case when SUBSTR(master.DSP_RQ_KND_CD,1,1) = '3'  then 1 else 0 end)                                             as "T6ITEM3_CNT" 
+               ,sum(case when SUBSTR(master.DSP_RQ_KND_CD,1,1) = '3'  then NVL(detail.PNL_DRIN_PSVT_AM,0) else 0 end)                as "T6ITEM3_AMT"
+               ,sum(case when SUBSTR(master.DSP_RQ_KND_CD,1,1) = '3'  then NVL(detail.RSR_AM,0) + NVL(detail.SPLP_AM,0) else 0 end)  as "T6ITEM3_AMT2"
+               ,sum(case when SUBSTR(master.DSP_RQ_KND_CD,1,1) = '4'  then 1 else 0 end)                                             as "T6ITEM4_CNT"  
+               ,sum(case when SUBSTR(master.DSP_RQ_KND_CD,1,1) = '5'  then 1 else 0 end)                                             as "T6ITEM5_CNT"  
+               ,sum(case when master.DSP_RQ_KND_CD = '611'                        then 1 else 0 end)                                 as "T6ITEM6_CNT"  
+               ,sum(case when master.DSP_RQ_KND_CD in ('610','620', '621', '630') then 1 else 0 end)                                 as "T6ITEM7_CNT"  
+               ,sum(case when master.DSP_RQ_KND_CD in ('610','620', '621', '630') then NVL(detail.NOP_CNT,0) else 0 end)             as "T6ITEM7_PERSON" 
+               ,sum(case when master.DSP_RQ_KND_CD in ('710','720', '730')        then 1 else 0 end)                                 as "T6ITEM8_CNT"  
+               ,sum(case when master.DSP_RQ_KND_CD in ('710','720', '730')        then NVL(detail.NOP_CNT,0) else 0 end)             as "T6ITEM8_PERSON"    
+
+          FROM  TBBADEAR001M master
+               ,TBBADEAR002D detail
+               ,TBDCMACM015M org
+               ,TBBADDED001M J1 
+         where  1=1
+           
+            /* 속도개선으로 쿼리로 변경 2015.05.13 yyh */
+            AND 'Y' = (CASE WHEN (#strAudYr# = '' AND #strAudGrnNo# = '' AND #strAudYrTo# = '' AND #strAudGrnNoTo# = '') THEN 'Y'
+                            ELSE (CASE WHEN LPAD(master.AUD_YR,   4, '0') || LPAD(J1.AUD_GRN_NO,  3,  '0') BETWEEN LPAD(NVL(#strAudYr#,  '1700'),   4,  '0') || LPAD(NVL(#strAudGrnNo#,   '000'), 3, '0')  AND LPAD(NVL(#strAudYrTo#,  '9999'),  4,  '0') || LPAD(NVL(#strAudGrnNoTo#,   '999'),  3,  '0')
+                                       THEN 'Y'
+                                       ELSE 'N' 
+                                   END)
+                        END)                 
+           
+           
+           AND NVL(detail.ENF_DT, '19000101') BETWEEN NVL(#strEnfDtFrom#, '17000101') AND NVL(#strEnfDtTo#, '99991231')
+           AND NVL(detail.ENFM_WHLS_DTM_DT, '19000101') BETWEEN NVL(#strConfirmDtFrom#, '17000101') AND NVL(#strConfirmDtTo#, '99991231')
+           AND detail.ENFM_MNG_BRDV_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#S_CNB#, #strDptAuth#, '', #strUpSpvBrdvCd#)))
+        ]]>
+        
+			
+        
+    <isNotEmpty property="strCoptOfiCd">	 	
+           AND detail.COPT_OFI_CD = #strCoptOfiCd#
+	</isNotEmpty>
+	<isNotEmpty property="strEnfmMngBrdvCd">
+	       AND detail.ENFM_MNG_BRDV_CD     = #strEnfmMngBrdvCd#
+	</isNotEmpty>
+	
+		/* 
+		   감사연번종류코드 추가 - 2015.12.24 yyh
+		   감사연번종류코드 from ~ to 에서 한개로 변경 - 2016.06.02 yyh
+		*/		
+		<isNotEmpty property="strAudYrNoKndCdSt">
+            AND SUBSTR(J1.AUD_KND_CD,3,1) = NVL(#strAudYrNoKndCdSt#,'0') 
+		</isNotEmpty>
+	
+		<![CDATA[
+           AND  master.AUD_YR     = detail.AUD_YR 
+           AND  master.AUD_NO      = detail.AUD_NO
+           AND  master.DSP_RQ_SNO     = detail.DSP_RQ_SNO      
+           AND  master.AUD_YR      = J1.AUD_YR 
+           AND  master.AUD_NO      = J1.AUD_NO                
+           AND  detail.COPT_OFI_CD = org.ORG_CD
+           AND detail.DTM_STA_CD IN (1, 2)
+         group by rollup(detail.AUD_YR||detail.AUD_NO 
+               ,CASE WHEN detail.DTM_STA_CD = 1 AND (detail.DTM_YN <> 'Y' OR detail.DTM_YN IS NULL) THEN '미집행' ELSE '집행' END)
+) T  
+
+		]]>
+	</select>
+		
+	<!-- 미집행상황 -->
+	<select id="BADFRE009QSelectNoPlayList" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+
+SELECT T.T6AUD_KEY AS T7AUD_KEY,
+       T.T6DTM_STA_NM AS T7TERM_FLAG,
+       T.T6ITEM1_CNT+T6ITEM2_CNT+T6ITEM3_CNT+T6ITEM4_CNT+T6ITEM5_CNT+T6ITEM6_CNT+T6ITEM7_CNT+T6ITEM8_CNT AS T7TOT_CNT,       
+       TRIM(TO_CHAR(T.T6ITEM1_AMT+T.T6ITEM3_AMT,'9,999,999,999,999,999')) || DECODE(T6ITEM1_AMT2+T6ITEM3_AMT2,0,'','(' || TRIM(TO_CHAR(T6ITEM1_AMT2+T6ITEM3_AMT2,'9,999,999,999,999,999')) || ')') AS T7TOT_AMT,       
+       T.T6ITEM2_PERSON+T.T6ITEM7_PERSON+T.T6ITEM8_PERSON AS T7PERSON_CNT,
+       T.T6ITEM1_CNT AS T7ITEM1_CNT,
+       TRIM(TO_CHAR(T.T6ITEM1_AMT,'9,999,999,999,999,999')) || DECODE(T6ITEM1_AMT2,0,'','(' || TRIM(TO_CHAR(T6ITEM1_AMT2,'9,999,999,999,999,999')) || ')') AS T7ITEM1_AMT,
+       T.T6ITEM2_CNT AS T7ITEM2_CNT,
+       T.T6ITEM2_PERSON AS T7ITEM2_PERSON,
+       T.T6ITEM3_CNT AS T7ITEM3_CNT,
+       TRIM(TO_CHAR(T.T6ITEM3_AMT,'9,999,999,999,999,999')) || DECODE(T6ITEM3_AMT2,0,'','(' || TRIM(TO_CHAR(T6ITEM3_AMT2,'9,999,999,999,999,999')) || ')') AS T7ITEM3_AMT,
+       T.T6ITEM4_CNT AS T7ITEM4_CNT,
+       T.T6ITEM5_CNT AS T7ITEM5_CNT,
+       T.T6ITEM6_CNT AS T7ITEM6_CNT,
+       T.T6ITEM7_CNT AS T7ITEM7_CNT,
+       T.T6ITEM7_PERSON AS T7ITEM7_PERSON,
+       T.T6ITEM8_CNT AS T7ITEM8_CNT,
+       T.T6ITEM8_PERSON AS T7ITEM8_PERSON
+FROM (
+select         (SELECT '('|| F_MNG_KND_AUDYRNO(ST1.AUD_YR, ST1.AUD_NO, ST1.AUD_KND_CD, '-') ||') '||AUD_SBJ_NM FROM TBBADDED001M ST1 WHERE 1 = 1
+				AND ST1.AUD_YR||ST1.AUD_NO = detail.AUD_YR||detail.AUD_NO
+			   ) AS "T6AUD_KEY"
+               ,CASE WHEN detail.AUD_YR||detail.AUD_NO IS NULL THEN '총계'
+                     ELSE NVL(CASE WHEN NVL(detail.HNDL_DDLN_DT, '99991231') >= TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '기한미경과' ELSE '기한경과' END,'소계') 
+                END AS "T6DTM_STA_NM"                
+               ,sum(case when SUBSTR(master.DSP_RQ_KND_CD,1,1) = '1'  then 1  else 0 end)                                            as "T6ITEM1_CNT"
+               ,sum(case when SUBSTR(master.DSP_RQ_KND_CD,1,1) = '1'  then NVL(detail.PNL_DRIN_PSVT_AM,0) else 0 end)                as "T6ITEM1_AMT"
+               ,sum(case when SUBSTR(master.DSP_RQ_KND_CD,1,1) = '1'  then NVL(detail.RSR_AM,0) + NVL(detail.SPLP_AM,0) else 0 end)  as "T6ITEM1_AMT2"
+               ,sum(case when SUBSTR(master.DSP_RQ_KND_CD,1,1) = '2'  then 1 else 0 end)                                             as "T6ITEM2_CNT"
+               ,sum(case when SUBSTR(master.DSP_RQ_KND_CD,1,1) = '2'  then NVL(detail.NOP_CNT,0) else 0 end)                         as "T6ITEM2_PERSON" 
+               ,sum(case when SUBSTR(master.DSP_RQ_KND_CD,1,1) = '3'  then 1 else 0 end)                                             as "T6ITEM3_CNT" 
+               ,sum(case when SUBSTR(master.DSP_RQ_KND_CD,1,1) = '3'  then NVL(detail.PNL_DRIN_PSVT_AM,0) else 0 end)                as "T6ITEM3_AMT"
+               ,sum(case when SUBSTR(master.DSP_RQ_KND_CD,1,1) = '3'  then NVL(detail.RSR_AM,0) + NVL(detail.SPLP_AM,0) else 0 end)  as "T6ITEM3_AMT2"
+               ,sum(case when SUBSTR(master.DSP_RQ_KND_CD,1,1) = '4'  then 1 else 0 end)                                             as "T6ITEM4_CNT"  
+               ,sum(case when SUBSTR(master.DSP_RQ_KND_CD,1,1) = '5'  then 1 else 0 end)                                             as "T6ITEM5_CNT"  
+               ,sum(case when master.DSP_RQ_KND_CD = '611'                        then 1 else 0 end)                                 as "T6ITEM6_CNT"  
+               ,sum(case when master.DSP_RQ_KND_CD in ('610','620', '621', '630') then 1 else 0 end)                                 as "T6ITEM7_CNT"  
+               ,sum(case when master.DSP_RQ_KND_CD in ('610','620', '621', '630') then NVL(detail.NOP_CNT,0) else 0 end)             as "T6ITEM7_PERSON" 
+               ,sum(case when master.DSP_RQ_KND_CD in ('710','720', '730')        then 1 else 0 end)                                 as "T6ITEM8_CNT"  
+               ,sum(case when master.DSP_RQ_KND_CD in ('710','720', '730')        then NVL(detail.NOP_CNT,0) else 0 end)             as "T6ITEM8_PERSON"    
+
+          FROM TBBADEAR001M master
+               ,TBBADEAR002D detail
+               ,TBDCMACM015M org
+               ,TBBADDED001M J1
+         where  1=1
+           
+            /* 속도개선으로 쿼리로 변경 2015.05.13 yyh */
+            AND 'Y' = (CASE WHEN (#strAudYr# = '' AND #strAudGrnNo# = '' AND #strAudYrTo# = '' AND #strAudGrnNoTo# = '') THEN 'Y'
+                            ELSE (CASE WHEN LPAD(master.AUD_YR,   4, '0') || LPAD(J1.AUD_GRN_NO,  3,  '0') BETWEEN LPAD(NVL(#strAudYr#,  '1700'),   4,  '0') || LPAD(NVL(#strAudGrnNo#,   '000'), 3, '0')  AND LPAD(NVL(#strAudYrTo#,  '9999'),  4,  '0') || LPAD(NVL(#strAudGrnNoTo#,   '999'),  3,  '0')
+                                       THEN 'Y'
+                                       ELSE 'N' 
+                                   END)
+                        END)                
+           
+           AND NVL(detail.ENF_DT, '19000101') BETWEEN NVL(#strEnfDtFrom#, '17000101') AND NVL(#strEnfDtTo#, '99991231')
+           AND NVL(detail.ENFM_WHLS_DTM_DT, '19000101') BETWEEN NVL(#strConfirmDtFrom#, '17000101') AND NVL(#strConfirmDtTo#, '99991231')
+           AND detail.ENFM_MNG_BRDV_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#S_CNB#, #strDptAuth#, '', #strUpSpvBrdvCd#)))
+        ]]>
+			
+    <isNotEmpty property="strCoptOfiCd">	 	
+           AND detail.COPT_OFI_CD = #strCoptOfiCd#
+	</isNotEmpty>
+	<isNotEmpty property="strEnfmMngBrdvCd">
+	       AND detail.ENFM_MNG_BRDV_CD     = #strEnfmMngBrdvCd#
+	</isNotEmpty>
+	
+		/* 
+		   감사연번종류코드 추가 - 2015.12.24 yyh
+		   감사연번종류코드 from ~ to 에서 한개로 변경 - 2016.06.02 yyh
+		*/		
+		<isNotEmpty property="strAudYrNoKndCdSt">
+            AND SUBSTR(J1.AUD_KND_CD,3,1) = NVL(#strAudYrNoKndCdSt#,'0') 
+		</isNotEmpty>
+			
+		<![CDATA[
+           AND  master.AUD_YR     = detail.AUD_YR 
+           AND  master.AUD_NO      = detail.AUD_NO
+           AND  master.DSP_RQ_SNO     = detail.DSP_RQ_SNO   
+           AND  master.AUD_YR     = J1.AUD_YR 
+           AND  master.AUD_NO      = J1.AUD_NO                   
+           AND  detail.COPT_OFI_CD = org.ORG_CD
+           AND  detail.DTM_STA_CD = 1
+           AND  (detail.DTM_YN <> 'Y' OR detail.DTM_YN IS NULL)
+         group by rollup(detail.AUD_YR||detail.AUD_NO 
+               ,CASE WHEN NVL(detail.HNDL_DDLN_DT, '99991231') >= TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '기한미경과' ELSE '기한경과' END)
+) T
+
+		]]>
+	</select>
+	
+    <!-- 경과기간별 -->
+	<select id="BADFRE009QSelectNoTermList" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[
+SELECT 
+       DECODE(T.T7TERM_FLAG,1,'1개월 미만',2,'1개월 경과 2개월 미만'
+                           ,3,'2개월 경과 3개월 미만',4,'3개월 경과 1년 미만'
+                           ,5,'1년 경과 2년 미만',6,'2년 경과 5년 미만'
+                           ,7,'5년 경과 10년 미만',8,'10년 이상'
+                           ,'합계') AS T8TITLE,
+       T.T7TOT_CNT AS T8TOT_CNT,
+       ROUND(T.T7TOT_CNT / T.T7TOT_SUM1 * 100, 1) || ' %'  AS T8TOT_PERCENT,
+       T.T7ITEM1_CNT AS T8ITEM1_CNT,
+       T.T7ITEM2_CNT AS T8ITEM2_CNT,
+       T.T7ITEM3_CNT AS T8ITEM3_CNT,
+       T.T7ITEM5_CNT AS T8ITEM4_CNT
+FROM (
+SELECT  CASE WHEN TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 1   ), 'YYYYMMDD') >  TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '1'
+            WHEN TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 1   ), 'YYYYMMDD') <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+             AND TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 2   ), 'YYYYMMDD') >  TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '2'
+            WHEN TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 2   ), 'YYYYMMDD') <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+             AND TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 3   ), 'YYYYMMDD') >  TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '3'
+            WHEN TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 3   ), 'YYYYMMDD') <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+             AND TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 12  ), 'YYYYMMDD') >  TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '4'
+            WHEN TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 12*1), 'YYYYMMDD') <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+             AND TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 12*2), 'YYYYMMDD') >  TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '5'
+            WHEN TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 12*2), 'YYYYMMDD') <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+             AND TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 12*5), 'YYYYMMDD') >  TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '6'
+            WHEN TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 12*5), 'YYYYMMDD') <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+             AND TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 12*10), 'YYYYMMDD') > TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '7'
+            WHEN TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 12*10), 'YYYYMMDD')<= TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '8'
+        END AS T7TERM_FLAG
+       , COUNT(1) AS T7TOT_CNT /* 총 */
+       , SUM(COUNT(1)) OVER() / 2 AS T7TOT_SUM1 /* 총 */
+       , SUM(case when SUBSTR(master.DSP_RQ_KND_CD,1,1) = '1' then 1 else 0 end) AS T7ITEM1_CNT   /* 변상판정 건수 */
+       , SUM(case when SUBSTR(master.DSP_RQ_KND_CD,1,1) = '2' then 1 else 0 end) AS T7ITEM2_CNT   /* 징계문책 건수 */
+       , SUM(case when SUBSTR(master.DSP_RQ_KND_CD,1,1) = '3' then 1 else 0 end) AS T7ITEM3_CNT   /* 시정 건수 */
+       , SUM(case when SUBSTR(master.DSP_RQ_KND_CD,1,1) = '5' OR master.DSP_RQ_KND_CD in ('610', '611', '620', '621', '623', '630') then 1 else 0 end) AS T7ITEM5_CNT /* 개선, 권고, 통보 건수 */
+  FROM TBBADEAR001M master,
+       TBBADEAR002D detail,
+       TBBADDED001M J1
+ WHERE 1 = 1
+   AND master.AUD_YR = detail.AUD_YR
+   AND master.AUD_NO = detail.AUD_NO
+   AND master.DSP_RQ_SNO = detail.DSP_RQ_SNO
+   AND master.AUD_YR = J1.AUD_YR
+   AND master.AUD_NO = J1.AUD_NO   
+   AND detail.DTM_STA_CD = 1
+   AND (detail.DTM_YN <> 'Y' OR detail.DTM_YN IS NULL)
+   AND detail.HNDL_DDLN_DT < TO_CHAR(SYSDATE, 'YYYYMMDD')
+   AND master.DSP_RQ_KND_CD IN ('110','210','310','320','391','620','621','623','630','510','520','530','610','611')
+   
+   			/* 속도개선으로 쿼리로 변경 2015.05.13 yyh */
+            AND 'Y' = (CASE WHEN (#strAudYr# = '' AND #strAudGrnNo# = '' AND #strAudYrTo# = '' AND #strAudGrnNoTo# = '') THEN 'Y'
+                            ELSE (CASE WHEN LPAD(master.AUD_YR,   4, '0') || LPAD(J1.AUD_GRN_NO,  3,  '0') BETWEEN LPAD(NVL(#strAudYr#,  '1700'),   4,  '0') || LPAD(NVL(#strAudGrnNo#,   '000'), 3, '0')  AND LPAD(NVL(#strAudYrTo#,  '9999'),  4,  '0') || LPAD(NVL(#strAudGrnNoTo#,   '999'),  3,  '0')
+                                       THEN 'Y'
+                                       ELSE 'N' 
+                                   END)
+                        END)        
+   
+   AND NVL(detail.ENF_DT, '19000101') BETWEEN NVL(#strEnfDtFrom#, '17000101') AND NVL(#strEnfDtTo#, '99991231')
+   AND NVL(detail.ENFM_WHLS_DTM_DT, '19000101') BETWEEN NVL(#strConfirmDtFrom#, '17000101') AND NVL(#strConfirmDtTo#, '99991231')
+   AND detail.ENFM_MNG_BRDV_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#S_CNB#, #strDptAuth#, '', #strUpSpvBrdvCd#)))
+]]>
+
+		/* 
+		   감사연번종류코드 추가 - 2015.12.24 yyh
+		   감사연번종류코드 from ~ to 에서 한개로 변경 - 2016.06.02 yyh
+		*/		
+		<isNotEmpty property="strAudYrNoKndCdSt">
+            AND SUBSTR(J1.AUD_KND_CD,3,1) = NVL(#strAudYrNoKndCdSt#,'0') 
+		</isNotEmpty>
+		
+<isNotEmpty property="strCoptOfiCd">	 	
+   AND detail.COPT_OFI_CD = #strCoptOfiCd#
+</isNotEmpty>
+<isNotEmpty property="strEnfmMngBrdvCd">
+   AND detail.ENFM_MNG_BRDV_CD     = #strEnfmMngBrdvCd#
+</isNotEmpty>
+<![CDATA[
+   GROUP BY ROLLUP(CASE WHEN TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 1   ), 'YYYYMMDD') >  TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '1'
+            WHEN TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 1   ), 'YYYYMMDD') <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+             AND TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 2   ), 'YYYYMMDD') >  TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '2'
+            WHEN TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 2   ), 'YYYYMMDD') <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+             AND TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 3   ), 'YYYYMMDD') >  TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '3'
+            WHEN TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 3   ), 'YYYYMMDD') <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+             AND TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 12  ), 'YYYYMMDD') >  TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '4'
+            WHEN TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 12*1), 'YYYYMMDD') <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+             AND TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 12*2), 'YYYYMMDD') >  TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '5'
+            WHEN TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 12*2), 'YYYYMMDD') <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+             AND TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 12*5), 'YYYYMMDD') >  TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '6'
+            WHEN TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 12*5), 'YYYYMMDD') <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+             AND TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 12*10), 'YYYYMMDD') > TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '7'
+            WHEN TO_CHAR(ADD_MONTHS(detail.HNDL_DDLN_DT, 12*10), 'YYYYMMDD')<= TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '8'
+        END)
+) T
+		]]>
+	</select>
+
+    <!-- 국과별 이행상황 통계표 -->
+	<select id="BADFRE009QSelectSuitSttcList" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+			WITH BASE AS (
+			        SELECT F_DPT_INFO(SUBSTR(ENFM_MNG_BRDV_CD,0,3) || '000','1')                                                      AS DPT_NM1
+			              ,F_DPT_INFO(ENFM_MNG_BRDV_CD,'1')                                                                           AS DPT_NM2
+			              ,SUM(CASE WHEN (ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1') THEN 1 ELSE 0 END)                             AS SUM_A              
+			              ,SUM(CASE WHEN (ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#)    THEN 1 ELSE 0 END)                       AS SUM_B
+			              ,SUM(CASE WHEN (ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND (DTM_STA_CD = '2') THEN 1 ELSE 0 END)   AS SUM_C
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '110') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_1 
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '120') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_2
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '210') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_3
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '310') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_4
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '320') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_5
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '390') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_6
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '391') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_7
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '410') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_8 
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '490') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_9 
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '510') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_10
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '520') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_11
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '530') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_12
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '610') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_13
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '611') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_14
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '620') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_15
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '621') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_16
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '623') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_17
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '630') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_18
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '710') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_19
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '720') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_20
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '730') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_21
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '810') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_22
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '820') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_23
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '830') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_24
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '840') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_25
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '850') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_26
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '904') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_27
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '905') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_28
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '910') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_29
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '911') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_30
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '912') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_31
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '913') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_32
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '914') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_33
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '915') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_34
+			              ,SUM(CASE WHEN (DSP_RQ_KND_CD = '916') AND (((ENF_DT <= #strStdDt#) AND (DTM_STA_CD = '1')) OR ((ENF_DT BETWEEN #strEnfDtFrom# AND #strEnfDtTo#) AND DTM_STA_CD = '1')) THEN 1 ELSE 0 END) AS DTL_35
+			      FROM TBBADEAR001M T1
+			          ,TBBADEAR002D T2
+			     WHERE 1=1
+			       AND T1.AUD_YR     = T2.AUD_YR
+			       AND T1.AUD_NO     = T2.AUD_NO
+			       AND T1.DSP_RQ_SNO = T2.DSP_RQ_SNO
+			       AND T1.DSP_RQ_KND_CD IN ('110','210','310','320','391','620','621','623','630','510','520','530','610','611','810','820','830','840','850')
+			       AND T2.DTM_STA_CD IN ('1','2')  
+			       AND T2.ENF_DT IS NOT NULL
+			       AND T2.ENFM_MNG_BRDV_CD IS NOT NULL
+			     GROUP BY ENFM_MNG_BRDV_CD
+			     ORDER BY ENFM_MNG_BRDV_CD
+			) 
+			        SELECT DPT_NM1
+			              ,DPT_NM2
+			              ,SUM_A
+			              ,SUM_B
+			              ,SUM_C
+			              ,SUM_A + SUM_B - SUM_C             AS SUM_D              
+			              ,DTL_1
+			              ,DTL_2
+			              ,DTL_3
+			              ,DTL_4
+			              ,DTL_5
+			              ,DTL_6
+			              ,DTL_7
+			              ,DTL_8
+			              ,DTL_9
+			              ,DTL_10
+			              ,DTL_11
+			              ,DTL_12
+			              ,DTL_13
+			              ,DTL_14
+			              ,DTL_15
+			              ,DTL_16
+			              ,DTL_17
+			              ,DTL_18
+			              ,DTL_19
+			              ,DTL_20
+			              ,DTL_21
+			              ,DTL_22
+			              ,DTL_23
+			              ,DTL_24
+			              ,DTL_25
+			              ,DTL_26
+			              ,DTL_27
+			              ,DTL_28
+			              ,DTL_29
+			              ,DTL_30
+			              ,DTL_31
+			              ,DTL_32
+			              ,DTL_33
+			              ,DTL_34
+			              ,DTL_35              
+			              ,DTL_1 + DTL_2 + DTL_3 + DTL_4 + DTL_5 + DTL_6 + DTL_7 + DTL_8 + DTL_9 + DTL_10 + DTL_11 + 
+			               DTL_12  + DTL_13 + DTL_14 + DTL_15 + DTL_16 + DTL_17 + DTL_18 + DTL_19 + DTL_20 + DTL_21 + DTL_22 + 
+			               DTL_23 + DTL_24 + DTL_25 + DTL_26 + DTL_27 + DTL_28 + DTL_29 + DTL_30 + DTL_31 + 
+			               DTL_32 + DTL_33 + DTL_34 + DTL_35                      AS DTL_SUM
+			               ,(SUM_A + SUM_B - SUM_C) -
+			                (DTL_1 + DTL_2 + DTL_3 + DTL_4 + DTL_5 + DTL_6 + DTL_7 + DTL_8 + DTL_9 + DTL_10 + DTL_11 + 
+			                 DTL_12  + DTL_13 + DTL_14 + DTL_15 + DTL_16 + DTL_17 + DTL_18 + DTL_19 + DTL_20 + DTL_21 + DTL_22 + 
+			                 DTL_23 + DTL_24 + DTL_25 + DTL_26 + DTL_27 + DTL_28 + DTL_29 + DTL_30 + DTL_31 + 
+			                 DTL_32 + DTL_33 + DTL_34 + DTL_35)                   AS SUM_ETC               
+			          FROM BASE
+			         WHERE 1=1
+		]]>
+	</select>		
+</sqlMap> 

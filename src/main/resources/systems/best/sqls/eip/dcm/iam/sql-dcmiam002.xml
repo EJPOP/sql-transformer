@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DCMIAM002Mapper">
+	<resultMap id="groupMap" type="egovMap">
+		<result property="groupId" column="GRP_ID" />
+		<result property="groupName" column="GRP_NM" />
+		<result property="groupOrder" column="GRP_PRR_RNK" />
+		<result property="groupDesc" column="GRP_DES" />
+		<result property="groupId2" column="UPPR_GRP_ID" />
+	</resultMap>
+
+	<insert id="insertGroupGeneralInfo">
+		INSERT INTO TBDCMIAM007M
+			 (GRP_ID, GRP_NM, GRP_DES, GRP_PRR_RNK, UPPR_GRP_ID)
+		VALUES
+			 (#{groupId}, #{groupNameModal}, #{groupDescModal}, #{groupOrderModal}, #{parentGroupIdModal})
+	</insert>
+
+	<insert id="insertUser">
+		INSERT INTO TBDCMIAM008D
+			 (GRP_ID, USR_ID)
+		VALUES
+			 (#{groupId}, #{userId})
+	</insert>
+
+	<select id="selectUserInfoCount" resultType="int">
+		SELECT COUNT(1)CNT
+		FROM (
+		SELECT
+		EAMUSER_VIEW.USR_ID,
+		EAMUSER_VIEW.USR_NAM
+		FROM
+		EAMUSER_VIEW
+		<trim prefix="WHERE" prefixOverrides="AND |OR ">
+			<if test="searchSelector != null and searchSelector !='' and searchSelector =='codeManagerName' and SearchValue !=''">
+				AND EAMUSER_VIEW.USR_NAM like '%'||#{SearchValue}||'%'
+			</if>
+		</trim>
+		) A
+	</select>
+
+	<select id="countGroupName" resultType="int">
+		SELECT COUNT(GRP_ID)
+		FROM TBDCMIAM007M
+		WHERE GRP_NM = #{groupId}
+    </select>
+
+	<select id="selectGroupInfoTreeSource" resultType="HashMap">
+		SELECT TBDCMIAM007M.GRP_ID as "id",
+			TBDCMIAM007M.GRP_ID as "data",
+		  TBDCMIAM007M.GRP_DES as "text",
+		  DECODE(TBDCMIAM007M.UPPR_GRP_ID, NULL, '#', TBDCMIAM007M.UPPR_GRP_ID) AS "parent"
+		FROM TBDCMIAM007M
+		ORDER BY TBDCMIAM007M.GRP_PRR_RNK ASC,
+		TBDCMIAM007M.GRP_DES ASC
+	</select>
+
+	<select id="selectGroupInfoWithGroupId" resultMap="groupMap">
+		SELECT TBDCMIAM007M.GRP_ID,
+		  TBDCMIAM007M.GRP_NM,
+		  TBDCMIAM007M.GRP_PRR_RNK,
+		  TBDCMIAM007M.GRP_DES,
+		  TBDCMIAM007M.UPPR_GRP_ID
+		FROM TBDCMIAM007M
+		WHERE GRP_ID = #{groupId}
+	</select>
+
+	<update id="updateGroupInfo">
+		UPDATE TBDCMIAM007M
+		SET GRP_NM = #{groupNm},
+		  GRP_PRR_RNK = #{groupOrder},
+		  GRP_DES = #{groupDesc}
+		WHERE (TBDCMIAM007M.GRP_ID = #{groupId})
+	</update>
+
+	<select id="selectUserGroupMappingList" resultType="egovMap">
+		SELECT B.*
+		FROM (
+		SELECT ROWNUM ROWNO, A.*, COUNT(*) OVER() AS TOT_CNT
+		FROM (
+		SELECT DISTINCT EAMUSER_VIEW.USR_ID AS USER_ID,
+		EAMUSER_VIEW.USR_NAM AS USER_NAME
+		<!-- EAMUSER_VIEW.DPT_CD -->
+		FROM TBDCMIAM008D,
+		EAMUSER_VIEW
+		<trim prefix="WHERE" prefixOverrides="AND |OR ">
+			TBDCMIAM008D.USR_ID = EAMUSER_VIEW.USR_ID AND TBDCMIAM008D.GRP_ID = #{selected_group_id}
+			<if test="userId !='' and userId != null ">
+				AND EAMUSER_VIEW.USR_ID like '%'||#{userId}||'%'
+			</if>
+			<if test="userNm !='' and userNm != null ">
+				AND EAMUSER_VIEW.USR_NAM like '%'||#{userNm}||'%'
+			</if>
+		</trim>
+		) A
+		)B
+		WHERE ROWNO BETWEEN (((#{currPage}- 1) * #{pageSize}) + 1) AND (#{currPage} * #{pageSize})
+	</select>
+
+	<select id="checkUserGroupMapping" resultType="int">
+        SELECT COUNT(*)
+		FROM TBDCMIAM008D,
+		  EAMUSER_VIEW
+		WHERE (TBDCMIAM008D.USR_ID = EAMUSER_VIEW.USR_ID)
+		  AND (TBDCMIAM008D.GRP_ID = #{groupId})
+		  AND (TBDCMIAM008D.USR_ID = #{userId})
+    </select>
+
+	<insert id="insertUserGroupMapping">
+		INSERT
+		INTO TBDCMIAM008D (GRP_ID, USR_ID)
+		VALUES (#{groupId},
+		      #{userId})
+	</insert>
+
+	<delete id="deleteUserFromGroup">
+		DELETE
+		FROM TBDCMIAM008D
+		WHERE (TBDCMIAM008D.GRP_ID = #{groupId})
+		  AND (TBDCMIAM008D.USR_ID = #{userId})
+	</delete>
+
+	<delete id="deleteGroupRoleMappingWithGroupId">
+		DELETE
+		FROM TBDCMIAM009M
+		WHERE (TBDCMIAM009M.GRP_ID = #{groupId})
+	</delete>
+
+	<delete id="deleteGroupUserMappingWithGroupId">
+		DELETE
+		FROM TBDCMIAM008D
+		WHERE (TBDCMIAM008D.GRP_ID = #{groupId})
+	</delete>
+
+	<delete id="deleteGroupInfoWithGroupId">
+		DELETE
+		FROM TBDCMIAM007M
+		WHERE (TBDCMIAM007M.GRP_ID = #{groupId})
+	</delete>
+
+	<select id="selectAllSubGroupId" resultType="string">
+    	SELECT GRP_ID
+		FROM TBDCMIAM007M START WITH UPPR_GRP_ID = #{groupId} CONNECT BY PRIOR GRP_ID = UPPR_GRP_ID
+		ORDER BY GRP_ID DESC
+	</select>
+
+	<select id="selectDefaultGroupInfoTreeSource" resultType="HashMap">
+		SELECT EAMDEPT_VIEW.DPT_CD                                              AS "id",
+	  		   EAMDEPT_VIEW.DPT_CD                                                   AS "data",
+	  		   EAMDEPT_VIEW.DPT_NM                                                   AS "text",
+	           DECODE(EAMDEPT_VIEW.HIRK_DPT_CD, NULL, '#', EAMDEPT_VIEW.HIRK_DPT_CD) AS "parent"
+		FROM EAMDEPT_VIEW
+		WHERE USE_YN             = 'Y'
+			AND EAMDEPT_VIEW.DPT_CD != '880880'
+		ORDER BY EAMDEPT_VIEW.DPT_SNO ASC,
+		EAMDEPT_VIEW.DPT_NM ASC
+	</select>
+
+	<select id="selectDefaultGroupInfoWithGroupId" resultType="egovMap">
+		SELECT EAMDEPT_VIEW.DPT_CD AS GROUP_ID,
+		  EAMDEPT_VIEW.DPT_CD AS GROUP_NAME,
+		    EAMDEPT_VIEW.DPT_SNO     AS GROUP_ORDER,
+		  EAMDEPT_VIEW.DPT_NM AS GROUP_DESC,
+		  EAMDEPT_VIEW.HIRK_DPT_CD AS GROUP_ID2
+		FROM EAMDEPT_VIEW
+		WHERE EAMDEPT_VIEW.DPT_CD  = #{groupId}
+	</select>
+
+	<select id="selectUserDefaultGroupMappingList" resultType="egovMap">
+		SELECT B.*
+		FROM (
+		SELECT ROWNUM ROWNO, A.*, COUNT(*) OVER() AS TOT_CNT
+		FROM (
+		SELECT DISTINCT EAMUSER_VIEW.USR_ID AS USER_ID,
+		EAMUSER_VIEW.USR_NAM AS USER_NAME,
+		EAMUSER_VIEW.DPT_CD
+		FROM EAMUSER_VIEW
+
+		<trim prefix="WHERE" prefixOverrides="AND |OR ">
+			EAMUSER_VIEW.DPT_CD = #{selected_group_id}
+			<if test="searchSelector =='userId' and searchSelectedValue !='' and searchSelectedValue != null ">
+
+				AND EAMUSER_VIEW.USR_ID like '%'||#{searchSelectedValue}||'%'
+
+			</if>
+
+			<if test="searchSelector =='userName' and searchSelectedValue !='' and searchSelectedValue != null ">
+
+				AND EAMUSER_VIEW.USR_NAM like '%'||#{searchSelectedValue}||'%'
+
+			</if>
+		</trim>
+		) A
+		)B
+		WHERE ROWNO BETWEEN (((#{currPage}- 1) * #{pageSize}) + 1) AND (#{currPage} * #{pageSize})
+	</select>
+
+	<select id="getRoleInfoWithGroupId" resultType="egovMap">
+    	SELECT TBDCMIAM003M.ROLE_ID "id"
+    	      ,TO_CHAR(TBDCMIAM009M.STR_DT, 'YYYY-MM-DD') AS "strDt"
+    	      ,TO_CHAR(TBDCMIAM009M.END_DT, 'YYYY-MM-DD') AS "endDt"
+		FROM TBDCMIAM003M,
+		  TBDCMIAM009M,
+		  TBDCMIAM007M
+		WHERE (TBDCMIAM009M.ROLE_ID = TBDCMIAM003M.ROLE_ID)
+		  AND (TBDCMIAM007M.GRP_ID = TBDCMIAM009M.GRP_ID)
+		  AND (TBDCMIAM007M.GRP_ID = #{groupId})
+		ORDER BY TBDCMIAM003M.ROLE_PRR_RNK ASC, TBDCMIAM003M.ROLE_NM ASC
+	</select>
+
+	<delete id="deleteRoleGroupMappingByGroupId">
+		DELETE
+		FROM TBDCMIAM009M
+		WHERE (TBDCMIAM009M.GRP_ID = #{groupId})
+	</delete>
+
+	<insert id="insertGroupRoleMapping">
+		INSERT
+		INTO TBDCMIAM009M (ROLE_ID, GRP_ID, STR_DT, END_DT)
+		VALUES (#{roleId},
+		        #{groupId},
+		        #{strDt},
+		        #{endDt})
+	</insert>
+
+	<select id="selectRoleInfoWithDefaultGroupId" resultType="egovMap">
+    	SELECT TBDCMIAM003M.ROLE_ID "id"
+    	      ,TO_CHAR(TBDCMIAM009M.STR_DT, 'YYYY-MM-DD') AS "strDt"
+    	      ,TO_CHAR(TBDCMIAM009M.END_DT, 'YYYY-MM-DD') AS "endDt"
+		FROM TBDCMIAM003M, TBDCMIAM009M
+		WHERE (TBDCMIAM009M.ROLE_ID = TBDCMIAM003M.ROLE_ID)
+		  AND (TBDCMIAM009M.GRP_ID = #{groupId})
+		ORDER BY TBDCMIAM003M.ROLE_PRR_RNK ASC, TBDCMIAM003M.ROLE_NM ASC
+	</select>
+</mapper>

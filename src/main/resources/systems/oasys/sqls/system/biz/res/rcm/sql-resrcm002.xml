@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="res/rcm/002">
+
+	<!--처분요구목록 조회-->
+	<select id="RESRCM002PMainSelect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT T1.EVL_YR, T1.HLYR_DVSN_CD, T1.EVL_DGE, T1.AUD_YR, T1.AUD_NO, T1.AUD_KND_CD
+			      ,CASE WHEN T1.AT_REGI_YN ='N' THEN T1.AUD_YR||'-'||T1.AUD_NO
+			           ELSE F_MNG_KND_AUDYRNO(T1.AUD_YR, T1.AUD_NO, null, '-') 
+			       END AS AUD_YR_NO
+			      ,AUD_SBJ_NM
+			      , (SELECT S1.CD_NM
+			           FROM TBRESRCM006C S1
+			          WHERE S1.EVL_YR 		= T1.EVL_YR
+			            AND S1.HLYR_DVSN_CD = T1.HLYR_DVSN_CD
+			            AND S1.EVL_DGE 		= T1.EVL_DGE
+			            AND S1.CD_DVSN_CD 	= 'F000'
+			            AND S1.CD <> '0000'
+			            AND S1.CD 			= T1.AUD_KND_CD
+			        ) AS AUD_KND_NM
+			       ,(SELECT DPT_NM
+					    FROM TBRESRCM005M S1
+					   WHERE S1.EVL_YR = T1.EVL_YR
+					     AND S1.HLYR_DVSN_CD = T1.HLYR_DVSN_CD
+					     AND S1.EVL_DGE = T1.EVL_DGE
+					     AND S1.DPT_CD = T1.SPV_BRDV_CD
+					 ) SPV_BRDV_NM
+			       ,TO_CHAR(TO_DATE(T1.ENF_DT),'YYYY-MM-DD') AS ENF_DT
+			  FROM TBRESRAD010M T1
+			 WHERE 1=1
+		]]>			             
+           		
+		<isNotEmpty property="EVL_YR">	
+			   AND T1.EVL_YR = #EVL_YR#
+		</isNotEmpty>
+
+		<isNotEmpty property="HLYR_DVSN_CD">	
+			   AND T1.HLYR_DVSN_CD = #HLYR_DVSN_CD#
+		</isNotEmpty>
+		
+		<isNotEmpty property="EVL_DGE">	
+			   AND T1.EVL_DGE = #EVL_DGE#
+		</isNotEmpty>
+
+		<isNotEmpty property="AUD_YR_NO">
+			   AND T1.AUD_YR||T1.AUD_NO IN
+					<iterate property="AUD_YR_NO" open="(" close=")" conjunction=",">
+						#AUD_YR_NO[]#
+					</iterate>
+		</isNotEmpty>
+	     
+		<isNotEmpty property="APV_DOC_NO">	
+			   AND T1.APV_DOC_NO = #APV_DOC_NO#
+		</isNotEmpty>	     
+	     
+	     ORDER BY T1.EVL_YR
+	             ,T1.HLYR_DVSN_CD
+	             ,T1.EVL_DGE
+	             ,T1.AUD_YR, T1.AUD_NO
+	</select>
+	
+	<update id="RESRCM002PApvSave" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE TBRESRAD010M T1
+			   SET APV_DOC_NO = #APV_DOC_NO#
+			      ,APV_STA_CD = #APV_STA_CD#
+			 WHERE 1=1
+		]]>
+		
+		<isNotEmpty property="AUD_YR_NO">
+			AND T1.EVL_YR = #EVL_YR#
+			AND T1.HLYR_DVSN_CD = #HLYR_DVSN_CD#
+			AND T1.EVL_DGE = #EVL_DGE#
+		   	AND T1.AUD_YR||T1.AUD_NO IN
+				<iterate property="AUD_YR_NO" open="(" close=")" conjunction=",">
+					#AUD_YR_NO[]#
+				</iterate>
+		</isNotEmpty>
+		
+		<isEmpty property="AUD_YR_NO">
+			AND APV_DOC_NO = #APV_DOC_NO#
+		</isEmpty>
+	</update>
+</sqlMap> 

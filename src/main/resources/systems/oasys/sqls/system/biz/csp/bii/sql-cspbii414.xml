@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/bii/414">
+	<!-- 기타감찰자료 상세조회 맵 -->
+	<resultMap class="java.util.HashMap" id="CSPBII414EMainSelectMap">
+		<result property="MTRL_NO"						column="MTRL_NO" 					jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="ACP_DH"						column="ACP_DH" 					jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="REL_ORG_CD"					column="REL_ORG_CD" 				jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="REL_ORG_NM"					column="REL_ORG_NM"					jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="CLC_RUT_NM"					column="CLC_RUT_NM"					jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="REGI_USR"						column="REGI_USR"					jdbcType="VARCHAR2" javaType="java.lang.String"/>	
+		<result property="TIT_NM"						column="TIT_NM" 					jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="ETC_INSP_MTRL_TXT"			column="ETC_INSP_MTRL_TXT"			jdbcType="CLOB"		javaType="java.lang.String"/>
+		<result property="ACP_YR"						column="ACP_YR"						jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="STTM_ACP_NO" 					column="STTM_ACP_NO" 				jdbcType="NUMBER" 	javaType="java.lang.String" />
+		<result property="DOC_ID"						column="DOC_ID"						jdbcType="VARCHAR2" javaType="java.lang.String"/>
+		<result property="REGI_CNB"						column="REGI_CNB"					jdbcType="VARCHAR2" javaType="java.lang.String"/>	
+		<result property="STTM_DVSN_CD"					column="STTM_DVSN_CD"			jdbcType="VARCHAR2" javaType="java.lang.String"/>	
+	</resultMap>
+	
+	<!-- 부패방지자료 상세조회 -->   
+	<select id="CSPBII414EMainSelect" parameterClass="paramMap" resultMap="CSPBII414EMainSelectMap">
+		<![CDATA[
+			SELECT A.ACP_YR || '-부방-' || LPAD(STTM_ACP_NO, 3, '0')  AS MTRL_NO
+			     , A.ACP_DH
+			     , A.REL_ORG_CD
+			     , (SELECT B.ORG_NM
+			          FROM TBDCMACM015M B
+			         WHERE B.ORG_CD = A.REL_ORG_CD)           AS REL_ORG_NM 
+			     , A.CLC_RUT_NM
+			     , (SELECT B.USR_NAM || '(' || B.CNB || ')'
+			          FROM TBDCMACM001M B
+			         WHERE B.USR_ID = A.FRT_USR_ID)            AS REGI_USR
+			     , A.TIT_NM
+			     , A.ETC_INSP_MTRL_TXT
+			     , A.ACP_YR
+			     , A.STTM_DVSN_CD  
+			     , A.STTM_ACP_NO  
+			     ,(SELECT DOC_ID FROM TBCSPBII404L Z 
+			 		WHERE Z.ACP_YR = A.ACP_YR 
+			 		AND	Z.STTM_ACP_NO = A.STTM_ACP_NO) AS DOC_ID
+			 	,(SELECT  B.CNB
+			          FROM TBDCMACM001M B
+			         WHERE B.USR_ID = A.FRT_USR_ID)            AS REGI_CNB
+			  FROM TBCSPDCP811T A  /* 기타감찰자료정보내역 */
+			  WHERE A.ACP_YR   = #strYe#
+			  AND A.STTM_ACP_NO = #strSrno#
+			  AND A.STTM_DVSN_CD = '1'
+		]]>
+	</select>
+	
+	<select id="CSPBII414ESubSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[       
+			SELECT A.REL_PEN_NM
+			     , A.EIN
+			     , A.BLT_ORG_CD
+			     , (SELECT B.ORG_NM
+			          FROM TBDCMACM015M B
+			         WHERE B.ORG_CD = A.BLT_ORG_CD) AS BLT_ORG_NM
+			     , A.PST_NM
+			     , A.RANK_NM
+			     , A.ACP_YR
+			     , A.STTM_ACP_NO
+			     , A.REL_PEN_SNO    
+			  FROM TBCSPBII405L A  /* 부패방지자료정보내역 */
+			 WHERE A.ACP_YR      = #strYe#
+			   AND A.STTM_ACP_NO = #strSrno#
+			ORDER BY A.REL_PEN_SNO
+		]]>
+	</select>
+	
+	<!-- 기타감찰자료내역 키 생성 -->
+	<select id="CSPBII414EMainKeyValueSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[       
+			SELECT TO_CHAR(SYSDATE, 'YYYY')               AS ACP_YR
+			     , (SELECT NVL(MAX(STTM_ACP_NO), 0) + 1
+		              FROM TBCSPDCP811T
+		             WHERE ACP_YR = TO_CHAR(SYSDATE, 'YYYY')) AS STTM_ACP_NO 
+		      FROM DUAL
+		]]>
+	</select>
+		
+	<!-- 부패방지자료내역 등록  -->
+	<insert id="CSPBII414EinsertMain" parameterClass="paramMap">
+		INSERT INTO TBCSPDCP811T (
+		                          ACP_YR              /* 년도 */
+		                        , STTM_ACP_NO            /* 일련번호 */
+		                        , STTM_DVSN_CD
+		                        , ACP_DH          /* 접수일 */
+		                        , REL_ORG_CD      /* 관련기관 */
+		                        , CLC_RUT_NM      /* 계급코드 */
+		                        , TIT_NM          /* 제목*/
+		                        , ETC_INSP_MTRL_TXT 
+		                        , FRT_USR_ID      /* 최초사용자ID */
+		                        , FNL_USR_ID      /* 최종사용자ID */
+		                        , FNL_DEAL_DPT_CD /* 최종거래부서코드 */
+		                        , FNL_MNU_ID      /* 최종메뉴ID */
+		                        , FRT_REGI_DH     /* 최초등록일시 */
+		                        , FNL_MDF_DH      /* 최종수정일시 */
+		                        , DOC_ID      /* 첨부파일ID */
+		                        , RM_STTM_ACP_NO
+		                         ) 
+		                  VALUES (
+		                          #ACP_YR#
+		                        , #STTM_ACP_NO#
+		                        , '1'
+		                        , TO_DATE(#ACP_DH#)
+		                        , #REL_ORG_CD#
+		                        , #CLC_RUT_NM#
+		                        , #TIT_NM#
+		                        , #ETC_INSP_MTRL_TXT#
+		                        , #FRT_USR_ID#
+		                        , #FNL_USR_ID#
+		                        , #FNL_DEAL_DPT_CD#
+		                        , #FNL_MNU_ID#
+		                        , SYSDATE
+		                        , SYSDATE
+		                        , #DOC_ID#
+		                        , LPAD(#STTM_ACP_NO#, 3, '0')
+				                 )
+	</insert>
+	
+	<!-- 부패방지자료내역 수정 -->
+	<update id="CSPBII414EupdateMain" parameterClass="paramMap">
+		UPDATE TBCSPDCP811T                       
+		   SET REL_ORG_CD                = #REL_ORG_CD#               /* 암호화주민등록번호 */
+		     , CLC_RUT_NM                = #CLC_RUT_NM#               /* 성명 */
+		     , TIT_NM                    = #TIT_NM#           /* 한자성명 */		     	
+		     , ETC_INSP_MTRL_TXT         = #ETC_INSP_MTRL_TXT#	    	     	
+		     , ACP_DH                    = REPLACE(SUBSTR(#ACP_DH#,0,10),'-','') 
+		     , FNL_USR_ID                = #FNL_USR_ID#        /* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD           = #FNL_DEAL_DPT_CD#   /* 최종거래부서코드 */
+		     , FNL_MNU_ID                = #FNL_MNU_ID#        /* 최종메뉴ID */
+		     , FNL_MDF_DH                = SYSDATE             /* 최종수정일시 */
+		 WHERE ACP_YR = #ACP_YR#
+		   AND STTM_ACP_NO = #STTM_ACP_NO#
+		   AND STTM_DVSN_CD = #STTM_DVSN_CD#
+	</update>
+	
+	<!-- 부패방지자료내역 삭제 -->
+	<delete id="CSPBII414EdeleteMain" parameterClass="paramMap">
+		DELETE TBCSPDCP811T
+		 WHERE ACP_YR       = #ACP_YR#
+		   AND STTM_ACP_NO  = #STTM_ACP_NO#	
+		   AND STTM_DVSN_CD = #STTM_DVSN_CD#	
+	</delete>
+	
+	<!-- 부패방지자료관련자내역 등록  -->
+	<insert id="CSPBII414EinsertSub" parameterClass="paramMap">
+		INSERT INTO TBCSPBII405L (
+		                          ACP_YR             /* 암호화주민등록번호 */
+		                        , STTM_ACP_NO            /* 생년월일 */
+		                        , REL_PEN_SNO             /* 성명 */
+		                        , EIN         /* 한자성명 */
+		                        , REL_PEN_NM /* */
+		                        , BLT_ORG_CD      /* 소속기관코드 */
+		                        , RANK_NM         /* 계급코드 */
+		                        , PST_NM       /* 직무등급코드 */               
+		                        , FRT_USR_ID      /* 최초사용자ID */
+		                        , FNL_USR_ID      /* 최종사용자ID */
+		                        , FNL_DEAL_DPT_CD /* 최종거래부서코드 */
+		                        , FNL_MNU_ID      /* 최종메뉴ID */
+		                        , FRT_REGI_DH     /* 최초등록일시 */
+		                        , FNL_MDF_DH      /* 최종수정일시 */
+		                         ) 
+		                  VALUES (
+		                          #ACP_YR#
+		                        , #STTM_ACP_NO#
+		                        , (SELECT NVL(MAX(REL_PEN_SNO), 0) + 1
+		                             FROM TBCSPBII405L
+		                            WHERE ACP_YR   = #ACP_YR#
+		                              AND STTM_ACP_NO = #STTM_ACP_NO#)
+		                        , #EIN#
+		                        , #REL_PEN_NM#
+		                        , #BLT_ORG_CD#
+		                        , #RANK_NM#
+		                        , #PST_NM#	                        		                      
+		                        , #FRT_USR_ID#
+		                        , #FNL_USR_ID#
+		                        , #FNL_DEAL_DPT_CD#
+		                        , #FNL_MNU_ID#
+		                        , SYSDATE
+		                        , SYSDATE
+				                 )
+	</insert>
+	
+	<!-- 기본정보 수정 -->
+	<update id="CSPBII414EupdateSub" parameterClass="paramMap">
+		UPDATE TBCSPBII405L                       
+		   SET EIN             = #EIN#               /* 암호화주민등록번호 */
+		     , REL_PEN_NM      = #REL_PEN_NM#        /* 관련자명 */
+		     , BLT_ORG_CD      = #BLT_ORG_CD#        /* 소속기관코드 */
+		     , RANK_NM         = #RANK_NM#           /* 직급명 */		     		    
+		     , PST_NM          = #PST_NM#            /* 직위명 */
+		     , FNL_USR_ID      = #FNL_USR_ID#        /* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#   /* 최종거래부서코드 */
+		     , FNL_MNU_ID      = #FNL_MNU_ID#        /* 최종메뉴ID */
+		     , FNL_MDF_DH      = SYSDATE             /* 최종수정일시 */
+		 WHERE ACP_YR          = #ACP_YR#
+		   AND STTM_ACP_NO     = #STTM_ACP_NO#
+		   AND REL_PEN_SNO = #REL_PEN_SNO#
+	</update>
+	
+	<!-- 기본정보 삭제 -->
+	<delete id="CSPBII414EdeleteSub" parameterClass="paramMap">
+		DELETE TBCSPBII405L
+		 WHERE ACP_YR      = #ACP_YR#
+		   AND STTM_ACP_NO = #STTM_ACP_NO#	
+		   AND REL_PEN_SNO = #REL_PEN_SNO#	   
+	</delete>
+	
+	
+	<insert id="CSPBII414ERqsFileInsert" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBCSPBII404L
+        	(
+        			ACP_YR,
+        			STTM_ACP_NO,
+        			DOC_ID,
+        			FRT_USR_ID,
+        			FNL_USR_ID,
+        			FNL_DEAL_DPT_CD,
+        			FNL_MNU_ID,
+        			FRT_REGI_DH,
+        			FNL_MDF_DH
+        	) VALUES (
+        			#ACP_YR#,
+	        		#STTM_ACP_NO#,
+	        		#DOC_ID#,
+	        		#FRT_USR_ID#,
+	        		#FNL_USR_ID#,
+	        		#FNL_DEAL_DPT_CD#,
+	        		#FNL_MNU_ID#,
+	        		SYSDATE,
+	        		SYSDATE
+        	)
+        ]]>
+	</insert>
+	
+	
+	<delete id="CSPBII414EFileDelete" parameterClass="paramMap">
+		<![CDATA[
+			DELETE	
+			FROM	TBCSPBII404L
+			WHERE	ACP_YR      = #ACP_YR#
+			AND		STTM_ACP_NO = #STTM_ACP_NO#
+		]]>
+	</delete>
+</sqlMap> 

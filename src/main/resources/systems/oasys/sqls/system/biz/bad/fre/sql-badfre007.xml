@@ -1,0 +1,374 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/fre/007">
+	
+	<!--집행독촉 조회-->
+	<select id="BADFRE007QMainselect" parameterClass="paramMap" resultClass="resultMap">
+	<include refid="include.pageSelct" />
+	
+        <![CDATA[
+			SELECT T1.AUD_KND_CD  
+			      ,T1.SPV_BRDV_CD 
+			      ,T1.AUD_SBJ_NM    
+			      ,T1.SPVR_CNB    
+			      ,T1.SPVR_BRDV_CD
+			      ,T1.PRSS_STEP_CD
+			      ,T1.MNG_DPT_CD
+			      ,F_MNG_KND_AUDYRNO(T1.AUD_YR, T1.AUD_NO, T1.AUD_KND_CD, '-') ||'-'||T2.DSP_RQ_SNO AS TOT_DSP_RQ_NO
+			      ,T2.TIT_TXT
+			      ,T2.HND_SBJ_TXT
+			      ,T2.DSP_RQ_KND_CD                        AS DSP_RQ_KND_CD
+			      ,F_CODE_NM('1000002',T2.DSP_RQ_KND_CD )  AS DSP_RQ_KND_NM
+			      ,T3.AUD_YR
+			      ,T3.AUD_NO
+			      ,T1.AUD_GRN_NO 
+			      ,T3.DSP_RQ_SNO
+			      ,T3.DSP_RQ_SRNO
+			      ,T3.ENF_DT
+			      ,TO_CHAR(ADD_MONTHS(T3.ENF_DT, T6.MONTH_DDLN), 'YYYYMMDD')  AS HNDL_DDLN_DT
+			      ,T7.SLF_SEN_DT                                              AS LAST_SLF_SEN_DT /* 마지막 회보일 - 2016.04.06 yyh */
+			      ,T3.ENF_BRDV_CD
+			      ,T3.CHGR_NM
+			      ,T3.DOC_SEN_NO
+			      ,T3.DSP_RQ_IPT_DT
+			      ,T3.PSC_RQT_NOP_CNT
+			      ,T3.WRDO_CAU_CD
+			      ,T3.ENFM_MNG_BRDV_CD			      
+			      ,(SELECT ABR_DPT_NM_1
+                      FROM TBDCMACM002M
+                     WHERE DPT_CD = T3.ENFM_MNG_BRDV_CD)     AS ENFM_MNG_BRDV_NM /* 약칭부서명으로 변경 - 2017.04.05 yyh */
+			      ,(SELECT ABR_DPT_NM_1
+                      FROM TBDCMACM002M
+                     WHERE DPT_CD = T3.OD_ENFM_MNG_BRDV_CD)  AS OD_ENFM_MNG_BRDV_NM /* 구이행관리국과코드 - 2017.04.05 yyh */
+			      ,T3.DTM_YN
+			      ,T3.DTM_STA_CD
+			      ,T3.WRDO_TYP_CD
+			      ,T3.ENFM_CPLT_IPT_DT
+			      ,T3.ENFM_WHLS_DTM_DT
+			      ,T3.COPT_OFI_CD
+			      ,T3.DSP_RQ_DTM_DT
+			      ,T3.DSP_RQ_DTM_PEN_ID
+			      ,T3.ENFM_CPLT_IPT_PEN_ID
+			      ,T3.ENFM_WHLS_DTM_PEN_ID
+			      ,T3.DSP_RQ_APV_STA_CD
+			      ,F_CODE_NM('1000333', T3.DSP_RQ_APV_STA_CD) AS DSP_RQ_APV_STA_NM
+			      ,T3.APV_DOC_NO
+			      ,T3.DSP_RQ_APV_STA_DT
+			      ,T3.ENFM_WHLS_APV_KND_CD
+			      ,T3.CLSG_PRSS_STA_CD      
+			      ,T4.RLTN_ORG_CD     
+			      ,F_ORG_INFO(T4.RLTN_ORG_CD, '1') AS RLTN_ORG_NM
+			      ,T4.RLTN_ORG_DVSN_CD
+			      ,T4.DSP_RQ_TG_KND_CD      
+			      ,T4.ENFM_MNG_ORG_CD                                                  AS ENFM_MNG_ORG_CD 
+			      ,(SELECT ORG_NM FROM TBDCMACM015M WHERE ORG_CD = T4.ENFM_MNG_ORG_CD) AS ENFM_MNG_ORG_NM
+			      ,T5.ENFM_PRSU_SNO    
+			      ,T5.ENFM_PRSU_HIS    
+			      ,T5.ENFM_PRSU_DT     
+			      ,T5.ENFM_PRSU_PEN_ID 
+			      ,T5.UN_ENFM_RSN      
+			      ,T5.ENFM_PLAN_TXT    
+			      ,T5.ENFM_PRSU_RSP_DT 
+			      ,T5.ENFM_PRSU_RSPR_ID
+			      ,T5.ENFM_PRSU_ACP_DT 
+			      ,T5.ENFM_PRSU_RCEP_ID
+			      ,T5.PRSU_DVSN_CD          
+			      ,T5.ONR_SEN_DT       
+			      ,T5.ONR_SEN_PEN_ID   
+			      ,T5.DOC_ID           
+			      ,T5.DOC_TYP_CD
+			      ,CASE WHEN T7.AUD_YR IS NULL THEN TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')) - ADD_MONTHS(T3.ENF_DT, T6.MONTH_DDLN)  
+			            ELSE                        TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')) - TO_DATE(T7.SLF_SEN_DT)
+			        END                                                                                      AS DELAY_DAY			      
+			      ,DECODE(T3.DTM_STA_CD, 2, '확정', 1, DECODE(T3.DTM_YN, 'Y', '미확정', '미집행'), '처분미확정') AS ENFM_STA_NM
+			      ,F_CODE_NM('1000016',T7.ENFM_STEP_CD)                                                      AS ENFM_STEP_NM /* 이행단계 추가 - 2017.06.13 yyh*/  
+			      ,F_CODE_NM('1000390',T7.EXAM_STA_CD)                                                       AS EXAM_STA_NM  /* 검토결과 추가 - 2017.06.26 yyh*/
+			  FROM TBBADDED001M T1
+			      ,TBBADEAR001M T2
+			      ,TBBADEAR002D T3
+			      ,TBBADEAR006M T4
+			      ,TBBADFRE009M T5
+                  ,(           SELECT '110' CD, 3 AS MONTH_DDLN FROM DUAL /* 변상판정 */
+                     UNION ALL SELECT '210' CD, 1 AS MONTH_DDLN FROM DUAL /* 징계문책 */      
+                     UNION ALL SELECT '310' CD, 2 AS MONTH_DDLN FROM DUAL /* 시정(금액) */
+                     UNION ALL SELECT '320' CD, 2 AS MONTH_DDLN FROM DUAL /* 시정(기타) */
+                     UNION ALL SELECT '391' CD, 2 AS MONTH_DDLN FROM DUAL /* 현지시정회 */    
+                     UNION ALL SELECT '510' CD, 2 AS MONTH_DDLN FROM DUAL /* 법령상개선 */    
+                     UNION ALL SELECT '520' CD, 2 AS MONTH_DDLN FROM DUAL /* 제도상개선 */    
+                     UNION ALL SELECT '530' CD, 2 AS MONTH_DDLN FROM DUAL /* 행정상개선 */    
+                     UNION ALL SELECT '610' CD, 2 AS MONTH_DDLN FROM DUAL /* 통보 */          
+                     UNION ALL SELECT '611' CD, 2 AS MONTH_DDLN FROM DUAL /* 권고 */          
+                     UNION ALL SELECT '620' CD, 2 AS MONTH_DDLN FROM DUAL /* 통보(인사) */    
+                     UNION ALL SELECT '621' CD, 2 AS MONTH_DDLN FROM DUAL /* 통보(징계) */    
+                     UNION ALL SELECT '623' CD, 2 AS MONTH_DDLN FROM DUAL /* 통보(비위) */    
+                     UNION ALL SELECT '630' CD, 2 AS MONTH_DDLN FROM DUAL /* 통보개선 */      
+                     UNION ALL SELECT '810' CD, 2 AS MONTH_DDLN FROM DUAL /* 모범(예산절감) */
+                     UNION ALL SELECT '820' CD, 2 AS MONTH_DDLN FROM DUAL /* 모범(업무개선) */
+                     UNION ALL SELECT '830' CD, 2 AS MONTH_DDLN FROM DUAL /* 모범(성실근무) */
+                     UNION ALL SELECT '840' CD, 2 AS MONTH_DDLN FROM DUAL /* 모범(민원해소) */
+                     UNION ALL SELECT '850' CD, 2 AS MONTH_DDLN FROM DUAL /* 모범(기타) */
+                   ) T6 
+                  ,(SELECT Z1.AUD_YR
+                          ,Z1.AUD_NO 
+                          ,Z1.DSP_RQ_SNO
+                          ,Z1.RLTN_ORG_CD 
+                          ,Z1.HST_NO 
+                          ,Z1.SLF_SEN_DT
+                          ,Z1.ENFM_STEP_CD
+                          ,Z1.EXAM_STA_CD 
+                     FROM TBBADFRE001H Z1
+                    WHERE 1=1
+                      AND Z1.HST_NO = (SELECT MAX(HST_NO)
+                                         FROM TBBADFRE001H Z2
+                                        WHERE Z2.AUD_YR      = Z1.AUD_YR
+                                          AND Z2.AUD_NO      = Z1.AUD_NO
+                                          AND Z2.DSP_RQ_SNO  = Z1.DSP_RQ_SNO
+                                          AND Z2.RLTN_ORG_CD = Z1.RLTN_ORG_CD
+                                          )  
+                    ) T7                    
+			 WHERE 1 = 1                                   
+			   AND T1.AUD_YR        = T2.AUD_YR
+			   AND T1.AUD_NO        = T2.AUD_NO
+			   AND T2.AUD_YR        = T3.AUD_YR   
+			   AND T2.AUD_NO        = T3.AUD_NO    
+			   AND T2.DSP_RQ_SNO    = T3.DSP_RQ_SNO
+			   AND T2.AUD_YR        = T4.AUD_YR
+			   AND T2.AUD_NO        = T4.AUD_NO
+			   AND T2.DSP_RQ_SNO    = T4.DSP_RQ_SNO
+			   AND T4.AUD_YR        = T5.AUD_YR(+)
+			   AND T4.AUD_NO        = T5.AUD_NO(+)
+			   AND T4.DSP_RQ_SNO    = T5.DSP_RQ_SNO(+)
+			   AND T4.RLTN_ORG_CD   = T5.RLTN_ORG_CD(+)
+               AND T2.DSP_RQ_KND_CD = T6.CD			 
+			   AND T4.AUD_YR        = T7.AUD_YR(+)
+			   AND T4.AUD_NO        = T7.AUD_NO(+)
+			   AND T4.DSP_RQ_SNO    = T7.DSP_RQ_SNO(+)
+			   AND T4.RLTN_ORG_CD   = T7.RLTN_ORG_CD(+)		                 
+			   
+			   /* AND NVL(T3.DTM_YN, 'N') <> 'Y' */
+			   
+			   AND NVL(T3.DTM_STA_CD,'0') <> '2'
+			   AND T2.DSP_RQ_KND_CD IN ('110','210','310','320','391','620','621','623','630','510','520','530','610','611','810','820','830','840','850')	
+		]]>
+		
+		<isNotEmpty property="strAudYr">	 
+			   AND T1.AUD_YR               = #strAudYr#
+		</isNotEmpty>
+		<!-- 검색조건을 감사번호에서 감사부여번호로 변경 - 2016.06.02 yyh -->		
+		<isNotEmpty property="strAudGrnNo">	 	
+			   AND T1.AUD_GRN_NO           = #strAudGrnNo#
+		</isNotEmpty>
+		<isNotEmpty property="strDspRqSno">	 	   
+			   AND T2.DSP_RQ_SNO           = #strDspRqSno#
+		</isNotEmpty>
+		
+		/* 감사연번종류코드 - 2015.12.22 yyh */
+		<isNotNull property="strAudYrNoKndCd">
+			<isNotEmpty property="strAudYrNoKndCd">	 	
+				AND SUBSTR(T1.AUD_KND_CD,3,1) = #strAudYrNoKndCd# 
+			</isNotEmpty>		
+		</isNotNull>			
+		
+		<isEqual property="strDptSrchYn" compareValue="N">
+			/* 권한이 없는 일선 과 */
+			
+			<!-- 구이행관리(이전)국과코드 추가 - 2017.04.05 yyh -->
+			<isNotEmpty property="strOdUpSpvBrdvCd">
+				AND T3.OD_ENFM_MNG_BRDV_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#S_CNB#, #strDptAuth#, '', #strOdUpSpvBrdvCd#)))
+			</isNotEmpty>	
+			<isNotEmpty property="strOdEnfmMngBrdvCd">
+				AND T3.OD_ENFM_MNG_BRDV_CD = #strOdEnfmMngBrdvCd#
+			</isNotEmpty>
+			
+			<!-- 이행국과 -->
+			<isEmpty property="strOdUpSpvBrdvCd">
+				<isEmpty property="strOdEnfmMngBrdvCd">
+					AND T3.ENFM_MNG_BRDV_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#S_CNB#, #strDptAuth#, '', #strUpSpvBrdvCd#)))
+				</isEmpty>
+			</isEmpty>
+				
+			<isEmpty property="strOdUpSpvBrdvCd">
+				<isEmpty property="strOdEnfmMngBrdvCd">	
+					<isNotEmpty property="strEnfmMngBrdvCd">	 	   
+						AND T3.ENFM_MNG_BRDV_CD     = #strEnfmMngBrdvCd#
+					</isNotEmpty>
+				</isEmpty>			
+			</isEmpty>
+		</isEqual>
+				
+		<isEqual property="strDptSrchYn" compareValue="Y">
+			/* 이행관리과 등 권한이 있는 과*/
+			
+			<!-- 구이행관리(이전)국과코드 추가 - 2017.04.05 yyh -->
+			<isNotEmpty property="strOdUpSpvBrdvCd">
+				AND T3.OD_ENFM_MNG_BRDV_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#S_CNB#, #strDptAuth#, '', #strOdUpSpvBrdvCd#)))
+			</isNotEmpty>	
+			<isNotEmpty property="strOdEnfmMngBrdvCd">
+				AND T3.OD_ENFM_MNG_BRDV_CD = #strOdEnfmMngBrdvCd#
+			</isNotEmpty>
+			
+			<!-- 이행국과 -->
+			AND T3.ENFM_MNG_BRDV_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#S_CNB#, #strDptAuth#, '', #strUpSpvBrdvCd#)))
+			<isNotEmpty property="strEnfmMngBrdvCd">	 	   
+				AND T3.ENFM_MNG_BRDV_CD     = #strEnfmMngBrdvCd#
+			</isNotEmpty>			
+		</isEqual>		
+		
+		<isNotEmpty property="strTitTxt">	 	   
+			   AND T2.TIT_TXT              LIKE '%'||#strTitTxt#||'%'
+		</isNotEmpty>
+		<isNotEmpty property="strCoptOfiCd">	 	   
+			   AND T3.COPT_OFI_CD          = #strCoptOfiCd#
+		</isNotEmpty>
+		<isNotEmpty property="strRltnOrgCd">	 	   
+			   AND T3.RLTN_ORG_CD          = #strRltnOrgCd#
+		</isNotEmpty>	
+		
+		<!-- 이행관리기관 추가 - 2017.04.11 yyh -->
+		<isNotEmpty property="strEnfmMngOrgCd">	 	   
+			   AND T4.ENFM_MNG_ORG_CD      = #strEnfmMngOrgCd#
+		</isNotEmpty>
+		<isNotEmpty property="strEnfDtFrom">	 	   
+			   AND T3.ENF_DT               >= #strEnfDtFrom#
+		</isNotEmpty>
+		<isNotEmpty property="strEnfDtTo">	 	   
+			   AND #strEnfDtTo#            >= T3.ENF_DT 
+		</isNotEmpty>
+		
+		<isNotEqual property="strDspRqKndCd" compareValue="000">
+			<isNotEqual property="strDspRqKndCd" compareValue="300">
+				<isNotEqual property="strDspRqKndCd" compareValue="500">
+					<isNotEqual property="strDspRqKndCd" compareValue="800">
+						<!-- 
+						     전체, 시정전체, 개선전체, 모범전체가 아닌경우는 해당 코드로 바로 조회 
+						-->
+						AND T2.DSP_RQ_KND_CD = #strDspRqKndCd#	
+					</isNotEqual>
+				</isNotEqual>
+			</isNotEqual>	
+			
+			<isEqual property="strDspRqKndCd" compareValue="300">
+				<!-- 
+				     300(시정) = 시정(금액)+시정(기타)+현지시정회 
+				-->
+				AND T2.DSP_RQ_KND_CD IN ('310','320','391')
+			</isEqual>
+			<isEqual property="strDspRqKndCd" compareValue="500">
+				<!-- 
+				     500(개선) = 법령상개선+제도상개선+행정상개선 
+				-->
+				AND T2.DSP_RQ_KND_CD IN ('510','520','530')
+			</isEqual>
+			<isEqual property="strDspRqKndCd" compareValue="800">
+				<!-- 
+				     800(모범) = 예산절감+업무개선+성실근무+민원해소+기타 
+				-->
+				AND T2.DSP_RQ_KND_CD IN ('810','820','830','840','850')
+			</isEqual>
+		</isNotEqual>
+		
+		<isEqual property="strDspTyp" compareValue="1">
+			   /* 110	변상판정  
+				  210	징계문책  
+				  310	시정(금액)
+				  320	시정(기타)
+				  391	현지시정회
+				  810	모범(예산절감)
+				  820	모범(업무개선)
+				  830	모범(성실근무)
+				  840	모범(민원해소)
+				  850	모범(기타)
+			    */
+			   AND T2.DSP_RQ_KND_CD IN ('110','210','310','320','391','810', '820', '830', '840', '850')
+		</isEqual>
+		<isEqual property="strDspTyp" compareValue="2">
+			   /* 610	통보
+                  611	권고
+                  620	통보(인사)
+				  621	통보(징계)
+				  623	통보(비위)
+				  630	통보개선
+			    */
+			   AND T2.DSP_RQ_KND_CD IN ('610','611','620','621','623','630')
+		</isEqual>
+		<isEqual property="strDspTyp" compareValue="3">
+			   /* 510	법령상개선
+				  520	제도상개선
+				  530	행정상개선
+			    */
+			   AND T2.DSP_RQ_KND_CD IN ('510','520','530')
+		</isEqual>
+		
+		<isEqual property="strEnfmPrsuYn" compareValue="1">
+		       /* 독촉할사항 */
+		       /* 속도개선으로 주석처리 후 아래 코드로 대체 - 2015.05.12 yyh 
+		          AND T5.ENFM_PRSU_DT IS NULL 
+		       */
+		       
+		       /* 주석처리 - 2017.04.07
+		       AND NVL(T5.ENFM_PRSU_DT,'N') = 'N'
+		       AND TO_CHAR(SYSDATE, 'YYYYMMDD') > T3.HNDL_DDLN_DT
+		       */
+		</isEqual>
+		<isEqual property="strEnfmPrsuYn" compareValue="2">
+		       /* 독촉한사항 */
+		    <![CDATA[
+		       /* 주석처리 - 2017.04.07
+		       AND T5.ENFM_PRSU_DT IS NOT NULL
+		       */
+		    ]]>
+		</isEqual>
+		<isEqual property="strNoEnfmOrDtm" compareValue="1">
+		       /* 미집행 */
+		    <![CDATA[
+		       AND NVL(T3.DTM_STA_CD,'0') = '1'
+		       AND NVL(T3.DTM_YN,'N') <> 'Y'
+		    ]]>
+		</isEqual>
+		<isEqual property="strNoEnfmOrDtm" compareValue="2">
+			<![CDATA[
+		       /* 미확정 */
+		       AND NVL(T3.DTM_STA_CD,'0') = '1'
+		       AND NVL(T3.DTM_YN,'N') = 'Y'
+		    ]]>
+		</isEqual>
+		
+		<!-- 기한초과기간 수정 - 2017.04.06 yyh -->
+		<isEqual property="strRspDvsn" compareValue="0">
+			<![CDATA[
+				/* 전체 */
+				AND (
+				     	 (T7.AUD_YR IS NULL AND TO_CHAR(ADD_MONTHS(T3.ENF_DT, T6.MONTH_DDLN), 'YYYYMMDD') < TO_CHAR(SYSDATE, 'YYYYMMDD'))
+				      OR 
+				         (T7.AUD_YR IS NOT NULL AND T7.ENFM_STEP_CD != '30' AND TO_CHAR(ADD_MONTHS(T7.SLF_SEN_DT, #strOverDue#), 'YYYYMMDD') < TO_CHAR(SYSDATE, 'YYYYMMDD') )
+				    )
+		    ]]>			 
+		</isEqual>		
+		
+		<isEqual property="strRspDvsn" compareValue="1">
+			<![CDATA[
+				/* 미회보 */
+				AND T7.AUD_YR IS NULL 
+				AND TO_CHAR(ADD_MONTHS(T3.ENF_DT, T6.MONTH_DDLN), 'YYYYMMDD') < TO_CHAR(SYSDATE, 'YYYYMMDD')
+		    ]]>			 
+		</isEqual>
+		
+		<isEqual property="strRspDvsn" compareValue="2">
+			<![CDATA[
+				/* 회보 */
+				AND T7.AUD_YR IS NOT NULL 
+				AND T7.ENFM_STEP_CD != '30' /* 이행완료 */
+				AND TO_CHAR(ADD_MONTHS(T7.SLF_SEN_DT, #strOverDue#), 'YYYYMMDD') < TO_CHAR(SYSDATE, 'YYYYMMDD')
+		    ]]>			 
+		</isEqual>
+		
+				
+		<!-- 최종이행단계 추가 - 2017.04.05 yyh -->	
+		<isNotEmpty property="strEnfmStepCd">
+            AND T7.ENFM_STEP_CD = #strEnfmStepCd#  
+		</isNotEmpty>
+				
+        <include refid="include.pageOrder" />
+	</select>	
+</sqlMap> 

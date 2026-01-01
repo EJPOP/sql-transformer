@@ -1,0 +1,524 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DCMIAM003Mapper">
+	<resultMap id="roleMap" type="egovMap">
+		<result property="roleId" column="ROLE_ID"/>
+		<result property="roleName" column="ROLE_NM"/>
+		<result property="roleOrder" column="ROLE_PRR_RNK"/>
+		<result property="roleDesc" column="ROLE_DES"/>
+		<result property="parents" column="UPPR_ROLE_ID"/>
+	</resultMap>
+	<select id="selectRoleInfoTreeSource" resultType="HashMap">
+
+		SELECT TBDCMIAM003M.ROLE_ID as "id",
+
+		  TBDCMIAM003M.ROLE_NM,
+
+		  DECODE(TBDCMIAM003M.ROLE_PRR_RNK, NULL, '9999', TBDCMIAM003M.ROLE_PRR_RNK) AS "orderNum",
+
+		  TBDCMIAM003M.ROLE_DES as "text",
+
+		  DECODE(TBDCMIAM003M.UPPR_ROLE_ID, NULL, '#', TBDCMIAM003M.UPPR_ROLE_ID) AS "parent"
+
+		FROM TBDCMIAM003M
+
+		ORDER BY TBDCMIAM003M.ROLE_PRR_RNK ASC,
+
+		TBDCMIAM003M.ROLE_DES ASC
+
+	</select>
+
+
+
+	<insert id="insertRoleTreeInfo">
+
+		INSERT
+
+		INTO TBDCMIAM003M (ROLE_ID, ROLE_NM, ROLE_PRR_RNK, ROLE_DES, UPPR_ROLE_ID)
+
+		VALUES (#{roleId},
+
+		      #{roleNameModal},
+
+		      #{roleOrderModal},
+
+		      #{roleDescModal},
+
+		      #{parentRoleIdModal})
+
+	</insert>
+
+	
+
+	<update id="updateRoleTreeInfo">
+
+		UPDATE TBDCMIAM003M
+
+		SET ROLE_NM = #{roleNm},
+
+		  ROLE_PRR_RNK = #{roleOrder},
+
+		  ROLE_DES = #{roleDesc}
+
+		WHERE (TBDCMIAM003M.ROLE_ID = #{roleId})
+
+	</update>
+
+	
+
+	<select id="selectRoleInfoWithRoleId" resultMap="roleMap">
+
+		SELECT TBDCMIAM003M.ROLE_NM,
+
+		  TBDCMIAM003M.ROLE_PRR_RNK,
+
+		  TBDCMIAM003M.ROLE_DES,
+
+		  TBDCMIAM003M.UPPR_ROLE_ID AS PARENT_ROLE_ID,
+
+		  TBDCMIAM003M.ROLE_ID
+
+		FROM TBDCMIAM003M
+
+		WHERE (TBDCMIAM003M.ROLE_ID = #{roleId})
+
+	</select>
+
+	
+
+	<insert id="insertRoleGroupMapping">
+
+		INSERT
+
+		INTO TBDCMIAM009M (ROLE_ID, GRP_ID, STR_DT, END_DT)
+
+		VALUES (#{roleId},
+		      #{roleGroup},
+		      #{strDt},
+		      #{endDt})
+
+	</insert>
+
+
+	<delete id="deleteRoleGroupMapping">
+
+		DELETE
+
+		FROM TBDCMIAM009M
+
+		WHERE (TBDCMIAM009M.ROLE_ID = #{roleId})
+
+		AND TBDCMIAM009M.GRP_ID IN (SELECT GRP_ID FROM TBDCMIAM007M)
+
+	</delete>
+
+
+	<delete id="deleteRoleDefaultGroupMapping">
+
+		DELETE
+
+		FROM TBDCMIAM009M
+
+		WHERE (TBDCMIAM009M.ROLE_ID = #{roleId})
+
+		AND TBDCMIAM009M.GRP_ID IN (SELECT DPT_CD FROM EAMDEPT_VIEW)
+
+	</delete>
+
+	
+
+	<select id="selectRoleGroupMappingList" resultType="egovMap">
+
+		SELECT TBDCMIAM009M.GRP_ID AS "id"
+		      ,TO_CHAR(TBDCMIAM009M.STR_DT, 'YYYY-MM-DD') AS "strDt"
+    	      ,TO_CHAR(TBDCMIAM009M.END_DT, 'YYYY-MM-DD') AS "endDt"
+
+		FROM TBDCMIAM009M
+
+		WHERE (TBDCMIAM009M.ROLE_ID = #{roleId})
+
+		AND TBDCMIAM009M.GRP_ID IN (SELECT GRP_ID FROM TBDCMIAM007M)
+
+	</select>
+
+	
+
+	<select id="selectRoleDefaultGroupMappingList" resultType="egovMap">
+
+		SELECT TBDCMIAM009M.GRP_ID AS "id"
+		      ,TO_CHAR(TBDCMIAM009M.STR_DT, 'YYYY-MM-DD') AS "strDt"
+    	      ,TO_CHAR(TBDCMIAM009M.END_DT, 'YYYY-MM-DD') AS "endDt"
+
+		FROM TBDCMIAM009M
+
+		WHERE (TBDCMIAM009M.ROLE_ID = #{roleId})
+
+		AND TBDCMIAM009M.GRP_ID IN (SELECT DPT_CD FROM EAMDEPT_VIEW)
+
+	</select>
+
+    <select id="selectRoleUserMappingList" resultType="egovMap">
+
+        SELECT B.*
+
+        FROM (
+
+          SELECT ROWNUM ROWNO, A.*, COUNT(*) OVER() AS TOT_CNT
+
+          FROM (
+
+                SELECT TBDCMIAM010M.USR_ID AS USER_ID,
+
+				  EAMUSER_VIEW.USR_NAM AS USER_NAME,
+
+				  EAMUSER_VIEW.DPT_NM
+
+				FROM TBDCMIAM010M,
+
+				  EAMUSER_VIEW
+
+				<trim prefix="WHERE" prefixOverrides="AND |OR ">
+
+					TBDCMIAM010M.USR_ID = EAMUSER_VIEW.USR_ID AND TBDCMIAM010M.ROLE_ID = #{selected_role_id}
+
+	              <if test="userId !='' and userId != null ">
+
+	                  AND EAMUSER_VIEW.USR_ID like '%'||#{userId}||'%'
+
+	              </if>
+
+	              <if test="userNm !='' and userNm != null ">
+
+	                  AND EAMUSER_VIEW.USR_NAM like '%'||#{userNm}||'%'
+
+	              </if>
+
+	            </trim>
+
+           ) A
+        )B
+		WHERE ROWNO BETWEEN (((#{currPage}- 1) * #{pageSize}) + 1) AND (#{currPage} * #{pageSize})
+    </select>
+
+	<select id="selectRoleUserMappingListPopup" resultType="egovMap">
+
+		SELECT B.*
+
+		FROM (
+
+		SELECT ROWNUM ROWNO, A.*, COUNT(*) OVER() AS TOT_CNT
+
+		FROM (
+
+		SELECT DISTINCT TBDCMIAM010M.USR_ID AS USER_ID,
+
+		EAMUSER_VIEW.USR_NAM AS USER_NAME,
+
+		/*EAMUSER_VIEW.DPT_NM,*/
+		TO_CHAR(TBDCMIAM010M.STR_DT, 'YYYY-MM-DD') AS STR_DT,
+		TO_CHAR(TBDCMIAM010M.END_DT, 'YYYY-MM-DD') AS END_DT
+
+		FROM TBDCMIAM010M,
+
+		EAMUSER_VIEW
+
+		<trim prefix="WHERE" prefixOverrides="AND |OR ">
+
+			TBDCMIAM010M.USR_ID = EAMUSER_VIEW.USR_ID AND TBDCMIAM010M.ROLE_ID = #{selected_role_id}
+			<if test='searchVal != "" and searchVal != null '>
+				AND (
+				(EAMUSER_VIEW.USR_ID LIKE '%' || #{searchVal} || '%')
+				OR (EAMUSER_VIEW.USR_NAM LIKE '%' || #{searchVal} || '%')
+				OR (EAMUSER_VIEW.DPT_NM LIKE '%' || #{searchVal} || '%')
+				)
+			</if>
+
+		</trim>
+
+		) A
+		)B
+		WHERE ROWNO BETWEEN (((#{currPage}- 1) * #{pageSize}) + 1) AND (#{currPage} * #{pageSize})
+	</select>
+
+     <select id="selectAllUserList" resultType="egovMap">
+
+        SELECT B.*
+
+        FROM (
+
+          SELECT ROWNUM ROWNO, A.*, COUNT(*) OVER() AS TOT_CNT
+
+          FROM (
+
+                 SELECT DISTINCT EAMUSER_VIEW.USR_ID AS USER_ID,
+
+			  			EAMUSER_VIEW.USR_NAM AS USER_NAME
+
+			  			/*EAMUSER_VIEW.DPT_CD */
+
+				FROM 
+
+				   EAMUSER_VIEW
+
+			    WHERE(
+
+			     DPT_CD != '880880'
+
+			 <if test="searchSelector =='userId' and searchSelectedValue !='' and searchSelectedValue != null ">
+
+				 AND EAMUSER_VIEW.USR_ID like '%'||#{searchSelectedValue}||'%'
+
+			 </if>
+
+			 <if test="searchSelector =='userName' and searchSelectedValue !='' and searchSelectedValue != null ">
+
+				 AND EAMUSER_VIEW.USR_NAM like '%'||#{searchSelectedValue}||'%'
+
+			 </if>
+
+			    )
+            order by USER_NAME ASC
+
+           ) A
+
+        )B
+
+		 WHERE ROWNO BETWEEN (((#{currPage}- 1) * #{pageSize}) + 1) AND (#{currPage} * #{pageSize})
+
+    </select>
+
+    
+
+	<select id="checkRoleUserMapping" resultType="int">
+
+        SELECT COUNT(*)
+
+		FROM TBDCMIAM010M
+
+		WHERE (TBDCMIAM010M.USR_ID = #{userId})
+
+		  AND (TBDCMIAM010M.ROLE_ID = #{roleId})
+
+    </select>
+
+	
+
+	<insert id="insertRoleUserMapping">
+
+		INSERT
+
+		INTO TBDCMIAM010M (USR_ID, ROLE_ID, STR_DT, END_DT)
+
+		VALUES (#{userId},
+		      #{roleId},
+		      #{strDt},
+		      #{endDt})
+
+	</insert>
+
+	
+
+	<delete id="deleteUserFromRole">
+
+		DELETE
+
+		FROM TBDCMIAM010M
+
+		WHERE (TBDCMIAM010M.USR_ID = #{userId})
+
+		  AND (TBDCMIAM010M.ROLE_ID = #{roleId})
+
+	</delete>
+
+	
+
+	<delete id="deleteRoleUser">
+
+		DELETE FROM TBDCMIAM010M WHERE ROLE_ID = #{roleId}
+
+	</delete>
+
+	
+
+	<delete id="deleteRoleGroup">
+
+		DELETE FROM TBDCMIAM009M WHERE ROLE_ID = #{roleId}
+
+	</delete>
+
+	
+
+	<delete id="deleteRoleInfo">
+
+		DELETE FROM TBDCMIAM003M WHERE ROLE_ID = #{roleId}
+
+	</delete>
+
+	
+
+	<delete id="deleteResouceOperation">
+
+		DELETE FROM TBDCMIAM002D WHERE REF_ID = #{roleId}
+
+	</delete>
+
+	
+
+	<select id="selectAllSubRoleId" resultType="string">
+
+    	SELECT ROLE_ID
+
+		FROM TBDCMIAM003M START WITH UPPR_ROLE_ID = #{roleId} CONNECT BY PRIOR ROLE_ID = UPPR_ROLE_ID
+
+		ORDER BY ROLE_ID DESC
+
+	</select>
+
+	
+
+	<select id="countRoleName" resultType="int">
+
+        SELECT COUNT(*)
+
+		FROM TBDCMIAM003M
+
+		WHERE ROLE_NM = #{roleId}
+
+    </select>
+
+	<select id="selectRoleList" resultMap="roleMap">
+
+	SELECT B.*
+	  FROM (
+		SELECT ROWNUM ROWNO, A.*, COUNT(*) OVER() AS TOT_CNT
+	      FROM (
+				SELECT TBDCMIAM003M.ROLE_ID,
+				TBDCMIAM003M.ROLE_NM,
+				TBDCMIAM003M.ROLE_PRR_RNK,
+				TBDCMIAM003M.ROLE_DES,
+				DECODE(TBDCMIAM003M.UPPR_ROLE_ID, NULL, '#', TBDCMIAM003M.UPPR_ROLE_ID) AS PARENTS
+				FROM TBDCMIAM003M
+				<trim prefix="WHERE" prefixOverrides="AND |OR ">
+					<if test="roleName !='' and roleName != null ">
+						AND ROLE_NM like '%'||#{roleName}||'%'
+					</if>
+					<if test="roleDesc !='' and roleDesc != null ">
+						AND ROLE_DES like '%'||#{roleDesc}||'%'
+					</if>
+				</trim>
+				ORDER BY TBDCMIAM003M.ROLE_PRR_RNK ASC,
+				TBDCMIAM003M.ROLE_NM ASC
+				) A
+			)B
+		WHERE ROWNO BETWEEN (((#{currPage}- 1) * #{pageSize}) + 1) AND (#{currPage} * #{pageSize})
+	</select>
+
+	
+
+	<select id="selectDefaultGroupByRoleId" resultType="String">
+
+	SELECT DPT_NM
+
+	FROM EAMDEPT_VIEW
+
+	WHERE DPT_CD IN
+
+	(SELECT GRP_ID FROM TBDCMIAM009M WHERE ROLE_ID = #{roleId}
+
+	)
+
+	</select>
+
+	
+
+	<select id="selectGroupByRoleId" resultType="String">
+
+	SELECT GRP_DES
+
+	FROM TBDCMIAM007M
+
+	WHERE GRP_ID IN
+
+	(SELECT GRP_ID FROM TBDCMIAM009M WHERE ROLE_ID = #{roleId}
+
+	)
+
+	</select>
+
+	
+
+	<select id="selectGroupIdByRoleId" resultType="egovMap">
+	SELECT T1.GRP_ID AS "id"
+	      ,TO_CHAR(T2.STR_DT, 'YYYY-MM-DD') AS "strDt"
+	      ,TO_CHAR(T2.END_DT, 'YYYY-MM-DD') AS "endDt"
+	  FROM TBDCMIAM007M T1, TBDCMIAM009M T2
+	 WHERE 1=1
+	   AND T2.ROLE_ID = #{roleId}
+	   AND T1.GRP_ID = T2.GRP_ID
+	</select>
+
+	
+
+	<select id="selectDefaultGroupIdByRoleId" resultType="egovMap">
+	SELECT T1.DPT_CD AS "id"
+	      ,TO_CHAR(T2.STR_DT, 'YYYY-MM-DD') AS "strDt"
+	      ,TO_CHAR(T2.END_DT, 'YYYY-MM-DD') AS "endDt"
+	  FROM EAMDEPT_VIEW T1, TBDCMIAM009M T2
+	 WHERE 1=1
+	   AND T2.ROLE_ID = #{roleId}
+	   AND T1.DPT_CD = T2.GRP_ID
+	</select>
+
+	<select id="selectAllUserListDatatable" resultType="egovMap">
+		SELECT B.*
+
+		  FROM (
+
+				 SELECT ROWNUM ROWNO, A.*, COUNT(*) OVER() AS TOT_CNT
+
+		           FROM (
+
+							SELECT EAMUSER_VIEW.USR_ID,
+
+							       EAMUSER_VIEW.USR_NAM,
+
+							       AGGR_CONCAT( EAMUSER_VIEW.DPT_NM, ', ' ) AS DPT_NM
+
+							  FROM
+
+							       EAMUSER_VIEW
+
+							 WHERE(
+
+							    DPT_CD != '880880'
+
+								<if test='searchVal != "" and searchVal != null '>
+									AND (
+									(EAMUSER_VIEW.USR_ID LIKE '%' || #{searchVal} || '%')
+									OR (EAMUSER_VIEW.USR_NAM LIKE '%' || #{searchVal} || '%')
+									OR (EAMUSER_VIEW.DPT_NM LIKE '%' || #{searchVal} || '%')
+									)
+								</if>
+								<if test='resourceId != "" and resourceId != null '>
+								  AND NOT EXISTS( SELECT 'X'
+								                          FROM TBDCMIAM002D AA
+								                         WHERE AA.REF_ID = EAMUSER_VIEW.USR_ID
+								                           AND  AA.RSRC_ID = #{resourceId}  )
+								</if>
+							) 
+							GROUP BY
+                                    EAMUSER_VIEW.USR_ID
+							      , EAMUSER_VIEW.USR_NAM
+							ORDER BY DPT_NM
+
+				) A
+
+		)B
+
+		WHERE ROWNO BETWEEN (((#{currPage}- 1) * #{pageSize}) + 1) AND (#{currPage} * #{pageSize})
+
+    </select>
+
+</mapper>

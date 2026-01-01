@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/oep/019">
+
+	<select id="CSPOEP019EMainSelect" parameterClass="paramMap"	resultClass="resultMap">
+		/* csp.oep.service.impl.CSPOEP019EServiceImpl.CSPOEP019EMainSelect */
+		<![CDATA[       
+		SELECT * FROM (	
+			SELECT  A.SNO /* 순번 */
+			      , A.PWD_DVSN_CD /* 비밀번호구분코드 */
+			      , F_CODE_NM('1000999',A.PWD_DVSN_CD) AS PWD_DVSN_NM /* 비밀번호구분명 */
+			      , DGUARD.DECRYPT('TB_ENC','EAN',A.ESN) AS ESN /* 비밀번호 */
+			      , DGUARD.DECRYPT('TB_ENC','EAN',A.BK_ESN) AS BK_ESN /* 이전비밀번호 */
+			      , A.CNB /* 전산번호 */
+			      , A.NAM /* 성명 */
+			      , A.DPT_CD /* 부서코드 */
+			      , F_DPT_INFO(A.DPT_CD, '1') AS DPT_NM /* 부서명 */	
+			      , TO_CHAR(A.FNL_MDF_DH,'yyyy-MM-dd') AS FNL_MDF_DT
+			  FROM  TBCSPOEP007H A
+			 WHERE  1=1
+		]]>
+		<dynamic>
+			<isNotEmpty property="strChgDts">
+			   AND TO_CHAR(A.FNL_MDF_DH,'yyyyMMdd') &gt;= #strChgDts#
+			</isNotEmpty>
+			<isNotEmpty property="strChgDte">
+			   AND TO_CHAR(A.FNL_MDF_DH,'yyyyMMdd') &lt;= #strChgDte#
+			</isNotEmpty>
+			<isNotEmpty property="strPwdDvsn">
+			   AND A.PWD_DVSN_CD = #strPwdDvsn#
+			</isNotEmpty>
+		</dynamic>
+		<![CDATA[
+			 ORDER BY A.SNO DESC
+		) AA
+	    WHERE rownum <= 30
+		]]>
+	</select>
+	
+	<select id="CSPOEP019EPwdSelect" parameterClass="paramMap"	resultClass="resultMap">
+		/* csp.oep.service.impl.CSPOEP019EServiceImpl.CSPOEP019EPwdSelect */
+		<![CDATA[       
+			SELECT  A.PWD_DVSN_CD /* 비밀번호구분코드 */
+			      , DGUARD.DECRYPT('TB_ENC','EAN',A.ESN) AS ESN /* 비밀번호 */
+			      , DGUARD.DECRYPT('TB_ENC','EAN',A.BK_ESN) AS BK_ESN /* 이전비밀번호 */
+			      , A.CNB /* 전산번호 */
+			      , A.NAM /* 성명 */
+			      , A.DPT_CD /* 부서코드 */
+			      , A.FAIL_CNT /* 비밀번호 실패횟수 */
+			      , A.LOCK_YN /* 비밀번호 잠금여부 */
+			  FROM  TBCSPOEP007M A
+			 WHERE  A.PWD_DVSN_CD = #strPwdDvsn#
+		]]>
+	</select>
+	
+	<select id="CSPOEP019EPwdDvsnListSelect" parameterClass="paramMap"	resultClass="resultMap">
+		/* csp.oep.service.impl.CSPOEP019EServiceImpl.CSPOEP019EPwdDvsnListSelect */
+		<![CDATA[       
+			SELECT CD FROM TBDCMACM013C 
+			 WHERE CMM_CD_DVSN_CD = '1000999'
+			   AND CD != '000000000'
+		]]>
+	</select>	
+	
+	<update id="CSPOEP019EMainPwdSave" parameterClass="paramMap">
+		/* csp.oep.service.impl.CSPOEP019EServiceImpl.CSPOEP019EMainPwdSave */
+		MERGE INTO TBCSPOEP007M A
+        	USING 	( SELECT #strPwdDvsn# AS PWD_DVSN_CD 
+        				FROM DUAL
+        			) B
+        	  ON	( A.PWD_DVSN_CD = B.PWD_DVSN_CD )
+			WHEN MATCHED  THEN 		
+				UPDATE
+				   SET	A.ESN 	 		  = DGUARD.ENCRYPT('TB_ENC','EAN',#strEsn#)
+				       ,A.BK_ESN   		  = (SELECT ESN FROM TBCSPOEP007M WHERE PWD_DVSN_CD = #strPwdDvsn#)
+				       ,A.CNB 	 		  = #S_CNB#
+				       ,A.NAM 	 		  = #S_USR_NAM#
+				       ,A.DPT_CD 	      = #S_DPT_CD#
+				       ,A.FAIL_CNT 	      = 0
+				       ,A.LOCK_YN 	      = 'N'
+					   ,A.FNL_USR_ID  	  = #FNL_USR_ID#
+				       ,A.FNL_DEAL_DPT_CD = #S_DPT_CD#
+				       ,A.FNL_MNU_ID 	  = #FNL_MNU_ID#
+				       ,A.FNL_MDF_DH 	  = SYSDATE
+		    WHEN NOT MATCHED THEN 
+		        INSERT
+				     ( A.PWD_DVSN_CD
+				      ,A.ESN
+				      ,A.BK_ESN
+				      ,A.CNB
+				      ,A.NAM
+				      ,A.DPT_CD
+				      ,A.FAIL_CNT
+				      ,A.LOCK_YN
+				      ,A.FRT_USR_ID
+				      ,A.FNL_USR_ID
+				      ,A.FNL_DEAL_DPT_CD
+				      ,A.FNL_MNU_ID
+				      ,A.FRT_REGI_DH
+				      ,A.FNL_MDF_DH
+				     )
+				  VALUES
+				     ( #strPwdDvsn#			/* 비밀번호구분 */
+				      ,DGUARD.ENCRYPT('TB_ENC','EAN',#strEsn#) /* 비밀번호 */
+				      ,(SELECT ESN FROM TBCSPOEP007M WHERE PWD_DVSN_CD = #strPwdDvsn#) /* 이전비밀번호 */
+				      ,#S_CNB#              /* 전산번호 */
+				      ,#S_USR_NAM#          /* 성명 */
+				      ,#S_DPT_CD#           /* 부서 */
+				      ,0                    /* 비밀번호 실패횟수 */
+				      ,'N'                  /* 비밀번호 잠금여부 */
+				      ,#FNL_USR_ID#         /* 최초사용자ID */
+				      ,#FNL_USR_ID#         /* 최종사용자ID */
+				      ,#S_DPT_CD#           /* 최종거래부서코드 */
+				      ,#FNL_MNU_ID#         /* 최종메뉴ID */
+				      ,SYSDATE              /* 최초등록일시 */
+				      ,SYSDATE              /* 최종수정일시 */
+				     )
+	</update>	
+	
+    <!-- 비밀번호 변경 이력 -->
+    <update id="CSPOEP019EMainPwdLogSave"  parameterClass="paramMap">
+    	/* csp.oep.service.impl.CSPOEP019EServiceImpl.CSPOEP019EMainPwdLogSave */
+		INSERT INTO TBCSPOEP007H(
+	   		    SNO
+	   		   ,PWD_DVSN_CD
+	   		   ,ESN
+	           ,BK_ESN
+	   		   ,CNB
+	           ,NAM
+	   		   ,DPT_CD
+	   		   ,FRT_USR_ID
+	   		   ,FNL_USR_ID
+	   		   ,FNL_DEAL_DPT_CD
+	   		   ,FNL_MNU_ID
+	   		   ,FRT_REGI_DH
+	   		   ,FNL_MDF_DH
+	   		) 
+	   		  SELECT
+	   		    nvl((SELECT MAX(SNO) FROM TBCSPOEP007H),0)+1
+	   		   ,#strPwdDvsn#
+	   		   ,DGUARD.ENCRYPT('TB_ENC','EAN',#strEsn#)
+	   		   ,(SELECT ESN FROM TBCSPOEP007M WHERE PWD_DVSN_CD = #strPwdDvsn#)
+	   		   ,#S_CNB#
+	   		   ,#S_USR_NAM#
+	   		   ,#S_DPT_CD#
+	   		   ,#FRT_USR_ID#
+	   		   ,#FNL_USR_ID#
+	   		   ,#S_DPT_CD#
+	   		   ,#FNL_MNU_ID#
+	   		   ,SYSDATE
+	   		   ,SYSDATE
+	   	     FROM DUAL
+    </update>	
+    
+    <!-- 비밀번호 잠금 해제 -->
+    <update id="CSPOEP019EPwdLockUpdate"  parameterClass="paramMap">
+    	/* csp.oep.service.impl.CSPOEP019EServiceImpl.CSPOEP019EPwdLockUpdate */
+		UPDATE TBCSPOEP007M SET
+	   		    FAIL_CNT = #strFailCnt#
+	   		   ,LOCK_YN  = #strLockYn#
+	   	 WHERE PWD_DVSN_CD = #strPwdDvsn#
+    </update>
+    
+	<select id="CSPOEP019PPwdChkSelect" parameterClass="paramMap"	resultClass="String">
+		/* csp.oep.service.impl.CSPOEP015EServiceImpl.CSPOEP015PPwdSelect */
+		<![CDATA[       
+		    SELECT DECODE(ESN, '', 'N', 'Y') AS CHK_YN
+		      FROM TBCSPOEP007M
+		     WHERE PWD_DVSN_CD = #strPwdDvsnCd#
+		       AND ESN = DGUARD.ENCRYPT('TB_ENC','EAN',#strPwd#)
+		]]>
+	</select>
+	
+	<select id="CSPOEP019PPwdLockSelect" parameterClass="paramMap"	resultClass="String">
+		/* csp.oep.service.impl.CSPOEP015EServiceImpl.CSPOEP015PPwdSelect */
+		<![CDATA[       
+		    SELECT nvl(FAIL_CNT,'0') AS FAIL_CNT
+		      FROM TBCSPOEP007M
+		     WHERE PWD_DVSN_CD = #strPwdDvsnCd#
+		]]>
+	</select>		
+	
+    <!-- 비밀번호 확인 횟수 -->
+    <update id="CSPOEP019PPwdCntUpdate"  parameterClass="paramMap">
+    	/* csp.oep.service.impl.CSPOEP015EServiceImpl.CSPOEP015PPwdCntUpdate */
+		UPDATE TBCSPOEP007M SET
+	   		   FAIL_CNT = #strFailCnt#
+	   	      ,LOCK_YN = nvl(#strLockYn#,'N')
+	   	 WHERE PWD_DVSN_CD = #strPwdDvsnCd#
+    </update>    
+
+</sqlMap> 

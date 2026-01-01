@@ -1,0 +1,410 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="dcm/acm/039">
+
+	<select id="dcmacm043ApvUserSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		 SELECT T22.APV_DOC_NO
+		     , T22.APV_DVSN_CD
+		     , T22.TSK_KY_TXT
+		     , T22.APV_STA_CD
+		     , F_CODE_NM('1000333',T22.APV_STA_CD) AS APV_STA_NM
+		     , T22.APV_TIT_NM
+		     , T22.SBM_CNB
+		     , F_USR_INFO(T22.SBM_CNB,'2') AS SBM_CNB_NM
+		     , T23.APVR_CNB
+		     , F_USR_INFO(T23.APVR_CNB,'2') AS APVR_CNB_NM
+		     , T22.SBM_DH
+		     , T22.FNL_APV_CNB
+		     , T22.FNL_APV_DH
+		     , T23.APV_SNO
+		     , T23.APVR_STA_CD
+		     , T23.APVR_KND_CD
+		     , T21.APV_DVSN_NM	
+		     , T23.APVR_SEQ
+      		,CASE WHEN	 T22.APV_DVSN_CD IN ('requestAudit1','requestAudit2','requestAudit3')
+				     			THEN	(SELECT		T2.ACP_YR||'-'||F_CODE_NM('1000740',T2.REQ_DVSN_CD)||'-'||T2.RM_CVPT_ACP_NO
+				     						FROM 	TBCSPDCP603M T1, TBCSPDCP101M T2
+				     						WHERE	T1.APV_RQS_ID = T22.APV_DOC_NO
+				     						AND		T1.REQ_DVSN_CD = T2.REQ_DVSN_CD
+				     						AND		T1.ACP_YR = T2.ACP_YR
+				     						AND		T1.CVPT_ACP_NO = T2.CVPT_ACP_NO
+				     						)
+				     			WHEN T22.APV_DVSN_CD = 'fieldAudit' THEN F_MNG_KND_AUDYRNO(AD.AUD_YR, AD.AUD_NO, AD.AUD_KND_CD, '-')
+				     			WHEN T22.APV_DVSN_CD IN ('AudInfoSend','AudInfoHndl') THEN (SELECT YE||'-'||SRNO
+                                                                    FROM    TBCSPBII100M S1
+                                                                    WHERE   T22.APV_DOC_NO = S1.APV_DOC_NO
+                                                                    )
+				     		ELSE NULL END AS AUD_YR_NO
+		     , '' AS AUD_KND_NM
+		     ,CASE WHEN	 T22.APV_DVSN_CD IN ('requestAudit1','requestAudit2','requestAudit3')
+				     			THEN	(SELECT		T2.TIT_NM
+				     						FROM 	TBCSPDCP603M T1, TBCSPDCP101M T2
+				     						WHERE	T1.APV_RQS_ID = T22.APV_DOC_NO
+				     						AND		T1.REQ_DVSN_CD = T2.REQ_DVSN_CD
+				     						AND		T1.ACP_YR = T2.ACP_YR
+				     						AND		T1.CVPT_ACP_NO = T2.CVPT_ACP_NO
+				     						)
+				     			WHEN T22.APV_DVSN_CD = 'fieldAudit' THEN AD.AUD_SBJ_NM||'('||F_DPT_INFO(AD.MNG_DPT_CD, '4')||')'
+				     			WHEN T22.APV_DVSN_CD IN ('AudInfoSend','AudInfoHndl') THEN (SELECT TIT_TXT
+                                                                    FROM    TBCSPBII100M S1
+                                                                    WHERE   T22.APV_DOC_NO = S1.APV_DOC_NO
+                                                                    )
+				     		ELSE NULL END AS AUD_SBJ_NM
+		     , AD.AUD_DOC_NM
+		     , '' AS MNG_DPT_NM
+		     , F_DPT_INFO(T22.APV_DPT_CD,'4') AS APV_DPT_NM
+		  FROM TBDCMACM022L T22, TBDCMACM023L T23, TBDCMACM021M T21
+		  , ( SELECT 
+		              A.AUD_YR, A.AUD_NO,
+		              C.AUD_KND_CD,
+		              C.AUD_SBJ_NM AS AUD_SBJ_NM,
+		              AGGR_CONCAT (CASE WHEN RPRT_CD = 'A10600100' THEN '개별처분요구안' 
+		                                WHEN RPRT_CD = 'A10951200' THEN '조사개시통보'
+		                                WHEN RPRT_CD = 'A10951300' THEN '조사종료통보'
+		                                WHEN RPRT_CD = 'A10600200' THEN '감사보고서'
+		                                WHEN RPRT_CD = 'A10920100' THEN '검토의견/보고서'
+		                                ELSE ( SELECT AGGR_CONCAT (DTIL_AUD_DOC_NM,',') AS DTIL_AUD_DOC_NM
+		                                        FROM TBFDMADM002M
+		                                       WHERE AUD_DOC_CD = A.RPRT_CD
+		                                       GROUP BY AUD_DOC_CD) END,',') AS AUD_DOC_NM,
+		              C.MNG_DPT_CD,
+		              A.APV_RQS_ID
+		         FROM TBBADDED103M A 
+		              LEFT OUTER JOIN TBBADDED001M C 
+		              ON (A.AUD_YR = C.AUD_YR AND A.AUD_NO = C.AUD_NO)
+		        WHERE A.APV_RQS_ID IS NOT NULL
+		        GROUP BY A.AUD_YR, A.AUD_NO, C.AUD_KND_CD,
+		              C.AUD_SBJ_NM,
+		              C.MNG_DPT_CD,
+		              A.APV_RQS_ID) AD
+		  WHERE 1=1
+		  AND	T22.APV_DOC_NO = T23.APV_DOC_NO
+		  AND	T22.APV_DVSN_CD = T23.APV_DVSN_CD
+		  AND	T23.APVR_STA_CD IN ('102','103','104','105','106','107')
+      	  AND 	T23.APVR_CNB = #strApvrCnb#
+		  AND	T22.APV_DVSN_CD = T21.APV_DVSN_CD
+		  AND   T22.APV_DOC_NO = AD.APV_RQS_ID(+)
+  	  <isEqual  property="strFieldAuditYn" compareValue="Y">
+		  AND   T22.APV_DVSN_CD IN ('fieldAudit','requestAudit1','requestAudit2','requestAudit3','requestAudit4','requestAudit5','requestAudit6','requestAudit7','requestAudit8','badear001','DspRqClosingSend')
+	  </isEqual>
+	  <isEqual  property="strFieldAuditYn" compareValue="N">
+	  	  AND   T22.APV_DVSN_CD NOT IN ('fieldAudit','requestAudit1','requestAudit2','requestAudit3','requestAudit4','requestAudit5','requestAudit6','requestAudit7','requestAudit8','DspRqClosingSend')
+	  </isEqual>
+		  	<isNotEmpty  property="strUsrNam">
+             AND T23.APVR_CNB IN (SELECT CNB FROM TBDCMACM001M WHERE USR_NAM LIKE '%' || #strUsrNam# || '%')
+			</isNotEmpty>
+			<![CDATA[
+		     AND T22.SBM_DH BETWEEN #strSbmDyFrom#||'000000' AND #strSbmDyTo#||'235959'
+			]]>
+		<isNotEmpty prepend="AND" property="strApvTit">
+			T22.APV_TIT_NM LIKE
+			'%'||#strApvTit#||'%'
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="strApvSta">
+			T22.APV_STA_CD =
+			#strApvSta#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="strApvDvsnCd">
+			<isEqual property="strApvDvsnCd" compareValue="fieldAudit">
+				T22.APV_DVSN_CD IN ('fieldAudit','badear001')
+			</isEqual>
+			<isNotEqual property="strApvDvsnCd" compareValue="fieldAudit">
+				T22.APV_DVSN_CD =
+				#strApvDvsnCd#
+			</isNotEqual>
+		</isNotEmpty>
+		ORDER BY T22.APV_STA_CD, T22.SBM_DH DESC
+	</select>
+	
+	
+	<select id="selectUsrCnb" parameterClass="paramMap" resultClass="String">
+		<![CDATA[
+			SELECT	T1.CNB
+			FROM	TBDCMACM001M T1
+            WHERE 	T1.RQS_STA_CD= '3'
+            AND     T1.USR_DVSN_CD ='1'
+             ]]>
+            <isEqual property="strINN_RANK_CD" compareValue="11"> 
+            AND     ( T1.INN_RANK_CD =  #strINN_RANK_CD# OR (T1.SUB_INN_RANK_CD = #strINN_RANK_CD# AND ( T1.DPT_CD = '500000' OR T1.SUB_DPT_CD = '500000')    ))
+            </isEqual>
+            <isEqual property="strINN_RANK_CD" compareValue="13"> 
+            AND     ( T1.INN_RANK_CD =  #strINN_RANK_CD# OR T1.SUB_INN_RANK_CD =  #strINN_RANK_CD# )
+            </isEqual>
+           <![CDATA[
+            AND 	ROWNUM = 1
+			]]>
+		
+	</select>
+	
+	<select id="dcmacm043ApprDownDocumentSelect2" parameterClass="paramMap"
+		resultClass="resultMap">
+		 SELECT T22.APV_DOC_NO  
+               , T22.APV_DVSN_CD
+               , T22.TSK_KY_TXT
+               , T22.APV_STA_CD
+               , F_CODE_NM('1000333',T22.APV_STA_CD) AS APV_STA_NM
+               , T22.APV_TIT_NM
+               , T22.SBM_CNB
+               , F_USR_INFO(SBM_CNB,'2') AS SBM_CNB_NM
+               , T22.SBM_DH
+               , T22.FNL_APV_CNB
+               , T22.FNL_APV_DH
+           		,CASE WHEN	 T22.APV_DVSN_CD IN ('requestAudit1','requestAudit2','requestAudit3')
+				     			THEN	(SELECT		T2.ACP_YR||'-'||F_CODE_NM('1000740',T2.REQ_DVSN_CD)||'-'||T2.RM_CVPT_ACP_NO
+				     						FROM 	TBCSPDCP603M T1, TBCSPDCP101M T2
+				     						WHERE	T1.APV_RQS_ID = T22.APV_DOC_NO
+				     						AND		T1.REQ_DVSN_CD = T2.REQ_DVSN_CD
+				     						AND		T1.ACP_YR = T2.ACP_YR
+				     						AND		T1.CVPT_ACP_NO = T2.CVPT_ACP_NO
+				     						)
+				     			WHEN T22.APV_DVSN_CD = 'fieldAudit' THEN F_MNG_KND_AUDYRNO(AD.AUD_YR, AD.AUD_NO, AD.AUD_KND_CD, '-')
+				     			WHEN T22.APV_DVSN_CD IN ('AudInfoSend','AudInfoHndl') THEN (SELECT YE||'-'||SRNO
+                                                                    FROM    TBCSPBII100M S1
+                                                                    WHERE   T22.APV_DOC_NO = S1.APV_DOC_NO
+                                                                    )
+				     		ELSE NULL END AS AUD_YR_NO
+				     ,'' AS AUD_KND_NM
+				     ,CASE WHEN	 T22.APV_DVSN_CD IN ('requestAudit1','requestAudit2','requestAudit3')
+				     			THEN	(SELECT		T2.TIT_NM
+				     						FROM 	TBCSPDCP603M T1, TBCSPDCP101M T2
+				     						WHERE	T1.APV_RQS_ID = T22.APV_DOC_NO
+				     						AND		T1.REQ_DVSN_CD = T2.REQ_DVSN_CD
+				     						AND		T1.ACP_YR = T2.ACP_YR
+				     						AND		T1.CVPT_ACP_NO = T2.CVPT_ACP_NO
+				     						)
+				     			WHEN T22.APV_DVSN_CD = 'fieldAudit' THEN AD.AUD_SBJ_NM||'('||F_DPT_INFO(AD.MNG_DPT_CD, '4')||')'
+				     			WHEN T22.APV_DVSN_CD IN ('AudInfoSend','AudInfoHndl') THEN (SELECT TIT_TXT
+                                                                    FROM    TBCSPBII100M S1
+                                                                    WHERE   T22.APV_DOC_NO = S1.APV_DOC_NO
+                                                                    )
+				     		ELSE NULL END AS AUD_SBJ_NM
+				     , AD.AUD_DOC_NM
+				     , '' AS MNG_DPT_NM
+				     , F_DPT_INFO(T22.APV_DPT_CD,'4') AS APV_DPT_NM
+            FROM (
+                    SELECT DISTINCT D3.APV_DOC_NO
+                         , D3.APV_DVSN_CD
+                      FROM (
+							   SELECT APV_DOC_NO,  /*기안한 문서는 반려, 상신취소, 상신완료*/
+			                          APV_DVSN_CD
+			                     FROM TBDCMACM023L
+		                    	WHERE APVR_CNB = #strApvrCnb#
+			                      AND APVR_SEQ = '1'
+			                      AND APVR_STA_CD IN ('101','201','301')
+			            	   UNION
+			            	   SELECT APV_DOC_NO,  /*기안자가 아닌경우 결재처리(반려포함)한 문서 기준으로 조회, 협조는 진행문서함에 조회 하지 않는다.*/
+			                          APV_DVSN_CD
+			                     FROM TBDCMACM023L
+		                    	WHERE APVR_CNB = #strApvrCnb#
+			                      AND APVR_SEQ <![CDATA[ <> ]]> '1'
+			                      AND APVR_KND_CD <![CDATA[ <> ]]> '4'
+			                      AND SUBSTR(APVR_STA_CD,0,1) IN ('2','4') 
+		                       UNION
+								SELECT L.APV_DOC_NO,  /*기안자가 아닌경우 결재한 이력이 있는 경우 문서를 볼수 있게 조회*/
+								      L.APV_DVSN_CD
+								 FROM TBDCMACM023L L
+										 ,TBDCMACM023H H
+								WHERE L.APV_DOC_NO = H.APV_DOC_NO
+								  AND L.APVR_CNB = H.APVR_CNB
+		                    	AND L.APVR_CNB = #strApvrCnb#
+								  AND L.APVR_SEQ <![CDATA[ <> ]]> '1'
+								  AND L.APVR_KND_CD <![CDATA[ <> ]]>'4' /*임시 조치*/
+								  AND SUBSTR(H.APVR_STA_CD,0,1) IN ('2','4')         
+                          ) D3
+                    
+              			<isNotEmpty property="strUsrNam"> 
+                         , (SELECT D1.APV_DOC_NO 
+                                 , D1.APV_DVSN_CD
+                              FROM TBDCMACM023L D1
+                                 , TBDCMACM001M D2
+                             WHERE D1.APVR_CNB = D2.CNB
+                              AND  D2.USR_NAM LIKE '%'||#strUsrNam#||'%' 
+                          ) D4
+                      WHERE D3.APV_DOC_NO = D4.APV_DOC_NO
+                        AND D3.APV_DVSN_CD = D4.APV_DVSN_CD
+                         </isNotEmpty>  
+                  ) T23
+               , TBDCMACM022L T22
+			   , ( SELECT 
+			              A.AUD_YR, A.AUD_NO,
+			              C.AUD_KND_CD,
+			              C.AUD_SBJ_NM  AS AUD_SBJ_NM,
+			              AGGR_CONCAT (CASE WHEN RPRT_CD = 'A10600100' THEN '개별처분요구안' 
+			                                WHEN RPRT_CD = 'A10951200' THEN '조사개시통보'
+			                                WHEN RPRT_CD = 'A10951300' THEN '조사종료통보'
+			                                WHEN RPRT_CD = 'A10600200' THEN '감사보고서'
+			                                WHEN RPRT_CD = 'A10920100' THEN '검토의견/보고서'
+			                                ELSE ( SELECT AGGR_CONCAT (DTIL_AUD_DOC_NM,',') AS DTIL_AUD_DOC_NM
+			                                        FROM TBFDMADM002M
+			                                       WHERE AUD_DOC_CD = A.RPRT_CD
+			                                       GROUP BY AUD_DOC_CD) END,',') AS AUD_DOC_NM,
+			              C.MNG_DPT_CD,
+			              A.APV_RQS_ID
+			         FROM TBBADDED103M A 
+			              LEFT OUTER JOIN TBBADDED001M C 
+			              ON (A.AUD_YR = C.AUD_YR AND A.AUD_NO = C.AUD_NO)
+			        WHERE A.APV_RQS_ID IS NOT NULL
+			        GROUP BY A.AUD_YR, A.AUD_NO, C.AUD_KND_CD,
+			              C.AUD_SBJ_NM,
+			              C.MNG_DPT_CD,
+			              A.APV_RQS_ID) AD
+               WHERE T22.APV_DOC_NO =T23.APV_DOC_NO
+                AND  T22.APV_DVSN_CD = T23.APV_DVSN_CD
+                AND   T22.APV_DOC_NO = AD.APV_RQS_ID(+)
+		<isEqual  property="strFieldAuditYn" compareValue="Y">
+			    AND   T22.APV_DVSN_CD IN ('fieldAudit','requestAudit1','requestAudit2','requestAudit3','requestAudit4','requestAudit5','requestAudit6','requestAudit7','requestAudit8','badear001','DspRqClosingSend')
+		</isEqual>
+		<isEqual  property="strFieldAuditYn" compareValue="N">
+		  	    AND   T22.APV_DVSN_CD NOT IN ('fieldAudit','requestAudit1','requestAudit2','requestAudit3','requestAudit4','requestAudit5','requestAudit6','requestAudit7','requestAudit8','DspRqClosingSend')
+		</isEqual>  
+		<![CDATA[   
+				AND T22.APV_STA_CD <> '3' /*진행중인 문서만 조회하도록 추가*/
+                AND T22.SBM_DH BETWEEN #strSbmDyFrom#||'000000' AND #strSbmDyTo#||'235959'            
+         ]]>
+		<isNotEmpty prepend="AND" property="strApvTit">
+			T22.APV_TIT_NM LIKE
+			'%'||#strApvTit#||'%'
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="strApvSta">
+			T22.APV_STA_CD =
+			#strApvSta#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="strApvDvsnCd">
+			<isEqual property="strApvDvsnCd" compareValue="fieldAudit">
+				T22.APV_DVSN_CD IN ('fieldAudit','badear001')
+			</isEqual>
+			<isNotEqual property="strApvDvsnCd" compareValue="fieldAudit">
+				T22.APV_DVSN_CD =
+				#strApvDvsnCd#
+			</isNotEqual>
+		</isNotEmpty>
+		ORDER BY T22.APV_STA_CD, T22.SBM_DH DESC
+	</select>
+	
+	
+	<select id="dcmacm043FnlApprDownDocumentSelect2" parameterClass="paramMap"
+		resultClass="resultMap">
+		  SELECT T22.APV_DOC_NO  
+               , T22.APV_DVSN_CD
+               , T22.TSK_KY_TXT
+               , T22.APV_STA_CD
+               , F_CODE_NM('1000333',T22.APV_STA_CD) AS APV_STA_NM
+               , T22.APV_TIT_NM
+               , T22.SBM_CNB
+               , F_USR_INFO(SBM_CNB,'2') AS SBM_CNB_NM
+               , T22.SBM_DH
+               , T22.FNL_APV_CNB
+               , T22.FNL_APV_DH
+           ,CASE WHEN	 T22.APV_DVSN_CD IN ('requestAudit1','requestAudit2','requestAudit3')
+				     			THEN	(SELECT		T2.ACP_YR||'-'||F_CODE_NM('1000740',T2.REQ_DVSN_CD)||'-'||T2.RM_CVPT_ACP_NO
+				     						FROM 	TBCSPDCP603M T1, TBCSPDCP101M T2
+				     						WHERE	T1.APV_RQS_ID = T22.APV_DOC_NO
+				     						AND		T1.REQ_DVSN_CD = T2.REQ_DVSN_CD
+				     						AND		T1.ACP_YR = T2.ACP_YR
+				     						AND		T1.CVPT_ACP_NO = T2.CVPT_ACP_NO
+				     						)
+				     			WHEN T22.APV_DVSN_CD = 'fieldAudit' THEN F_MNG_KND_AUDYRNO(AD.AUD_YR, AD.AUD_NO, AD.AUD_KND_CD, '-')
+				     			WHEN T22.APV_DVSN_CD IN ('AudInfoSend','AudInfoHndl') THEN (SELECT YE||'-'||SRNO
+                                                                    FROM    TBCSPBII100M S1
+                                                                    WHERE   T22.APV_DOC_NO = S1.APV_DOC_NO
+                                                                    )
+				     		ELSE NULL END AS AUD_YR_NO
+				     , '' AS AUD_KND_NM
+				     ,CASE WHEN	 T22.APV_DVSN_CD IN ('requestAudit1','requestAudit2','requestAudit3')
+				     			THEN	(SELECT		T2.TIT_NM
+				     						FROM 	TBCSPDCP603M T1, TBCSPDCP101M T2
+				     						WHERE	T1.APV_RQS_ID = T22.APV_DOC_NO
+				     						AND		T1.REQ_DVSN_CD = T2.REQ_DVSN_CD
+				     						AND		T1.ACP_YR = T2.ACP_YR
+				     						AND		T1.CVPT_ACP_NO = T2.CVPT_ACP_NO
+				     						)
+				     			WHEN T22.APV_DVSN_CD = 'fieldAudit' THEN AD.AUD_SBJ_NM||'('||F_DPT_INFO(AD.MNG_DPT_CD, '4')||')'
+				     			WHEN T22.APV_DVSN_CD IN ('AudInfoSend','AudInfoHndl') THEN (SELECT TIT_TXT
+                                                                    FROM    TBCSPBII100M S1
+                                                                    WHERE   T22.APV_DOC_NO = S1.APV_DOC_NO
+                                                                    )
+				     		ELSE NULL END AS AUD_SBJ_NM
+				     , AD.AUD_DOC_NM
+				     , '' AS MNG_DPT_NM
+				     , F_DPT_INFO(T22.APV_DPT_CD,'4') AS APV_DPT_NM
+            FROM (
+                    SELECT DISTINCT D3.APV_DOC_NO
+                         , D3.APV_DVSN_CD
+                      FROM (SELECT APV_DOC_NO
+                                  , APV_DVSN_CD
+                              FROM TBDCMACM023L
+                        	WHERE APVR_CNB = #strApvrCnb#
+                             	  AND APVR_KND_CD <![CDATA[ <> ]]> '4' /*협조한 문서는 보이지 않도록*/
+                          ) D3
+                    
+              			<isNotEmpty property="strUsrNam"> 
+                         , (SELECT D1.APV_DOC_NO 
+                                 , D1.APV_DVSN_CD
+                              FROM TBDCMACM023L D1
+                                 , TBDCMACM001M D2
+                             WHERE D1.APVR_CNB = D2.CNB
+                              AND  D2.USR_NAM LIKE '%'||#strUsrNam#||'%' 
+                          ) D4
+                      WHERE D3.APV_DOC_NO = D4.APV_DOC_NO
+                        AND D3.APV_DVSN_CD = D4.APV_DVSN_CD
+                         </isNotEmpty>  
+                  ) T23
+               , TBDCMACM022L T22
+			   , (SELECT 
+			              A.AUD_YR, A.AUD_NO,
+			              C.AUD_KND_CD,
+			              C.AUD_SBJ_NM AS AUD_SBJ_NM,
+			              AGGR_CONCAT (CASE WHEN RPRT_CD = 'A10600100' THEN '개별처분요구안' 
+			                                WHEN RPRT_CD = 'A10951200' THEN '조사개시통보'
+			                                WHEN RPRT_CD = 'A10951300' THEN '조사종료통보'
+			                                WHEN RPRT_CD = 'A10600200' THEN '감사보고서'
+			                                WHEN RPRT_CD = 'A10920100' THEN '검토의견/보고서'
+			                                ELSE ( SELECT AGGR_CONCAT (DTIL_AUD_DOC_NM,',') AS DTIL_AUD_DOC_NM
+			                                        FROM TBFDMADM002M
+			                                       WHERE AUD_DOC_CD = A.RPRT_CD
+			                                       GROUP BY AUD_DOC_CD) END,',') AS AUD_DOC_NM,
+			              C.MNG_DPT_CD,
+			              A.APV_RQS_ID
+			         FROM TBBADDED103M A 
+			              LEFT OUTER JOIN TBBADDED001M C 
+			              ON (A.AUD_YR = C.AUD_YR AND A.AUD_NO = C.AUD_NO)
+			        WHERE A.APV_RQS_ID IS NOT NULL
+			        GROUP BY A.AUD_YR, A.AUD_NO, C.AUD_KND_CD,
+			              C.AUD_SBJ_NM,
+			              C.MNG_DPT_CD,
+			              A.APV_RQS_ID) AD
+               WHERE T22.APV_DOC_NO =T23.APV_DOC_NO
+                AND  T22.APV_DVSN_CD = T23.APV_DVSN_CD
+                AND   T22.APV_DOC_NO = AD.APV_RQS_ID(+)
+		<isEqual  property="strFieldAuditYn" compareValue="Y">
+			    AND   T22.APV_DVSN_CD IN ('fieldAudit','requestAudit1','requestAudit2','requestAudit3','requestAudit4','requestAudit5','requestAudit6','requestAudit7','requestAudit8','badear001','DspRqClosingSend')
+		</isEqual>
+		<isEqual  property="strFieldAuditYn" compareValue="N">
+		  	    AND   T22.APV_DVSN_CD NOT IN ('fieldAudit','requestAudit1','requestAudit2','requestAudit3','requestAudit4','requestAudit5','requestAudit6','requestAudit7','requestAudit8','DspRqClosingSend')
+		</isEqual>  
+				AND T22.APV_STA_CD = '3' /*승인된 문서만 조회하도록 추가*/
+      			<![CDATA[  AND T22.SBM_CNB <> #strApvrCnb# ]]>
+                AND T22.SBM_DH BETWEEN #strSbmDyFrom#||'000000' AND #strSbmDyTo#||'235959'            
+		<isNotEmpty prepend="AND" property="strApvTit">
+			T22.APV_TIT_NM LIKE
+			'%'||#strApvTit#||'%'
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="strApvSta">
+			T22.APV_STA_CD =
+			#strApvSta#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="strApvDvsnCd">
+			<isEqual property="strApvDvsnCd" compareValue="fieldAudit">
+				T22.APV_DVSN_CD IN ('fieldAudit','badear001')
+			</isEqual>
+			<isNotEqual property="strApvDvsnCd" compareValue="fieldAudit">
+				T22.APV_DVSN_CD =
+				#strApvDvsnCd#
+			</isNotEqual>
+		</isNotEmpty>
+		ORDER BY T22.APV_STA_CD, T22.SBM_DH DESC
+	</select>
+	
+</sqlMap> 

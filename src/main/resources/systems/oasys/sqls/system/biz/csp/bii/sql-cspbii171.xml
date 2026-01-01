@@ -1,0 +1,509 @@
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd" >
+<sqlMap namespace="csp/bii/171">
+
+	<!-- 마일리지내역 조회-->
+	<select id="CSPBII171QMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT B.USR_NAM
+			     , F_CODE_NM('1000173', B.RANK_CD)             AS RANK_NM
+			     , C.ABR_DPT_NM_1 AS DPT_NM
+			     , (SELECT count(*) FROM TBCSPBII100M M WHERE M.PRSR_CNB = A.CNB 
+			           AND M.AUD_INF_PRSS_STA_CD NOT IN ('15','20','99') 
+                       AND M.SMT_DT BETWEEN #strStrDt# AND #strEndDt#
+                       AND M.AUD_INF_PRSS_STA_CD >= '05') AS SMT_NOC /* 제출건수(평가중) */
+			     , (SELECT count(*) FROM TBCSPBII100M M WHERE M.PRSR_CNB = A.CNB AND M.AUD_INF_PRSS_STA_CD IN ('15','20','99') 
+                       AND M.SMT_DT BETWEEN #strStrDt# AND #strEndDt#
+                       AND M.AUD_INF_PRSS_STA_CD >= '05'
+                       AND M.HNDL_ORD_CD != '7') AS SMT_NOC_CPT /* 제출건수(평가완료) */
+				 , (SELECT count(*) FROM TBCSPBII100M M WHERE M.PRSR_CNB = A.CNB AND M.AUD_INF_PRSS_STA_CD IN ('15','20','99') 
+				       AND M.SMT_DT BETWEEN #strStrDt# AND #strEndDt#
+                       AND M.AUD_INF_PRSS_STA_CD >= '05'
+				       AND M.HNDL_ORD_CD = '7' ) AS SMT_DEL_CPT /* 폐기건수 */
+			     , A.MLG_TSC_CNT + CRFW_SC + CRFW_QLT_SC AS MLG_SUM_CNT    /* 마일리지합계총점수(마일리지총점수 + 이월점수) */
+			     , A.MLG_TSC_CNT                                                 /* 마일리지총점수 */
+			     , A.CRFW_SC                                                     /* 이월점수 */
+			     , A.CRFW_QLT_SC                                                 /* 이월품질점수 */
+			     , A.SMT_TSC_CNT                                                 /* 제출총점수 */
+			     , A.SMT_ADT_TSC_CNT                                             /* 제출추가총점수 */
+			     , A.CAT_ADT_TSC_CNT                                             /* 분류추가총점수 */
+			     , A.SPCF_INF_ADT_TSC_CNT                                        /* 특정정보추가총점수 */
+			     , A.UTL_ADT_TSC_CNT                                             /* 활용추가총점수 */
+			     , A.HNDL_ADT_TSC_CNT                                            /* 처리추가총점수 */
+			     , A.GEN_ADPT_TOT_CNT                                            /* 일반가점총점수 */
+			     , A.DPT_INF_TOT_CNT                                             /* 부서정보총점수 */
+			     , A.QLT_ADPT_TOT_CNT                                            /* 품질가점총점수 */
+			     , A.MLG_ADT_TOT_NOC                                             /* 마일리지추가총건수 */
+			     , A.QR_MLG_CNT_1                                                /* 분기마일리지수1 */
+			     , A.QR_MLG_CNT_2                                                /* 분기마일리지수2 */
+			     /*, F_GET_MLG_QR_GL_SC(A.YE,A.QR_DVSN_CD,A.CNB) AS USR_QR_GL_SC                                                     사용자용분기목표점수 */
+			     , A.QR_GL_SC                                                    /* 분기목표점수 */
+			     , A.MLG_RMK                                                     /* 마일리지비고 */
+			     , DECODE(A.SMT_DPT_WRK_YN_1, '1', 1, 0)
+			     + DECODE(A.SMT_DPT_WRK_YN_2, '1', 1, 0)
+			     + DECODE(A.SMT_DPT_WRK_YN_3, '1', 1, 0)
+			     + DECODE(A.SMT_DPT_WRK_YN_4, '1', 1, 0)
+			     + DECODE(A.SMT_DPT_WRK_YN_5, '1', 1, 0)
+			     + DECODE(A.SMT_DPT_WRK_YN_6, '1', 1, 0)       AS WRK_MN_CNT     /* 근무월수 */
+			     , CASE A.SMT_DPT_WRK_YN_1 WHEN '1' THEN 'Y'
+			                               WHEN '0' THEN 'N'
+			                               ELSE '-'
+			       END                                       AS SMT_DPT_WRK_YN_1 /* 제출부서근무여부1 */
+			     , CASE A.SMT_DPT_WRK_YN_2 WHEN '1' THEN 'Y'
+			                               WHEN '0' THEN 'N'
+			                               ELSE '-'
+			       END                                       AS SMT_DPT_WRK_YN_2 /* 제출부서근무여부2 */
+			     , CASE A.SMT_DPT_WRK_YN_3 WHEN '1' THEN 'Y'
+			                               WHEN '0' THEN 'N'
+			                               ELSE '-'
+			       END                                       AS SMT_DPT_WRK_YN_3  /* 제출부서근무여부3 */
+			     , CASE A.SMT_DPT_WRK_YN_4 WHEN '1' THEN 'Y'
+			                               WHEN '0' THEN 'N'
+			                               ELSE '-'
+			       END                                       AS SMT_DPT_WRK_YN_4 /* 제출부서근무여부4 */
+			     , CASE A.SMT_DPT_WRK_YN_5 WHEN '1' THEN 'Y'
+			                               WHEN '0' THEN 'N'
+			                               ELSE '-'
+			       END                                       AS SMT_DPT_WRK_YN_5 /* 제출부서근무여부5 */
+			     , CASE A.SMT_DPT_WRK_YN_6 WHEN '1' THEN 'Y'
+			                               WHEN '0' THEN 'N'
+			                               ELSE '-'
+			       END                                       AS SMT_DPT_WRK_YN_6 /* 제출부서근무여부6 */
+			     , A.YE
+			     , A.QR_DVSN_CD
+			     , A.CNB
+			     ,B.HOM_TNB
+			     ,CASE WHEN ( QR_GL_SC - (MLG_TSC_CNT + CRFW_SC + CRFW_QLT_SC)) > 0 THEN QR_GL_SC - (MLG_TSC_CNT + CRFW_SC + CRFW_QLT_SC) ELSE 0 END QR_SHFA_ADT_SC
+			     , (SELECT CRNT_GD_APM_DT
+                    FROM TBDCMACM903O S1
+                    WHERE S1.EIN = B.EIN) AS CRNT_DPT_APM_DT
+			     , F_CODE_NM('1000176',B.PST_CD)  AS PST_NM
+			     , GEN_ADMN_DVSN_CD
+			     , F_CODE_NM('1000852',GEN_ADMN_DVSN_CD) AS GEN_ADMN_DVSN_NM
+			     , CASE WHEN A.QR_DVSN_CD IN ('1','3') THEN 0 ELSE  (SELECT S1.MLG_TSC_CNT + S1.HNDL_ADT_TSC_CNT
+			          FROM TBCSPBII160L S1
+			         WHERE S1.CNB = A.CNB
+			           AND S1.YE = A.YE
+			           AND S1.QR_DVSN_CD = A.QR_DVSN_CD-1
+			         ) END AS BK_QR_MLG_CNT
+			     , NVL(EVL_RSLT_CD,'0') AS EVL_RSLT_CD
+			     , NVL(ELY_ADT_SC,0) AS ELY_ADT_SC /* 조기가점 */
+			     , NVL(CAT_ADT_SC,0) AS CAT_ADT_SC /* 모범가점 */
+			     , NVL(SPCF_INF_ADT_SC,0) AS SPCF_INF_ADT_SC /* 특정가점 */
+			     , NVL(BRON_ADT_SC,0) AS BRON_ADT_SC /* 바론가점 */
+			  FROM TBCSPBII160L A
+			     , TBDCMACM001M B
+			     , TBDCMACM002M C
+			     , (SELECT SUM(ELY_ADT_SC)          AS ELY_ADT_SC
+                         , SUM(CAT_ADT_SC)      AS CAT_ADT_SC
+                         , SUM(SPCF_INF_ADT_SC) AS SPCF_INF_ADT_SC
+                         , SUM(BRON_ADT_SC)      AS BRON_ADT_SC
+                         , PRSR_CNB
+                      FROM (SELECT PRSR_CNB
+                                 , NVL(ELY_ADT_SC, 0) AS ELY_ADT_SC
+                                 , NVL(CAT_ADT_SC, 0) AS CAT_ADT_SC
+                                 , NVL(SPCF_INF_ADT_SC, 0) AS SPCF_INF_ADT_SC
+                                 , NVL(BRON_ADT_SC, 0) AS BRON_ADT_SC
+                              FROM TBCSPBII100M
+                             WHERE SMT_DT BETWEEN #strStrDt# AND #strEndDt#)
+                             GROUP BY PRSR_CNB) D			     
+			 WHERE A.CNB         = B.CNB
+			   AND A.YE          = #strYe#  
+			   AND A.QR_DVSN_CD = #strQrDvsnCd#
+			   AND B.WOK_DVSN_CD != 'DAA'
+			   AND B.DPT_CD = C.DPT_CD
+			   AND A.CNB = D.PRSR_CNB(+)
+		]]>
+		
+		<!-- 성명 -->
+		<isNotEmpty property="strMlgCnb">
+			AND A.CNB = #strMlgCnb#
+		</isNotEmpty>
+		
+		<isNotEmpty property="strDPT_CD">
+			AND B.DPT_CD = #strDPT_CD#
+		</isNotEmpty>
+		<isNotEmpty property="strMlgRmk">
+			AND A.MLG_RMK LIKE '%'||#strMlgRmk#||'%'
+		</isNotEmpty>
+		<isEqual property="strQR_SHFA_ADT_SC" compareValue="Y">
+			AND	QR_GL_SC - (MLG_TSC_CNT + CRFW_SC + CRFW_QLT_SC) <![CDATA[>]]> 0
+		</isEqual>
+		<isEqual property="strQR_SHFA_ADT_SC" compareValue="N">
+			AND	QR_GL_SC - (MLG_TSC_CNT + CRFW_SC + CRFW_QLT_SC) <![CDATA[<=]]>  0
+		</isEqual>
+		
+		<isNotEmpty property="strDPT_TP_CD">
+			AND CASE WHEN C.DPT_CD IN ('062500','062600','062700','062800','170300','170320','071100','071300','180100','180110','100100','081100','081200','081300','081400','081500','081600','081700','081800','081900','0L0100','0L0200','0L0300')  
+		                        						THEN 'A'
+		                        				ELSE C.DPT_TP_CD END  
+			= #strDPT_TP_CD#
+		</isNotEmpty>
+		<isNotEmpty property="strGEN_ADMN_DVSN_CD">
+			AND B.GEN_ADMN_DVSN_CD = #strGEN_ADMN_DVSN_CD#
+		</isNotEmpty>
+		ORDER BY MLG_SUM_CNT DESC, A.CNB
+	</select>	
+	
+	<!-- 마일리지 계산 프로시저 파라미터 -->
+	<parameterMap class="java.util.HashMap" id="CSPBII171EMlgReCalcExecuteMap">
+		<parameter property="strYe"				jdbcType="VARCHAR2" javaType="java.lang.String" mode="IN"/>
+		<parameter property="strQrDvsnCd"		jdbcType="VARCHAR2" javaType="java.lang.String" mode="IN"/>
+		<parameter property="FNL_USR_ID"		jdbcType="VARCHAR2" javaType="java.lang.String" mode="IN"/>
+		<parameter property="FNL_DEAL_DPT_CD"	jdbcType="VARCHAR2" javaType="java.lang.String" mode="IN"/>
+		<parameter property="FNL_MNU_ID"		jdbcType="VARCHAR2" javaType="java.lang.String" mode="IN"/>
+	</parameterMap>
+	
+	<!-- 마일리지 계산 프로시저 호출 -->
+	<procedure id="CSPBII171EMlgReCalcExecute" parameterMap="CSPBII171EMlgReCalcExecuteMap">
+		CALL PRC_CSP_MLG_CALC(?, ?, ?, ?, ?) 
+	</procedure>
+	
+	<!-- 목표 마일리지 재계산 수정 -->
+	<!-- <update id="CSPBII171EGlMlgCalcUpdate" parameterClass="paramMap">
+	<![CDATA[
+		UPDATE TBCSPBII160L A                 
+		   SET QR_GL_SC        = (NVL(SMT_DPT_WRK_YN_1, 0) + NVL(SMT_DPT_WRK_YN_2, 0) + NVL(SMT_DPT_WRK_YN_3, 0)
+		                        + NVL(SMT_DPT_WRK_YN_4, 0) + NVL(SMT_DPT_WRK_YN_5, 0) + NVL(SMT_DPT_WRK_YN_6, 0)) * 10
+		                       + NVL(QR_SHFA_ADT_SC, 0) 
+		                       + NVL(CASE WHEN  TO_CHAR(SYSDATE,'YYYY') <> A.YE THEN 0 
+                 WHEN  TO_CHAR(SYSDATE,'YYYY') = A.YE AND TO_CHAR(SYSDATE,'MM')  BETWEEN '01' AND '06' AND QR_DVSN_CD ='A' AND TO_CHAR(SYSDATE,'MM')  = '01' THEN 60
+                 WHEN  TO_CHAR(SYSDATE,'YYYY') = A.YE AND TO_CHAR(SYSDATE,'MM')  BETWEEN '01' AND '06' AND QR_DVSN_CD ='A' AND TO_CHAR(SYSDATE,'MM')  = '02' THEN 50
+                 WHEN  TO_CHAR(SYSDATE,'YYYY') = A.YE AND TO_CHAR(SYSDATE,'MM')  BETWEEN '01' AND '06' AND QR_DVSN_CD ='A' AND TO_CHAR(SYSDATE,'MM')  = '03' THEN 40
+                 WHEN  TO_CHAR(SYSDATE,'YYYY') = A.YE AND TO_CHAR(SYSDATE,'MM')  BETWEEN '01' AND '06' AND QR_DVSN_CD ='A' AND TO_CHAR(SYSDATE,'MM')  = '04' THEN 30
+                 WHEN  TO_CHAR(SYSDATE,'YYYY') = A.YE AND TO_CHAR(SYSDATE,'MM')  BETWEEN '01' AND '06' AND QR_DVSN_CD ='A' AND TO_CHAR(SYSDATE,'MM')  = '05' THEN 20
+                 WHEN  TO_CHAR(SYSDATE,'YYYY') = A.YE AND TO_CHAR(SYSDATE,'MM')  BETWEEN '01' AND '06' AND QR_DVSN_CD ='A' AND TO_CHAR(SYSDATE,'MM')  = '06' THEN 10
+                 WHEN  TO_CHAR(SYSDATE,'YYYY') = A.YE AND TO_CHAR(SYSDATE,'MM')  BETWEEN '07' AND '12' AND QR_DVSN_CD ='B' AND TO_CHAR(SYSDATE,'MM')  = '07' THEN 60
+                 WHEN  TO_CHAR(SYSDATE,'YYYY') = A.YE AND TO_CHAR(SYSDATE,'MM')  BETWEEN '07' AND '12' AND QR_DVSN_CD ='B' AND TO_CHAR(SYSDATE,'MM')  = '08' THEN 50
+                 WHEN  TO_CHAR(SYSDATE,'YYYY') = A.YE AND TO_CHAR(SYSDATE,'MM')  BETWEEN '07' AND '12' AND QR_DVSN_CD ='B' AND TO_CHAR(SYSDATE,'MM')  = '09' THEN 40
+                 WHEN  TO_CHAR(SYSDATE,'YYYY') = A.YE AND TO_CHAR(SYSDATE,'MM')  BETWEEN '07' AND '12' AND QR_DVSN_CD ='B' AND TO_CHAR(SYSDATE,'MM')  = '10' THEN 30
+                 WHEN  TO_CHAR(SYSDATE,'YYYY') = A.YE AND TO_CHAR(SYSDATE,'MM')  BETWEEN '07' AND '12' AND QR_DVSN_CD ='B' AND TO_CHAR(SYSDATE,'MM')  = '11' THEN 20
+                 WHEN  TO_CHAR(SYSDATE,'YYYY') = A.YE AND TO_CHAR(SYSDATE,'MM')  BETWEEN '07' AND '12' AND QR_DVSN_CD ='B' AND TO_CHAR(SYSDATE,'MM')  = '12' THEN 10
+             ELSE 0
+             END,0)
+		     , FNL_USR_ID      = #FNL_USR_ID#        /* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#   /* 최종거래부서코드 */
+		     , FNL_MNU_ID      = #FNL_MNU_ID#        /* 최종메뉴ID */
+		     , FNL_MDF_DH      = SYSDATE             /* 최종수정일시 */
+		 WHERE YE         = #strYe#
+		   AND QR_DVSN_CD = #strQrDvsnCd#
+	]]>
+	</update> -->
+	
+	
+	<update id="CSPBII171EGlMlgCalcUpdate" parameterClass="paramMap">
+	<![CDATA[
+		UPDATE TBCSPBII160L A                 
+		   SET QR_GL_SC        = CASE WHEN (SELECT GEN_ADMN_DVSN_CD FROM TBDCMACM001M S1 WHERE A.CNB = S1.CNB ) IN ('2','3') THEN 1 ELSE (  
+		   							(NVL(SMT_DPT_WRK_YN_1, 0) + NVL(SMT_DPT_WRK_YN_2, 0) + NVL(SMT_DPT_WRK_YN_3, 0)
+		                        ) * 10
+		                       + NVL(QR_SHFA_ADT_SC, 0) 
+		                       + NVL(CASE WHEN  TO_CHAR(SYSDATE,'YYYY') <> A.YE THEN 0 
+                 WHEN  TO_CHAR(SYSDATE,'YYYY') = A.YE AND TO_CHAR(SYSDATE,'MM')  BETWEEN '01' AND '03' AND QR_DVSN_CD ='1' AND TO_CHAR(SYSDATE,'MM')  = '01' THEN 30
+                 WHEN  TO_CHAR(SYSDATE,'YYYY') = A.YE AND TO_CHAR(SYSDATE,'MM')  BETWEEN '01' AND '03' AND QR_DVSN_CD ='1' AND TO_CHAR(SYSDATE,'MM')  = '02' THEN 20
+                 WHEN  TO_CHAR(SYSDATE,'YYYY') = A.YE AND TO_CHAR(SYSDATE,'MM')  BETWEEN '01' AND '03' AND QR_DVSN_CD ='1' AND TO_CHAR(SYSDATE,'MM')  = '03' THEN 10
+                 WHEN  TO_CHAR(SYSDATE,'YYYY') = A.YE AND TO_CHAR(SYSDATE,'MM')  BETWEEN '04' AND '06' AND QR_DVSN_CD ='2' AND TO_CHAR(SYSDATE,'MM')  = '04' THEN 30
+                 WHEN  TO_CHAR(SYSDATE,'YYYY') = A.YE AND TO_CHAR(SYSDATE,'MM')  BETWEEN '04' AND '06' AND QR_DVSN_CD ='2' AND TO_CHAR(SYSDATE,'MM')  = '05' THEN 20
+                 WHEN  TO_CHAR(SYSDATE,'YYYY') = A.YE AND TO_CHAR(SYSDATE,'MM')  BETWEEN '04' AND '06' AND QR_DVSN_CD ='2' AND TO_CHAR(SYSDATE,'MM')  = '06' THEN 10
+                 WHEN  TO_CHAR(SYSDATE,'YYYY') = A.YE AND TO_CHAR(SYSDATE,'MM')  BETWEEN '07' AND '09' AND QR_DVSN_CD ='3' AND TO_CHAR(SYSDATE,'MM')  = '07' THEN 30
+                 WHEN  TO_CHAR(SYSDATE,'YYYY') = A.YE AND TO_CHAR(SYSDATE,'MM')  BETWEEN '07' AND '09' AND QR_DVSN_CD ='3' AND TO_CHAR(SYSDATE,'MM')  = '08' THEN 20
+                 WHEN  TO_CHAR(SYSDATE,'YYYY') = A.YE AND TO_CHAR(SYSDATE,'MM')  BETWEEN '07' AND '09' AND QR_DVSN_CD ='3' AND TO_CHAR(SYSDATE,'MM')  = '09' THEN 10
+                 WHEN  TO_CHAR(SYSDATE,'YYYY') = A.YE AND TO_CHAR(SYSDATE,'MM')  BETWEEN '10' AND '12' AND QR_DVSN_CD ='4' AND TO_CHAR(SYSDATE,'MM')  = '10' THEN 30
+                 WHEN  TO_CHAR(SYSDATE,'YYYY') = A.YE AND TO_CHAR(SYSDATE,'MM')  BETWEEN '10' AND '12' AND QR_DVSN_CD ='4' AND TO_CHAR(SYSDATE,'MM')  = '11' THEN 20
+                 WHEN  TO_CHAR(SYSDATE,'YYYY') = A.YE AND TO_CHAR(SYSDATE,'MM')  BETWEEN '10' AND '12' AND QR_DVSN_CD ='4' AND TO_CHAR(SYSDATE,'MM')  = '12' THEN 10
+             ELSE 0
+             END,0) ) END 
+		     , FNL_USR_ID      = #FNL_USR_ID#        /* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#   /* 최종거래부서코드 */
+		     , FNL_MNU_ID      = #FNL_MNU_ID#        /* 최종메뉴ID */
+		     , FNL_MDF_DH      = SYSDATE             /* 최종수정일시 */
+		 WHERE YE         = #strYe#
+		   AND QR_DVSN_CD = #strQrDvsnCd#
+	]]>
+	</update>
+	
+	<update id="CSPBII171EGlMlgCalcUpdate2" parameterClass="paramMap">
+		UPDATE TBCSPBII160L    
+		SET    QR_GL_SC = CASE WHEN QR_GL_SC > 30 THEN 30 ELSE QR_GL_SC END
+		WHERE YE         = #strYe#
+		   AND QR_DVSN_CD = #strQrDvsnCd# 
+	</update>
+	
+	<!-- 마일리지내역 수정 -->
+	<update id="CSPBII171EMainUpdate" parameterClass="paramMap">
+		UPDATE TBCSPBII160L                     
+		   SET QR_GL_SC        = #QR_GL_SC#          /* 분기목표점수 */
+		     , DPT_INF_TOT_CNT = #DPT_INF_TOT_CNT# 	 /* 부서정보총점수 */
+		     , MLG_RMK         = #MLG_RMK# 	         /* 마일리지비고 */
+		     , FNL_USR_ID      = #FNL_USR_ID#        /* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#   /* 최종거래부서코드 */
+		     , FNL_MNU_ID      = #FNL_MNU_ID#        /* 최종메뉴ID */
+		     , FNL_MDF_DH      = SYSDATE             /* 최종수정일시 */
+		     , EVL_RSLT_CD = #EVL_RSLT_CD#
+		 WHERE YE         = #YE#
+		   AND QR_DVSN_CD = #QR_DVSN_CD#
+		   AND CNB        = #CNB#
+	</update>
+	
+	<!-- 마일리지내역 엑셀다운로드-->
+	<select id="CSPBII171QMainSelectExcel" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT B.USR_NAM
+			     , F_CODE_NM('1000173', B.RANK_CD)             AS RANK_NM
+			     , C.ABR_DPT_NM_1 AS DPT_NM
+			     , (SELECT count(*) FROM TBCSPBII100M M WHERE M.PRSR_CNB = A.CNB 
+			           AND M.AUD_INF_PRSS_STA_CD NOT IN ('15','20','99') 
+                       AND M.SMT_DT BETWEEN #strStrDt# AND #strEndDt#
+                       AND M.AUD_INF_PRSS_STA_CD >= '05') AS SMT_NOC /* 제출건수(평가중) */
+			     , (SELECT count(*) FROM TBCSPBII100M M WHERE M.PRSR_CNB = A.CNB AND M.AUD_INF_PRSS_STA_CD IN ('15','20','99') 
+                       AND M.SMT_DT BETWEEN #strStrDt# AND #strEndDt#
+                       AND M.AUD_INF_PRSS_STA_CD >= '05'
+                       AND M.HNDL_ORD_CD != '7') AS SMT_NOC_CPT /* 제출건수(평가완료) */
+				 , (SELECT count(*) FROM TBCSPBII100M M WHERE M.PRSR_CNB = A.CNB AND M.AUD_INF_PRSS_STA_CD IN ('15','20','99') 
+				       AND M.SMT_DT BETWEEN #strStrDt# AND #strEndDt#
+                       AND M.AUD_INF_PRSS_STA_CD >= '05'
+				       AND M.HNDL_ORD_CD = '7' ) AS SMT_DEL_CPT /* 폐기건수 */
+			     , A.MLG_TSC_CNT + CRFW_SC + CRFW_QLT_SC  AS MLG_SUM_CNT    /* 마일리지합계총점수(마일리지총점수 + 이월점수) */
+			     , A.MLG_TSC_CNT                                                 /* 마일리지총점수 */
+			     , A.CRFW_SC                                                     /* 이월점수 */
+			     , A.CRFW_QLT_SC                                                 /* 이월품질점수 */
+			     , A.SMT_TSC_CNT                                                 /* 제출총점수 */
+			     , A.SMT_ADT_TSC_CNT                                             /* 제출추가총점수 */
+			     , A.CAT_ADT_TSC_CNT                                             /* 분류추가총점수 */
+			     , A.SPCF_INF_ADT_TSC_CNT                                        /* 특정정보추가총점수 */
+			     , A.UTL_ADT_TSC_CNT                                             /* 활용추가총점수 */
+			     , A.HNDL_ADT_TSC_CNT                                            /* 처리추가총점수 */
+			     , A.GEN_ADPT_TOT_CNT                                            /* 일반가점총점수 */
+			     , A.DPT_INF_TOT_CNT                                             /* 부서정보총점수 */
+			     , A.QLT_ADPT_TOT_CNT                                            /* 품질가점총점수 */
+			     , A.MLG_ADT_TOT_NOC                                             /* 마일리지추가총건수 */
+			     , A.QR_MLG_CNT_1                                                /* 분기마일리지수1 */
+			     , A.QR_MLG_CNT_2                                                /* 분기마일리지수2 */
+			     /*, F_GET_MLG_QR_GL_SC(A.YE,A.QR_DVSN_CD,A.CNB) AS USR_QR_GL_SC                                                     사용자용분기목표점수 */
+			     , A.QR_GL_SC                                                    /* 분기목표점수 */
+			     , A.MLG_RMK                                                     /* 마일리지비고 */
+			     , DECODE(A.SMT_DPT_WRK_YN_1, '1', 1, 0)
+			     + DECODE(A.SMT_DPT_WRK_YN_2, '1', 1, 0)
+			     + DECODE(A.SMT_DPT_WRK_YN_3, '1', 1, 0)
+			     + DECODE(A.SMT_DPT_WRK_YN_4, '1', 1, 0)
+			     + DECODE(A.SMT_DPT_WRK_YN_5, '1', 1, 0)
+			     + DECODE(A.SMT_DPT_WRK_YN_6, '1', 1, 0)       AS WRK_MN_CNT     /* 근무월수 */
+			     , CASE A.SMT_DPT_WRK_YN_1 WHEN '1' THEN 'Y'
+			                               WHEN '0' THEN 'N'
+			                               ELSE '-'
+			       END                                       AS SMT_DPT_WRK_YN_1 /* 제출부서근무여부1 */
+			     , CASE A.SMT_DPT_WRK_YN_2 WHEN '1' THEN 'Y'
+			                               WHEN '0' THEN 'N'
+			                               ELSE '-'
+			       END                                       AS SMT_DPT_WRK_YN_2 /* 제출부서근무여부2 */
+			     , CASE A.SMT_DPT_WRK_YN_3 WHEN '1' THEN 'Y'
+			                               WHEN '0' THEN 'N'
+			                               ELSE '-'
+			       END                                       AS SMT_DPT_WRK_YN_3  /* 제출부서근무여부3 */
+			     , CASE A.SMT_DPT_WRK_YN_4 WHEN '1' THEN 'Y'
+			                               WHEN '0' THEN 'N'
+			                               ELSE '-'
+			       END                                       AS SMT_DPT_WRK_YN_4 /* 제출부서근무여부4 */
+			     , CASE A.SMT_DPT_WRK_YN_5 WHEN '1' THEN 'Y'
+			                               WHEN '0' THEN 'N'
+			                               ELSE '-'
+			       END                                       AS SMT_DPT_WRK_YN_5 /* 제출부서근무여부5 */
+			     , CASE A.SMT_DPT_WRK_YN_6 WHEN '1' THEN 'Y'
+			                               WHEN '0' THEN 'N'
+			                               ELSE '-'
+			       END                                       AS SMT_DPT_WRK_YN_6 /* 제출부서근무여부6 */
+			     , A.YE
+			     , A.QR_DVSN_CD
+			     , A.CNB
+			     ,B.HOM_TNB
+			     ,CASE WHEN ( QR_GL_SC - (MLG_TSC_CNT + CRFW_SC + CRFW_QLT_SC)) > 0 THEN QR_GL_SC - (MLG_TSC_CNT + CRFW_SC + CRFW_QLT_SC) ELSE 0 END QR_SHFA_ADT_SC
+			     , (SELECT CRNT_GD_APM_DT
+                    FROM TBDCMACM903O S1
+                    WHERE S1.EIN = B.EIN) AS CRNT_DPT_APM_DT
+			     , F_CODE_NM('1000176',B.PST_CD)  AS PST_NM
+			     , GEN_ADMN_DVSN_CD
+			     , F_CODE_NM('1000852',GEN_ADMN_DVSN_CD) AS GEN_ADMN_DVSN_NM
+			     , CASE WHEN A.QR_DVSN_CD IN ('1','3') THEN 0 ELSE  (SELECT S1.MLG_TSC_CNT + S1.HNDL_ADT_TSC_CNT
+			          FROM TBCSPBII160L S1
+			         WHERE S1.CNB = A.CNB
+			           AND S1.YE = A.YE
+			           AND S1.QR_DVSN_CD = A.QR_DVSN_CD-1
+			         ) END AS BK_QR_MLG_CNT
+			     , NVL(EVL_RSLT_CD,'0') AS EVL_RSLT_CD
+			     , NVL(ELY_ADT_SC,0) AS ELY_ADT_SC /* 조기가점 */
+			     , NVL(CAT_ADT_SC,0) AS CAT_ADT_SC /* 모범가점 */
+			     , NVL(SPCF_INF_ADT_SC,0) AS SPCF_INF_ADT_SC /* 특정가점 */
+			     , NVL(BRON_ADT_SC,0) AS BRON_ADT_SC /* 바론가점 */
+			  FROM TBCSPBII160L A
+			     , TBDCMACM001M B
+			     , TBDCMACM002M C
+			     , (SELECT SUM(ELY_ADT_SC)          AS ELY_ADT_SC
+                         , SUM(CAT_ADT_SC)      AS CAT_ADT_SC
+                         , SUM(SPCF_INF_ADT_SC) AS SPCF_INF_ADT_SC
+                         , SUM(BRON_ADT_SC)      AS BRON_ADT_SC
+                         , PRSR_CNB
+                      FROM (SELECT PRSR_CNB
+                                 , NVL(ELY_ADT_SC, 0) AS ELY_ADT_SC
+                                 , NVL(CAT_ADT_SC, 0) AS CAT_ADT_SC
+                                 , NVL(SPCF_INF_ADT_SC, 0) AS SPCF_INF_ADT_SC
+                                 , NVL(BRON_ADT_SC, 0) AS BRON_ADT_SC
+                              FROM TBCSPBII100M
+                             WHERE SMT_DT BETWEEN #strStrDt# AND #strEndDt#)
+                             GROUP BY PRSR_CNB) D
+			 WHERE A.CNB         = B.CNB
+			   AND A.YE          = #strYe#  
+			   AND A.QR_DVSN_CD = #strQrDvsnCd#
+			   AND B.WOK_DVSN_CD != 'DAA'
+			   AND B.DPT_CD = C.DPT_CD
+			   AND A.CNB = D.PRSR_CNB(+)
+		]]>
+		
+		<!-- 성명 -->
+		<isNotEmpty property="strNam">
+			AND B.USR_NAM LIKE #strNam# || '%'
+		</isNotEmpty>
+		
+		<!-- 전산번호 -->
+		<isNotEmpty property="strMlgCnb">
+			AND A.CNB = #strMlgCnb#
+		</isNotEmpty>
+		
+		<isNotEmpty property="strDPT_CD">
+			AND B.DPT_CD = #strDPT_CD#
+		</isNotEmpty>
+		
+		<isNotEmpty property="strMlgRmk">
+			AND A.MLG_RMK LIKE '%'||#strMlgRmk#||'%'
+		</isNotEmpty>
+		<isEqual property="strQR_SHFA_ADT_SC" compareValue="Y">
+			AND	QR_GL_SC - (MLG_TSC_CNT + CRFW_SC + CRFW_QLT_SC) <![CDATA[>]]> 0
+		</isEqual>
+		<isEqual property="strQR_SHFA_ADT_SC" compareValue="N">
+			AND	QR_GL_SC - (MLG_TSC_CNT + CRFW_SC + CRFW_QLT_SC) <![CDATA[<=]]>  0
+		</isEqual>
+		<isNotEmpty property="strDPT_TP_CD">
+			AND CASE WHEN C.DPT_CD IN ('062500','062600','062700','062800','170300','170320','071100','071300','180100','180110','100100','081100','081200','081300','081400','081500','081600','081700','081800','081900','0L0100','0L0200','0L0300') 
+		                        						THEN 'A'
+		                        				ELSE C.DPT_TP_CD END  
+			= #strDPT_TP_CD#
+		</isNotEmpty>
+		<isNotEmpty property="strGEN_ADMN_DVSN_CD">
+			AND B.GEN_ADMN_DVSN_CD = #strGEN_ADMN_DVSN_CD#
+		</isNotEmpty>
+		ORDER BY MLG_SUM_CNT DESC, A.CNB
+	</select>
+	
+	<update id="CSPBII171QRmkCopyClear" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPBII160L
+			SET		MLG_RMK = NULL
+			WHERE	YE = #strYe#
+			AND		QR_DVSN_CD = #strQrDvsnCd#
+		]]>
+	</update>
+	
+	<update id="CSPBII171QRmkCopySave" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPBII160L D1
+			SET		MLG_RMK = (	SELECT	S1.MLG_RMK
+								FROM	TBCSPBII160L S1
+								WHERE	S1.YE = CASE WHEN #strQrDvsnCd# = '1' THEN TO_NUMBER(#strYe#) -1 ELSE  TO_NUMBER(#strYe#) END
+								AND		S1.QR_DVSN_CD = DECODE(#strQrDvsnCd#, '1', '4', '2','1','3','2','4','3')
+								AND		S1.CNB = D1.CNB)
+			WHERE	YE = #strYe#
+			AND		QR_DVSN_CD = #strQrDvsnCd#
+		]]>
+		
+	</update>
+	
+	<insert id="CSPBII171QTBCSPBII190LLogInsert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO	TBCSPBII190L
+					(	SRNO
+						,YE
+						,QR_DVSN_CD
+						,CNB
+						,PET_TXT
+						,PET_DH
+						,FRT_USR_ID
+						,FNL_USR_ID
+						,FNL_DEAL_DPT_CD
+						,FNL_MNU_ID
+						,FRT_REGI_DH
+						,FNL_MDF_DH
+					)
+				VALUES	(	(	SELECT 	NVL(MAX(SRNO),0)+1
+								FROM	TBCSPBII190L
+							)
+							,#strYe#
+							,#strQrDvsnCd#
+							,#S_CNB#
+							,#strPetTxt#
+							,SYSDATE
+							,#FNL_USR_ID#
+							,#FNL_USR_ID#
+							,#FNL_DEAL_DPT_CD#
+							,#FNL_MNU_ID#
+							,SYSDATE
+							,SYSDATE
+						)
+		]]>
+	</insert>
+	
+	<select id="CSPBII171ECallFromSelect" parameterClass="paramMap" resultClass="string">
+		<![CDATA[
+			SELECT REPLACE(D2.TNB,'-','')
+							FROM TBDCMACM001M D1, TBDCMACM002M D2
+							WHERE D1.DPT_CD = D2.DPT_CD
+							AND D1.USR_ID = #FNL_USR_ID# 
+		]]>	
+	</select>
+	
+	
+	
+	<insert id="CSPBII171EMmsMsgInsert" parameterClass ="paramMap">
+		<![CDATA[
+			INSERT INTO MMS_CONTENTS_INFO 
+				 	(	CONT_SEQ
+				 		, FILE_CNT
+				 		, MMS_BODY
+				 		, MMS_SUBJECT
+				 	) 
+			VALUES (	#CONT_SEQ#
+						, 1
+						, #SMS_TXT#||''
+						, #SMS_TLT#
+					)
+		]]>
+	</insert>
+	
+	<insert id="CSPBII171EMsgInsert" parameterClass ="paramMap">
+		<![CDATA[
+			INSERT INTO MSG_DATA
+				 	(	MSG_SEQ
+				 		, CUR_STATE
+				 		, REQ_DATE
+				 		, CALL_TO
+				 		, CALL_FROM
+				 		, SMS_TXT
+				 		, MSG_TYPE
+				 		, CONT_SEQ
+				 	) 
+			VALUES (	MSG_DATA_SEQ.NEXTVAL
+						, 0
+						, SYSDATE
+						, #CALL_TO#
+						, #CALL_FROM#
+						, ''
+						, 6
+						, #CONT_SEQ#
+					)
+		]]>
+	</insert>
+	
+	<insert id="CSPBII171EInsertMSGSend" parameterClass="paramMap">
+		<![CDATA[
+			CALL NURI2_MESSAGE_SEND(#CALL_FROM#, #CALL_TO#, #SMS_TLT#, #SMS_TXT#)
+		]]>
+	</insert>
+	
+</sqlMap>

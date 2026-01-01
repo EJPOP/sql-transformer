@@ -1,0 +1,353 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.fer.dao.AEPFER017QMapper">
+    
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap" >
+            /* kr.go.bai.eip.aep.fer.dao.AEPFER017QMapper.selectMainList */
+         <![CDATA[
+			WITH BASIS_INFO AS (/* 기본정보AA : BASIS_INFO */
+			                    SELECT A1.AUD_YR                                                    AS AUD_YR       --감사년도
+			                          ,A1.AUD_NO                                                    AS AUD_NO       --감사번호
+			                          ,A1.AUD_KND_CD                                                AS AUD_KND_CD   --감사종류코드(1:재무,2:특정,3:성과,4:기관,5:확인,9:서면)
+			                          ,F_MNG_KND_AUDYRNO(A1.AUD_YR, A1.AUD_NO, A1.AUD_KND_CD, '-')  AS AUD_YR_NO    --분류번호
+			                          ,F_DPT_INFO((SELECT A2.HIRK_DPT_CD
+			                                         FROM TBDCMACM002M A2
+			                                        WHERE A2.DPT_CD =  A1.SPV_BRDV_CD), '4')        AS HIRK_DPT_NM  --국
+			                          ,F_DPT_INFO(A1.SPV_BRDV_CD, '4')                              AS AUD_DPT_NM   --과
+			                          ,A1.AUD_SBJ_NM                                                AS AUD_SBJ_NM   --감사사항명
+			                          ,F_CODE_NM('1000739', A1.AUD_KND_CD)               AS AUD_KND_NM   --종류코드2(1:민원2:국민3:공익4:국회5:심사6:재심8:손망9:판청)
+			                          ,(SELECT A6.DVSN_CD
+			                              FROM TBBADDED030L A6
+			                             WHERE A6.AUD_YR = A1.AUD_YR
+			                               AND A6.AUD_NO = A1.AUD_NO
+			                               AND A6.SRNO   = 1)                                       AS AUD_KND_CD2  --종류코드2
+			                          ,(SELECT TO_DATE(A5.REQ_NTAS_DCS_DT)
+			                              FROM TBBADDED003M A5
+			                             WHERE A5.AUD_YR = A1.AUD_YR
+			                               AND A5.AUD_NO = A1.AUD_NO)                               AS REQ_NTAS_DCS_DT  --청구국회결정일
+			                      FROM TBBADDED001M A1
+			                     WHERE 1=1
+			                       AND A1.AUD_YR = #{srcAudYr}   --PARAM
+			                       AND SUBSTR(A1.AUD_KND_CD,3,1) <> '5' --확인출장제외
+			                   ),
+			     BSRP_INFO AS (/* 출장정보BB : BSRP_INFO */
+			                    SELECT B2.REL_AUD_YR AS AUD_YR
+			                          ,B2.REL_AUD_NO AS AUD_NO
+			                          ,MIN(B2.AUD_STR_DT00) AS AUD_STR_DT00 --자료수집 시작일
+			                          ,MAX(B2.AUD_END_DT00) AS AUD_END_DT00 --자료수집 종료일
+			                          ,MIN(B2.AUD_STR_DT01) AS AUD_STR_DT01 --예비조사 시작일
+			                          ,MAX(B2.AUD_END_DT01) AS AUD_END_DT01 --예비조사 종료일
+			                          ,MIN(B2.AUD_STR_DT02) AS AUD_STR_DT02 --실지감사 시작일
+			                          ,MAX(B2.AUD_END_DT02) AS AUD_END_DT02 --실지감사 종료일
+			                          ,MIN(B2.AUD_STR_DT03) AS AUD_STR_DT03 --실지감사연장 시작일
+			                          ,MAX(B2.AUD_END_DT03) AS AUD_END_DT03 --실지감사연장 종료일
+			                          ,DECODE(MAX(B2.AUD_END_DT03),NULL,MAX(B2.AUD_END_DT02)+1,MAX(B2.AUD_END_DT03)+1) AS RETURN_DT  --귀청일
+			                          ,(SELECT SUM(F_GET_NUMBER_DAY2(B3.AUD_STR_DT,B3.AUD_END_DT,'P'))
+			                              FROM TBBADDED002M B3
+			                             WHERE B3.REL_AUD_YR = B2.REL_AUD_YR
+			                               AND B3.REL_AUD_NO = B2.REL_AUD_NO
+			                               AND B3.AUD_BZT_KND_CD IN ('02','03')) AS AUD_BSRP_SUM
+			                      FROM (SELECT B1.REL_AUD_YR,B1.REL_AUD_NO
+			                                  ,DECODE(B1.AUD_BZT_KND_CD,'00',TO_DATE(AUD_STR_DT)) AS AUD_STR_DT00
+			                                  ,DECODE(B1.AUD_BZT_KND_CD,'00',TO_DATE(AUD_END_DT)) AS AUD_END_DT00
+			                                  ,DECODE(B1.AUD_BZT_KND_CD,'01',TO_DATE(AUD_STR_DT)) AS AUD_STR_DT01
+			                                  ,DECODE(B1.AUD_BZT_KND_CD,'01',TO_DATE(AUD_END_DT)) AS AUD_END_DT01
+			                                  ,DECODE(B1.AUD_BZT_KND_CD,'02',TO_DATE(AUD_STR_DT)) AS AUD_STR_DT02
+			                                  ,DECODE(B1.AUD_BZT_KND_CD,'02',TO_DATE(AUD_END_DT)) AS AUD_END_DT02
+			                                  ,DECODE(B1.AUD_BZT_KND_CD,'03',TO_DATE(AUD_STR_DT)) AS AUD_STR_DT03
+			                                  ,DECODE(B1.AUD_BZT_KND_CD,'03',TO_DATE(AUD_END_DT)) AS AUD_END_DT03
+			                              FROM TBBADDED002M B1
+			                             WHERE B1.REL_AUD_YR = #{srcAudYr} --PARAM
+			                           ) B2
+			                     GROUP BY B2.REL_AUD_YR,B2.REL_AUD_NO
+			                    ),
+			     END_APV_INFO AS (/* 종료보고결재CC : END_APV_INFO */
+			                      SELECT C1.AUD_YR
+			                            ,C1.AUD_NO
+			                            ,MIN(DECODE(C2.APVR_PST_CD,'0013600',C2.APV_DH,''))   AS E_GWA_APV      --과장결재일
+			                            ,MIN(DECODE(C2.APVR_PST_CD,'0015800',C2.APV_DH
+			                                ,DECODE(C2.APVR_PST_CD,'0035100',C2.APV_DH
+			                                ,DECODE(C2.APVR_PST_CD,'0058100',C2.APV_DH,'')))) AS E_GUK_APV      --국장결재일(국장:0015800,단장:0035100,실장:0058100)
+			                            ,MIN(DECODE(C2.APVR_PST_CD,'0055600',C2.APV_DH
+			                                ,DECODE(C2.APVR_PST_CD,'0045900',C2.APV_DH,'')))  AS E_CHA_APV      --차장결재일(차장:0055600, 본부장:0045900)
+			                            ,MIN(DECODE(C2.APVR_PST_CD,'0055700',C2.APV_DH,''))   AS E_CHONG_APV    --총장결재일
+			                            ,MIN(DECODE(C2.APVR_PST_CD,'0067400',C2.APV_DH,''))   AS E_WON_APV      --원장결재일
+			                            ,MAX(DECODE(C1.APV_STA_CD,'30',C2.APV_DH,''))         AS E_FNL_APV      --최종결재일
+			                        FROM TBBADDED103M C1
+			                            ,TBDCMACM023H C2
+			                       WHERE 1=1
+			                         AND C1.APV_RQS_ID  = C2.APV_DOC_NO
+			                         AND C2.APVR_STA_CD <> '401'
+			                         AND C1.AUD_YR      = #{srcAudYr} --PARAM
+			                         AND C1.RPRT_CD     = 'A10500200' --종료보고서
+			                       GROUP BY C1.AUD_YR,C1.AUD_NO
+			                      ),
+			     AUD_RPRT_APV_INFO AS (/* 감사보고서(위원) 결재정보DD : AUD_RPRT_APV_INFO */
+			                           SELECT D3.AUD_YR
+			                                 ,D3.AUD_NO
+			                                 ,D3.AUD_RPRT_DVSN_CD      AS AUD_RPRT_DVSN_CD
+			                                 ,D3.DOC_ID                AS DOC_ID
+			                                 ,MIN(D3.GWA_APV)          AS GWA_APV
+			                                 ,MIN(D3.GUK_APP)          AS GUK_APP
+			                                 ,MIN(D3.GUK_APV)          AS GUK_APV
+			                                 ,MIN(D3.CHA_APP)          AS CHA_APP
+			                                 ,MIN(D3.CHA_APV)          AS CHA_APV
+			                                 ,MIN(D3.CHONG_APP)        AS CHONG_APP
+			                                 ,MIN(D3.CHONG_APV)        AS CHONG_APV
+			                                 ,MAX(D3.FNL_APV)          AS FNL_APV
+			                                 ,MIN(D3.WI_APP)           AS WI_APP
+			                                 ,MIN(D3.WI_APV)           AS WI_APV
+			                                 ,MAX(D3.SYT_TRTM_DVSN_YN) AS SYT_TRTM_DVSN_YN
+			                             FROM (
+			                                   SELECT D1.AUD_YR
+			                                         ,D1.AUD_NO
+			                                         ,D1.AUD_RPRT_DVSN_CD
+			                                         ,CASE WHEN D1.RPRT_CD = 'A10600200' THEN D1.DOC_ID
+			                                               ELSE D1.REF_ID
+			                                                END AS DOC_ID
+			                                         ,CASE WHEN D1.RPRT_CD = 'A10600200' AND D2.APVR_PST_CD = '0013600' AND D2.APVR_STA_CD <> '401' THEN D2.APV_DH
+			                                               ELSE NULL
+			                                                END AS GWA_APV   --과장결재일
+			                                         ,CASE WHEN D1.RPRT_CD = 'A10600200' AND D2.APVR_PST_CD = '0015800' THEN LAG(D2.APV_DH) OVER (ORDER BY D1.AUD_YR,D1.AUD_NO,D1.RPRT_CD,D1.AUD_RPRT_DVSN_CD,D2.SEQ)
+			                                               WHEN D1.RPRT_CD = 'A10600200' AND D2.APVR_PST_CD = '0035100' THEN LAG(D2.APV_DH) OVER (ORDER BY D1.AUD_YR,D1.AUD_NO,D1.RPRT_CD,D1.AUD_RPRT_DVSN_CD,D2.SEQ)
+			                                               WHEN D1.RPRT_CD = 'A10600200' AND D2.APVR_PST_CD = '0058100' THEN LAG(D2.APV_DH) OVER (ORDER BY D1.AUD_YR,D1.AUD_NO,D1.RPRT_CD,D1.AUD_RPRT_DVSN_CD,D2.SEQ)
+			                                               ELSE NULL
+			                                                END AS GUK_APP   --국단실장접수일
+			                                         ,CASE WHEN D1.RPRT_CD = 'A10600200' AND D2.APVR_PST_CD = '0015800' AND D2.APVR_STA_CD <> '401' THEN D2.APV_DH
+			                                               WHEN D1.RPRT_CD = 'A10600200' AND D2.APVR_PST_CD = '0035100' AND D2.APVR_STA_CD <> '401' THEN D2.APV_DH
+			                                               WHEN D1.RPRT_CD = 'A10600200' AND D2.APVR_PST_CD = '0058100' AND D2.APVR_STA_CD <> '401' THEN D2.APV_DH
+			                                               ELSE NULL
+			                                                END AS GUK_APV   --국단실장결재일
+			                                         ,CASE WHEN D1.RPRT_CD = 'A10600200' AND D2.APVR_PST_CD = '0055600' THEN LAG(D2.APV_DH) OVER (ORDER BY D1.AUD_YR,D1.AUD_NO,D1.RPRT_CD,D1.AUD_RPRT_DVSN_CD,D2.SEQ)
+			                                               WHEN D1.RPRT_CD = 'A10600200' AND D2.APVR_PST_CD = '0045900' THEN LAG(D2.APV_DH) OVER (ORDER BY D1.AUD_YR,D1.AUD_NO,D1.RPRT_CD,D1.AUD_RPRT_DVSN_CD,D2.SEQ)
+			                                               ELSE NULL
+			                                                END AS CHA_APP   --차장,본부장 접수일
+			                                         ,CASE WHEN D1.RPRT_CD = 'A10600200' AND D2.APVR_PST_CD = '0055600' AND D2.APVR_STA_CD <> '401' THEN D2.APV_DH
+			                                               WHEN D1.RPRT_CD = 'A10600200' AND D2.APVR_PST_CD = '0045900' AND D2.APVR_STA_CD <> '401' THEN D2.APV_DH
+			                                               ELSE NULL
+			                                                END AS CHA_APV   --차장,본부장 결재일
+			                                         ,CASE WHEN D1.RPRT_CD = 'A10600200' AND D2.APVR_PST_CD = '0055700' THEN LAG(D2.APV_DH) OVER (ORDER BY D1.AUD_YR,D1.AUD_NO,D1.RPRT_CD,D1.AUD_RPRT_DVSN_CD,D2.SEQ)
+			                                               ELSE NULL
+			                                                END AS CHONG_APP --사무총장접수일
+			                                         ,CASE WHEN D1.RPRT_CD = 'A10600200' AND D2.APVR_PST_CD = '0055700' AND D2.APVR_STA_CD <> '401' THEN D2.APV_DH
+			                                               ELSE NULL
+			                                                END AS CHONG_APV --사무총장결재일
+			                                         ,CASE WHEN D1.RPRT_CD = 'A10600200' AND D1.APV_STA_CD = '30' THEN D2.APV_DH
+			                                               ELSE NULL
+			                                                END AS FNL_APV   --최종결재일
+			                                         ,CASE WHEN D1.RPRT_CD = 'A10700100' AND D2.APVR_PST_CD = '0010600' THEN LAG(D2.APV_DH) OVER (ORDER BY D1.AUD_YR,D1.AUD_NO,D1.RPRT_CD,D1.AUD_RPRT_DVSN_CD,D2.SEQ,D2.APV_DH DESC)
+			                                               ELSE NULL
+			                                                END AS WI_APP    --주심위원접수일
+			                                         ,CASE WHEN D1.RPRT_CD = 'A10700100' AND D2.APVR_PST_CD = '0010600' AND D2.APVR_STA_CD <> '401' THEN D2.APV_DH
+			                                               ELSE NULL
+			                                                END AS WI_APV    --주심위원결재일
+			                                         ,D1.SYT_TRTM_DVSN_YN
+			                                     FROM TBBADDED103M D1
+			                                         ,TBDCMACM023H D2
+			                                    WHERE D1.APV_RQS_ID = D2.APV_DOC_NO
+			                                      AND D1.AUD_YR     = #{srcAudYr} --PARAM
+			                                      AND D1.AUD_RPRT_DVSN_CD IN ('10','20','30','40')
+			                                      AND D1.RPRT_CD          IN ('A10600200','A10700100') --감사보고서,주심위원설명자료
+			                                      AND D2.APVR_KND_CD      IN ('2','3','9')   --공석추가
+			                                    ORDER BY D1.AUD_YR,D1.AUD_NO,D1.RPRT_CD,D1.AUD_RPRT_DVSN_CD,D2.SEQ/*D2.APV_SNO,D2.APVR_SEQ*/
+			                                   ) D3
+			                            GROUP BY D3.AUD_YR,D3.AUD_NO,D3.AUD_RPRT_DVSN_CD,D3.DOC_ID
+			                           ),
+			     AUD_RPRT_SR_INFO AS (/* 감사보고서 품질접수발신일EE : AUD_RPRT_SR_INFO */
+			                          SELECT E1.AUD_YR
+			                                ,E1.AUD_NO
+			                                ,E1.DOC_ID
+			                                ,MAX(DECODE(E1.RPRT_CD,'A10600200',E1.RCPT_DH)) AS RCPT_DH
+			                                ,MAX(DECODE(E3.APV_STA_CD,'30',(SELECT MAX(E4.APV_DH)
+			                                                                  FROM TBDCMACM023H E4
+			                                                                 WHERE E4.APV_DOC_NO = E3.APV_RQS_ID
+			                                                                   AND E4.APVR_STA_CD <> '201'
+			                                                                   AND E4.APVR_STA_CD LIKE '20%'
+			                                                               ),NULL)) AS SND_DH
+			                            FROM TBBADDED111M E1
+			                                ,TBBADDED145M E2
+			                                ,TBBADDED103M E3
+			                           WHERE 1=1
+			                             AND E1.AUD_YR  = E2.AUD_YR
+			                             AND E1.AUD_NO  = E2.AUD_NO
+			                             AND E1.DOC_ID  = E2.DOC_ID
+			                             AND E1.AUD_YR  = E3.AUD_YR
+			                             AND E1.AUD_NO  = E3.AUD_NO
+			                             AND E2.AFF_SNO = E3.REF_ID
+			                             AND E1.AUD_YR           = #{srcAudYr}       --PARAM
+			                             --AND E1.AUD_RPRT_DVSN_CD = '10'         --감사보고서구분코드(10:본안,20:우선,30:별도,40:재부의)
+			                             AND E1.RPRT_CD          = 'A10600200'  --감사보고서
+			                             AND E2.APVR_CD          = '0013600'    --과장사건
+			                             AND E3.RPRT_CD          = 'A10600500'  --처리안검토의견서
+			                           GROUP BY E1.AUD_YR,E1.AUD_NO,E1.DOC_ID
+			                         ),
+			     CHF_CMTR_INFO AS (/* 주심위원FF : CHF_CMTR_INFO */
+			                        SELECT B.AUD_YR
+			                              ,B.AUD_NO
+                                          ,B.DOC_ID
+			                              ,B.CHF_CMTR_NM||DECODE(B.CHF_CMTR_CNT,0,'',' 외'||B.CHF_CMTR_CNT) AS CHF_CMTR_NM
+			                          FROM (SELECT A.AUD_YR
+			                                      ,A.AUD_NO
+                                                  ,A.DOC_ID
+			                                      ,F_USR_INFO(A.CHF_CMTR_CNB,'2') AS CHF_CMTR_NM
+			                                      ,DECODE(CHF_CMTR1_CNB, NULL, 0, 1)
+			                                      +DECODE(CHF_CMTR2_CNB, NULL, 0, 1)
+			                                      +DECODE(CHF_CMTR3_CNB, NULL, 0, 1)
+			                                      +DECODE(CHF_CMTR4_CNB, NULL, 0, 1)
+			                                      +DECODE(CHF_CMTR5_CNB, NULL, 0, 1) AS CHF_CMTR_CNT
+			                                  FROM TBBADDED116L A
+			                                 WHERE 1=1
+			                                   AND A.AUD_YR = #{srcAudYr} --PARAM
+			                                   AND A.TASK_DVSN_CD = '9'
+			                                   AND A.SRNO = (SELECT MAX(C.SRNO) FROM TBBADDED116L C
+			                                                  WHERE C.AUD_YR = A.AUD_YR
+			                                                    AND C.AUD_NO = A.AUD_NO
+                                                                AND C.DOC_ID = A.DOC_ID
+			                                                )
+			                               ) B
+			                      ),
+			     AFF_CNT_INFO AS (/* 사건정보GG : AFF_CNT_INFO */
+			                      SELECT A.AUD_YR
+			                            ,A.AUD_NO
+			                            ,A.DOC_ID
+			                            ,SUM(CASE WHEN A.FNL_YN= 'Y' AND A.REFER_DVSN_CD = 'D10' THEN 1 ELSE 0 END) AS REFER_DVSN_D10
+			                            ,SUM(CASE WHEN A.FNL_YN= 'Y' AND A.REFER_DVSN_CD = 'E10' THEN 1 ELSE 0 END) AS REFER_DVSN_E10
+			                            ,MIN(C.SBCN_DY) AS SBCN_DY
+			                            ,MIN(E.ENF_DT)  AS ENF_DT
+			                        FROM TBBADDED145M A
+			                            ,TBBADDED146M B
+			                            ,TBBADDED113M C
+			                            ,(SELECT A7.AUD_YR
+			                                    ,A7.AUD_NO
+			                                    ,'A1070' AS APVR_CD
+			                                    ,A7.AUD_DSP_RQ_SNO
+			                                    ,A3.ENF_DT
+			                                FROM TBBADEAR001M A7
+			                                    ,TBBADEAR002D A3
+			                               WHERE A7.AUD_YR      = A3.AUD_YR
+			                                 AND A7.AUD_NO      = A3.AUD_NO
+			                                 AND A7.DSP_RQ_SNO  = A3.DSP_RQ_SNO
+			                             ) E
+			                       WHERE 1=1
+			                         AND A.AUD_YR      = B.AUD_YR
+			                         AND A.AUD_NO      = B.AUD_NO
+			                         AND A.AUD_STEP_CD = B.AUD_STEP_CD
+			                         AND A.DOC_ID      = B.DOC_ID
+			                         AND A.APVR_CD     = B.APVR_CD
+			                         AND A.AFF_SNO     = B.AFF_SNO
+			                         AND B.DSP_RQ_CD NOT IN ('390','391','395','396','490','495','730')
+			                         AND B.AUD_YR      = C.AUD_YR(+)
+			                         AND B.AUD_NO      = C.AUD_NO(+)
+			                         AND B.DOC_ID      = C.DOC_ID(+)
+			                         AND B.APVR_CD     = C.APVR_CD(+)
+			                         AND B.AFF_SNO     = C.AFF_SNO(+)
+			                         AND B.DSP_RQ_SNO  = C.DSP_RQ_SNO(+)
+			                         AND B.AUD_YR      = E.AUD_YR(+)
+			                         AND B.AUD_NO      = E.AUD_NO(+)
+			                         AND B.APVR_CD     = E.APVR_CD(+)
+			                         AND B.DSP_RQ_SNO  = E.AUD_DSP_RQ_SNO(+)
+			                         AND A.AUD_YR = #{srcAudYr}
+			                       GROUP BY A.AUD_YR,A.AUD_NO,A.DOC_ID
+			                       ORDER BY A.AUD_YR,A.AUD_NO,A.DOC_ID
+			                     )
+			SELECT ROW_NUMBER() OVER(ORDER BY AA.AUD_KND_CD,AA.AUD_YR_NO,DD.AUD_RPRT_DVSN_CD) AS ROW_NUM 
+				  ,AA.AUD_YR
+			      ,AA.AUD_NO
+			      ,AA.AUD_YR_NO
+			      ,AA.HIRK_DPT_NM
+			      ,AA.AUD_DPT_NM
+			      ,AA.AUD_SBJ_NM
+			      ,AA.AUD_KND_NM
+			      ,F_CODE_NM('1000742', AA.AUD_KND_CD2) AS AUD_KND_CD2
+			      ,AA.REQ_NTAS_DCS_DT
+			      ,DECODE(AA.AUD_KND_CD2,'2',AA.REQ_NTAS_DCS_DT+59,
+			       DECODE(AA.AUD_KND_CD2,'3',ADD_MONTHS(AA.REQ_NTAS_DCS_DT,6),
+			       DECODE(AA.AUD_KND_CD2,'4',ADD_MONTHS(AA.REQ_NTAS_DCS_DT,5),'')))                 AS AUD_DVSN_PROC_DT --청구국회처리기한(2:국민3:공익4:국회)
+			      ,TO_CHAR(BB.AUD_STR_DT01,'YY-MM-DD')                                              AS AUD_STR_DT01     --예비조사시작
+			      ,TO_CHAR(BB.AUD_END_DT01,'YY-MM-DD')                                              AS AUD_END_DT01     --예비조사종료
+			      ,TO_CHAR(BB.AUD_STR_DT02,'YY-MM-DD')                                              AS AUD_STR_DT02     --실지감사시작
+			      ,TO_CHAR(DECODE(BB.AUD_END_DT03,NULL,BB.AUD_END_DT02,BB.AUD_END_DT03),'YY-MM-DD') AS AUD_END_DT03     --실지감사종료
+			      ,BB.AUD_BSRP_SUM                                                                  AS AUD_BSRP_DT      --실지감사일수
+			      ,TO_CHAR(BB.RETURN_DT,'YY-MM-DD')                                                 AS RETURN_DT        --귀청일
+			      ,TO_CHAR(CC.E_CHA_APV,'YY-MM-DD')                                                 AS E_CHA_APV        --종료보고차장결재
+			      ,TO_CHAR(CC.E_CHONG_APV,'YY-MM-DD')                                               AS E_CHONG_APV      --종료보고총장결재
+			      ,TO_CHAR(CC.E_FNL_APV,'YY-MM-DD')                                                 AS E_FNL_APV        --종료보고최종결재
+			      ,F_CODE_NM('1000788', DD.AUD_RPRT_DVSN_CD)                                        AS AUD_RPRT_DVSN_CD --보고서구분
+			      ,DECODE(DD.SYT_TRTM_DVSN_YN,'Y','종합','')                                        AS SYT_TRTM_DVSN    --처리안구분
+			      ,TO_CHAR(DD.GWA_APV,'YY-MM-DD')                                                   AS GWA_APV          --과장결재
+			      ,TO_CHAR(EE.RCPT_DH,'YY-MM-DD')                                                   AS RCPT_DH          --품질접수
+			      ,TO_CHAR(EE.SND_DH,'YY-MM-DD')                                                    AS SND_DH           --품질종료
+			      ,TO_CHAR(EE.RCPT_DH,'YY-MM-DD')                                                   AS GUK_APP          --국장접수
+			      ,TO_CHAR(DD.GUK_APV,'YY-MM-DD')                                                   AS GUK_APV          --국장결재
+			      ,TO_CHAR(DD.CHA_APP,'YY-MM-DD')                                                   AS CHA_APP          --차장접수
+			      ,TO_CHAR(DD.CHA_APV,'YY-MM-DD')                                                   AS CHA_APV          --차장결재
+			      ,TO_CHAR(DD.CHONG_APP,'YY-MM-DD')                                                 AS CHONG_APP        --총장접수
+			      ,TO_CHAR(DD.CHONG_APV,'YY-MM-DD')                                                 AS CHONG_APV        --총장결재
+			      ,TO_CHAR(DD.WI_APP,'YY-MM-DD')                                                    AS WI_APP           --위원접수
+			      ,TO_CHAR(DD.WI_APV,'YY-MM-DD')                                                    AS WI_APV           --위원결재
+			      ,FF.CHF_CMTR_NM                                                                   AS CHF_CMTR_NM      --주심위원
+			      ,GG.REFER_DVSN_D10                                                                AS REFER_D10_CNT    --부의사건수
+			      ,GG.REFER_DVSN_E10                                                                AS REFER_E10_CNT    --위임사건수
+			      ,TO_CHAR(TO_DATE(GG.SBCN_DY),'YY-MM-DD')                                          AS SBCN_DY          --최초부의일
+			      ,TO_CHAR(TO_DATE(GG.ENF_DT),'YY-MM-DD')                                           AS ENF_DT           --최초시행일
+			      ,CASE WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '1' THEN TO_CHAR(TO_DATE(F_GET_NEXT_WORK_DT(BB.RETURN_DT+1,5)),'YY-MM-DD') --재무
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '2' THEN TO_CHAR(TO_DATE(F_GET_NEXT_WORK_DT(BB.RETURN_DT+1,8)),'YY-MM-DD') --특정
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '3' THEN TO_CHAR(TO_DATE(F_GET_NEXT_WORK_DT(BB.RETURN_DT+1,8)),'YY-MM-DD') --성과
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '4' THEN TO_CHAR(TO_DATE(F_GET_NEXT_WORK_DT(BB.RETURN_DT+1,5)),'YY-MM-DD') --기관
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '9' THEN TO_CHAR(TO_DATE(F_GET_NEXT_WORK_DT(BB.RETURN_DT+1,5)),'YY-MM-DD') --서면=기관
+			            ELSE NULL END AS END_APV_DEADLINE    --종료보고 처리기한일
+			      ,CASE WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '1' THEN TO_CHAR(BB.RETURN_DT-1+14+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)),'YY-MM-DD')          --재무
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '2' THEN TO_CHAR(BB.RETURN_DT-1+28+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)),'YY-MM-DD')          --특정
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '3' THEN TO_CHAR(BB.RETURN_DT-1+50+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)),'YY-MM-DD')          --성과
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '4' THEN TO_CHAR(BB.RETURN_DT-1+18+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)),'YY-MM-DD')          --기관
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '9' THEN TO_CHAR(BB.RETURN_DT-1+18+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)),'YY-MM-DD')          --서면=기관
+			            ELSE NULL END AS GWA_APV_DEADLINE    --과장 처리기한일
+			      ,CASE WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '1' THEN TO_CHAR(BB.RETURN_DT-1+14+10+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)),'YY-MM-DD')       --재무
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '2' THEN TO_CHAR(BB.RETURN_DT-1+28+12+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)),'YY-MM-DD')       --특정
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '3' THEN TO_CHAR(BB.RETURN_DT-1+50+15+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)),'YY-MM-DD')       --성과
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '4' THEN TO_CHAR(BB.RETURN_DT-1+18+10+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)),'YY-MM-DD')       --기관
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '9' THEN TO_CHAR(BB.RETURN_DT-1+18+10+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)),'YY-MM-DD')       --서면=기관
+			            ELSE NULL END AS GUK_APV_DEADLINE    --국장 처리기한일
+			      ,CASE WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '1' THEN TO_CHAR(BB.RETURN_DT-1+14+10+2+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)) ,'YY-MM-DD')    --재무
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '2' THEN TO_CHAR(BB.RETURN_DT-1+28+12+10+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)),'YY-MM-DD')    --특정
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '3' THEN TO_CHAR(BB.RETURN_DT-1+50+15+10+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)),'YY-MM-DD')    --성과
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '4' THEN TO_CHAR(BB.RETURN_DT-1+18+10+5+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)) ,'YY-MM-DD')    --기관
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '9' THEN TO_CHAR(BB.RETURN_DT-1+18+10+5+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)) ,'YY-MM-DD')    --서면=기관
+			            ELSE NULL END AS CHA_APV_DEADLINE    --차장 처리기한일
+			      ,CASE WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '1' THEN TO_CHAR(BB.RETURN_DT-1+14+10+2+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)) ,'YY-MM-DD')    --재무
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '2' THEN TO_CHAR(BB.RETURN_DT-1+28+12+10+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)),'YY-MM-DD')    --특정
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '3' THEN TO_CHAR(BB.RETURN_DT-1+50+15+10+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)),'YY-MM-DD')    --성과
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '4' THEN TO_CHAR(BB.RETURN_DT-1+18+10+5+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)) ,'YY-MM-DD')    --기관
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '9' THEN TO_CHAR(BB.RETURN_DT-1+18+10+5+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)) ,'YY-MM-DD')    --서면=기관
+			            ELSE NULL END AS CHONG_APV_DEADLINE  --총장 처리기한일
+			      ,CASE WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '1' THEN TO_CHAR(BB.RETURN_DT-1+14+10+2+3+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0))  ,'YY-MM-DD') --재무
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '2' THEN TO_CHAR(BB.RETURN_DT-1+28+12+10+20+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)),'YY-MM-DD') --특정
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '3' THEN TO_CHAR(BB.RETURN_DT-1+50+15+10+25+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)),'YY-MM-DD') --성과
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '4' THEN TO_CHAR(BB.RETURN_DT-1+18+10+5+15+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)) ,'YY-MM-DD') --기관
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '9' THEN TO_CHAR(BB.RETURN_DT-1+18+10+5+15+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)) ,'YY-MM-DD') --서면=기관
+			            ELSE NULL END AS WI_APV_DEADLINE     --위원 처리기한일
+			      ,CASE WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '1' THEN TO_CHAR(BB.RETURN_DT-1+14+10+2+3+1+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0))  ,'YY-MM-DD') --재무
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '2' THEN TO_CHAR(BB.RETURN_DT-1+28+12+10+20+3+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)),'YY-MM-DD') --특정
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '3' THEN TO_CHAR(BB.RETURN_DT-1+50+15+10+25+3+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)),'YY-MM-DD') --성과
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '4' THEN TO_CHAR(BB.RETURN_DT-1+18+10+5+15+2+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)) ,'YY-MM-DD') --기관
+			            WHEN SUBSTR(AA.AUD_KND_CD,3,1) = '9' THEN TO_CHAR(BB.RETURN_DT-1+18+10+5+15+2+(DECODE(DD.SYT_TRTM_DVSN_YN,'Y',5,0)) ,'YY-MM-DD') --서면=기관
+			            ELSE NULL END AS FINAL_APV_DEADLINE     --최종 처리기한일
+			  FROM BASIS_INFO        AA --기본정보AA
+			      ,BSRP_INFO         BB --출장정보BB
+			      ,END_APV_INFO      CC --종료보고결재CC
+			      ,AUD_RPRT_APV_INFO DD --감사보고서(위원) 결재정보DD
+			      ,AUD_RPRT_SR_INFO  EE --감사보고서 품질접수발신일EE
+			      ,CHF_CMTR_INFO     FF --주심위원FF
+			      ,AFF_CNT_INFO      GG --사건수GG
+			 WHERE AA.AUD_YR = BB.AUD_YR(+) AND AA.AUD_NO = BB.AUD_NO(+)
+			   AND AA.AUD_YR = CC.AUD_YR(+) AND AA.AUD_NO = CC.AUD_NO(+)
+			   AND AA.AUD_YR = DD.AUD_YR(+) AND AA.AUD_NO = DD.AUD_NO(+)
+			   AND DD.AUD_YR = EE.AUD_YR(+) AND DD.AUD_NO = EE.AUD_NO(+) AND DD.DOC_ID = EE.DOC_ID(+)
+			   AND AA.AUD_YR = FF.AUD_YR(+) AND AA.AUD_NO = FF.AUD_NO(+) AND DD.DOC_ID = FF.DOC_ID(+)
+			   AND DD.AUD_YR = GG.AUD_YR(+) AND DD.AUD_NO = GG.AUD_NO(+) AND DD.DOC_ID = GG.DOC_ID(+)
+			 ORDER BY AA.AUD_KND_CD,AA.AUD_YR_NO,DD.AUD_RPRT_DVSN_CD
+			 ]]>
+    </select>
+    
+</mapper> 

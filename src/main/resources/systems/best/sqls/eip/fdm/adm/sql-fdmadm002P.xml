@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.fdm.adm.dao.FDMADM002PMapper">
+	
+	<select id="getAudDocTmpData" parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.fdm.adm.dao.FDMADM002PMapper.getAudDocTmpData*/
+		SELECT D1.AUD_DOC_CD AS AUD_DOC_CD,
+			   DTIL_AUD_DOC_NO,
+			   DTIL_AUD_DOC_NM,
+			   (DECODE(#{docType},'HWP',HWP_DOC_ID,DOC_ID)) AS DOC_ID,
+			   DOC_KND_CD,
+			   HIDDEN_YN,
+			   APV_WAY_CD,
+			   AUD_RPRT_TYPE_CD,
+               IDVT_DSP_RQ_PLAN_CD
+		  FROM TBFDMADM001M D1, TBFDMADM002M D2
+		 WHERE D1.AUD_DOC_CD = D2.AUD_DOC_CD
+		   AND D1.AUD_DOC_CD = #{audDocCd}
+		   AND DTIL_AUD_DOC_NO = #{dtilAudDocNo}
+	</select>
+		
+	<insert id="insertFDMADM002M" parameterType="paramMap">
+		/* kr.go.bai.eip.fdm.adm.dao.FDMADM002PMapper.insertFDMADM002M*/
+		INSERT INTO TBFDMADM002M (AUD_DOC_CD,
+								  DTIL_AUD_DOC_NO,
+								  DTIL_AUD_DOC_NM,
+								  DOC_ID,
+								  HWP_DOC_ID,
+								  DOC_KND_CD,
+								  HIDDEN_YN,
+								  AUD_RPRT_TYPE_CD,
+                                  IDVT_DSP_RQ_PLAN_CD,
+								  FRT_USR_ID,
+								  FNL_USR_ID,
+								  FNL_DEAL_DPT_CD,
+								  FNL_MNU_ID,
+								  FRT_REGI_DH,
+								  FNL_MDF_DH) 
+						  VALUES (#{audDocCd},
+						  		  (SELECT NVL(MAX(DTIL_AUD_DOC_NO),0)+1 FROM TBFDMADM002M),
+				  		          #{dtilAudDocNm},
+				  		          (DECODE(#{docType},'ODT',#{docId},'')),
+				  		          (DECODE(#{docType},'HWP',#{docId},'')),
+				  		          #{docKndCd},
+				  		          #{hiddenYn},
+				  		          #{audRprtTypeCd},
+                                  #{idvtDspRqPlanCd},
+				  		          #{usrId},    /*세션정보*/
+                                  #{usrId},
+                                  #{dptCd},
+                                  #{menuNo},
+                                  SYSDATE,
+                                  SYSDATE)
+	</insert>
+	
+	<update id="updateFDMADM002M" parameterType="paramMap">
+		/* kr.go.bai.eip.fdm.adm.dao.FDMADM002PMapper.updateFDMADM002M*/
+		UPDATE TBFDMADM002M
+		   SET DTIL_AUD_DOC_NM = #{dtilAudDocNm}		       
+		       ,DOC_KND_CD = #{docKndCd}
+			   ,HIDDEN_YN = #{hiddenYn}
+			   <if test="audRprtTypeCd != null and audRprtTypeCd != ''">
+			   ,AUD_RPRT_TYPE_CD = #{audRprtTypeCd}
+			   </if>
+               <if test="idvtDspRqPlanCd != null and idvtDspRqPlanCd != ''">
+               ,IDVT_DSP_RQ_PLAN_CD = #{idvtDspRqPlanCd}
+               </if>
+               <if test="docType == 'ODT'">
+               ,DOC_ID = DECODE(DOC_ID,NULL,#{docId},DOC_ID)
+               </if>
+               <if test="docType == 'HWP'">
+               ,HWP_DOC_ID = DECODE(HWP_DOC_ID,NULL,#{docId},HWP_DOC_ID)
+               </if> 
+               ,FNL_MDF_DH = SYSDATE
+               ,FNL_USR_ID = #{usrId}
+               ,FNL_DEAL_DPT_CD =#{dptCd}
+		 WHERE AUD_DOC_CD = #{audDocCd}
+		   AND DTIL_AUD_DOC_NO = #{dtilAudDocNo}     
+	</update>
+    
+    <select id="getAudDocCount" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.fdm.adm.dao.FDMADM002PMapper.getAudDocCount*/
+        SELECT DOC_KND_CD,
+			   COUNT(DOC_KND_CD) AS DOC_CNT
+          FROM TBFDMADM002M D2
+         WHERE AUD_DOC_CD = #{audDocCd}
+      GROUP BY DOC_KND_CD
+    </select>
+    
+    <select id="getDrftDocData" parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.fdm.adm.dao.FDMADM002PMapper.getDrftDocData*/
+		SELECT * FROM (
+		SELECT A.AUD_DOC_CD        -- 감사문서코드
+		     , A.DTIL_AUD_DOC_NO   -- 상세감사문서번호
+		     , A.DRFT_DOC_NO	   -- 기안문서번호
+		     , A.DRFT_DOC_NM	   -- 기안문명
+		     , A.DOC_ID	           -- 문서ID
+		  FROM TBFDMADM003M A
+		     , TBFDMADM002M B
+		 WHERE A.AUD_DOC_CD = B.AUD_DOC_CD
+		   AND A.DTIL_AUD_DOC_NO = B.DTIL_AUD_DOC_NO
+		   AND A.AUD_DOC_CD = #{audDocCd}
+		  <if test="dtilAudDocNo != null and dtilAudDocNo != ''">
+           AND A.DTIL_AUD_DOC_NO = #{dtilAudDocNo}
+          </if>
+		  <if test="drftDocNo != null and drftDocNo != ''">
+           AND A.DRFT_DOC_NO = #{drftDocNo}
+          </if>
+          <if test="templateDocId != null and templateDocId != ''">
+           AND (B.DOC_ID = #{templateDocId} OR B.HWP_DOC_ID = #{templateDocId} )
+          </if>
+           
+         ORDER BY 
+               A.DRFT_DOC_NO DESC)
+         WHERE ROWNUM = 1
+	</select>
+	
+	<select id="getDefaultDrftDocData" parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.fdm.adm.dao.FDMADM002PMapper.getDefaultDrftDocData*/
+		SELECT *
+  		 FROM (
+		SELECT A.AUD_DOC_CD        -- 감사문서코드
+		     , A.DTIL_AUD_DOC_NO   -- 상세감사문서번호
+		     , A.DRFT_DOC_NO	   -- 기안문서번호
+		     , A.DRFT_DOC_NM	   -- 기안문명
+		     , A.DOC_ID	           -- 문서ID
+		  FROM TBFDMADM003M A
+		     , TBFDMADM002M B
+		 WHERE A.AUD_DOC_CD = B.AUD_DOC_CD
+		   AND A.DTIL_AUD_DOC_NO = B.DTIL_AUD_DOC_NO
+		   AND A.AUD_DOC_CD = 'A00000002'
+         ORDER BY 
+               A.DRFT_DOC_NO DESC)
+         WHERE ROWNUM = 1
+	</select>
+	
+	<insert id="insertFDMADM003M" parameterType="paramMap">
+		/* kr.go.bai.eip.fdm.adm.dao.FDMADM002PMapper.insertFDMADM003M*/
+		INSERT 
+		  INTO TBFDMADM003M 
+		     ( AUD_DOC_CD        -- 감사문서코드
+		     , DTIL_AUD_DOC_NO   -- 상세감사문서번호
+		     , DRFT_DOC_NO	     -- 기안문서번호
+		     , DRFT_DOC_NM	     -- 기안문명
+		     , DOC_ID	         -- 문서ID
+			 , FRT_USR_ID        -- 최초사용자ID
+		     , FNL_USR_ID		 -- 최종사용자ID
+			 , FNL_DEAL_DPT_CD	 -- 최종거래부서코드
+			 , FNL_MNU_ID        -- 최종메뉴ID
+			 , FRT_REGI_DH       -- 최초등록일시
+			 , FNL_MDF_DH        -- 최종수정일시
+			 , RULE_TXT            -- 관련규정
+			 ) 
+	    VALUES 
+	         ( #{audDocCd}
+	         , #{dtilAudDocNo}
+			 , (SELECT NVL(MAX(A.DRFT_DOC_NO),0)+1 FROM TBFDMADM003M A WHERE A.AUD_DOC_CD = #{audDocCd} AND A.DTIL_AUD_DOC_NO = #{dtilAudDocNo} )
+			 , #{drftDocNm}
+			 , #{docId}
+             , #{usrId}    /*세션정보*/
+             , #{usrId}
+             , #{dptCd}
+             , #{menuNo}
+             , SYSDATE
+             , SYSDATE
+             , #{ruleTxt}
+             )
+	</insert>
+	
+	<update id="updateFDMADM003M" parameterType="paramMap">
+		/* kr.go.bai.eip.fdm.adm.dao.FDMADM002PMapper.updateFDMADM003M*/
+		UPDATE TBFDMADM003M
+		   SET DRFT_DOC_NM = #{drftDocNm}
+		     , FNL_MDF_DH = SYSDATE
+             , FNL_USR_ID = #{usrId}
+             , FNL_DEAL_DPT_CD =#{dptCd}
+             , RULE_TXT = #{ruleTxt}
+		 WHERE AUD_DOC_CD = #{audDocCd}
+		   AND DTIL_AUD_DOC_NO = #{dtilAudDocNo} 
+		   AND DRFT_DOC_NO = #{drftDocNo}     
+	</update>
+	
+	<select id="getDrftDoc" parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.fdm.adm.dao.FDMADM002PMapper.getDrftDoc*/
+		SELECT D1.AUD_DOC_CD        -- 감사문서코드
+		     , D1.DTIL_AUD_DOC_NO   -- 상세감사문서번호
+		     , D1.DRFT_DOC_NO	    -- 기안문서번호
+		     , D1.DRFT_DOC_NM	    -- 기안문명
+		     , D1.DOC_ID	        -- 문서ID
+		     , D1.RULE_TXT       -- 관련규정
+		  FROM TBFDMADM003M D1
+		 WHERE D1.AUD_DOC_CD = #{audDocCd}
+		   AND D1.DTIL_AUD_DOC_NO = #{dtilAudDocNo}
+		   AND D1.DRFT_DOC_NO = #{drftDocNo}
+	</select>
+
+</mapper> 

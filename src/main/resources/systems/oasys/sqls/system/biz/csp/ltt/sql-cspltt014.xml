@@ -1,0 +1,183 @@
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd" >
+<sqlMap namespace="csp/ltt/014">
+
+	<!-- 함께합시다 상세 정보 조회 -->
+	<resultMap class="java.util.HashMap" id="CSPLTT014EMainSelect">
+			<result property="TK_YE" 			 	column="TK_YE" 			    	jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="TK_SLN" 			 	column="TK_SLN" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="USR_NM" 			 	column="USR_NM" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="DPT_NM" 	 		 	column="DPT_NM" 	     		jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="SMT_DT" 	 			column="SMT_DT" 	     		jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="ACP_NO" 				column="ACP_NO" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="OPEN_YN" 		 		column="OPEN_YN" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="OPEN_DT" 			 	column="OPEN_DT" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="TIT_NM" 				column="TIT_NM" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="PRB_TXT" 			 	column="PRB_TXT" 				jdbcType="CLOB" 	javaType="java.lang.String" />
+			<result property="EXAM_TXT" 		 	column="EXAM_TXT" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="RCMD_YN" 		 		column="RCMD_YN" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="DOC_ID" 		 		column="DOC_ID" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="RCMR_CNT" 		 	column="RCMR_CNT" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="SRCH_CNT" 		 	column="SRCH_CNT" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="DCMR_CNT" 		 	column="DCMR_CNT" 		    	jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="CMMT_CNT" 		 	column="CMMT_CNT" 			    jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="BTN_ENB_YN" 		 	column="BTN_ENB_YN" 			jdbcType="VARCHAR2" javaType="java.lang.String" />
+	</resultMap>
+ 
+ 	<select id="CSPLTT014EMainSelect" parameterClass="paramMap" resultMap="CSPLTT014EMainSelect">
+		<![CDATA[
+			SELECT /* csp.ltt.service.impl.CSPLTT014EServiceImpl.CSPLTT014EMainSelect */
+			       A.TK_YE    /* 생각연도 */
+			     , A.TK_SLN   /* 생각연번 */
+			     , CASE WHEN NAM_OPEN_YN = 'N' THEN '익명'
+			     		WHEN DGUARD.DECRYPT('TB_ENC','EAN', A.CNB) = '3223' THEN ''  /* 요청에 의한 하드코딩 이름숨김 */
+			     		WHEN TK_YE = '2022' AND TK_SLN IN ('1','25','38') THEN ''  /* 요청에 의한 하드코딩 이름숨김 */
+			     		WHEN NAM_OPEN_YN = 'Y' THEN F_USR_INFO(DGUARD.DECRYPT('TB_ENC','EAN',  A.CNB), 2)			            
+			            ELSE '익명'
+			             END AS USR_NM /* 등록자명 */
+			     , CASE WHEN NAM_OPEN_YN = 'Y' THEN F_DPT_INFO(DGUARD.DECRYPT('TB_ENC','EAN',  A.DPT_CD), 1)
+			            WHEN NAM_OPEN_YN = 'N' THEN ''
+			            ELSE ''
+			             END AS DPT_NM /* 부서명 */
+			     , A.SMT_DT   /* 제출일 */
+			     , A.ACP_YE || A.ACP_NO AS ACP_NO /* 접수번호 */
+			     , A.OPEN_YN  /* 글공개여부 */
+			     , A.OPEN_DT  /* 공개일 */
+			     , A.TIT_NM   /* 제목명 */
+			     , (SELECT COUNT(*) FROM TBCSPLTT003M WHERE TK_YE = A.TK_YE AND TK_SLN = A.TK_SLN AND RCMD_YN = 'Y') AS RCMR_CNT /* 추천수 */
+			     , (SELECT COUNT(*) FROM TBCSPLTT003M WHERE TK_YE = A.TK_YE AND TK_SLN = A.TK_SLN AND RCMD_YN = 'N') AS DCMR_CNT /* 비추천수 */
+			     , SRCH_CNT /* 조회수 */
+			     , (SELECT COUNT(*) FROM TBCSPLTT004M WHERE TK_YE = A.TK_YE AND TK_SLN = A.TK_SLN) AS CMMT_CNT /* 댓글수 */
+			     , A.PRB_TXT /* 문제점내용  */
+			     , CASE WHEN NVL(A.MDT_YN,'N') = 'Y' AND A.PRSS_STA_CD IN ('M', 'N') THEN A.MDT_TXT
+                        WHEN NVL(A.MDT_YN,'N') = 'Y' AND A.PRSS_STA_CD IN ('P', 'G', 'H', 'I', 'J', 'K') THEN A.EXAM_TXT
+                        WHEN NVL(A.MDT_YN,'N') <> 'Y' AND A.PRSS_STA_CD IN ('M', 'N') THEN A.EXAM_TXT 
+                        ELSE '' END AS EXAM_TXT /* 검토내용  */
+			     , (SELECT NVL2(DGUARD.DECRYPT('TB_ENC', 'EAN', RCMR_CNB),'Y','N') FROM TBCSPLTT003M WHERE TK_YE = A.TK_YE AND TK_SLN = A.TK_SLN AND DGUARD.DECRYPT('TB_ENC', 'EAN', RCMR_CNB) = #S_CNB#) AS RCMD_YN /* 추천확인 */
+			     , (SELECT Z.DOC_ID FROM TBCSPLTT002M Z WHERE Z.TK_YE = A.TK_YE AND Z.TK_SLN = A.TK_SLN AND Z.ATT_FL_DVSN_CD = '1') AS DOC_ID
+			     , DECODE(SIGN(60 - (TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')) - TO_DATE(A.OPEN_DT))),'1','Y','N') AS BTN_ENB_YN
+			  FROM TBCSPLTT001M A
+	         ]]>
+			 WHERE A.TK_YE = #strTkYe#
+			   AND A.TK_SLN = #strTkSln#
+	</select>	
+	
+	<!-- 함께합시다 댓글 조회 -->
+	<select id="CSPLTT014ECommentSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT /* csp.ltt.service.impl.CSPLTT014EServiceImpl.CSPLTT014ECommentSelect */
+				   ROW_NUMBER() OVER (ORDER BY A.TK_YE, A.TK_SLN, A.CMMT_SEQ) AS NO
+			     , A.TK_YE    /* 생각연도 */
+			     , A.TK_SLN   /* 생각연번 */
+			     , A.CMMT_SEQ   /* 생각연번 */
+			     , CASE WHEN NAM_OPEN_YN = 'N' THEN '익명'
+			     		WHEN DGUARD.DECRYPT('TB_ENC','EAN',  A.CRE_CNB) = '3223' THEN '' /* 요청에 의한 하드코딩 이름숨김 */
+			     		WHEN NAM_OPEN_YN = 'Y' THEN F_USR_INFO(DGUARD.DECRYPT('TB_ENC','EAN',  A.CRE_CNB), 2)		            
+			            ELSE '익명'
+			             END AS CRE_NM /* 등록자명 */
+			     , CASE WHEN NAM_OPEN_YN = 'Y' THEN F_DPT_INFO(DGUARD.DECRYPT('TB_ENC','EAN', A.CRE_USR_DPT_CD), 1)
+			            WHEN NAM_OPEN_YN = 'N' THEN ''
+			            ELSE ''
+			             END AS CRE_USR_DPT_NM /* 부서명 */
+			     , A.NAM_OPEN_YN  /* 실명공개여부 */
+			     , CASE WHEN DEL_YN = 'Y' THEN A.DEL_RSN
+			            WHEN DEL_YN = 'N' THEN A.CONTENT
+			            ELSE A.CONTENT
+			             END AS CONTENT /* 댓글내용 */
+			     , TO_CHAR(A.FRT_REGI_DH, 'YYYY-MM-DD HH24:MI:SS') AS FRT_REGI_DH /* 등록일 */
+			     , A.DEL_YN /* 삭제여부 */
+			     , CASE WHEN DGUARD.DECRYPT('TB_ENC','EAN',  A.CRE_CNB) = #S_CNB# THEN 'Y'
+			            ELSE 'N'
+			             END AS WR_YN
+			     , CASE WHEN TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')) < TO_DATE(TO_CHAR(A.FRT_REGI_DH,'YYYYMMDD'))+3 THEN 'Y'
+			            ELSE 'N' END AS CMMT_NEW_YN
+			  FROM TBCSPLTT004M A
+	         ]]>
+			 WHERE A.TK_YE = #strTkYe#
+			   AND A.TK_SLN = #strTkSln#
+		  ORDER BY A.TK_YE, A.TK_SLN, A.CMMT_SEQ 
+	</select>		
+	
+	<!-- 함께합시다 추천 -->
+	<insert id="CSPLTT014ERcmdInsert" parameterClass="paramMap">
+	/* csp.ltt.service.impl.CSPLTT014EServiceImpl.CSPLTT014ERcmdInsert */
+		INSERT INTO TBCSPLTT003M (
+		                           TK_YE
+		                          ,TK_SLN
+		                          ,RCMR_CNB
+		                          ,RCMD_YN
+		                          ,FRT_REGI_DH
+		                          ,FNL_MDF_DH
+		                         )
+		                   VALUES
+		                         (
+		                           #strTkYe#
+		                          ,#strTkSln#
+		                          ,DGUARD.ENCRYPT('TB_ENC', 'EAN',#S_CNB#)
+		                          ,#strRcmdYn#
+		                          ,SYSDATE
+		                          ,SYSDATE
+		                         )
+	</insert>
+	
+	<!-- 함께합시다 댓글 등록 -->
+	<insert id="CSPLTT014ECommentInsert" parameterClass="paramMap">
+	/* csp.ltt.service.impl.CSPLTT014EServiceImpl.CSPLTT014ECommnetInsert */
+	<![CDATA[
+		INSERT INTO TBCSPLTT004M (
+		                           TK_YE
+		                          ,TK_SLN
+		                          ,CMMT_SEQ 
+		                          ,CRE_CNB 
+		                          ,CRE_USR_DPT_CD 
+		                          ,NAM_OPEN_YN 
+		                          ,CONTENT 
+		                          ,FRT_REGI_DH
+		                          ,FNL_MDF_DH
+		                         )
+		                   VALUES
+		                         (
+		                           #strTkYe#
+		                          ,#strTkSln#
+		                          ,NVL((SELECT MAX(CMMT_SEQ) FROM TBCSPLTT004M WHERE TK_YE = #strTkYe# AND TK_SLN = #strTkSln#),0)+1
+	]]>		                          
+                        <isEqual property="strNamOpenYn" compareValue="Y">			
+								  ,DGUARD.ENCRYPT('TB_ENC','EAN',  #S_CNB#)
+		                          ,DGUARD.ENCRYPT('TB_ENC','EAN',  #FNL_DEAL_DPT_CD#)
+						</isEqual>
+						<isNotEqual property="strNamOpenYn" compareValue="Y">
+								  ,NULL
+								  ,NULL
+						</isNotEqual>
+	<![CDATA[
+		                          ,#strNamOpenYn#
+		                          ,#strContent#
+		                          ,SYSDATE
+		                          ,SYSDATE
+		                         )
+    ]]>	
+	</insert>	
+	
+	<!-- 함께합시다 댓글 수정 -->
+	<update id="CSPLTT014ECommentUpdate" parameterClass="paramMap">
+	/* csp.ltt.service.impl.CSPLTT014EServiceImpl.CSPLTT014ECommentUpdate */
+		UPDATE TBCSPLTT004M SET 
+		                    CONTENT = #strContent#
+		                   ,FNL_MDF_DH = SYSDATE
+			          WHERE TK_YE    = #strTkYe#
+			            AND TK_SLN   = #strTkSln#
+			            AND CMMT_SEQ = #strCmmtSeq#
+		                       
+	</update>			
+	
+	<!-- 함께합시다 댓글 삭제 -->
+	<delete id="CSPLTT014ECommentDelete" parameterClass="paramMap">
+	/* csp.ltt.service.impl.CSPLTT014EServiceImpl.CSPLTT014ECommentDelete */
+		DELETE FROM TBCSPLTT004M 
+			  WHERE TK_YE    = #strTkYe#
+			    AND TK_SLN   = #strTkSln#
+			    AND CMMT_SEQ = #strCmmtSeq#
+		                       
+	</delete>				
+	
+
+</sqlMap>

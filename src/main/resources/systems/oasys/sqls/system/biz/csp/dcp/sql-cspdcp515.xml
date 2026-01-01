@@ -1,0 +1,511 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/dcp/515">
+
+
+	<select id="CSPDCP515QDeptBureauSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+          SELECT DPT_CD, DPT_NM,HIRK_DPT_CD
+            FROM TBDCMACM002M
+           WHERE 1=1
+            AND DPT_CD  LIKE '%000'
+            AND DPT_CD NOT IN ('071000')
+            AND USE_YN = 'Y'
+           ORDER BY DPT_CD 					
+		]]>
+	</select>
+	
+	<!-- 부서 과 리스트 조회 -->
+	<select id="CSPDCP515QDeptSectSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+           SELECT DPT_CD, DPT_NM, HIRK_DPT_CD
+             FROM TBDCMACM002M
+            WHERE 1=1
+
+                 ]]>
+             <isNotEmpty prepend="AND" property="strDptAuth"> 
+              DPT_CD IN ( SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #strDptAuth#, 'Y')))
+             </isNotEmpty>
+             
+			<isNotEmpty property="strHrkDptCd">
+	        	<isEmpty property="strDptCd">
+				AND SUBSTR(DPT_CD, 0, 3) = SUBSTR(#strHrkDptCd#, 0, 3)        	
+	        	</isEmpty>
+	        	<isNotEmpty property="strDptCd">
+	        	OR SUBSTR(DPT_CD, 0, 3) = SUBSTR(#strHrkDptCd#, 0, 3)
+	        	</isNotEmpty>
+			</isNotEmpty>
+			  AND DPT_CD NOT LIKE '%000'
+			  AND DPT_CD NOT LIKE '071%'
+			  AND DPT_CD != '880880'
+              AND USE_YN = 'Y'
+            ORDER BY DPT_CD			
+      
+	</select>
+	
+ 	<select id="CSPDCP515QMainSelect" parameterClass="paramMap"  resultClass="resultmap">
+		<![CDATA[
+			SELECT 	C.REQ_DVSN_CD
+					,C.ACP_YR
+					,C.CVPT_ACP_NO
+					,C.ACP_YR || '-민원-' || A.RM_CVPT_ACP_NO AS ACP_NO_NM
+					,C.SRNO
+					,TO_CHAR(A.ACP_DH, 'YYYY-MM-DD HH24:MM') AS ACP_DH
+					,A.TIT_NM
+					,D.CVPT_SBT
+					,A.CVPTR_NM
+					,F_DPT_INFO(C.TRNF_DPT_CD, '1') AS TRNF_DPT_NM
+					,F_CODE_NM('1000755' ,E.RSLT_RPRT_HNDL_RSLT_CD) AS RSLT_RPRT_HNDL_RSLT_NM
+					,E.RSLT_RPRT_HNDL_RSLT_CD
+			FROM 	TBCSPDCP101M A
+					,TBCSPDCP201M B
+					,(SELECT REQ_DVSN_CD, ACP_YR, CVPT_ACP_NO, TRNF_DPT_CD, SRNO
+					    FROM TBCSPDCP205L 
+					   WHERE 1=1 
+					     AND REQ_DVSN_CD = '1' 
+					     AND CVPT_HNDL_DVSN_CD ='70'
+					 )  C
+					,TBCSPDCP102M D
+					,TBCSPDCP402L E
+			WHERE	1=1
+			AND		A.REQ_DVSN_CD = B.REQ_DVSN_CD
+			AND		A.ACP_YR = B.ACP_YR
+			AND		A.CVPT_ACP_NO = B.CVPT_ACP_NO
+			AND		A.REQ_DVSN_CD = C.REQ_DVSN_CD
+			AND		A.ACP_YR = C.ACP_YR
+			AND		A.CVPT_ACP_NO = C.CVPT_ACP_NO
+			AND		A.REQ_DVSN_CD = D.REQ_DVSN_CD
+			AND		A.ACP_YR = D.ACP_YR
+			AND		A.CVPT_ACP_NO = D.CVPT_ACP_NO	
+			AND		A.REQ_DVSN_CD = '1'
+			AND     A.CVPT_HNDL_STA_CD = '60'
+			AND		C.REQ_DVSN_CD = E.REQ_DVSN_CD(+)
+			AND		C.ACP_YR = E.ACP_YR(+)
+			AND		C.CVPT_ACP_NO = E.CVPT_ACP_NO(+)
+			AND		C.SRNO = E.DGE(+)
+		]]>
+		<dynamic>
+			<isNotEmpty property="strACP_DHS">
+			AND		TO_CHAR(A.ACP_DH,'YYYYMMDD') &gt;= #strACP_DHS#
+			</isNotEmpty>
+			<isNotEmpty property="strACP_DHE">
+			AND		TO_CHAR(A.ACP_DH,'YYYYMMDD') &lt;= #strACP_DHE#
+			</isNotEmpty>
+			<isNotEmpty property="strACP_YR">
+			AND		A.ACP_YR = #strACP_YR#			
+			</isNotEmpty>
+			
+			<isNotEmpty property="strRM_CVPT_ACP_NO">
+			AND		A.RM_CVPT_ACP_NO = #strRM_CVPT_ACP_NO#
+			</isNotEmpty>
+			
+			<isNotEmpty property="strHrkDptCd">
+			AND		C.TRNF_DPT_CD LIKE SUBSTR(#strHrkDptCd#, 0, 3) || '%'
+			</isNotEmpty>
+			
+			<isNotEmpty property="strDptCd">
+			AND		C.TRNF_DPT_CD = #strDptCd#			
+			</isNotEmpty>
+			
+			<isNotEmpty property="strCVPTR_NM">
+			AND		A.CVPTR_NM LIKE #strCVPTR_NM# ||'%'			
+			</isNotEmpty>
+			
+			<isEqual property="strSEARCH_CD" compareValue="1">
+				<isNotEmpty property="strTIT_NM">
+					AND	A.TIT_NM LIKE '%'||#strTIT_NM#||'%'
+				</isNotEmpty>
+			</isEqual>
+			<isEqual property="strSEARCH_CD" compareValue="2">
+				<isNotEmpty property="strTIT_NM">
+					AND	D.CVPT_SBT LIKE '%'||#strTIT_NM#||'%'
+				</isNotEmpty>
+			</isEqual>
+		</dynamic>
+		<![CDATA[
+			ORDER BY A.ACP_DH DESC
+		]]>
+	</select>
+	
+	<select id="CSPDCP516ESelectRsltRprt" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+			/* 조사결과보고 조회 */
+			SELECT	C.REQ_DVSN_CD
+					,C.ACP_YR
+					,C.CVPT_ACP_NO
+					,NVL(A.DGE,#strSRNO#) AS DGE
+					,NVL(A.RPL_DT, TO_CHAR(SYSDATE, 'YYYYMMDD')) AS RPL_DT
+					,B.RSLT_RPRT_HNDL_RSLT_CD
+					,A.INSPC_RSLT_UNQ_TXT
+					,A.DOC_ID
+					,A.DOC_TYP_CD
+					,F_DPT_INFO(C.TRNF_DPT_CD,'1') AS TRNF_DPT_NM
+				    ,CASE WHEN D.ONR_DOC_MNG_CRD_ID IS NOT NULL THEN 'Y' ELSE 'N' END REPORT_YN
+					,CASE WHEN D.CVPT_OPM_APV_HNDL_STA_CD = '30' THEN 'Y'
+						ELSE 'N' END AS REPORT_RESULT_YN
+			  FROM	TBCSPDCP401H A
+			  		,TBCSPDCP402L B
+			  		,TBCSPDCP205L C
+			  		,TBCSPDCP301M D
+			 WHERE	1=1
+			   AND	C.REQ_DVSN_CD = A.REQ_DVSN_CD(+)
+			   AND	C.ACP_YR = A.ACP_YR(+)
+			   AND	C.CVPT_ACP_NO = A.CVPT_ACP_NO(+)
+			   AND	A.REQ_DVSN_CD = B.REQ_DVSN_CD(+)
+			   AND	A.ACP_YR = B.ACP_YR(+)
+			   AND	A.CVPT_ACP_NO = B.CVPT_ACP_NO(+)
+			   AND	A.DGE = B.DGE(+)
+			   AND	A.DGE(+) = #strSRNO#
+			   AND	C.REQ_DVSN_CD = #strREQ_DVSN_CD#
+			   AND	C.ACP_YR = #strACP_YR#
+			   AND	C.CVPT_ACP_NO = #strCVPT_ACP_NO#
+			   AND  C.SRNO = #strSRNO#
+			   AND	A.REQ_DVSN_CD = D.REQ_DVSN_CD(+)
+			   AND	A.ACP_YR = D.ACP_YR(+)
+			   AND	A.CVPT_ACP_NO = D.CVPT_ACP_NO(+)
+			   AND	A.DGE = D.DGE(+)
+			   AND  D.CVPT_IFM_DVSN_CD(+) = 'E'
+        ]]>
+	</select>
+	
+	<select id="CSPDCP516ESelecLawList" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+			/* 관련법령조회 */
+			SELECT	A.REQ_DVSN_CD
+					,A.ACP_YR
+					,A.CVPT_ACP_NO
+					,NVL(A.DGE,#strSRNO#) AS DGE
+					,B.LAW_HIS_SRNO
+					,B.LAW_LNK_ID
+					, (	SELECT	Z.LAW_NM
+						FROM	TBBADCMR013M Z
+						WHERE	B.LAW_LNK_ID = Z.LAW_LNK_ID) AS LAW_NM
+					,B.LAW_DTL_TXT
+			  FROM	TBCSPDCP401H A
+			  		,TBCSPDCP204L B
+			 WHERE	1=1
+			   AND	A.REQ_DVSN_CD = B.REQ_DVSN_CD
+			   AND	A.ACP_YR = B.ACP_YR
+			   AND	A.CVPT_ACP_NO = B.CVPT_ACP_NO
+			   AND	A.DGE = B.DGE
+			   AND	A.DGE = #strSRNO#
+			   AND	A.REQ_DVSN_CD = #strREQ_DVSN_CD#
+			   AND	A.ACP_YR = #strACP_YR#
+			   AND	A.CVPT_ACP_NO = #strCVPT_ACP_NO#
+        ]]>
+	</select>
+	
+	<insert id="CSPDCP516E401MERGE" parameterClass="paramMap">
+        <![CDATA[
+			MERGE INTO TBCSPDCP401H A
+			USING (SELECT #REQ_DVSN_CD# AS REQ_DVSN_CD, #ACP_YR# AS ACP_YR, #CVPT_ACP_NO# AS CVPT_ACP_NO, #DGE# AS DGE FROM DUAL) B
+			ON (A.REQ_DVSN_CD = B.REQ_DVSN_CD 
+			    AND A.ACP_YR = B.ACP_YR 
+			    AND A.DGE = B.DGE 
+			    AND A.CVPT_ACP_NO = B.CVPT_ACP_NO)
+			WHEN MATCHED THEN
+			UPDATE SET
+					 A.HNDL_DPT_CD = #FNL_DEAL_DPT_CD#
+					,A.HNDL_PEN_ID = #FNL_USR_ID#
+					,A.DOC_ID = #DOC_ID#
+					,A.INSPC_RSLT_UNQ_TXT = #INSPC_RSLT_UNQ_TXT#
+					,A.RPL_DT = #RPL_DT#
+				   	,A.FNL_USR_ID = #FNL_USR_ID#
+					,A.FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+					,A.FNL_MNU_ID = #FNL_MNU_ID#
+					,A.FNL_MDF_DH = SYSDATE
+			WHEN NOT MATCHED THEN
+			INSERT (REQ_DVSN_CD, ACP_YR, CVPT_ACP_NO, DGE, 
+			        HNDL_DPT_CD, HNDL_PEN_ID, INSPC_RSLT_UNQ_TXT, DOC_ID, DOC_TYP_CD, RPL_DT, 
+			        FRT_USR_ID, FNL_USR_ID, FNL_DEAL_DPT_CD, FNL_MNU_ID, FRT_REGI_DH, FNL_MDF_DH)
+			VALUES (#REQ_DVSN_CD#,#ACP_YR#,#CVPT_ACP_NO#,#DGE#,
+			        #FNL_DEAL_DPT_CD#,#FNL_USR_ID#,#INSPC_RSLT_UNQ_TXT#,#DOC_ID#,#DOC_TYP_CD#,#RPL_DT#,
+			        #FNL_USR_ID#,#FNL_USR_ID#,#FNL_DEAL_DPT_CD#,#FNL_MNU_ID#,SYSDATE,SYSDATE)
+        ]]>
+	</insert>
+	
+	<insert id="CSPDCP516E402MERGE" parameterClass="paramMap">
+        <![CDATA[
+			MERGE INTO TBCSPDCP402L A
+			USING (SELECT #REQ_DVSN_CD# AS REQ_DVSN_CD, #ACP_YR# AS ACP_YR, #CVPT_ACP_NO# AS CVPT_ACP_NO, #DGE# AS DGE FROM DUAL) B
+			ON (A.REQ_DVSN_CD = B.REQ_DVSN_CD 
+			    AND A.ACP_YR = B.ACP_YR 
+			    AND A.DGE = B.DGE 
+			    AND A.CVPT_ACP_NO = B.CVPT_ACP_NO)
+			WHEN MATCHED THEN
+			UPDATE SET
+					 A.RSLT_RPRT_HNDL_RSLT_CD = #RSLT_RPRT_HNDL_RSLT_CD#
+				   	,A.FNL_USR_ID = #FNL_USR_ID#
+					,A.FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+					,A.FNL_MNU_ID = #FNL_MNU_ID#
+					,A.FNL_MDF_DH = SYSDATE
+			WHEN NOT MATCHED THEN
+			INSERT (REQ_DVSN_CD, ACP_YR, CVPT_ACP_NO, DGE, 
+			        RSLT_RPRT_HNDL_RSLT_CD,
+			        FRT_USR_ID, FNL_USR_ID, FNL_DEAL_DPT_CD, FNL_MNU_ID, FRT_REGI_DH, FNL_MDF_DH)
+			VALUES (#REQ_DVSN_CD#,#ACP_YR#,#CVPT_ACP_NO#,#DGE#,
+			        #RSLT_RPRT_HNDL_RSLT_CD#,
+			        #FNL_USR_ID#,#FNL_USR_ID#,#FNL_DEAL_DPT_CD#,#FNL_MNU_ID#,SYSDATE,SYSDATE)
+        ]]>
+	</insert>
+	
+	<insert id="CSPDCP516E204MERGE" parameterClass="paramMap">
+        <![CDATA[
+			MERGE INTO TBCSPDCP204L A
+			USING (SELECT #REQ_DVSN_CD# AS REQ_DVSN_CD, 
+			              #ACP_YR# AS ACP_YR, 
+			              #CVPT_ACP_NO# AS CVPT_ACP_NO, 
+			              #DGE# AS DGE,
+			              #LAW_HIS_SRNO# AS LAW_HIS_SRNO,
+			              #LAW_LNK_ID# AS LAW_LNK_ID
+			              FROM DUAL) B
+			ON (A.REQ_DVSN_CD = B.REQ_DVSN_CD AND 
+			    A.ACP_YR = B.ACP_YR AND 
+			    A.DGE = B.DGE AND 
+			    A.CVPT_ACP_NO = B.CVPT_ACP_NO AND
+			    A.LAW_HIS_SRNO = B.LAW_HIS_SRNO AND 
+			    A.LAW_LNK_ID = B.LAW_LNK_ID)
+			WHEN MATCHED THEN
+			UPDATE SET
+					 A.LAW_DTL_TXT = #LAW_DTL_TXT#
+				   	,A.FNL_USR_ID = #FNL_USR_ID#
+					,A.FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+					,A.FNL_MNU_ID = #FNL_MNU_ID#
+					,A.FNL_MDF_DH = SYSDATE
+			WHEN NOT MATCHED THEN
+			INSERT (REQ_DVSN_CD, ACP_YR, CVPT_ACP_NO, DGE, LAW_HIS_SRNO, LAW_LNK_ID,
+			        LAW_DTL_TXT,
+			        FRT_USR_ID, FNL_USR_ID, FNL_DEAL_DPT_CD, FNL_MNU_ID, FRT_REGI_DH, FNL_MDF_DH)
+			VALUES (#REQ_DVSN_CD#,#ACP_YR#,#CVPT_ACP_NO#,#DGE#, (SELECT NVL(MAX(LAW_HIS_SRNO), 0) +1 
+																FROM TBCSPDCP204L 
+																WHERE REQ_DVSN_CD = #REQ_DVSN_CD#
+																AND ACP_YR  = #ACP_YR#
+																AND CVPT_ACP_NO = #CVPT_ACP_NO#)
+					, #LAW_LNK_ID#,
+			        #LAW_DTL_TXT#,
+			        #FNL_USR_ID#,#FNL_USR_ID#,#FNL_DEAL_DPT_CD#,#FNL_MNU_ID#,SYSDATE,SYSDATE)
+        ]]>
+	</insert>
+	
+	<delete id="CSPDCP516E204Delete" parameterClass="paramMap">
+        <![CDATA[
+			DELETE FROM TBCSPDCP204L 
+			 WHERE REQ_DVSN_CD = #REQ_DVSN_CD# 
+			   AND ACP_YR = #ACP_YR# 
+			   AND DGE = #DGE#
+			   AND CVPT_ACP_NO = #CVPT_ACP_NO# 
+			   AND LAW_HIS_SRNO = #LAW_HIS_SRNO# 
+			   AND LAW_LNK_ID = #LAW_LNK_ID#
+        ]]>
+	</delete>
+
+	
+	<resultMap class="java.util.HashMap" id="CSPDCP516AnsMap">
+ 		<result property="REQ_DVSN_CD" column="REQ_DVSN_CD"                   jdbcType="VARCHAR2" javaType="java.lang.String" />
+		<result property="ACP_YR" column="ACP_YR"                             jdbcType="VARCHAR2"  javaType="java.lang.String" /> 
+		<result property="CVPT_ACP_NO" column="CVPT_ACP_NO"                   jdbcType="VARCHAR2"  javaType="java.lang.String" />
+		<result property="RM_CVPT_ACP_NO" column="RM_CVPT_ACP_NO"                   jdbcType="VARCHAR2"  javaType="java.lang.String" />
+		<result property="SMG_CVPT_HNDL_DVSN_CD" column="SMG_CVPT_HNDL_DVSN_CD"       jdbcType="VARCHAR2"  javaType="java.lang.String" />
+		<result property="OPM_NTF_DVSN_CD" column="OPM_NTF_DVSN_CD"       jdbcType="VARCHAR2"  javaType="java.lang.String" />
+		<result property="CVPT_HNDL_STA_CD" column="CVPT_HNDL_STA_CD"       jdbcType="VARCHAR2"  javaType="java.lang.String" />
+		<result property="ANS_TXT" column="ANS_TXT"       jdbcType="CLOB"  javaType="java.lang.String" />
+		<result property="ACP_RUT_CD" column="ACP_RUT_CD"       jdbcType="VARCHAR2"  javaType="java.lang.String" />
+		<result property="RSLT_NTF_WAY_CD" column="RSLT_NTF_WAY_CD"       jdbcType="VARCHAR2"  javaType="java.lang.String" />
+		<result property="SUC_CVPT_HNDL_STA_CD" column="SUC_CVPT_HNDL_STA_CD"       jdbcType="VARCHAR2"  javaType="java.lang.String" />
+		<result property="SUC_TXT" column="SUC_TXT"       jdbcType="VARCHAR2"  javaType="java.lang.String" />
+		<result property="ANS_DOC_ID" column="ANS_DOC_ID"       jdbcType="VARCHAR2"  javaType="java.lang.String" />
+		<result property="EML_ID" column="EML_ID"       jdbcType="VARCHAR2"  javaType="java.lang.String" />
+		<result property="CVPT_OPM_APV_HNDL_STA_CD" column="CVPT_OPM_APV_HNDL_STA_CD"       jdbcType="VARCHAR2"  javaType="java.lang.String" />
+		<result property="HPN" column="HPN"       jdbcType="VARCHAR2"  javaType="java.lang.String" />
+		<result property="DGE" column="DGE"       jdbcType="VARCHAR2"  javaType="java.lang.String" />
+		<result property="CVPT_OPM_SRNO" column="CVPT_OPM_SRNO"       jdbcType="VARCHAR2"  javaType="java.lang.String" />
+		<result property="ONR_DOC_MNG_CRD_ID" column="ONR_DOC_MNG_CRD_ID"       jdbcType="VARCHAR2"  javaType="java.lang.String" />
+		<result property="ONR_APV_CMPT_DH" column="ONR_APV_CMPT_DH"       jdbcType="VARCHAR2"  javaType="java.lang.String" />
+		<result property="HNDL_RSLT_NTF_YN" column="HNDL_RSLT_NTF_YN"       jdbcType="VARCHAR2"  javaType="java.lang.String" />
+		<result property="ANS_YN" column="ANS_YN"       jdbcType="VARCHAR2"  javaType="java.lang.String" />
+		
+ 	</resultMap>
+	<select id="CSPDCP516EAnsSelect" parameterClass="paramMap"
+		resultMap="CSPDCP516AnsMap">
+		<![CDATA[
+			SELECT	A.REQ_DVSN_CD
+					, A.ACP_YR
+					, A.CVPT_ACP_NO
+					, A.RM_CVPT_ACP_NO
+					, D.SMG_CVPT_HNDL_DVSN_CD
+					, NVL(D.OPM_NTF_DVSN_CD,'N') AS OPM_NTF_DVSN_CD
+					, A.CVPT_HNDL_STA_CD
+					, CASE WHEN D.ANS_TXT IS NULL THEN ( SELECT	CVPT_DOC_TXT
+														 FROM	TBCSPDCP203M Z
+														 WHERE	A.REQ_DVSN_CD = Z.REQ_DVSN_CD
+														 AND	A.ACP_YR = Z.ACP_YR
+														 AND	A.CVPT_ACP_NO = Z.CVPT_ACP_NO
+														 AND	Z.DGE =  #strSRNO#
+														 AND	Z.CVPT_DOC_DVSN_CD  = 'B3' )
+						ELSE D.ANS_TXT END ANS_TXT
+					, A.ACP_RUT_CD
+					, A.RSLT_NTF_WAY_CD
+					, (	SELECT	Z.CVPT_HNDL_STA_CD 
+						FROM 	TBCSPDCP101M Z 
+						WHERE 	Z.REQ_DVSN_CD = #strSUC_REQ_DVSN_CD#
+						AND		Z.ACP_YR = #strSUC_ACP_YR#
+						AND		Z.CVPT_ACP_NO = #strSUC_CVPT_ACP_NO#
+					  ) AS SUC_CVPT_HNDL_STA_CD
+					, '해당감사제보는 [ '||A.ACP_YR||'-민원-'||A.CVPT_ACP_NO||' ] 와 합건처리되었습니다.' AS SUC_TXT
+					,D.ANS_DOC_ID
+					,A.EML_ID
+					,C.CVPT_OPM_APV_HNDL_STA_CD
+					,A.HPN
+					,D.DGE
+					,C.CVPT_OPM_SRNO
+					,C.ONR_DOC_MNG_CRD_ID
+					,TO_CHAR(C.ONR_APV_CMPT_DH,'YYYY-MM-DD HH24:MI') AS ONR_APV_CMPT_DH
+					,D.HNDL_RSLT_NTF_YN
+					,CASE WHEN D.OPM_NTF_DVSN_CD ='Y' AND C.CVPT_OPM_APV_HNDL_STA_CD = '30' THEN 'Y'
+						WHEN D.OPM_NTF_DVSN_CD = 'N' THEN 'Y'
+		       			ELSE 'N' END AS ANS_YN
+			FROM	TBCSPDCP101M A
+					, TBCSPDCP201M B
+					, TBCSPDCP301M C
+					, TBCSPDCP401H D
+			WHERE	A.REQ_DVSN_CD = B.REQ_DVSN_CD
+			AND		A.ACP_YR = B.ACP_YR
+			AND		A.CVPT_ACP_NO = B.CVPT_ACP_NO
+			AND		A.REQ_DVSN_CD = #strREQ_DVSN_CD#
+   			AND		A.ACP_YR = #strACP_YR#
+   			AND		A.CVPT_ACP_NO = #strCVPT_ACP_NO#
+   			AND		A.REQ_DVSN_CD = C.REQ_DVSN_CD(+)
+			AND		A.ACP_YR = C.ACP_YR(+)
+			AND		A.CVPT_ACP_NO = C.CVPT_ACP_NO(+)
+			AND		C.DGE(+) = #strSRNO#
+			AND		C.CVPT_IFM_DVSN_CD(+) = 'F'
+			AND		A.REQ_DVSN_CD = D.REQ_DVSN_CD
+			AND		A.ACP_YR = D.ACP_YR
+			AND		A.CVPT_ACP_NO = D.CVPT_ACP_NO
+			AND		D.DGE = #strSRNO#
+		]]>
+	</select>
+	
+	<update id="CSPDCP516E401AnsUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	/*CSPDCP516E401AnsUpdate*/ TBCSPDCP401H
+			SET		SMG_CVPT_HNDL_DVSN_CD = #SMG_CVPT_HNDL_DVSN_CD#
+					,OPM_NTF_DVSN_CD = #OPM_NTF_DVSN_CD#
+					,ANS_DOC_ID = #ANS_DOC_ID#
+					,ANS_DOC_TYP_CD = #ANS_DOC_TYP_CD#
+					,ANS_TXT = #ANS_TXT#
+					,FNL_USR_ID = #FNL_USR_ID#
+					,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+					,FNL_MNU_ID = #FNL_MNU_ID#
+					,FNL_MDF_DH = SYSDATE
+			WHERE	REQ_DVSN_CD = #REQ_DVSN_CD#
+			AND		ACP_YR = #ACP_YR#
+			AND		CVPT_ACP_NO = #CVPT_ACP_NO#
+			AND		DGE = #DGE#
+		]]>
+	</update>
+	
+	<update id="CSPDCP516EHoseSendUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPDCP401H D1
+			SET		HNDL_RSLT_NTF_YN = 'Y'
+					,FNL_USR_ID = #FNL_USR_ID#
+					,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+					,FNL_MNU_ID = #FNL_MNU_ID#
+					,FNL_MDF_DH = SYSDATE
+			WHERE	REQ_DVSN_CD = #REQ_DVSN_CD#
+			AND		ACP_YR = #ACP_YR#
+			AND		CVPT_ACP_NO = #CVPT_ACP_NO#
+			AND		DGE = #DGE#
+		]]>
+	</update>
+	
+	
+	<insert id="CSPDCP516ESmgNtfInsert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO	T_IC_TARGET_SRC_INTERFACE
+						(	INTERFACE_KEY
+							,APP_ORGAN_CODE		/*최초 민원 신청 기관코드(GCC)*/
+							,PETI_NO			/*민원신청번호*/
+							,REC_SEQ			/*분류이력일련번호*/
+							,CIVIL_NO			/*민원접수번호*/
+							,PETI_GUBUN			/*민원구분 (500고정,담당자부서지정) */
+							,CANCEL_STATUS		/*민원취하여부(Default N)*/
+							,PCD_DEPT			/*GCC 부서코드 (접수부서코드)*/
+							,PCD_DEPT_NM		/*GCC 부서명 (접수부서명)*/
+							,PCD_DUTY_ID		/*접수자명*/
+							,PCD_EMAIL			/*접수 이메일 (대표이메일 사용, 감청국, 센터 로 분류)*/
+							,PCD_TEL			/*접수자 전화번호 (대표전화 사용: 감청국, 센터로 분류)*/
+							,PCD_CONTENTS		/*민원 처리결과 내용*/
+							,PCD_REG_DATE		/*처리일자*/
+							,PCD_CONTENTS_ATTACH_YN	/*민원처리결과첨부여부*/
+							,PCD_GUBUN			/*신문고민원 처리구분코드*/
+							,PCD_ORGAN_CODE 	/*실처리기관코드 (감사원 GCC 코드로 고정)*/
+							,SRCORGCD			/*소스기관코드 (감사원 GCC 코드로 고정)*/
+							,TGTORGCD			/*타겟기관코드 (신문고 GCC 코드로 고정)*/
+							,WRITE_TIME			/*등록일자*/
+							,SND_RCV_GUBUN		/*송수신구분 (1:송신, 2:수신)*/
+							,SND_RCV_TIME		/*송수신일자*/
+							,SEND_YN			/*송신여부 (N DEFAULT, EAI 가 송신후 Y로 변경함)*/
+						)
+				SELECT	TO_CHAR(SYSTIMESTAMP, 'YYYYMMDDHH24MISSFF2') || LPAD(ROUND(DBMS_RANDOM.VALUE(1, 999999999)), 9, '0')
+						,SMG_FRT_CVPT_APL_GCC_ORG_CD
+							,SMG_CVPT_APL_NO
+							,SMG_CAT_HST_SRNO
+							,SMG_CVPT_ACP_NO
+							,DECODE(SMG_FRT_HNDL_STA_CD, '161','181', '163','183')
+							,'N'
+							,F_DPT_INFO(#FNL_DEAL_DPT_CD#,'6')
+							,F_DPT_INFO(#FNL_DEAL_DPT_CD#,'7')
+							,F_USR_INFO(#S_CNB#,'2')
+							,''
+							,'02-2011-2191'
+							,#ANS_TXT#
+							,TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS' )
+							,'N'
+							,#SMG_CVPT_HNDL_DVSN_CD#
+							,'1040000'
+							,'1040000'
+							,'1140100'
+							,TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS' )
+							,'1'
+							,TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+							,'N'
+				FROM	TBCSPDCP101M
+				WHERE	REQ_DVSN_CD = #REQ_DVSN_CD#
+				AND		ACP_YR = #ACP_YR#
+				AND		CVPT_ACP_NO = #CVPT_ACP_NO#
+		]]>
+	</insert>
+	
+	<!-- 홈페이지로 전송할 데이터인지 체크한다. -->
+	<select id="CSPDCP516PHomeSendSelect" parameterClass="paramMap" resultClass="int">
+		<![CDATA[
+			SELECT	/*CSPDCP516PHomeSendSelect*/
+					COUNT(1)
+			FROM	TBCSPDCP101M D1
+			WHERE	D1.REQ_DVSN_CD = #REQ_DVSN_CD#
+	 		AND		D1.ACP_YR = #ACP_YR#
+	 		AND		D1.CVPT_ACP_NO = #CVPT_ACP_NO#
+	 		AND		D1.ACP_RUT_CD IN ('1','2','3','4','5','7')
+		]]>
+	</select>
+	
+	<!-- 신문고로 전송할 데이터인지 체크한다. -->
+	<select id="CSPDCP516PSmgSendSelect" parameterClass="paramMap" resultClass="int">
+		<![CDATA[
+			SELECT	/*CSPDCP516PSmgSendSelect*/
+					COUNT(1)
+			FROM	TBCSPDCP101M D1
+			WHERE	D1.REQ_DVSN_CD = #REQ_DVSN_CD#
+	 		AND		D1.ACP_YR = #ACP_YR#
+	 		AND		D1.CVPT_ACP_NO = #CVPT_ACP_NO#
+	 		AND		D1.ACP_RUT_CD = '8'
+		]]>
+	</select>
+</sqlMap> 

@@ -1,0 +1,437 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/mwf/028">
+	
+	<!-- 예약신청가능 시간 체크 -->
+	<select id="CSPMWF028EBokgAplPossDtTmSelect" parameterClass="paramMap" resultClass="String">
+		<![CDATA[
+           SELECT CASE WHEN CURR_DT BETWEEN STR_DT AND END_DT THEN 'Y' 
+                       ELSE 'N' 
+                   END                 AS YN
+             FROM (
+                     SELECT MIN(DT) || '000000'                  AS STR_DT
+                           ,MAX(DT) || '235959'                  AS END_DT
+                           ,TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') AS CURR_DT
+                       FROM (
+                              SELECT TO_CHAR(SYSDATE - 7 + LEVEL + (SELECT NEXT_DAY(SYSDATE,1) - SYSDATE FROM DUAL), 'YYYYMMDD') AS DT 
+                                FROM DUAL
+                             CONNECT BY LEVEL <= 5
+                            )
+                  )
+		]]>
+	</select>
+	
+	<!-- 그리드 헤더값 -->
+	<select id="CSPMWF028EHeaderSelect" parameterClass="paramMap"	resultClass="resultMap">
+		<![CDATA[
+                   SELECT DT                                      AS DT
+                         ,TO_CHAR(TO_DATE(DT), 'YYYY-MM-DD')                     || '(' || 
+                          TO_CHAR(TO_DATE(DT), 'DY', 'NLS_DATE_LANGUAGE=korean') || ')'
+                                                                  AS YOIL                         
+                         ,CASE WHEN (SELECT COUNT(1) FROM TBBADDED013B WHERE YE || MD = T1.DT) > 0 THEN 'Y' 
+                               ELSE 'N' 
+                           END                                    AS HOLIDAY_YN
+                   FROM (
+                          SELECT TO_CHAR(SYSDATE + (LEVEL-1), 'YYYYMMDD') AS DT 
+                            FROM DUAL
+                         CONNECT BY LEVEL <= 14
+                        ) T1
+                  WHERE TO_CHAR(TO_DATE(DT), 'DY', 'NLS_DATE_LANGUAGE=korean') NOT IN ('토','일')
+                  ORDER BY DT 
+		]]>
+	</select>
+		
+	<!-- 날짜별 시간표 조회 -->
+	<select id="CSPMWF028EMainSelect" parameterClass="paramMap"	resultClass="resultMap">
+		<![CDATA[       
+                   WITH DAY_TABLE AS 
+                   (
+                         SELECT MAX(CASE WHEN ROWNUM = 1  THEN DT ELSE '' END) AS STD_DAY1
+                               ,MAX(CASE WHEN ROWNUM = 2  THEN DT ELSE '' END) AS STD_DAY2
+                               ,MAX(CASE WHEN ROWNUM = 3  THEN DT ELSE '' END) AS STD_DAY3
+                               ,MAX(CASE WHEN ROWNUM = 4  THEN DT ELSE '' END) AS STD_DAY4
+                               ,MAX(CASE WHEN ROWNUM = 5  THEN DT ELSE '' END) AS STD_DAY5
+                               ,MAX(CASE WHEN ROWNUM = 6  THEN DT ELSE '' END) AS STD_DAY6
+                               ,MAX(CASE WHEN ROWNUM = 7  THEN DT ELSE '' END) AS STD_DAY7
+                               ,MAX(CASE WHEN ROWNUM = 8  THEN DT ELSE '' END) AS STD_DAY8
+                               ,MAX(CASE WHEN ROWNUM = 9  THEN DT ELSE '' END) AS STD_DAY9
+                               ,MAX(CASE WHEN ROWNUM = 10 THEN DT ELSE '' END) AS STD_DAY10
+                           FROM (
+                                  SELECT TO_CHAR(SYSDATE + (LEVEL-1), 'YYYYMMDD') AS DT 
+                                    FROM DUAL
+                                 CONNECT BY LEVEL <= 14
+                                ) T1
+                          WHERE TO_CHAR(TO_DATE(DT), 'DY', 'NLS_DATE_LANGUAGE=korean') NOT IN ('토','일')
+                          ORDER BY DT
+                    )
+                    
+                    SELECT T1.BOKG_DVSN_CD                                                                                      AS BOKG_DVSN_CD 
+                          ,T1.SCO_HST_SNO                                                                                       AS SCO_HST_SNO
+                          ,T1.SCO_SNO                                                                                           AS SCO_SNO
+                          ,SUBSTR(T1.SCO_TM_STR_CD,0,2) || ':' || SUBSTR(T1.SCO_TM_STR_CD,3) || ' ~ ' || 
+                           SUBSTR(T1.SCO_TM_END_CD,0,2) || ':' || SUBSTR(T1.SCO_TM_END_CD,3)                                    AS SCO_TM_NM
+                          ,T1.SCO_TM_STR_CD                                                                                     AS SCO_TM_STR_CD
+                          ,T1.SCO_TM_END_CD                                                                                     AS SCO_TM_END_CD
+                          ,T1.APC_STR_DT                                                                                        AS APC_STR_DT
+                          ,T1.APC_END_DT                                                                                        AS APC_END_DT
+                          
+                          ,STD_DAY1                                                                                             AS STD_DAY1
+                          ,(SELECT CASE WHEN COUNT(1) > 0 THEN 'Y' ELSE 'N' END FROM TBBADDED013B WHERE YE || MD = T2.STD_DAY1) AS HOLIDAY1
+                          ,(SELECT COUNT(1) || SUBSTR(EXTRACT(XMLAGG(XMLELEMENT(A, ','|| BOKG_PEN_CNB) ), '//text()'), 1)
+                              FROM TBCSPMWF010M
+                             WHERE BOKG_DT     = T2.STD_DAY1
+                               AND SCO_HST_SNO = T1.SCO_HST_SNO
+                               AND SCO_SNO     = T1.SCO_SNO
+                             GROUP BY BOKG_DT, SCO_HST_SNO, SCO_SNO)                                                            AS BOKG_CNB1 
+                          ,(SELECT CASE WHEN COUNT(1) > 0 THEN '남[' || (2 - NVL(SUM(CASE WHEN MSGCHR_CD LIKE '1%' THEN 1 ELSE 0 END),0) ) || '] ' ||
+                                                               '여[' || (1 - NVL(SUM(CASE WHEN MSGCHR_CD LIKE '2%' THEN 1 ELSE 0 END),0) ) || '] '
+                                        ELSE ''
+                                    END 
+                              FROM TBCSPMWF010M
+                             WHERE BOKG_DT     = T2.STD_DAY1
+                               AND SCO_HST_SNO = T1.SCO_HST_SNO
+                               AND SCO_SNO     = T1.SCO_SNO)                                                                    AS BOKG_NM1                                    
+                          
+                          ,STD_DAY2                                                                                             AS STD_DAY2
+                          ,(SELECT CASE WHEN COUNT(1) > 0 THEN 'Y' ELSE 'N' END FROM TBBADDED013B WHERE YE || MD = T2.STD_DAY2) AS HOLIDAY2
+                          ,(SELECT COUNT(1) || SUBSTR(EXTRACT(XMLAGG(XMLELEMENT(A, ','|| BOKG_PEN_CNB) ), '//text()'), 1)
+                              FROM TBCSPMWF010M
+                             WHERE BOKG_DT     = T2.STD_DAY2
+                               AND SCO_HST_SNO = T1.SCO_HST_SNO
+                               AND SCO_SNO     = T1.SCO_SNO
+                             GROUP BY BOKG_DT, SCO_HST_SNO, SCO_SNO)                                                            AS BOKG_CNB2 
+                          ,(SELECT CASE WHEN COUNT(1) > 0 THEN '남[' || (2 - NVL(SUM(CASE WHEN MSGCHR_CD LIKE '1%' THEN 1 ELSE 0 END),0) ) || '] ' ||
+                                                               '여[' || (1 - NVL(SUM(CASE WHEN MSGCHR_CD LIKE '2%' THEN 1 ELSE 0 END),0) ) || '] '
+                                        ELSE ''
+                                    END 
+                              FROM TBCSPMWF010M
+                             WHERE BOKG_DT     = T2.STD_DAY2
+                               AND SCO_HST_SNO = T1.SCO_HST_SNO
+                               AND SCO_SNO     = T1.SCO_SNO)                                                                    AS BOKG_NM2                                                             
+                          
+                          ,STD_DAY3                                                                                             AS STD_DAY3
+                          ,(SELECT CASE WHEN COUNT(1) > 0 THEN 'Y' ELSE 'N' END FROM TBBADDED013B WHERE YE || MD = T2.STD_DAY3) AS HOLIDAY3
+                          ,(SELECT COUNT(1) || SUBSTR(EXTRACT(XMLAGG(XMLELEMENT(A, ','|| BOKG_PEN_CNB) ), '//text()'), 1)
+                              FROM TBCSPMWF010M
+                             WHERE BOKG_DT     = T2.STD_DAY3
+                               AND SCO_HST_SNO = T1.SCO_HST_SNO
+                               AND SCO_SNO     = T1.SCO_SNO
+                             GROUP BY BOKG_DT, SCO_HST_SNO, SCO_SNO)                                                            AS BOKG_CNB3 
+                          ,(SELECT CASE WHEN COUNT(1) > 0 THEN '남[' || (2 - NVL(SUM(CASE WHEN MSGCHR_CD LIKE '1%' THEN 1 ELSE 0 END),0) ) || '] ' ||
+                                                               '여[' || (1 - NVL(SUM(CASE WHEN MSGCHR_CD LIKE '2%' THEN 1 ELSE 0 END),0) ) || '] '
+                                        ELSE ''
+                                    END 
+                              FROM TBCSPMWF010M
+                             WHERE BOKG_DT     = T2.STD_DAY3
+                               AND SCO_HST_SNO = T1.SCO_HST_SNO
+                               AND SCO_SNO     = T1.SCO_SNO)                                                                    AS BOKG_NM3 
+                                                         
+                          ,STD_DAY4                                                                                             AS STD_DAY4
+                          ,(SELECT CASE WHEN COUNT(1) > 0 THEN 'Y' ELSE 'N' END FROM TBBADDED013B WHERE YE || MD = T2.STD_DAY4) AS HOLIDAY4
+                          ,(SELECT COUNT(1) || SUBSTR(EXTRACT(XMLAGG(XMLELEMENT(A, ','|| BOKG_PEN_CNB) ), '//text()'), 1)
+                              FROM TBCSPMWF010M
+                             WHERE BOKG_DT     = T2.STD_DAY4
+                               AND SCO_HST_SNO = T1.SCO_HST_SNO
+                               AND SCO_SNO     = T1.SCO_SNO
+                             GROUP BY BOKG_DT, SCO_HST_SNO, SCO_SNO)                                                            AS BOKG_CNB4 
+                          ,(SELECT CASE WHEN COUNT(1) > 0 THEN '남[' || (2 - NVL(SUM(CASE WHEN MSGCHR_CD LIKE '1%' THEN 1 ELSE 0 END),0) ) || '] ' ||
+                                                               '여[' || (1 - NVL(SUM(CASE WHEN MSGCHR_CD LIKE '2%' THEN 1 ELSE 0 END),0) ) || '] '
+                                        ELSE ''
+                                    END 
+                              FROM TBCSPMWF010M
+                             WHERE BOKG_DT     = T2.STD_DAY4
+                               AND SCO_HST_SNO = T1.SCO_HST_SNO
+                               AND SCO_SNO     = T1.SCO_SNO)                                                                    AS BOKG_NM4                                                        
+                          
+                          ,STD_DAY5                                                                                             AS STD_DAY5
+                          ,(SELECT CASE WHEN COUNT(1) > 0 THEN 'Y' ELSE 'N' END FROM TBBADDED013B WHERE YE || MD = T2.STD_DAY5) AS HOLIDAY5
+                          ,(SELECT COUNT(1) || SUBSTR(EXTRACT(XMLAGG(XMLELEMENT(A, ','|| BOKG_PEN_CNB) ), '//text()'), 1)
+                              FROM TBCSPMWF010M
+                             WHERE BOKG_DT     = T2.STD_DAY5
+                               AND SCO_HST_SNO = T1.SCO_HST_SNO
+                               AND SCO_SNO     = T1.SCO_SNO
+                             GROUP BY BOKG_DT, SCO_HST_SNO, SCO_SNO)                                                            AS BOKG_CNB5 
+                          ,(SELECT CASE WHEN COUNT(1) > 0 THEN '남[' || (2 - NVL(SUM(CASE WHEN MSGCHR_CD LIKE '1%' THEN 1 ELSE 0 END),0) ) || '] ' ||
+                                                               '여[' || (1 - NVL(SUM(CASE WHEN MSGCHR_CD LIKE '2%' THEN 1 ELSE 0 END),0) ) || '] '
+                                        ELSE ''
+                                    END 
+                              FROM TBCSPMWF010M
+                             WHERE BOKG_DT     = T2.STD_DAY5
+                               AND SCO_HST_SNO = T1.SCO_HST_SNO
+                               AND SCO_SNO     = T1.SCO_SNO)                                                                    AS BOKG_NM5
+                               
+                          ,STD_DAY6                                                                                             AS STD_DAY6
+                          ,(SELECT CASE WHEN COUNT(1) > 0 THEN 'Y' ELSE 'N' END FROM TBBADDED013B WHERE YE || MD = T2.STD_DAY6) AS HOLIDAY6
+                          ,(SELECT COUNT(1) || SUBSTR(EXTRACT(XMLAGG(XMLELEMENT(A, ','|| BOKG_PEN_CNB) ), '//text()'), 1)
+                              FROM TBCSPMWF010M
+                             WHERE BOKG_DT     = T2.STD_DAY6
+                               AND SCO_HST_SNO = T1.SCO_HST_SNO
+                               AND SCO_SNO     = T1.SCO_SNO
+                             GROUP BY BOKG_DT, SCO_HST_SNO, SCO_SNO)                                                            AS BOKG_CNB6 
+                          ,(SELECT CASE WHEN COUNT(1) > 0 THEN '남[' || (2 - NVL(SUM(CASE WHEN MSGCHR_CD LIKE '1%' THEN 1 ELSE 0 END),0) ) || '] ' ||
+                                                               '여[' || (1 - NVL(SUM(CASE WHEN MSGCHR_CD LIKE '2%' THEN 1 ELSE 0 END),0) ) || '] '
+                                        ELSE ''
+                                    END 
+                              FROM TBCSPMWF010M
+                             WHERE BOKG_DT     = T2.STD_DAY6
+                               AND SCO_HST_SNO = T1.SCO_HST_SNO
+                               AND SCO_SNO     = T1.SCO_SNO)                                                                    AS BOKG_NM6   
+                               
+                          ,STD_DAY7                                                                                             AS STD_DAY7
+                          ,(SELECT CASE WHEN COUNT(1) > 0 THEN 'Y' ELSE 'N' END FROM TBBADDED013B WHERE YE || MD = T2.STD_DAY7) AS HOLIDAY7
+                          ,(SELECT COUNT(1) || SUBSTR(EXTRACT(XMLAGG(XMLELEMENT(A, ','|| BOKG_PEN_CNB) ), '//text()'), 1)
+                              FROM TBCSPMWF010M
+                             WHERE BOKG_DT     = T2.STD_DAY7
+                               AND SCO_HST_SNO = T1.SCO_HST_SNO
+                               AND SCO_SNO     = T1.SCO_SNO
+                             GROUP BY BOKG_DT, SCO_HST_SNO, SCO_SNO)                                                            AS BOKG_CNB7 
+                          ,(SELECT CASE WHEN COUNT(1) > 0 THEN '남[' || (2 - NVL(SUM(CASE WHEN MSGCHR_CD LIKE '1%' THEN 1 ELSE 0 END),0) ) || '] ' ||
+                                                               '여[' || (1 - NVL(SUM(CASE WHEN MSGCHR_CD LIKE '2%' THEN 1 ELSE 0 END),0) ) || '] '
+                                        ELSE ''
+                                    END 
+                              FROM TBCSPMWF010M
+                             WHERE BOKG_DT     = T2.STD_DAY7
+                               AND SCO_HST_SNO = T1.SCO_HST_SNO
+                               AND SCO_SNO     = T1.SCO_SNO)                                                                    AS BOKG_NM7                                                                                                                  
+                                    
+                          ,STD_DAY8                                                                                             AS STD_DAY8
+                          ,(SELECT CASE WHEN COUNT(1) > 0 THEN 'Y' ELSE 'N' END FROM TBBADDED013B WHERE YE || MD = T2.STD_DAY8) AS HOLIDAY8
+                          ,(SELECT COUNT(1) || SUBSTR(EXTRACT(XMLAGG(XMLELEMENT(A, ','|| BOKG_PEN_CNB) ), '//text()'), 1)
+                              FROM TBCSPMWF010M
+                             WHERE BOKG_DT     = T2.STD_DAY8
+                               AND SCO_HST_SNO = T1.SCO_HST_SNO
+                               AND SCO_SNO     = T1.SCO_SNO
+                             GROUP BY BOKG_DT, SCO_HST_SNO, SCO_SNO)                                                            AS BOKG_CNB8 
+                          ,(SELECT CASE WHEN COUNT(1) > 0 THEN '남[' || (2 - NVL(SUM(CASE WHEN MSGCHR_CD LIKE '1%' THEN 1 ELSE 0 END),0) ) || '] ' ||
+                                                               '여[' || (1 - NVL(SUM(CASE WHEN MSGCHR_CD LIKE '2%' THEN 1 ELSE 0 END),0) ) || '] '
+                                        ELSE ''
+                                    END 
+                              FROM TBCSPMWF010M
+                             WHERE BOKG_DT     = T2.STD_DAY8
+                               AND SCO_HST_SNO = T1.SCO_HST_SNO
+                               AND SCO_SNO     = T1.SCO_SNO)                                                                    AS BOKG_NM8
+                               
+                          ,STD_DAY9                                                                                             AS STD_DAY9
+                          ,(SELECT CASE WHEN COUNT(1) > 0 THEN 'Y' ELSE 'N' END FROM TBBADDED013B WHERE YE || MD = T2.STD_DAY9) AS HOLIDAY9
+                          ,(SELECT COUNT(1) || SUBSTR(EXTRACT(XMLAGG(XMLELEMENT(A, ','|| BOKG_PEN_CNB) ), '//text()'), 1)
+                              FROM TBCSPMWF010M
+                             WHERE BOKG_DT     = T2.STD_DAY9
+                               AND SCO_HST_SNO = T1.SCO_HST_SNO
+                               AND SCO_SNO     = T1.SCO_SNO
+                             GROUP BY BOKG_DT, SCO_HST_SNO, SCO_SNO)                                                            AS BOKG_CNB9 
+                          ,(SELECT CASE WHEN COUNT(1) > 0 THEN '남[' || (2 - NVL(SUM(CASE WHEN MSGCHR_CD LIKE '1%' THEN 1 ELSE 0 END),0) ) || '] ' ||
+                                                               '여[' || (1 - NVL(SUM(CASE WHEN MSGCHR_CD LIKE '2%' THEN 1 ELSE 0 END),0) ) || '] '
+                                        ELSE ''
+                                    END 
+                              FROM TBCSPMWF010M
+                             WHERE BOKG_DT     = T2.STD_DAY9
+                               AND SCO_HST_SNO = T1.SCO_HST_SNO
+                               AND SCO_SNO     = T1.SCO_SNO)                                                                    AS BOKG_NM9  
+                               
+                          ,STD_DAY10                                                                                             AS STD_DAY10
+                          ,(SELECT CASE WHEN COUNT(1) > 0 THEN 'Y' ELSE 'N' END FROM TBBADDED013B WHERE YE || MD = T2.STD_DAY10) AS HOLIDAY10
+                          ,(SELECT COUNT(1) || SUBSTR(EXTRACT(XMLAGG(XMLELEMENT(A, ','|| BOKG_PEN_CNB) ), '//text()'), 1)
+                              FROM TBCSPMWF010M
+                             WHERE BOKG_DT     = T2.STD_DAY10
+                               AND SCO_HST_SNO = T1.SCO_HST_SNO
+                               AND SCO_SNO     = T1.SCO_SNO
+                             GROUP BY BOKG_DT, SCO_HST_SNO, SCO_SNO)                                                             AS BOKG_CNB10 
+                          ,(SELECT CASE WHEN COUNT(1) > 0 THEN '남[' || (2 - NVL(SUM(CASE WHEN MSGCHR_CD LIKE '1%' THEN 1 ELSE 0 END),0) ) || '] ' ||
+                                                               '여[' || (1 - NVL(SUM(CASE WHEN MSGCHR_CD LIKE '2%' THEN 1 ELSE 0 END),0) ) || '] '
+                                        ELSE ''
+                                    END 
+                              FROM TBCSPMWF010M
+                             WHERE BOKG_DT     = T2.STD_DAY10 
+                               AND SCO_HST_SNO = T1.SCO_HST_SNO
+                               AND SCO_SNO     = T1.SCO_SNO)                                                                     AS BOKG_NM10 
+                      FROM TBCSPMWF009M T1
+                          ,DAY_TABLE    T2
+                     WHERE T1.BOKG_DVSN_CD = '2'
+                       AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN T1.APC_STR_DT AND T1.APC_END_DT
+                     ORDER BY SCO_SNO
+		]]>
+	</select>	
+	
+	
+	<!-- 선택일자에 시간대 예약 여부 -->
+	<select id="CSPMWF028EBokgDupChkSelect" parameterClass="paramMap" resultClass="Integer">
+		<![CDATA[
+                  SELECT COUNT(1) AS CNT 
+                    FROM TBCSPMWF010M
+                   WHERE BOKG_DT     = #BOKG_DT#
+                     AND SCO_HST_SNO = #SCO_HST_SNO#
+                     AND SCO_SNO     = #SCO_SNO#
+                     AND MSGCHR_CD   = #MSGCHR_CD#
+		]]>
+	</select>
+	
+	<!-- 선택일자에 본인예약 여부 -->
+	<select id="CSPMWF028EBokgCnbChkSelect" parameterClass="paramMap" resultClass="Integer">
+		<![CDATA[
+                  SELECT COUNT(1) AS CNT 
+                    FROM TBCSPMWF010M
+                   WHERE BOKG_DT      = #BOKG_DT#
+                     AND BOKG_PEN_CNB = #BOKG_PEN_CNB#
+		]]>
+	</select>
+	
+	
+	<!-- 선택일자가 속한 주의 예약건수 -->
+	<select id="CSPMWF028EBokgWeekCnbCntSelect" parameterClass="paramMap" resultClass="Integer">
+		<![CDATA[
+                WITH BASE AS 
+                (
+                     /* 금주 시작일 ~ 종료일*/
+                     SELECT MIN(DT) AS STR_DT
+                           ,MAX(DT) AS END_DT
+                       FROM (
+                              SELECT TO_CHAR(TO_DATE(#BOKG_DT#) - 7 + LEVEL + (SELECT NEXT_DAY(TO_DATE(#BOKG_DT#),1) - TO_DATE(#BOKG_DT#) FROM DUAL), 'YYYYMMDD') AS DT 
+                                FROM DUAL
+                             CONNECT BY LEVEL <= 5
+                            )
+                )
+                
+                SELECT COUNT(1) AS CNT               
+                  FROM TBCSPMWF010M T1
+                      ,BASE         T2
+                 WHERE 1=1
+                   AND T1.BOKG_DT BETWEEN T2.STR_DT AND T2.END_DT 
+                   AND T1.BOKG_PEN_CNB = #BOKG_PEN_CNB#
+		]]>
+	</select>
+		
+	<!-- 예약취소 -->
+	<update id="CSPMWF028EBokgDelete" parameterClass="paramMap">
+			DELETE TBCSPMWF010M
+		     WHERE BOKG_DT      = #BOKG_DT#
+		       AND SCO_HST_SNO  = #SCO_HST_SNO#
+		       AND SCO_SNO      = #SCO_SNO#
+		       AND MSGCHR_CD    = #MSGCHR_CD#
+			 
+	</update>		
+	
+	<!-- 예약목록 -->
+	<select id="CSPMWF028EBokgSelect" parameterClass="paramMap"	resultClass="resultMap">
+		<![CDATA[
+		
+			        WITH CHAIR_TABLE AS 
+			        (
+                        SELECT CD, CD_NM 
+                          FROM TBDCMACM013C
+                         WHERE CMM_CD_DVSN_CD =  '1000896'                             
+                           AND CD             <> '000000000'
+                           AND USE_YN         = 'Y'
+			        )
+			    
+			        SELECT #strStdDt#                                     AS BOKG_DT
+                          ,#strScoHstSno#                                 AS SCO_HST_SNO
+                          ,#strScoSno#                                    AS SCO_SNO
+                          ,A.CD                                           AS MSGCHR_CD
+                          ,B.BOKG_PEN_CNB                                 AS BOKG_PEN_CNB
+                          ,B.BOKG_PEN_NM                                  AS BOKG_PEN_NM
+                          ,B.BOKG_PEN_DPT_CD                              AS BOKG_PEN_DPT_CD
+                          ,B.BOKG_PEN_DPT_NM                              AS BOKG_PEN_DPT_NM		
+                          ,B.BOKG_PEN_RANK_NM                             AS BOKG_PEN_RANK_NM  
+                          ,B.BOKG_PEN_TNB                                 AS BOKG_PEN_TNB
+                          ,CASE WHEN B.BOKG_PEN_CNB IS NOT NULL THEN '예약완료'
+                                ELSE ''
+                            END                                           AS BOKG_YN	                          	        
+                          ,TO_CHAR(TO_DATE(#strStdDt#), 'YYYY-MM-DD')                     || '(' || 
+                           TO_CHAR(TO_DATE(#strStdDt#), 'DY', 'NLS_DATE_LANGUAGE=korean') || ')'
+                                                                          AS DSP_BOKG_DT                               
+                          ,#strScoTmNm#                                   AS DSP_SCO_TM_NM
+                          ,A.CD_NM                                        AS DSP_MSGCHR_NM
+                          
+                          ,CASE WHEN B.BOKG_PEN_CNB IS NULL    THEN ''
+                                WHEN B.BOKG_PEN_CNB = #strCnb# THEN B.BOKG_PEN_NM
+                                ELSE '***'
+                            END                                           AS MSK_BOKG_PEN_NM
+                          ,CASE WHEN B.BOKG_PEN_CNB IS NULL    THEN ''
+                                WHEN B.BOKG_PEN_CNB = #strCnb# THEN B.BOKG_PEN_DPT_NM
+                                ELSE '***'
+                            END                                           AS MSK_BOKG_PEN_DPT_NM                     
+			          FROM CHAIR_TABLE A
+			              ,(
+			               SELECT T1.BOKG_DT                                   
+			                     ,T1.SCO_HST_SNO                                
+			                     ,T1.SCO_SNO                                    
+			                     ,T1.MSGCHR_CD                                 
+			                     ,T1.BOKG_PEN_CNB                     AS BOKG_PEN_CNB
+			                     ,T3.USR_NAM                          AS BOKG_PEN_NM     
+			                     ,T1.BOKG_PEN_DPT_CD                  AS BOKG_PEN_DPT_CD
+			                     ,F_DPT_INFO(T1.BOKG_PEN_DPT_CD, '1') AS BOKG_PEN_DPT_NM
+                                 ,F_CODE_NM('1000173', T3.RANK_CD)    AS BOKG_PEN_RANK_NM  
+                                 ,T3.TNB                              AS BOKG_PEN_TNB 
+			                 FROM TBCSPMWF010M T1
+			                     ,TBCSPMWF009M T2 
+                                 ,TBDCMACM001M T3 
+			                WHERE 1=1
+			                  AND T1.SCO_HST_SNO     = T2.SCO_HST_SNO
+			                  AND T1.SCO_SNO         = T2.SCO_SNO
+			                  AND T2.BOKG_DVSN_CD    = '2'
+                              AND T1.BOKG_PEN_CNB    = T3.CNB 
+			                  AND T1.BOKG_DT         = #strStdDt#
+			                  AND T1.SCO_HST_SNO     = #strScoHstSno#
+			                  AND T1.SCO_SNO         = #strScoSno#
+			               ) B
+			        WHERE A.CD = B.MSGCHR_CD(+)
+			       ORDER BY A.CD
+		]]>                         
+	</select>	
+	
+	<!-- 예약자 변경처리 및 신규입력 -->
+	<insert id="CSPMWF028EBokgChngMerge" parameterClass="paramMap">
+		<![CDATA[
+			MERGE INTO TBCSPMWF010M
+			USING DUAL
+			   ON (     
+			            BOKG_DT     = #BOKG_DT#
+			        AND SCO_HST_SNO = #SCO_HST_SNO#
+			        AND SCO_SNO     = #SCO_SNO#
+			        AND MSGCHR_CD   = #MSGCHR_CD#
+			      ) 
+			      
+			WHEN MATCHED  THEN 		
+				UPDATE 
+				   SET BOKG_PEN_CNB    = #BOKG_PEN_CNB#
+		             , BOKG_PEN_DPT_CD = (SELECT DPT_CD FROM TBDCMACM001M WHERE CNB = #BOKG_PEN_CNB#) 
+		             , FNL_USR_ID      = #FNL_USR_ID#
+		             , FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+		             , FNL_MNU_ID      = #FNL_MNU_ID#
+		             , FNL_MDF_DH      = SYSDATE
+		             			      
+			 WHEN NOT MATCHED THEN   
+				INSERT 
+				(
+                     BOKG_DT
+                    ,SCO_HST_SNO
+                    ,SCO_SNO
+                    ,MSGCHR_CD
+                    ,BOKG_PEN_CNB
+                    ,BOKG_PEN_DPT_CD                    
+					,FRT_USR_ID
+					,FNL_USR_ID
+					,FNL_DEAL_DPT_CD
+					,FNL_MNU_ID
+					,FRT_REGI_DH
+					,FNL_MDF_DH 
+				)
+				VALUES
+				(
+                     #BOKG_DT#
+                    ,#SCO_HST_SNO#
+                    ,#SCO_SNO#
+                    ,#MSGCHR_CD#
+                    ,#BOKG_PEN_CNB#
+                    ,(SELECT DPT_CD FROM TBDCMACM001M WHERE CNB = #BOKG_PEN_CNB#)                    
+					,#FRT_USR_ID#
+					,#FNL_USR_ID#
+					,#FNL_DEAL_DPT_CD#
+					,#FNL_MNU_ID#
+					,SYSDATE					
+					,SYSDATE
+				)
+		]]>
+	</insert>	
+</sqlMap> 

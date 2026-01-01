@@ -1,0 +1,428 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/kde/010">
+    <select id="CSPKDE010EMainselect" parameterClass="paramMap" resultClass="resultMap">
+		<include refid="include.pageSelct" />
+		    
+        <![CDATA[
+                  SELECT D1.REGI_SRNO                                                    AS REGI_SRNO         /* 일련번호 */
+                        ,D1.REGI_DT                                                      AS REGI_DT           /* 등록일 */
+                        ,D1.REGI_DPT_CD                                                  AS REGI_DPT_CD       /* 등록부서코드 */
+                        ,F_DPT_INFO(D1.REGI_DPT_CD,'1')                                  AS REGI_DPT_NM       /* 등록부서명 */
+                        ,F_DPT_INFO(D1.REGI_DPT_CD,'4')                                  AS S_REGI_DPT_NM     /* 약칭 등록부서명 */                                
+                        ,D1.REGN_CNB                                                     AS REGN_CNB          /* 등록자전산번호 */
+                        ,F_USR_INFO(D1.REGN_CNB,'2')                                     AS REGN_CNB_NM       /* 등록자전산번호 성명 */
+                        ,D1.BLT_ORG_CD                                                   AS BLT_ORG_CD        /* 소속기관코드 */
+                        ,F_ORG_INFO(D1.BLT_ORG_CD,'1')                                   AS BLT_ORG_NM        /* 소속기관명 */
+                        ,D1.BLT_DPT_NM                                                   AS BLT_DPT_NM        /* 소속부서명 */
+                        ,F_ORG_INFO(D1.BLT_ORG_CD,'1') || '(' || D1.BLT_DPT_NM || ')'    AS L_BLT_ORG_DPT_NM  /* 목록 소속기관부서명 */                                                 
+                        ,F_ORG_INFO(D1.BLT_ORG_CD,'1')                                   AS BLT_ORG_DPT_NM    /* 소속기관부서명 */                        
+                        ,D1.RANK_NM                                                      AS RANK_NM           /* 직급명 */
+                        ,D1.NAM                                                          AS NAM               /* 성명 */
+                        ,D1.EIN                                                          AS EIN               /* 암호화주민등록번호 */
+                        ,CASE WHEN NVL(D1.PRSS_STA_CD,'07') >= '03' THEN D1.INSPC_STR_DT
+                              ELSE '' END                                                AS INSPC_STR_DT      /* 조사시작일 */                              
+                        ,CASE WHEN NVL(D1.PRSS_STA_CD,'07') >= '06' THEN D1.INSPC_RLS_DT
+                              ELSE '' END                                                AS INSPC_RLS_DT      /* 조사해제일 */
+                        ,D1.NTF_DT                                                       AS NTF_DT            /* 통보일 */
+                        ,D1.END_DT                                                       AS END_DT            /* 종료일 */
+                        ,NVL2(D3.REGI_DPT_CD, F_DPT_INFO(D3.REGI_DPT_CD, '1') || '(' || F_USR_INFO(D3.REGN_CNB, '2') || ')' , '') AS REL_ASBM_INFO /* 관련의원면직신청 */
+                        , D2.AUD_GRN_NO 
+                        , D1.AUD_YR
+                        , D1.AUD_NO
+                        , D2.AUD_GRN_NO 
+					    , CASE WHEN D2.AUD_YR >= '2016' THEN D2.AUD_KND_CD
+					                                    ELSE '' 
+					            END                                                      AS AUD_YR_NO_KND_CD 	
+					    , D2.AUD_SBJ_NM		 	                                         AS AUD_SBJ_NM
+					    , D1.REG_APV_DOC_NO												 AS REG_APV_DOC_NO
+					    , D1.RLS_APV_DOC_NO												 AS RLS_APV_DOC_NO
+					    , NVL(D1.PRSS_STA_CD, '07')										 AS PRSS_STA_CD    
+                    FROM TBCSPKDE007M D1
+                       , TBBADDED001M D2
+                       , (SELECT REGI_DPT_CD, REGN_CNB , TRIM(NAM) AS NAM , TRIM(EIN) AS EIN  
+                            FROM (SELECT REGI_DPT_CD, REGN_CNB , NAM , EIN, ROW_NUMBER() OVER(PARTITION BY NAM , EIN ORDER BY FRT_REGI_DH DESC) AS RN from TBCSPKDE005M)
+                           WHERE RN =1) D3
+                   WHERE D1.AUD_YR = D2.AUD_YR(+)
+                     AND D1.AUD_NO = D2.AUD_NO(+)
+                     AND TRIM(D1.EIN) = D3.EIN(+)
+                     AND TRIM(D1.NAM) = D3.NAM(+)
+                     AND NVL(D1.PRSS_STA_CD, '07') NOT IN ('01','02') /*조사시작등록 결재전, 결재중*/ 
+                     AND D1.REGI_DPT_CD IN (SELECT CASE WHEN (SELECT MANPOWER_POOL_SYE_YN FROM TBDCMACM002M WHERE DPT_CD = #strDptCd#) = 'Y' THEN #strDptCd# ELSE '' END AS DPT_CD FROM DUAL 
+                     						 UNION
+                     						SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #strDptAuth#, '', CASE WHEN #strDptAuth# = 'ALL' THEN #strDptCd#
+                     																						      WHEN (SELECT MANPOWER_POOL_SYE_YN FROM TBDCMACM002M WHERE DPT_CD = F_USR_INFO(#strCnb#,'5')) = 'N' 
+						                                                                                          THEN F_USR_INFO(#strCnb#,'5') 
+						                                                                                          WHEN (SELECT MANPOWER_POOL_SYE_YN FROM TBDCMACM002M WHERE DPT_CD = (SELECT HIRK_DPT_CD FROM TBDCMACM002M WHERE DPT_CD = F_USR_INFO(#strCnb#,'5'))) = 'Y' 
+						                                                                                          THEN (SELECT HIRK_DPT_CD FROM TBDCMACM002M WHERE DPT_CD = F_USR_INFO(#strCnb#,'5'))       
+						                                                                                          ELSE #strDptCd# END)))
+                     	 
+        ]]>
+		<isNotEmpty property="strDptCd2">
+        			 AND D1.REGI_DPT_CD = #strDptCd2#
+        </isNotEmpty>     
+        
+        <!-- 상태 -->
+		<isNotEmpty property="strSta">
+			<isEqual property="strSta" compareValue="1">
+					 AND D1.INSPC_RLS_DT IS NULL
+					 AND D1.NTF_DT IS NULL
+					 AND D1.END_DT IS NULL
+			</isEqual>
+			<isEqual property="strSta" compareValue="2">
+					 AND D1.NTF_DT IS NOT NULL
+					 AND D1.END_DT IS NULL
+			</isEqual>
+			<isEqual property="strSta" compareValue="3">
+					 AND ((D1.INSPC_RLS_DT IS NOT NULL AND D1.NTF_DT IS NULL ) 
+					   OR (D1.END_DT IS NOT NULL))
+			</isEqual>
+		</isNotEmpty>            
+        
+        <!-- 소관기관 -->
+		<isNotEmpty property="strOrgCd">
+					 AND D1.BLT_ORG_CD = #strOrgCd# 
+		</isNotEmpty>        
+        
+        <!-- 성명 -->
+		<isNotEmpty property="strNam">
+					 AND D1.NAM LIKE '%' || #strNam# || '%'		
+		</isNotEmpty>        
+        
+    	<include refid="include.pageOrder" />
+    </select>
+    
+	<!-- 채번 -->
+	<select id="CSPKDE010EMainMaxSrnoSelect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[     	
+			    SELECT NVL(MAX(REGI_SRNO),0) + 1 AS REGI_SRNO 
+				  FROM TBCSPKDE007M
+				 WHERE 1=1
+		]]>
+	</select>
+	
+	<!--조사개시통보 insert-->
+	<insert id="CSPKDE010EMainInsert" parameterClass="paramMap">
+				INSERT INTO TBCSPKDE007M
+				 (
+                   REGI_SRNO          /* 일련번호 */
+                  ,REGI_DT            /* 등록일 */
+                  ,REGI_DPT_CD        /* 등록부서코드 */
+                  ,REGN_CNB           /* 등록자전산번호 */
+                  ,BLT_ORG_CD         /* 소속기관코드 */
+                  ,BLT_DPT_NM         /* 소속부서명 */
+                  ,RANK_NM            /* 직급명 */
+                  ,NAM                /* 성명 */
+                  ,EIN                /* 암호화주민등록번호 */
+                  ,INSPC_STR_DT       /* 조사시작일 */
+                  ,INSPC_RLS_DT       /* 조사해제일 */
+                  ,NTF_DT             /* 조사개시통보일 */
+                  ,END_DT             /* 조사개시종료일 */
+                  ,AUD_YR             /* 감사년도 */
+				  ,AUD_NO	          /* 감사번호 */
+				  ,REGI_RUT           /* 등록경로 */
+				  ,PRSS_STA_CD	      /* 등록진행상태 */
+				  ,FRT_USR_ID         /* 최초사용자ID */
+				  ,FNL_USR_ID         /* 최종사용자ID */
+				  ,FNL_DEAL_DPT_CD    /* 최종거래부서코드 */
+				  ,FNL_MNU_ID         /* 최종메뉴ID */
+				  ,FRT_REGI_DH        /* 최초등록일시 */
+				  ,FNL_MDF_DH         /* 최종수정일시 */
+				 ) 
+				 VALUES
+				 (
+                   #REGI_SRNO#
+                  ,TO_CHAR(SYSDATE,'YYYYMMDD')
+                  ,#REGI_DPT_CD#
+                  ,#REGN_CNB#
+                  ,#BLT_ORG_CD#
+                  ,#BLT_DPT_NM#
+                  ,#RANK_NM#
+                  ,TRIM(#NAM#)
+                  ,TRIM(#EIN#)
+                  ,#INSPC_STR_DT#
+                  ,#INSPC_RLS_DT#
+                  ,#NTF_DT#
+                  ,#END_DT#
+                  ,#AUD_YR#
+				  ,#AUD_NO#	
+				  ,'O'
+				  ,#PRSS_STA_CD#
+				  ,#FRT_USR_ID#
+				  ,#FNL_USR_ID#
+				  ,#FNL_DEAL_DPT_CD#
+				  ,#FNL_MNU_ID#
+				  ,SYSDATE
+				  ,SYSDATE				 
+				 ) 
+	</insert>
+		
+		
+	<!--조사개시통보 update-->
+	<update id="CSPKDE010EMainUpdate" parameterClass="paramMap">
+	        UPDATE TBCSPKDE007M
+	           SET  
+                   REGI_DPT_CD       = #REGI_DPT_CD#         /* 등록부서코드 */
+                  ,REGN_CNB          = #REGN_CNB#            /* 등록자전산번호 */
+                  ,BLT_ORG_CD        = #BLT_ORG_CD#          /* 소속기관코드 */
+                  ,BLT_DPT_NM        = #BLT_DPT_NM#          /* 소속부서명 */
+                  ,RANK_NM           = #RANK_NM#             /* 직급명 */
+                  ,NAM               = TRIM(#NAM#)           /* 성명 */
+                  ,EIN               = TRIM(#EIN#)           /* 암호화주민등록번호 */
+                  <isNotEmpty property="INSPC_STR_DT">
+                  ,INSPC_STR_DT      = #INSPC_STR_DT#        /* 조사시작일 */
+                  </isNotEmpty>
+                  <isNotEmpty property="INSPC_RLS_DT">
+                  ,INSPC_RLS_DT      = #INSPC_RLS_DT#        /* 조사해제일 */
+                  </isNotEmpty>
+                  ,NTF_DT            = #NTF_DT#              /* 조사개시통보일 */
+                  ,END_DT            = #END_DT#              /* 조사개시종료일 */		  
+                  ,PRSS_STA_CD       = #PRSS_STA_CD#         /* 등록진행상태 */
+				  ,FNL_USR_ID        = #FNL_USR_ID#          /* 최종사용자ID */
+				  ,FNL_DEAL_DPT_CD   = #FNL_DEAL_DPT_CD#     /* 최종거래부서코드 */
+				  ,FNL_MNU_ID        = #FNL_MNU_ID#          /* 최종메뉴ID */
+				  ,FNL_MDF_DH        = SYSDATE               /* 최종수정일시 */
+				  ,AUD_YR	         = #AUD_YR#              /* 감사년도 */
+				  ,AUD_NO            = #AUD_NO#              /* 감사번호 */
+             WHERE 1=1
+               AND REGI_SRNO         = #REGI_SRNO#
+	</update>
+	
+	
+	<!--조사개시통보 delete -->
+	<update id="CSPKDE010EMainDelete" parameterClass="paramMap">
+	        DELETE 
+	          FROM TBCSPKDE007M
+             WHERE 1=1
+               AND REGI_SRNO = #REGI_SRNO#
+	</update>		
+	
+	<!-- 성명과 이름으로 의원면직 조회 -->	
+    <select id="CSPKDE010ENamEinAsbmselect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+                  SELECT D1.REGI_SRNO                                                    AS REGI_SRNO            /* 일련번호 */
+                        ,D1.REGI_DT                                                      AS REGI_DT              /* 등록일 */
+                        ,D1.REGI_DPT_CD                                                  AS REGI_DPT_CD          /* 등록부서코드 */
+                        ,F_DPT_INFO(D1.REGI_DPT_CD,'1')                                  AS REGI_DPT_NM          /* 등록부서명 */
+                        ,D1.REGN_CNB                                                     AS REGN_CNB             /* 등록자전산번호 */
+                        ,F_USR_INFO(D1.REGN_CNB,'2')                                     AS REGN_CNB_NM          /* 등록자전산번호 성명 */
+                        ,D1.BLT_ORG_CD                                                   AS BLT_ORG_CD           /* 소속기관코드 */
+                        ,D1.BLT_ORG_NM                                                   AS BLT_ORG_NM           /* 소속기관명 - 코드변환에서 명으로 바로 변경 - 2016.12.02 yyh */
+                        ,D1.BLT_DPT_NM                                                   AS BLT_DPT_NM           /* 소속부서명 */
+                        ,D1.BLT_ORG_NM || '(' || D1.BLT_DPT_NM || ')'                    AS BLT_ORG_DPT_NM       /* 소속기관부서명 */                        
+                        ,D1.RANK_NM                                                      AS RANK_NM              /* 직급명 */
+                        ,D1.NAM                                                          AS NAM                  /* 성명 */
+                        ,SUBSTR(D1.EIN,0,6)                                              AS EIN                  /* 암호화주민등록번호 -생년월일 */
+                        ,D1.CFM_DDLN_DT                                                  AS CFM_DDLN_DT          /* 확인기한일 */
+                        ,D1.CFM_YN                                                       AS CFM_YN               /* 확인여부 */               
+                    FROM TBCSPKDE005M D1
+                   WHERE 1=1 
+        ]]>
+		<isNotEmpty property="strNam">
+        			 AND D1.NAM = #strNam#
+        </isNotEmpty>
+		<isNotEmpty property="strEin">
+        			 AND SUBSTR(D1.EIN,0,6) = SUBSTR(#strEin#,0,6)
+        </isNotEmpty>             
+    </select>	    
+    
+    <!-- 조사개시통보 이력 -->
+    <insert id="insertIvstStartNotiDataH" parameterClass="paramMap">
+        /*kr.go.bai.eip.aep.afu.dao.AEPAFU001QMapper.insertIvstStartNotiDataH*/
+        INSERT 
+		  INTO TBCSPKDE007H
+		     ( HST_DVSN_CD          /* 이력구분코드 */
+		     , HST_SNO			    /* 이력순번 */
+		     , HST_DH				/* 이력일시 */
+		     , HST_USR_ID           /* 이력사용자ID */
+		     , REGI_SRNO			/* 일련번호 */
+		     , REGI_DT				/* 등록일 */
+		     , REGI_DPT_CD			/* 등록부서코드 */
+		     , REGN_CNB				/* 등록자전산번호 */
+		     , BLT_ORG_CD			/* 소속기관코드 */
+		     , BLT_DPT_NM			/* 소속부서명 */
+		     , RANK_NM				/* 직급명 */
+		     , NAM					/* 성명 */
+		     , EIN					/* 암호화주민등록번호 */
+		     , INSPC_STR_DT         /* 조사시작일 */
+             , INSPC_RLS_DT    	    /* 조사해제일 */
+		     , NTF_DT				/* 조사개시통보일 */
+		     , END_DT				/* 조사개시종료일 */
+		     , FRT_USR_ID			/* 최초사용자ID */
+		     , FNL_USR_ID			/* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD		/* 최종거래부서코드 */
+		     , FNL_MNU_ID			/* 최종메뉴ID */
+		     , FRT_REGI_DH			/* 최초등록일시 */
+		     , FNL_MDF_DH			/* 최종수정일시 */
+		     , AUD_YR				/* 감사년도 */
+		     , AUD_NO				/* 감사번호 */
+		     , REGI_RUT				/* 등록경로 */
+			 )
+		SELECT #HST_DVSN_CD#        /* 이력구분코드 */
+		     , TBCSPKDE007H_SEQ.NEXTVAL   /* 이력순번 */
+		     , SYSDATE				/* 이력일시 */
+		     , #FRT_USR_ID#         /* 이력사용자ID */
+		     , REGI_SRNO			/* 일련번호 */
+		     , REGI_DT				/* 등록일 */
+		     , REGI_DPT_CD			/* 등록부서코드 */
+		     , REGN_CNB				/* 등록자전산번호 */
+		     , BLT_ORG_CD			/* 소속기관코드 */
+		     , BLT_DPT_NM			/* 소속부서명 */
+		     , RANK_NM				/* 직급명 */
+		     , NAM					/* 성명 */
+		     , EIN					/* 암호화주민등록번호 */
+		     , INSPC_STR_DT         /* 조사시작일 */
+             , INSPC_RLS_DT    	    /* 조사해제일 */
+		     , NTF_DT				/* 조사개시통보일 */
+		     , END_DT				/* 조사개시종료일 */
+		     , FRT_USR_ID			/* 최초사용자ID */
+		     , FNL_USR_ID			/* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD		/* 최종거래부서코드 */
+		     , FNL_MNU_ID			/* 최종메뉴ID */
+		     , FRT_REGI_DH			/* 최초등록일시 */
+		     , FNL_MDF_DH			/* 최종수정일시 */
+		     , AUD_YR				/* 감사년도 */
+		     , AUD_NO				/* 감사번호 */
+		     , REGI_RUT				/* 등록경로 */
+		  FROM TBCSPKDE007M
+		 WHERE REGI_SRNO = #REGI_SRNO#
+    </insert>
+    
+    <select id="CSPKDE010ENamEinMaxSrnoSelect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[     	
+			    SELECT NVL(MAX(REGI_SRNO),0) AS REGI_SRNO 
+				  FROM TBCSPKDE007M
+				 WHERE 1=1
+		]]>
+				   AND NVL(PRSS_STA_CD,'07') NOT IN ('01','02')
+				   AND NAM = #strNam#
+				   AND SUBSTR(EIN,0,6) = SUBSTR(#strEin#,0,6)
+	</select>
+    
+    <!-- 성명과 주민번호로 조사개시통보 조회 -->	
+    <select id="CSPKDE010ENamEinselect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+                  SELECT D1.REGI_SRNO                                                    AS REGI_SRNO            /* 일련번호 */
+                        ,D1.REGI_DT                                                      AS REGI_DT              /* 등록일 */
+                        ,D1.REGI_DPT_CD                                                  AS REGI_DPT_CD          /* 등록부서코드 */
+                        ,F_DPT_INFO(D1.REGI_DPT_CD,'1')                                  AS REGI_DPT_NM          /* 등록부서명 */
+                        ,D1.REGN_CNB                                                     AS REGN_CNB             /* 등록자전산번호 */
+                        ,F_USR_INFO(D1.REGN_CNB,'2')                                     AS REGN_CNB_NM          /* 등록자전산번호 성명 */
+                        ,D1.BLT_ORG_CD                                                   AS BLT_ORG_CD           /* 소속기관코드 */
+                        ,F_ORG_INFO(D1.BLT_ORG_CD, '1')                                  AS BLT_ORG_NM           /* 소속기관명 */
+                        ,D1.BLT_DPT_NM                                                   AS BLT_DPT_NM           /* 소속부서명 */
+                        ,F_ORG_INFO(D1.BLT_ORG_CD, '1') || '(' || D1.BLT_DPT_NM || ')'   AS BLT_ORG_DPT_NM       /* 소속기관부서명 */
+                        ,D1.RANK_NM                                                      AS RANK_NM              /* 직급명 */
+                        ,D1.NAM                                                          AS NAM                  /* 성명 */
+                        ,SUBSTR(D1.EIN,0,6)                                              AS EIN                  /* 암호화주민등록번호 -생년월일 */
+                        ,D1.INSPC_STR_DT         										 AS INSPC_STR_DT         /* 조사시작일 */
+             			,D1.INSPC_RLS_DT    											 AS INSPC_RLS_DT		 /* 조사해제일 */
+                        ,D1.NTF_DT                                                       AS NTF_DT               /* 조사개시통보일 */
+                        ,D1.END_DT                                                       AS END_DT               /* 조사개시종료일 */
+                        ,D2.AUD_SBJ_NM		 	                                         AS AUD_SBJ_NM                        
+                    FROM TBCSPKDE007M D1
+                       , TBBADDED001M D2
+                   WHERE 1=1 
+                     AND D1.AUD_YR = D2.AUD_YR(+)
+                     AND D1.AUD_NO = D2.AUD_NO(+)
+                     AND NVL(D1.PRSS_STA_CD,'07') NOT IN ('01','02')
+        ]]>
+		<isNotEmpty property="strNam">
+        			 AND D1.NAM = #strNam#
+        </isNotEmpty>
+		<isNotEmpty property="strEin">
+        			 AND SUBSTR(D1.EIN,0,6) = SUBSTR(#strEin#,0,6)
+        </isNotEmpty>
+    </select>	
+    
+    
+    <update id="CSPKDE010EApvSaveReg" parameterClass="paramMap">
+			UPDATE	TBCSPKDE007M
+			SET		REG_APV_DOC_NO = #APV_DOC_NO#
+					,PRSS_STA_CD = #PRSS_STA_CD#				
+					,FNL_USR_ID = #FNL_USR_ID#
+					,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+					,FNL_MNU_ID = #FNL_MNU_ID#
+					,FNL_MDF_DH = SYSDATE
+			WHERE	REGI_SRNO = #REGI_SRNO#
+	</update>
+	
+	<update id="CSPKDE010EApvSaveRls" parameterClass="paramMap">
+			UPDATE	TBCSPKDE007M
+			SET		RLS_APV_DOC_NO = #APV_DOC_NO#
+					,PRSS_STA_CD = #PRSS_STA_CD#				
+					,FNL_USR_ID = #FNL_USR_ID#
+					,FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+					,FNL_MNU_ID = #FNL_MNU_ID#
+					,FNL_MDF_DH = SYSDATE
+			WHERE	REGI_SRNO = #REGI_SRNO#
+	</update>
+	
+	<select id="CSPKDE010ESelectKey" parameterClass="paramMap"	resultClass="resultMap">
+        	SELECT	A.REGI_SRNO
+        	FROM	TBCSPKDE007M A 
+        	WHERE   A.REG_APV_DOC_NO = #APV_DOC_NO#
+        	   OR   A.RLS_APV_DOC_NO = #APV_DOC_NO#
+	</select>
+	
+	<select id="CSPKDE010EApvMainselect" parameterClass="paramMap" resultClass="resultMap">				    
+        <![CDATA[
+                  SELECT D1.REGI_SRNO                                                    AS REGI_SRNO         /* 일련번호 */
+                        ,D1.REGI_DT                                                      AS REGI_DT           /* 등록일 */
+                        ,D1.REGI_DPT_CD                                                  AS REGI_DPT_CD       /* 등록부서코드 */
+                        ,F_DPT_INFO(D1.REGI_DPT_CD,'1')                                  AS REGI_DPT_NM       /* 등록부서명 */
+                        ,F_DPT_INFO(D1.REGI_DPT_CD,'4')                                  AS S_REGI_DPT_NM     /* 약칭 등록부서명 */                                
+                        ,D1.REGN_CNB                                                     AS REGN_CNB          /* 등록자전산번호 */
+                        ,F_USR_INFO(D1.REGN_CNB,'2')                                     AS REGN_CNB_NM       /* 등록자전산번호 성명 */
+                        ,D1.BLT_ORG_CD                                                   AS BLT_ORG_CD        /* 소속기관코드 */
+                        ,F_ORG_INFO(D1.BLT_ORG_CD,'1')                                   AS BLT_ORG_NM        /* 소속기관명 */
+                        ,D1.BLT_DPT_NM                                                   AS BLT_DPT_NM        /* 소속부서명 */
+                        ,F_ORG_INFO(D1.BLT_ORG_CD,'1') || '(' || D1.BLT_DPT_NM || ')'    AS L_BLT_ORG_DPT_NM  /* 목록 소속기관부서명 */                                                 
+                        ,F_ORG_INFO(D1.BLT_ORG_CD,'1')                                   AS BLT_ORG_DPT_NM    /* 소속기관부서명 */                        
+                        ,D1.RANK_NM                                                      AS RANK_NM           /* 직급명 */
+                        ,D1.NAM                                                          AS NAM               /* 성명 */
+                        ,D1.EIN                                                          AS EIN               /* 암호화주민등록번호 */
+                        ,D1.INSPC_STR_DT												 AS INSPC_STR_DT      /* 조사시작일 */                              
+                        ,D1.INSPC_RLS_DT 												 AS INSPC_RLS_DT      /* 조사해제일 */
+                        ,D1.NTF_DT                                                       AS NTF_DT            /* 통보일 */
+                        ,D1.END_DT                                                       AS END_DT            /* 종료일 */
+                        /*동명이인 611221 이종희 제외 조치 EUNOK 20210923 */
+                        ,CASE WHEN SUBSTR(D1.EIN,0,6) != '611221' THEN ( (SELECT F_DPT_INFO(REGI_DPT_CD,'1') || '(' || F_USR_INFO(REGN_CNB,'2') || ')'
+                            FROM TBCSPKDE005M
+                           WHERE NAM = D1.NAM
+                             AND SUBSTR(EIN,0,6) = SUBSTR(D1.EIN,0,6)
+                             AND ROWNUM = 1)  )  ELSE '' END                             AS REL_ASBM_INFO   /* 관련의원면직신청 */
+                        , D2.AUD_GRN_NO 
+                        , D1.AUD_YR
+                        , D1.AUD_NO
+                        , D2.AUD_GRN_NO 
+					    , CASE WHEN D2.AUD_YR >= '2016' THEN D2.AUD_KND_CD
+					                                    ELSE '' 
+					            END                                                      AS AUD_YR_NO_KND_CD 	
+					    , D2.AUD_SBJ_NM		 	                                         AS AUD_SBJ_NM
+					    , D1.REG_APV_DOC_NO												 AS REG_APV_DOC_NO
+					    , D1.RLS_APV_DOC_NO												 AS RLS_APV_DOC_NO
+					    , D1.PRSS_STA_CD												 AS PRSS_STA_CD    
+                    FROM TBCSPKDE007M D1
+                       , TBBADDED001M D2
+                   WHERE D1.AUD_YR = D2.AUD_YR(+)
+                     AND D1.AUD_NO = D2.AUD_NO(+)
+        ]]>
+        		<isNotEmpty property="strREGI_SRNO">
+				     AND D1.REGI_SRNO = #strREGI_SRNO#
+				</isNotEmpty>				
+				<isEmpty property="strREGI_SRNO">
+					 AND (D1.REG_APV_DOC_NO = #strDOC_NO# OR D1.RLS_APV_DOC_NO = #strDOC_NO#)
+				</isEmpty>
+    </select>
+    
+    <select id="CSPKDE010ESelectManPowerDpt" parameterClass="paramMap" resultClass="String">
+    	SELECT NVL(MANPOWER_POOL_SYE_YN,'N') AS MANPOWER_POOL_SYE_YN 
+		  FROM TBDCMACM002M 
+		 WHERE DPT_CD = (CASE WHEN SUBSTR(F_USR_INFO(#strCnb#,5),0,3) IN (SELECT SUBSTR(DPT_CD,0,3) FROM TBDCMACM002M WHERE MANPOWER_POOL_SYE_YN = 'Y')
+		                     	   AND F_USR_INFO(#strCnb#,5) NOT IN (SELECT DPT_CD FROM TBDCMACM002M WHERE MANPOWER_POOL_SYE_YN = 'N') 
+		                      THEN SUBSTR(F_USR_INFO(#strCnb#,5),0,3)||'000'
+		                      ELSE F_USR_INFO(#strCnb#,5) END)
+    </select>
+</sqlMap> 

@@ -1,0 +1,214 @@
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd" >
+<sqlMap namespace="csp/bii/170">
+	<!-- 감사정보제출 결재상신-->
+	<update id="CSPBII170EAudInfSmtSbmUpdate" parameterClass="paramMap">
+		UPDATE /* csp.bii.service.impl.CSPBII170QServiceImpl.CSPBII170EAudInfSmtSbmUpdate */
+		       TBCSPBII170M                       
+		   SET APV_DOC_NO          = #APV_DOC_NO#                 /* 결재문서번호 */
+		     , SBM_DT              = TO_CHAR(SYSDATE, 'YYYYMMDD') /* 결재상신일 */
+		     , AUD_INF_PRSS_STA_CD = '02'                         /* 감사정보진행상태코드[02:제출결재중] */
+		     , FNL_USR_ID          = #FNL_USR_ID#                 /* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD     = #FNL_DEAL_DPT_CD#            /* 최종거래부서코드 */
+		     , FNL_MNU_ID          = #FNL_MNU_ID#                 /* 최종메뉴ID */
+		     , FNL_MDF_DH          = SYSDATE                      /* 최종수정일시 */
+		 WHERE YE   = REGEXP_SUBSTR(#INF_NO#, '[^|]+', 1, 1)
+           AND SRNO = REGEXP_SUBSTR(#INF_NO#, '[^|]+', 1, 2)
+	</update>	
+	
+	<!-- 감사정보제출 결재 -->
+	<update id="CSPBII170EAudInfSmtApvUpdate" parameterClass="paramMap">
+		UPDATE /* csp.bii.service.impl.CSPBII170QServiceImpl.CSPBII170EAudInfSmtApvUpdate */
+		       TBCSPBII170M T1                   
+		   SET SMT_DT              = #SBM_DT#                      /* 제출일 */
+		     , AUD_INF_PRSS_STA_CD = '05'                         /* 감사정보진행상태코드[05:제출완료] */
+		     , FNL_USR_ID          = #FNL_USR_ID#                 /* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD     = #FNL_DEAL_DPT_CD#            /* 최종거래부서코드 */
+		     , FNL_MNU_ID          = #FNL_MNU_ID#                 /* 최종메뉴ID */
+		     , FNL_MDF_DH          = SYSDATE                      /* 최종수정일시 */
+		     , PRSR_DPT_CD = (SELECT S1.DPT_CD
+		     					FROM TBDCMACM001M S1
+		     					WHERE S1.CNB = T1.PRSR_CNB)
+		     , PRSR_DPT_TP_CD =  (	SELECT	CASE WHEN S1.DPT_CD IN ('062500','062600','062700','062800','170300','170320','071100','071300','180100','180110','100100','081100','081200','081300','081400','081500','081600','081700','081800','081900','0L0100','0L0200','0L0300') 
+		                        						THEN 'A'
+		                        				ELSE S1.DPT_TP_CD END  
+		                        	FROM	TBDCMACM002M S1
+		                        	WHERE	S1.DPT_CD = (SELECT S3.DPT_CD
+		     					FROM TBDCMACM001M S3
+		     					WHERE S3.CNB = T1.PRSR_CNB)
+				                 )
+		 WHERE APV_DOC_NO = #APV_DOC_NO#
+	</update>
+	
+	<!-- 감사정보제출 결재 -->
+	<update id="CSPBII170EAudInfSmtCntUpdate" parameterClass="paramMap">
+		UPDATE /* csp.bii.service.impl.CSPBII170QServiceImpl.CSPBII170EAudInfSmtCntUpdate */
+		       TBCSPBII170L A                       
+		   SET SMT_NOC             = NVL(SMT_NOC, 0) + 1          /* 제출건수(현재건수 + 1) */
+		     , FNL_USR_ID          = #FNL_USR_ID#                 /* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD     = #FNL_DEAL_DPT_CD#            /* 최종거래부서코드 */
+		     , FNL_MNU_ID          = #FNL_MNU_ID#                 /* 최종메뉴ID */
+		     , FNL_MDF_DH          = SYSDATE                      /* 최종수정일시 */
+		 WHERE (YE, CNB) = (SELECT YE
+		                         , CNB
+		                      FROM TBCSPBII170M
+		                     WHERE APV_DOC_NO = #APV_DOC_NO#)
+		   AND QR_DVSN_CD = CASE WHEN SUBSTR(#SBM_DT#, 5,2) BETWEEN '01' AND '06' THEN '1'
+		                           WHEN SUBSTR(#SBM_DT#, 5,2) BETWEEN '07' AND '12' THEN '2'
+		                      END		   
+	</update>
+	
+	<!-- 감사정보제출 반려 -->
+	<update id="CSPBII170EAudInfSmtRetUpdate" parameterClass="paramMap">
+		UPDATE /* csp.bii.service.impl.CSPBII170QServiceImpl.CSPBII170EAudInfSmtRetUpdate */
+		       TBCSPBII170M                       
+		   SET SBM_DT              = NULL              /* 상신일 Null*/
+		     , AUD_INF_PRSS_STA_CD = '04'              /* 감사정보진행상태코드[04:제출반려] */
+		     , FNL_USR_ID          = #FNL_USR_ID#      /* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD     = #FNL_DEAL_DPT_CD# /* 최종거래부서코드 */
+		     , FNL_MNU_ID          = #FNL_MNU_ID#      /* 최종메뉴ID */
+		     , FNL_MDF_DH          = SYSDATE           /* 최종수정일시 */
+		     , APV_DOC_NO = NULL
+		 WHERE APV_DOC_NO = #APV_DOC_NO#
+	</update>
+	
+	<update id="CSPBII170ETBDCMACM022LDelete" parameterClass="paramMap">
+		<![CDATA[
+			DELETE
+			FROM	TBDCMACM022L
+			WHERE APV_DOC_NO = #APV_DOC_NO#
+		]]>
+	</update>
+	
+	<update id="CSPBII170ETBDCMACM023HDelete" parameterClass="paramMap">
+		<![CDATA[
+			DELETE
+			FROM	TBDCMACM023H
+			WHERE APV_DOC_NO = #APV_DOC_NO#
+		]]>
+	</update>
+	
+	<update id="CSPBII170ETBDCMACM023LDelete" parameterClass="paramMap">
+		<![CDATA[
+			DELETE
+			FROM	TBDCMACM023L
+			WHERE APV_DOC_NO = #APV_DOC_NO#
+		]]>
+	</update>
+	
+	<!-- 감사정보제출 상신취소 -->
+	<update id="CSPBII170EAudInfSmtCnlUpdate" parameterClass="paramMap">
+		UPDATE /* csp.bii.service.impl.CSPBII170QServiceImpl.CSPBII170EAudInfSmtCnlUpdate */
+		       TBCSPBII170M                       
+		   SET SBM_DT              = NULL              /* 상신일 Null*/
+		     , AUD_INF_PRSS_STA_CD = '01'              /* 감사정보진행상태코드[01:제출작성] */
+		     , FNL_USR_ID          = #FNL_USR_ID#      /* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD     = #FNL_DEAL_DPT_CD# /* 최종거래부서코드 */
+		     , FNL_MNU_ID          = #FNL_MNU_ID#      /* 최종메뉴ID */
+		     , FNL_MDF_DH          = SYSDATE           /* 최종수정일시 */
+		     , APV_DOC_NO = NULL
+		 WHERE APV_DOC_NO = #APV_DOC_NO#
+	</update>
+	
+	<!-- 감사정보처리 결재상신-->
+	<update id="CSPBII170EAudInfHndlSbmUpdate" parameterClass="paramMap">
+		UPDATE /* csp.bii.service.impl.CSPBII170QServiceImpl.CSPBII170EAudInfHndlSbm */
+		       TBCSPBII170M                       
+		   SET APV_DOC_NO          = #APV_DOC_NO#                 /* 결재문서번호 */
+		     , AUD_INF_PRSS_STA_CD = '22'                         /* 감사정보진행상태코드[22:처리결재중] */
+		     , FNL_USR_ID          = #FNL_USR_ID#                 /* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD     = #FNL_DEAL_DPT_CD#            /* 최종거래부서코드 */
+		     , FNL_MNU_ID          = #FNL_MNU_ID#                 /* 최종메뉴ID */
+		     , FNL_MDF_DH          = SYSDATE                      /* 최종수정일시 */
+		 WHERE YE   = REGEXP_SUBSTR(#INF_NO#, '[^|]+', 1, 1)
+           AND SRNO = REGEXP_SUBSTR(#INF_NO#, '[^|]+', 1, 2)
+	</update>	
+
+	<!-- 감사자료대장기본 등록  -->
+	<insert id="CSPBII170EAudMtrlLdgInsert" parameterClass="paramMap"> 
+		/* csp.bii.service.impl.CSPBII170EServiceImpl.CSPBII170EAudMtrlLdgInsert */
+		INSERT INTO TBBADHAB006M
+
+		SELECT TO_CHAR(SYSDATE, 'YYYY')                  /* 년도 */
+		     , A.HNDL_DPT_CD                             /* 부서코드 */
+		     , (SELECT NVL(MAX(SRNO), 0) + 1 
+		          FROM TBBADHAB006M
+		         WHERE YR     = TO_CHAR(SYSDATE, 'YYYY')
+		           AND DPT_CD = A.HNDL_DPT_CD)           /* 일련번호 */
+		     , '10'                                      /* 관련업무코드[10:정보사항] */      
+		     , A.SRNO                                    /* 관련번호 */ 
+		     , TO_CHAR(SYSDATE, 'YYYYMMDD')              /* 확정일 */
+		     , A.REL_ORG_CD                              /* 관계기관코드 */
+		     , A.TIT_TXT                                 /* 제목명 */
+		     , ''                                        /* 실지감사일 */  
+		     , ''                                        /* 처리담당자전산번호 */
+		     , ''                                        /* 결재일 */
+		     , ''                                        /* 처리상황내용 */
+		     , ''                                        /* 위원회부의내용 */
+		     , ''                                        /* 시행일 */
+		     , ''                                        /* 비고사항 */
+		     , #FNL_USR_ID#
+		     , #FNL_USR_ID#
+		     , #FNL_DEAL_DPT_CD#
+		     , #FNL_MNU_ID#
+		     , SYSDATE
+		     , SYSDATE
+		  FROM TBCSPBII170M A
+		 WHERE A.APV_DOC_NO  = #APV_DOC_NO#
+		   AND A.HNDL_ORD_CD = '3'	<!-- 처리지시가 [3:감사대상]일 경우에만 등록 -->
+	</insert>
+	
+	<!-- 감사정보처리 결재 -->
+	<update id="CSPBII170EAudInfHndlApvUpdate" parameterClass="paramMap">
+		UPDATE /* csp.bii.service.impl.CSPBII170QServiceImpl.CSPBII170EAudInfHndlApvUpdate */
+		       TBCSPBII170M                       
+		   SET CMPT_DT             = TO_CHAR(SYSDATE, 'YYYYMMDD') /* 제출일 */
+		     , AUD_INF_PRSS_STA_CD = '99'                         /* 감사정보진행상태코드[99:완료] */
+		     /* 감사지시코드가 [3:감사대상]일 경우 감사자료관련 컬럼3개 업데이트 */
+		     , AUD_MTRL_YR         = CASE WHEN HNDL_ORD_CD = '3' THEN TO_CHAR(SYSDATE, 'YYYY') /* 감사자료년도 */
+		                                  ELSE ''
+		                             END
+		     , AUD_MTRL_SRNO       = CASE WHEN HNDL_ORD_CD = '3' THEN '0'
+		                                  ELSE ''
+		                             END                                                       /* 감사자료일련번호 */
+		     , AUD_MTRL_DPT_CD     = CASE WHEN HNDL_ORD_CD = '3' THEN HNDL_DPT_CD
+		                                  ELSE ''
+		                             END                                                       /* 감사자료부서코드 */
+		     , FNL_USR_ID          = #FNL_USR_ID#                 /* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD     = #FNL_DEAL_DPT_CD#            /* 최종거래부서코드 */
+		     , FNL_MNU_ID          = #FNL_MNU_ID#                 /* 최종메뉴ID */
+		     , FNL_MDF_DH          = SYSDATE                      /* 최종수정일시 */
+		 WHERE APV_DOC_NO = #APV_DOC_NO#
+	</update>
+	
+	<!-- 감사정보처리 반려 -->
+	<update id="CSPBII170EAudInfHndlRetUpdate" parameterClass="paramMap">
+		UPDATE /* csp.bii.service.impl.CSPBII170QServiceImpl.CSPBII170EAudInfHndlRetUpdate */
+		       TBCSPBII170M                       
+		   SET AUD_INF_PRSS_STA_CD = '24'              /* 감사정보진행상태코드[24:처리반려] */
+		     , FNL_USR_ID          = #FNL_USR_ID#      /* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD     = #FNL_DEAL_DPT_CD# /* 최종거래부서코드 */
+		     , FNL_MNU_ID          = #FNL_MNU_ID#      /* 최종메뉴ID */
+		     , FNL_MDF_DH          = SYSDATE           /* 최종수정일시 */
+		 WHERE APV_DOC_NO = #APV_DOC_NO#
+	</update>	
+	
+	<!-- 감사정보처리 상신취소 -->
+	<update id="CSPBII170EAudInfHndlCnlUpdate" parameterClass="paramMap">
+		UPDATE /* csp.bii.service.impl.CSPBII170QServiceImpl.CSPBII170EAudInfHndlCnlUpdate */
+		       TBCSPBII170M                       
+		   SET AUD_INF_PRSS_STA_CD = '21'              /* 감사정보진행상태코드[21:처리작성] */
+		     , FNL_USR_ID          = #FNL_USR_ID#      /* 최종사용자ID */
+		     , FNL_DEAL_DPT_CD     = #FNL_DEAL_DPT_CD# /* 최종거래부서코드 */
+		     , FNL_MNU_ID          = #FNL_MNU_ID#      /* 최종메뉴ID */
+		     , FNL_MDF_DH          = SYSDATE           /* 최종수정일시 */
+		 WHERE APV_DOC_NO = #APV_DOC_NO#
+	</update>
+	
+	<select id="CSPBII170ESelectSBM_DT" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT	CASE WHEN ROUND(SYSDATE -TO_DATE((SELECT SBM_DT FROM TBCSPBII170M A WHERE A.APV_DOC_NO =#APV_DOC_NO#) ,'YYYYMMDD')) > 10 THEN TO_CHAR(SYSDATE,'YYYYMMDD')
+					ELSE (SELECT SBM_DT FROM TBCSPBII170M A WHERE A.APV_DOC_NO =#APV_DOC_NO#) END AS SBM_DT
+			FROM DUAL
+		]]>
+	</select>
+</sqlMap>

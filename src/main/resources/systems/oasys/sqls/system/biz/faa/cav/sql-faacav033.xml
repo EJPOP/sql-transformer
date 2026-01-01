@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="faa/cav/033">
+	
+	<select id="FAACAV033ERSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[  /* faa/cav/033/FAACAV033ERSelect */ ]]>
+		SELECT  A.DOC_ENF_NO||DOC_ENF_DT GUBUN,
+				D.ORG_NM AS 증명기관명
+			   ,CASE A.MDF_DVSN_CD
+			    WHEN 'C' THEN '지정'
+			    WHEN 'U' THEN '변경'
+			    WHEN 'N' THEN '폐지'
+			    WHEN 'p' THEN '공문변경'
+				WHEN 's' THEN '단순변경'
+				WHEN 'D' THEN '지정취소'
+			    ELSE A.MDF_DVSN_CD END AS 구분
+			   ,B.ACNT_CD_NM AS 소관명
+			   ,C.ACNT_CD_NM AS 회계명          
+    <![CDATA[  ,NVL(case when (A.BLL_CD='17' and A.DL_XPN_RCDB_PBSVT_SRNO <> '000' ) or (A.BLL_CD='18' and A.DL_XPN_RCDB_PBSVT_SRNO <> '000' ) then '관서운영경비출납계산서' else  case when (A.BLL_CD='22' and A.DL_XPN_RCDB_PBSVT_SRNO <> '000' ) or (A.BLL_CD='23' and A.DL_XPN_RCDB_PBSVT_SRNO <> '000' ) or (A.BLL_CD='24' and A.DL_XPN_RCDB_PBSVT_SRNO <> '000' ) then '기금관서운영경비출납계산서' else case when (A.BLL_CD='19' and A.DL_XPN_RCDB_PBSVT_SRNO <> '000' ) then '선사용자금관서운영경비출납계산서' else  F.ACNT_CD_NM  end end end ,' ') AS 계산서종류 ]]> 
+		       ,E.ORG_NM AS 소속중앙관서
+		       ,A.PST_NM AS 직위명
+		       ,A.COPT_CD||'-'||A.ACNT_CD||'-'||A.BLL_CD||'-'||A.PROF_DRTR_SRNO||'-'||A.DL_XPN_RCDB_PBSVT_SRNO AS 증명책임자부호 	
+		       ,CASE WHEN SUBSTRING(A.CRE_DT,1,4) = '0000' THEN ' ' ELSE SUBSTRING (A.CRE_DT,1,4) || '.' || SUBSTRING (A.CRE_DT,5,2) || '.' END AS 지정월
+        	   ,CASE WHEN SUBSTRING(A.ABLT_DT,1,4) = '9999' THEN ' ' ELSE SUBSTRING (A.ABLT_DT,1,4) || '.' || SUBSTRING (A.ABLT_DT,5,2) || '.' END AS 폐지월
+		  FROM TWFAACAV024C F, TBDCMACM015M E, TBDCMACM015M D, TWFAACAV024C C, TWFAACAV024C B, TWFAACAV003M A
+		 WHERE A.COPT_CD in (
+				    SELECT NVL(A.COPT_CD,'') AS OFFC_CD
+				      FROM TWFAACAV003M  A,  TWFAACAV024C B    
+				     WHERE A.COPT_CD BETWEEN #strCoptCdFrom# AND #strCoptCdTo#       
+				       AND A.MDF_DT BETWEEN #strYrFrom#||#strMmFrom#||#strDdFrom# AND #strYrTo#||#strMmTo#||#strDdTo#
+				       AND DOC_ENF_DT IS NOT NULL
+				       AND B.ACNT_DVSN_CD = '02'
+				       AND A.COPT_CD = B.ACNT_CD
+				  GROUP BY DOC_ENF_NO, DOC_ENF_DT, COPT_CD
+			  )	
+		  AND (A.MDF_DT BETWEEN #strYrFrom#||#strMmFrom#||#strDdFrom# AND #strYrTo#||#strMmTo#||#strDdTo#
+		  AND A.DOC_ENF_NO in (
+		            SELECT NVL(A.DOC_ENF_NO,'') AS DOC_EXEC_NO
+		              FROM TWFAACAV003M  A,  TWFAACAV024C B    
+		             WHERE A.COPT_CD BETWEEN #strCoptCdFrom# AND #strCoptCdTo#       
+		               AND A.MDF_DT BETWEEN #strYrFrom#||#strMmFrom#||#strDdFrom# AND #strYrTo#||#strMmTo#||#strDdTo#
+		               AND DOC_ENF_DT IS NOT NULL
+		               AND B.ACNT_DVSN_CD = '02'
+		               AND A.COPT_CD = B.ACNT_CD
+		          GROUP BY DOC_ENF_NO, DOC_ENF_DT, COPT_CD
+		       )       
+		  AND A.DOC_ENF_DT in (
+		            SELECT NVL(A.DOC_ENF_DT,'')  AS DOC_EXEC_DATE
+		              FROM TWFAACAV003M  A,  TWFAACAV024C B    
+		             WHERE A.COPT_CD BETWEEN #strCoptCdFrom# AND #strCoptCdTo#       
+		               AND A.MDF_DT BETWEEN #strYrFrom#||#strMmFrom#||#strDdFrom# AND #strYrTo#||#strMmTo#||#strDdTo#
+		               AND DOC_ENF_DT IS NOT NULL
+		               AND B.ACNT_DVSN_CD = '02'
+		               AND A.COPT_CD = B.ACNT_CD
+		          GROUP BY DOC_ENF_NO, DOC_ENF_DT, COPT_CD
+		       )
+	      AND B.ACNT_DVSN_CD = '02'	
+	      AND A.COPT_CD = B.ACNT_CD	
+	      AND C.ACNT_DVSN_CD = '01'	
+	      AND C.ACNT_CD = A.ACNT_CD	
+	      AND F.ACNT_DVSN_CD = '03'	
+	      AND F.ACNT_CD = A.BLL_CD	
+	      AND A.ORG_CD = D.ORG_CD		
+	      AND SUBSTRING(A.ORG_CD,1,3)||'000000000' = E.ORG_CD(+))		
+	 ORDER BY GUBUN, A.MDF_DVSN_CD, A.COPT_CD, A.ACNT_CD, A.BLL_CD, A.PROF_DRTR_SRNO, A.DL_XPN_RCDB_PBSVT_SRNO ASC
+	</select>
+</sqlMap> 

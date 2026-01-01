@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.osm.dao.AEPOSM012PMapper">
+    
+    <select id="selectCmtList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.aep.osm.dao.AEPOSM012PMapper.selectCmtList*/
+    <include refid="include.pageSelct" />
+            <![CDATA[
+         /* 실지감사 시스템 */
+         SELECT 
+                F_MNG_KND_AUDYRNO(AUD_YR, AUD_NO, AUD_KND_CD, '-') AS AUD_YR_NO
+                , '실지감사' AS WORK_DVSN_NM
+                , 'N' AS CMT_ADD_YN
+                , (SELECT F_DPT_INFO(MNG_DPT_CD,'1') 
+                     FROM TBBADDED001M ST1
+                    WHERE ST1.AUD_YR = T1.AUD_YR
+                      AND ST1.AUD_NO = T1.AUD_NO) AS MNG_DPT_NM
+                , SBCN_PRSS_DPT_NM
+                , SBCN_RPTR
+                , REL_TSK_NM AS REL_TSK_NM_DSP
+                , REL_TSK_NM
+                , (SELECT REGI_NO 
+                     FROM TBBADDED112D ST1
+                    WHERE ST1.AUD_YR = T1.AUD_YR
+                      AND ST1.AUD_NO = T1.AUD_NO
+                      AND ST1.DOC_ID = T1.DOC_ID) AS REGI_NO
+                , COUNT(1) AS SBCN_CNT
+                , SBCN_DY
+                , 'AAA' AS WORK_DVSN_CD
+                , AUD_YR
+                , AUD_NO
+                , NULL AS CMT_DVSN_CD
+                , NULL AS CMT_SQ
+                , NULL AS CMT_SBJ_DVSN_CD
+                , NULL AS CMT_SBJ_SNO 
+                , AUD_KND_CD
+                , T1.DOC_ID
+              FROM TBBADDED113M T1
+             WHERE SBCN_DY = REPLACE(#{cmtDy},'-')
+             GROUP BY T1.AUD_YR, T1.AUD_NO, T1.AUD_KND_CD, T1.SBCN_PRSS_DPT_NM, T1.SBCN_RPTR, T1.REL_TSK_NM, T1.SBCN_DY, T1.SBCN_REGI_REQ_DT, T1.DOC_ID
+            /* 심사,재심 시스템 */
+            UNION ALL
+            SELECT 
+            	T1.ACP_YR || '-' || DECODE(T1.ACP_DVSN_CD, '1', '심사', '재심') || '-' || TO_CHAR(T1.ACP_SRNO) AS AUD_YR_NO
+                , DECODE(T1.ACP_DVSN_CD, '1', '심사', '재심') AS WORK_DVSN_NM
+                , 'N' AS CMT_ADD_YN
+                , (SELECT F_DPT_INFO(ST1.DPT_CD,'1') 
+                     FROM TBBADFRE012M ST1
+                    WHERE ST1.ACP_YR = T1.ACP_YR
+                      AND ST1.ACP_SRNO = T1.ACP_SRNO
+                      AND ST1.ACP_DVSN_CD = T1.ACP_DVSN_CD) AS MNG_DPT_NM
+                , SBCN_PRSS_DPT_NM
+                , SBCN_RPTR
+                , '' AS REL_TSK_NM_DSP
+                , ''
+                , (SELECT REGI_NO 
+                     FROM TBBADFRE112M ST1
+                    WHERE ST1.ACP_YR = T1.ACP_YR
+                      AND ST1.ACP_SRNO = T1.ACP_SRNO
+                      AND ST1.ACP_DVSN_CD = T1.ACP_DVSN_CD) AS REGI_NO
+                , COUNT(1) AS SBCN_CNT
+                , SBCN_DY
+                , 'AAA' AS WORK_DVSN_CD
+                , ACP_YR
+                , TO_CHAR(ACP_SRNO)
+                , NULL AS CMT_DVSN_CD
+                , NULL AS CMT_SQ
+                , NULL AS CMT_SBJ_DVSN_CD
+                , NULL AS CMT_SBJ_SNO
+                , ACP_DVSN_CD
+                , T1.DOC_ID
+              FROM TBBADFRE113M T1
+             WHERE SBCN_DY = REPLACE(#{cmtDy},'-')
+             GROUP BY T1.ACP_YR, T1.ACP_SRNO, T1.ACP_DVSN_CD, T1.SBCN_PRSS_DPT_NM, T1.SBCN_RPTR, T1.SBCN_DY, T1.SBCN_REGI_REQ_DT, T1.DOC_ID
+            /* 실지감사 수기 */
+            UNION ALL
+            SELECT
+                DECODE(T1.WORK_DVSN_CD,'D10',REL_AUD_YR||'-심사-'||REL_AUD_NO  /* 심사청구 */
+                                      ,'E10',REL_AUD_YR||'-재심-'||REL_AUD_NO  /* 재심의청구 */
+                                      ,'Z90','-'
+                                      ,(SELECT F_MNG_KND_AUDYRNO(ST1.AUD_YR, ST1.AUD_NO, ST1.AUD_KND_CD, '-')
+                                          FROM TBBADDED001M ST1
+                                         WHERE ST1.AUD_YR = T1.REL_AUD_YR
+                                           AND ST1.AUD_NO = T1.REL_AUD_NO)) AS AUD_YR_NO 
+                , DECODE(T1.WORK_DVSN_CD,'D10','심사청구'
+                                                                ,'E10','재심의청구'
+                                                                ,'Z90','기타안건','실지감사') AS WORK_DVSN_NM 
+                , 'Y' AS CMT_ADD_YN
+                , F_DPT_INFO(REL_DPT_CD,'1') AS MNG_DPT_NM
+                , PRSS_DPT_NM
+                , SBCN_RPTR
+                , REL_TSK_NM AS REL_TSK_NM_DSP
+                , REL_TSK_NM
+                , REGI_NO
+                , BFR_SBCN_CNT
+                , CMT_DY
+                , WORK_DVSN_CD
+                , REL_AUD_YR
+                , REL_AUD_NO
+                , CMT_DVSN_CD
+                , CMT_SQ
+                , CMT_SBJ_DVSN_CD
+                , CMT_SBJ_SNO
+                , ''
+                , NULL AS DOC_ID
+              FROM TBBADDED121M T1
+             WHERE CMT_DY = REPLACE(#{cmtDy},'-')
+       ]]>
+       <include refid="include.pageOrder" />
+    </select>
+
+    <update id="saveCmtDtlData" parameterType="paramMap">
+    /*kr.go.bai.eip.aep.osm.dao.AEPOSM012PMapper.saveCmtDtlData*/
+        UPDATE TBBADDED121M 
+               SET REL_TSK_NM = #{relTskNm},
+                      PRSS_DPT_NM = #{sbcnPrssDptNm},
+                      REGI_NO = #{regiNo},
+                      BFR_SBCN_CNT= #{sbcnCnt},
+                      SBCN_RPTR  = #{sbcnRptr},
+                      FNL_USR_ID = #{usrId},
+                      FNL_DEAL_DPT_CD = #{dptCd},
+                      FNL_MNU_ID = #{menuNo},
+                      FNL_MDF_DH = SYSDATE
+          WHERE CMT_DY = REPLACE(#{sbcnDy},'-')
+               AND CMT_DVSN_CD = #{cmtDvsnCd}
+               AND CMT_SQ = #{cmtSq}
+               AND CMT_SBJ_DVSN_CD = #{cmtSbjDvsnCd}
+               AND CMT_SBJ_SNO         = #{cmtSbjSno}
+    </update>
+    
+    <update id="saveSbcnDtlData" parameterType="paramMap">
+    /*kr.go.bai.eip.aep.osm.dao.AEPOSM012PMapper.saveSbcnDtlData*/
+        UPDATE TBBADDED113M 
+               SET SBCN_PRSS_DPT_NM = #{sbcnPrssDptNm},
+                      REL_TSK_NM = #{relTskNm},
+                      FNL_USR_ID = #{usrId},
+                      FNL_DEAL_DPT_CD = #{dptCd},
+                      FNL_MNU_ID = #{menuNo},
+                      FNL_MDF_DH = SYSDATE
+          WHERE AUD_YR = #{audYr}
+               AND AUD_NO = #{audNo}
+               AND SBCN_DY = REPLACE(#{sbcnDy},'-')
+               AND DOC_ID = #{docId}
+    </update>
+    
+    <update id="saveSbcnDtlEtcData" parameterType="paramMap">
+    /*kr.go.bai.eip.aep.osm.dao.AEPOSM012PMapper.saveSbcnDtlEtcData*/
+        UPDATE TBBADFRE113M 
+               SET SBCN_PRSS_DPT_NM = #{sbcnPrssDptNm},
+                      FNL_USR_ID = #{usrId},
+                      FNL_DEAL_DPT_CD = #{dptCd},
+                      FNL_MNU_ID = #{menuNo},
+                      FNL_MDF_DH = SYSDATE
+          WHERE ACP_YR = #{audYr}
+               AND ACP_SRNO = #{audNo}
+               AND ACP_DVSN_CD = #{audKndCd}
+               AND SBCN_DY = REPLACE(#{sbcnDy},'-')
+    </update>
+</mapper>

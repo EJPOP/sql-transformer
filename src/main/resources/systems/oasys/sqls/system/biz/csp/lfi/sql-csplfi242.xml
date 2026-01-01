@@ -1,0 +1,676 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/lfi/242">
+
+	
+	<select id="CSPLFI242QMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		<include refid = "include.pageSelct"/>
+		<![CDATA[
+			SELECT 	T1.YR
+					,T1.APL_DT
+					,T1.APL_CNB
+					,T1.DPT_CD
+					,F_DPT_INFO(T1.DPT_CD,'1') AS DPT_NM
+					,T1.RANK_CD
+					,F_CODE_NM('1000173',T1.RANK_CD) AS RANK_NM
+					,T1.APL_NAM
+					,T1.GEN_ADMN_DVSN_CD
+					,F_CODE_NM('1000852',T1.GEN_ADMN_DVSN_CD) AS GEN_ADMN_DVSN_NM /* 직렬 */
+					,T1.BZT_TREXP_RCIT_BNK_CD                       AS BZT_TREXP_RCIT_BNK_CD /* 출장여비수령은행코드 */
+            		,F_CODE_NM('1000166', T1.BZT_TREXP_RCIT_BNK_CD) AS BZT_TREXP_RCIT_BNK_NM /* 출장여비수령은행명 */
+					,DGUARD.DECRYPT('TB_ENC','EAN', T1.BZT_TREXP_RCIT_EAN) AS BZT_TREXP_RCIT_EAN /*주석해제시 컬럼명 확인*/
+            		 /*,T1.BZT_TREXP_RCIT_EAN                          AS BZT_TREXP_RCIT_EAN    출장여비수령암호화계좌번호 */
+            		,T1.SRNO   /* 일련번호  */
+					,T1.APVR_DT /* 승인일 */
+					,T1.APVR_AM /* 승인금액 */
+					,T1.APL_AM /* 신청금액 */
+					,T1.DOC_ID
+					,T1.SPRT_EXPT_AM /* 지원예상금액 */
+					,T1.PMT_AM /* 지급금액 */
+					,T1.TIT_NM  /* 제목 */
+					,T1.HNDL_STEP  /* 처리상태 */
+					,TO_CHAR(T1.APV_DT, 'YYYY-MM-DD') AS APV_DT /* 결재일 */
+					,T1.FRT_REGI_DH 
+					,T1.APV_DOC_NO
+			FROM	TBCSPLFI242M T1
+			WHERE	1=1
+			
+		]]>	
+		
+		<isNotEmpty property="strYr">
+			AND  T1.YR = #strYr# 
+		</isNotEmpty>
+			
+		<isNotEmpty property="strSrno">
+			AND  T1.SRNO = #strSrno# 
+		</isNotEmpty>
+		
+		<isNotEmpty property="strCNB">
+			AND T1.APL_CNB = #strCNB# 
+		</isNotEmpty>
+		
+		<isEqual property="strAUTH_CD" compareValue="ALL">
+        	AND	 (T1.APL_CNB = #strCnb# OR T1.HNDL_STEP <![CDATA[ >= ]]> '2') /* ALL 권한자이면 모든 '신청'된 등록 사항을 조회 */
+        	<isNotEmpty property="strDPT_CD2">
+				AND  T1.DPT_CD = #strDPT_CD2# 
+			</isNotEmpty>
+        </isEqual>
+        
+		<!-- 직렬(사용자구분) -->
+		<isNotEmpty property="strGEN_ADMN_DVSN_CD">
+			AND	T1.GEN_ADMN_DVSN_CD = #strGEN_ADMN_DVSN_CD#
+		</isNotEmpty>
+		
+		<isNotEmpty property="strHNDL_STEP">
+			AND  T1.HNDL_STEP = #strHNDL_STEP# 
+		</isNotEmpty>
+		
+		<!-- 제목 -->
+		<isNotEmpty prepend="AND" property="strTIT_NM">
+			T1.TIT_NM LIKE '%'||#strTIT_NM# ||'%'
+		</isNotEmpty>
+		
+		<!-- 신청일 -->
+		<isNotEmpty property="strAPL_DTS">
+			<![CDATA[
+				AND	T1.APL_DT >= #strAPL_DTS#
+			]]>
+		</isNotEmpty>
+		<isNotEmpty property="strAPL_DTE">
+			<![CDATA[
+				AND	T1.APL_DT <= #strAPL_DTE#
+			]]>
+		</isNotEmpty>
+		
+		<include refid = "include.pageOrder"/> 
+	</select>
+
+	<select id="CSPLFI242QMgYrLtdSelect"  parameterClass="paramMap" resultClass="resultMap">
+     
+		SELECT NVL(SPRT_LTD,'0') AS SPRT_LTD
+		      ,NVL(SPRT_AM,'0') AS SPRT_AM
+		      ,NVL(TOTAL_AM,'0') AS TOTAL_AM
+		FROM TBCSPLFI242D
+		WHERE 1=1
+			AND YR = #strYr#
+
+	</select>
+	
+	
+	<select id="CSPLFI242QExcelExportSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[ 
+			SELECT ROW_NUMBER() OVER(ORDER BY DPT_SNO ASC) AS NUM,	A.* 
+ 				FROM ( SELECT 
+					T1.YR /* 연도 */
+					,(SELECT DPT_SNO FROM TBDCMACM002M WHERE DPT_CD = T1.DPT_CD) AS DPT_SNO
+					,F_DPT_INFO(T1.DPT_CD,'1') AS DPT_NM /* 부서 */
+					,F_CODE_NM('1000173',T1.RANK_CD) AS RANK_NM /* 직급 */
+					,T1.APL_CNB /* 신청자 전산번호 */
+					,T1.APL_NAM /* 신청자 명 */
+					,F_CODE_NM('1000852',T1.GEN_ADMN_DVSN_CD) AS GEN_ADMN_DVSN_NM /* 직렬 */
+					,T1.APL_DT /* 신청일 */
+					,T1.TIT_NM  /* 제목 */
+					,T1.APL_AM  /* 신청금액 */
+					,T1.SPRT_EXPT_AM /* 지급예상금액 */	
+            		,F_CODE_NM('1000166', T1.BZT_TREXP_RCIT_BNK_CD) AS BNK_NM /* 출장여비수령은행명 */
+					,DGUARD.DECRYPT('TB_ENC','EAN', T1.BZT_TREXP_RCIT_EAN) AS EAN /*주석해제시 컬럼명 확인*/
+            		/*,T1.BZT_TREXP_RCIT_EAN                          AS EAN     출장여비수령암호화계좌번호 */
+					,TO_CHAR(T1.APV_DT, 'YYYY.MM.DD') AS APV_DT /* 결재일 (지급일) */
+					,T1.PMT_AM /* 지급금액 */
+					,F_CODE_NM('1000884',T1.HNDL_STEP) AS HNDL_STEP  /* 처리상태 */
+					
+			FROM	TBCSPLFI242M T1
+			WHERE	1=1
+		]]>
+		<isNotEmpty property="strYr">
+			AND  T1.YR = #strYr# 
+		</isNotEmpty>
+			
+		<isNotEmpty property="strSrno">
+			AND  T1.SRNO = #strSrno# 
+		</isNotEmpty>
+            
+		<isNotEmpty property="strCNB">
+			AND T1.APL_CNB = #strCNB# 
+		</isNotEmpty>
+		
+        <isEqual property="strAUTH_CD" compareValue="ALL">
+        	AND	 (T1.APL_CNB = #strCnb# OR T1.HNDL_STEP <![CDATA[ >= ]]> '2') /* ALL 권한자이면 모든 '신청'된 등록 사항을 조회 */
+        	<isNotEmpty property="strDPT_CD2">
+				AND  T1.DPT_CD = #strDPT_CD2# 
+			</isNotEmpty>
+        </isEqual>
+		<!-- 직렬 -->
+		<isNotEmpty property="strGEN_ADMN_DVSN_CD">
+			AND	T1.GEN_ADMN_DVSN_CD = #strGEN_ADMN_DVSN_CD#
+			
+		</isNotEmpty>
+		
+		<isNotEmpty property="strHNDL_STEP">
+			AND  T1.HNDL_STEP = #strHNDL_STEP# 
+		</isNotEmpty>
+		
+		<!-- 제목 -->
+		<isNotEmpty prepend="AND" property="strTIT_NM">
+			T1.TIT_NM LIKE '%'||#strTIT_NM# ||'%'
+		</isNotEmpty>
+		
+		<!-- 신청일 -->
+		<isNotEmpty property="strAPL_DTS">
+			<![CDATA[
+				AND	T1.APL_DT >= #strAPL_DTS#
+			]]>
+		</isNotEmpty>
+		<isNotEmpty property="strAPL_DTE">
+			<![CDATA[
+				AND	T1.APL_DT <= #strAPL_DTE#
+			]]>
+		</isNotEmpty>
+		ORDER BY DPT_SNO ASC, T1.APL_NAM,T1.APL_DT DESC ) A
+	</select>
+	<select id="CSPLFI242APMainApvSelect" parameterClass="paramMap" 	resultClass="resultMap">
+	
+        <![CDATA[
+			SELECT 	T1.YR
+					,T1.APL_DT
+					,T1.APL_CNB
+					,T1.DPT_CD
+					,F_DPT_INFO(T1.DPT_CD,'1') AS DPT_NM
+					,T1.RANK_CD
+					,F_CODE_NM('1000173',T1.RANK_CD) AS RANK_NM
+					,T1.APL_NAM
+					,T1.GEN_ADMN_DVSN_CD
+					,F_CODE_NM('1000852',T1.GEN_ADMN_DVSN_CD) AS GEN_ADMN_DVSN_NM /* 직렬 */
+					,T1.BZT_TREXP_RCIT_BNK_CD                       AS BZT_TREXP_RCIT_BNK_CD /* 출장여비수령은행코드 */
+            		,F_CODE_NM('1000166', T1.BZT_TREXP_RCIT_BNK_CD) AS BZT_TREXP_RCIT_BNK_NM /* 출장여비수령은행명 */
+					,DGUARD.DECRYPT('TB_ENC','EAN', T1.BZT_TREXP_RCIT_EAN) AS BZT_TREXP_RCIT_EAN /*주석해제시 컬럼명 확인*/
+            		/*,T1.BZT_TREXP_RCIT_EAN                          AS BZT_TREXP_RCIT_EAN     출장여비수령암호화계좌번호 */
+            		,T1.SRNO   /* 일련번호  */
+					,T1.APVR_DT /* 승인일 */
+					,T1.APVR_AM /* 승인금액 */
+					,T1.APL_AM /* 신청금액 */
+					,T1.DOC_ID
+					,T1.SPRT_EXPT_AM /* 지원예상금액 */
+					,T1.PMT_AM /* 지급금액 */
+					,T1.TIT_NM  /* 제목 */
+					,T1.HNDL_STEP  /* 처리상태 */
+					,TO_CHAR(T1.APV_DT, 'YYYY.MM.DD') AS APV_DT /* 결재일 */
+					,T1.FRT_REGI_DH 
+					,T1.APV_DOC_NO
+                    ,(SELECT NVL(SUM(T2.PMT_AM),0) FROM TBCSPLFI242M T2 WHERE T2.YR= TO_CHAR(SYSDATE,'YYYY') AND T2.HNDL_STEP='7') AS SYS_PMT_AM
+                    ]]>	
+                    
+                    ,(SELECT SUM(T3.PMT_AM) FROM TBCSPLFI242M T3 WHERE 1=1
+								                    <isNotEmpty property = "parentKey">
+											AND  T3.SRNO IN
+											<iterate property = "parentKey" open="(" close=")" conjunction=",">
+												#parentKey[]#
+											</iterate>
+										</isNotEmpty>
+										<isNotEmpty property="strYr"><!-- 신청년도 -->
+										AND T3.YR =  #strYr#
+										</isNotEmpty>
+										<isNotEmpty property="strApvDocNo"><!-- 결쟂문서번호 -->
+										AND T3.APV_DOC_NO =  #strApvDocNo#
+										</isNotEmpty>
+                    
+                    ) AS THIS_PMT_AM
+			FROM	TBCSPLFI242M T1
+			WHERE	1=1
+			
+		
+		<isNotEmpty property = "parentKey">
+			AND  T1.SRNO IN
+			<iterate property = "parentKey" open="(" close=")" conjunction=",">
+				#parentKey[]#
+			</iterate>
+		</isNotEmpty>
+		<isNotEmpty property="strYr"><!-- 신청년도 -->
+		AND T1.YR =  #strYr#
+		</isNotEmpty>
+		<isNotEmpty property="strApvDocNo"><!-- 결쟂문서번호 -->
+		AND T1.APV_DOC_NO =  #strApvDocNo#
+		</isNotEmpty>
+		
+	</select>
+	
+	<!-- 결재처리정보를 수정한다 -->
+	<update id="CSPLFI242APApvInfoupdate" parameterClass="paramMap">
+           UPDATE TBCSPLFI242M                    		
+              SET APV_DOC_NO        = #APV_DOC_NO#,		/* 결재문서번호 */
+                  HNDL_STEP    	    = #HNDL_STEP#,
+                  APV_DT    	    = SYSDATE
+           WHERE 1=1
+          	<isNotEmpty property = "parentKey">
+				 AND SRNO IN
+				<iterate property = "parentKey" open="(" close=")" conjunction=",">
+					#parentKey[]#
+				</iterate>
+			</isNotEmpty>
+	</update>
+	
+	<!-- 결재처리정보를 수정한다 -->	
+	<update id="CSPLFI242APApvDocInfoupdate" parameterClass="paramMap">
+           UPDATE TBCSPLFI242M                    		
+              SET APV_DOC_NO        = #APV_DOC_NO#,		/* 결재문서번호 */
+                  HNDL_STEP    		= #HNDL_STEP#,
+                  APV_DT    	    = SYSDATE
+           WHERE 1=1
+           <isNotEmpty property="strApvDocNo"><!-- 결재문서번호 -->
+			 AND APV_DOC_NO = #strApvDocNo#
+		   </isNotEmpty>
+			
+	</update>
+	
+	
+	<select id="CSPLFI242QSelectApvDocNoList" parameterClass="paramMap" 	resultClass="resultMap">
+	
+        <![CDATA[
+			SELECT 	A.SRNO
+					,A.APV_DOC_NO
+					,A.YR
+			FROM
+				TBCSPLFI242M A
+			WHERE 1=1
+		]]>	
+		
+		<isNotEmpty property="strDocNo"><!-- 결재문서번호 -->
+		AND A.APV_DOC_NO =  #strDocNo#
+		</isNotEmpty>		
+	</select>
+	
+	
+	<select id="CSPLFI242DMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT 	T1.YR
+					, T1.SPRT_LTD
+					, T1.SPRT_AM
+					, T1.TOTAL_AM
+			FROM	TBCSPLFI242D T1
+			WHERE	1=1
+		]]>
+		<isNotEmpty property="strYr">
+			AND  T1.YR = #strYr# 
+		</isNotEmpty>
+	</select>
+	
+	<select id="CSPLFI242DCntSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT 	COUNT(*) AS CNT
+			FROM	TBCSPLFI242D T1
+			WHERE	1=1
+		]]>
+			AND  T1.YR = #YR#
+			
+	</select>
+	
+	<update id="CSPLFI242Dupdate" parameterClass="paramMap">
+	<![CDATA[
+			UPDATE	TBCSPLFI242D
+			SET		YR = #YR# /* 신청일 */
+					,SPRT_LTD = #SPRT_LTD#
+					,SPRT_AM = #SPRT_AM# /* 지원금액 */
+					,TOTAL_AM = #TOTAL_AM# /* 지원총액 */
+			WHERE	YR = #YR#
+		]]>
+	</update>
+	
+	<insert id="CSPLFI242Dinsert" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBCSPLFI242D
+        	(
+        			YR,
+        			SPRT_LTD,
+        			SPRT_AM,
+        			TOTAL_AM
+        	) VALUES (
+        			#YR#,
+        			#SPRT_LTD#,
+	        		#SPRT_AM#,
+	        		#TOTAL_AM#
+        	)
+        ]]>
+	</insert>
+	
+	<delete id="CSPLFI242Ddelete" parameterClass="paramMap">
+		DELETE
+		TBCSPLFI242D
+		WHERE YR = #YR#
+	</delete>
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	<select id="CSPLFI242EUserSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT	NVl(D1.BZT_TREXP_RCIT_BNK_CD
+				,(SELECT T.BZT_TREXP_RCIT_BNK_CD
+				FROM (SELECT T1.BZT_TREXP_RCIT_BNK_CD
+						FROM TBCSPLFI242M T1
+					    WHERE T1.APL_CNB = #strUserCnb#
+				        ORDER BY T1.APL_DT DESC) T WHERE ROWNUM =1  ) 
+				) AS BZT_TREXP_RCIT_BNK_CD /* 사용자정보 기본은행이 없을때 가장 최근에 사용한 계좌 가져오기 */
+				,NVl(REGEXP_REPLACE((DGUARD.DECRYPT('TB_ENC','EAN', D1.BZT_TREXP_RCIT_EAN)) ,'[^0-9]') /* D1.BZT_TREXP_RCIT_EAN */
+				,(SELECT REGEXP_REPLACE((DGUARD.DECRYPT('TB_ENC','EAN', T.BZT_TREXP_RCIT_EAN)) ,'[^0-9]') /* T.BZT_TREXP_RCIT_EAN  */
+				FROM (SELECT T1.BZT_TREXP_RCIT_EAN
+						FROM TBCSPLFI242M T1
+					    WHERE T1.APL_CNB = #strUserCnb#
+				        ORDER BY T1.APL_DT DESC) T WHERE ROWNUM =1  ) 
+				) AS BZT_TREXP_RCIT_EAN /* 사용자정보 기본계좌가 없을때 가장 최근에 사용한 계좌 가져오기 */
+				,D1.GEN_ADMN_DVSN_CD
+				,F_CODE_NM('1000852',D1.GEN_ADMN_DVSN_CD) AS GEN_ADMN_DVSN_NM /* 직렬 */
+				,D1.RANK_CD
+				,F_CODE_NM('1000173',D1.RANK_CD) AS RANK_NM
+				FROM	TBDCMACM001M D1 
+				WHERE	D1.CNB = #strUserCnb#
+	]]>
+	</select>
+	<select id="CSPLFI242EPsnSumSelect"  parameterClass="paramMap" resultClass="resultMap">
+		SELECT APL_NAM, COUNT(PMT_AM) AS PCNT, NVL(SUM(PMT_AM),0) AS PMT_SUM
+			FROM TBCSPLFI242M 
+			WHERE APL_CNB = #strUserCnb#
+			AND YR = TO_CHAR(SYSDATE,'YYYY')
+			AND (HNDL_STEP='3' OR HNDL_STEP='6' OR HNDL_STEP='7' )  /* 승인된것만 표시 */
+			GROUP BY APL_NAM 
+	
+	</select>
+		
+	<select id="CSPLFI242EMYrSprtSelect"  parameterClass="paramMap" resultClass="resultMap">
+		SELECT SPRT_AM
+			FROM TBCSPLFI242D  
+			WHERE 1=1 
+			AND TO_CHAR(SYSDATE,'YYYY') = YR
+	
+	</select>
+	
+	<select id="CSPLFI242EMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT 	T1.YR
+					,T1.APL_DT
+					,T1.APL_CNB
+					,T1.DPT_CD
+					,F_DPT_INFO(T1.DPT_CD,'1') AS DPT_NM
+					,T1.RANK_CD
+					,F_CODE_NM('1000173',T1.RANK_CD) AS RANK_NM
+					,T1.APL_NAM
+					,T1.GEN_ADMN_DVSN_CD
+					,F_CODE_NM('1000852',T1.GEN_ADMN_DVSN_CD) AS GEN_ADMN_DVSN_NM /* 직렬 */
+					,T1.APL_NAM || '(' || T1.APL_CNB || ')'  AS APL_INFO1
+					,F_DPT_INFO(T1.DPT_CD,'1') || ' ' || F_CODE_NM('1000173',T1.RANK_CD)  || ' ' || F_CODE_NM('1000852',T1.GEN_ADMN_DVSN_CD) AS APL_INFO2
+					,T1.BZT_TREXP_RCIT_BNK_CD                       AS BZT_TREXP_RCIT_BNK_CD /* 출장여비수령은행코드 */
+            		,F_CODE_NM('1000166', T1.BZT_TREXP_RCIT_BNK_CD) AS BZT_TREXP_RCIT_BNK_NM /* 출장여비수령은행명 */
+					,REGEXP_REPLACE((DGUARD.DECRYPT('TB_ENC','EAN', T1.BZT_TREXP_RCIT_EAN)) ,'[^0-9]') AS BZT_TREXP_RCIT_EAN /*주석해제시 컬럼명 확인*/
+            		/*,T1.BZT_TREXP_RCIT_EAN                          AS BZT_TREXP_RCIT_EAN     출장여비수령암호화계좌번호 */
+            		,T1.SRNO   /* 일련번호  */
+					,T1.APVR_DT /* 승인일 */
+					,T1.APVR_AM /* 승인금액 */
+					,T1.APVR_CNB /* 승인자 전산번호 */
+					,F_USR_INFO(T1.APVR_CNB, '2') AS APVR_NAM /* 승인자 이름 */					
+					,REGEXP_REPLACE(REVERSE(REGEXP_REPLACE(REVERSE(TO_CHAR(T1.APL_AM)),'([0-9]{3})','\1,')),'^,','') AS APL_AM  /* 검진비용 */
+					,T1.EXAM_DT
+					,T1.EXAM_HTNM
+					,(SELECT DOC_ID FROM TBCSPLFI242L Z 
+			 		WHERE Z.YR = T1.YR 
+			 		AND	Z.SRNO = T1.SRNO) AS DOC_ID					
+					,REGEXP_REPLACE(REVERSE(REGEXP_REPLACE(REVERSE(TO_CHAR(T1.SPRT_EXPT_AM)),'([0-9]{3})','\1,')),'^,','') AS SPRT_EXPT_AM  /* 지급예상금액 */
+					,REGEXP_REPLACE(REVERSE(REGEXP_REPLACE(REVERSE(TO_CHAR(T1.PMT_AM)),'([0-9]{3})','\1,')),'^,','') AS PMT_AM  /* 지급금액 */
+					,T1.TIT_NM  /* 제목 */
+					,T1.HNDL_STEP  /* 처리상태 */
+					,TO_CHAR(T1.APV_DT, 'YYYY.MM.DD') AS APV_DT /* 결재일 */
+					,T1.APV_DOC_NO
+					,T1.APV_HIS /* 미승인내역  */
+			FROM	TBCSPLFI242M T1
+			WHERE	1=1
+			
+		]]>
+		<isNotEmpty property="strYr">
+			AND  T1.YR = #strYr# 
+		</isNotEmpty>
+				
+		<isNotEmpty property="strSrno">
+			AND  T1.SRNO = #strSrno# 
+		</isNotEmpty>
+		
+	</select>
+
+
+	
+	
+	
+	
+	
+	
+	<insert id="CSPLFI242ESprtInsert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO	TBCSPLFI242M
+				(
+					 YR
+					, APL_DT
+					, APL_CNB
+					, SRNO
+					, DPT_CD
+					, RANK_CD
+					, APL_NAM
+					, GEN_ADMN_DVSN_CD
+					, BZT_TREXP_RCIT_BNK_CD
+					, BZT_TREXP_RCIT_EAN
+					, APL_AM
+					, SPRT_EXPT_AM
+					, PMT_AM
+					, TIT_NM
+					, EXAM_DT
+					, EXAM_HTNM
+			        , HNDL_STEP
+			        , APVR_DT
+					, APVR_CNB
+			        , APV_HIS
+					, FRT_USR_ID
+					, FNL_USR_ID
+					, FNL_MNU_ID
+					, FRT_REGI_DH
+					, FNL_MDF_DH
+				)
+			VALUES	(
+						TO_CHAR(SYSDATE,'YYYY')
+						, #APL_DT#
+						, #APL_CNB#
+						,(	SELECT 	NVL(MAX(SRNO),0)+1 
+							FROM 	TBCSPLFI242M
+						)
+						, F_USR_INFO(#APL_CNB#, '5')/*DPT_CD*/
+						, F_USR_INFO(#APL_CNB#, '3') /*RANK_CD*/
+						, F_USR_INFO(#APL_CNB#, '2') /* USR_NAM*/ 
+						,(	SELECT GEN_ADMN_DVSN_CD FROM TBDCMACM001M WHERE CNB= #APL_CNB# )
+						, #BZT_TREXP_RCIT_BNK_CD#
+						, DGUARD.ENCRYPT('TB_ENC','EAN', #BZT_TREXP_RCIT_EAN#)  /*주석해제시 컬럼명 확인 로컬시 변경*/
+						, #APL_AM# /* 신청금액 */ 
+						, #SPRT_EXPT_AM# /* 지원예상금액 */ 
+						, #PMT_AM# /* 승인금액 */ 
+						, #TIT_NM#
+						, #EXAM_DT#
+						, #EXAM_HTNM#
+	        			, #HNDL_STEP# /*1:작성  2:신청  3:승인  4:미승인  5:반려  6:결재중 7:지급*/
+	        			, #APVR_DT#
+						, #APVR_CNB#
+	        			, #APV_HIS#
+						, #FNL_USR_ID#
+						, #FNL_USR_ID#
+						, #FNL_MNU_ID#
+						, SYSDATE
+						, SYSDATE
+					)
+		]]>
+	</insert>
+	
+	
+	
+	<select id="CSPLFI242EMainKeyValueSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[       
+			SELECT TO_CHAR(SYSDATE, 'YYYY')               AS YR
+			     , (SELECT NVL(MAX(SRNO), 0) + 1
+		              FROM TBCSPLFI242M ) AS SRNO 
+		      FROM DUAL
+		]]>
+	</select>
+	<insert id="CSPLFI242EFileInsert" parameterClass="paramMap">
+        <![CDATA[
+        	INSERT INTO TBCSPLFI242L
+        	(
+        			YR,
+        			SRNO,
+        			DOC_ID,
+        			FRT_USR_ID,
+        			FNL_USR_ID,
+        			FNL_MNU_ID,
+        			FRT_REGI_DH,
+        			FNL_MDF_DH
+        	) VALUES (
+        			#YR#,
+	        		#SRNO#,
+	        		#DOC_ID#,
+	        		#FRT_USR_ID#,
+	        		#FNL_USR_ID#,
+	        		#FNL_MNU_ID#,
+	        		SYSDATE,
+	        		SYSDATE
+        	)
+        ]]>
+	</insert>
+	
+	<delete id="CSPLFI242EdeleteMain" parameterClass="paramMap">
+		<![CDATA[
+			DELETE	
+			FROM	TBCSPLFI242M
+			WHERE	YR = #YR#
+			AND		SRNO = #SRNO#
+		]]>
+	</delete>
+	
+	<delete id="CSPLFI242EFileDelete" parameterClass="paramMap">
+		<![CDATA[
+			DELETE	
+			FROM	TBCSPLFI242L
+			WHERE	YR = #YR#
+			AND		SRNO = #SRNO#
+		]]>
+	</delete>
+	
+	
+
+	
+	<update id="CSPLFI242EupdateMain" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPLFI242M
+			SET		APL_DT = #APL_DT# /* 신청일 */
+					,BZT_TREXP_RCIT_BNK_CD = #BZT_TREXP_RCIT_BNK_CD#
+					,BZT_TREXP_RCIT_EAN = DGUARD.ENCRYPT('TB_ENC','EAN', #BZT_TREXP_RCIT_EAN#)  /*주석해제시 컬럼명 확인*/
+					/*,BZT_TREXP_RCIT_EAN = BZT_TREXP_RCIT_EAN */
+					,APVR_DT = #APVR_DT#  /* 승인일 */
+					,APVR_CNB = #APVR_CNB#  /* 승인자 */
+					,PMT_AM = #PMT_AM# /* 지급금액 */
+					,APL_AM = #APL_AM# /* 신청금액 */
+					,SPRT_EXPT_AM = #SPRT_EXPT_AM# /* 지원예상금액 */
+					,TIT_NM = #TIT_NM# /* 제목 */
+					, EXAM_DT = #EXAM_DT# /* 검진일 */
+					, EXAM_HTNM = #EXAM_HTNM# /* 검진병원 */
+					,HNDL_STEP = #HNDL_STEP# /*처리상태*/
+					,APV_HIS = #APV_HIS# /*미승인 내역*/
+					,FNL_MDF_DH = SYSDATE
+					,FNL_USR_ID = #FNL_USR_ID#
+					,FNL_MNU_ID = #FNL_MNU_ID#
+			WHERE	YR = #YR#
+			AND		SRNO = #SRNO#
+		]]>
+	</update>
+	
+	
+	
+	<insert id="CSPLFI242EMsgInsert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO
+			TBDCMACM026L
+			(
+			  MSG_SNO
+			, TSK_CAT_CD
+			, FUNC_CAT_CD
+			, SEND_ID
+	        , MSG_TP_YN
+	        , MSG_TXT_2
+	        , RCNT_CNT
+	        , RCNT_HIS
+	        , MSG_REGI_DH
+			, FRT_USR_ID
+			, FNL_USR_ID
+			, FNL_DEAL_DPT_CD
+			, FNL_MNU_ID
+			, FRT_REGI_DH
+			, FNL_MDF_DH
+			)
+			VALUES
+			(
+			  (SELECT NVL(MAX(MSG_SNO),0)+1 FROM TBDCMACM026L)
+			, 'SP'
+			, 'BO'
+			, #FNL_USR_ID#
+	        , '0'
+	        , #MSG_TXT#
+	        , 1
+	        , #APL_CNB#
+	        , SYSDATE
+			, #FNL_USR_ID#
+			, #FNL_USR_ID#
+			, #FNL_DEAL_DPT_CD#
+			, #FNL_MNU_ID#
+			, SYSDATE
+			, SYSDATE
+			);
+			
+		]]>
+	</insert>
+	<select id="CSPLFI243DMainSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT TOTAL_AM, PMT_SUM,APP_SUM, (TOTAL_AM - PMT_SUM - APP_SUM) AS APPPOS_SUM 
+    		FROM (
+       			SELECT  RPAD(TOTAL_AM,9,'0') TOTAL_AM,
+            		   (SELECT SUM(PMT_AM) FROM TBCSPLFI242M WHERE YR =  #strYr#  AND HNDL_STEP > 5)  AS PMT_SUM ,
+            		   (SELECT SUM(PMT_AM) FROM TBCSPLFI242M WHERE YR =  #strYr#  AND HNDL_STEP = 3)  AS APP_SUM  
+       			FROM	TBCSPLFI242D 
+				WHERE	1=1
+            	AND  YR =  #strYr# )T1
+		]]>
+	</select>
+</sqlMap> 

@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="aep/gkm/019">
+	<select id="AEPGKM019Emultiselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	DISTINCT 
+				TG_CAT_ID											/* 대상분류ID */
+				,TG_CAT_NM											/* 대상분류명 */
+				,NVL(HIRK_TG_CAT_ID, '000000000') AS HIRK_TG_CAT_ID	/* 상위대상분류ID */
+				,(
+				SELECT	TG_CAT_NM
+				FROM	TBAEPGKM017M
+				WHERE	TG_CAT_ID = A.HIRK_TG_CAT_ID
+				) AS HIRK_TG_CAT_NM									/* 상위대상분류명 */
+				,USE_YN
+				,SRT_VAL_NM
+				, (SELECT TO_CHAR(COUNT(*)) FROM TBAEPGKM017M WHERE HIRK_TG_CAT_ID = A.TG_CAT_ID ) AS CHILD_CNT
+		FROM TBAEPGKM017M AS A
+		WHERE 1=1
+		<isNotEmpty property="USE_YN" prepend="AND">
+			USE_YN = #USE_YN#
+		</isNotEmpty>
+		<isNotEmpty property="KLD_CAT_NM">
+			START WITH TG_CAT_NM LIKE '%'||#KLD_CAT_NM#||'%' 
+		</isNotEmpty>
+		CONNECT BY PRIOR HIRK_TG_CAT_ID = TG_CAT_ID
+		ORDER BY SRT_VAL_NM
+	</select>
+	
+	<select id="AEPGKM019Esingleselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT  DISTINCT
+		        TG_CAT_ID
+		       ,TG_CAT_NM
+		       ,NVL(HIRK_TG_CAT_ID, '000000000') AS HIRK_TG_CAT_ID
+		       ,(
+		       SELECT  TG_CAT_NM
+		       FROM    TBAEPGKM017M
+		       WHERE   TG_CAT_ID = A.HIRK_TG_CAT_ID) AS HIRK_TG_CAT_NM
+		       ,USE_YN
+		       ,SRT_VAL_NM
+		       ,CONNECT_BY_ISLEAF AS LEAF
+		FROM    TBAEPGKM017M AS A
+		WHERE   1=1
+		AND     TG_CAT_NM LIKE '%'||#KLD_CAT_NM#||'%'
+		START WITH HIRK_TG_CAT_ID IS NULL
+		       AND USE_YN = 'Y'
+		CONNECT BY PRIOR TG_CAT_ID = HIRK_TG_CAT_ID
+		ORDER BY SRT_VAL_NM
+	</select>
+	
+	<select id="AEPGKM019Esingleselect2" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT  DISTINCT
+		        TG_CAT_ID
+		       ,TG_CAT_NM
+		       ,NVL(HIRK_TG_CAT_ID, '000000000') AS HIRK_TG_CAT_ID
+		       ,(
+		       SELECT  TG_CAT_NM
+		       FROM    TBAEPGKM017M
+		       WHERE   TG_CAT_ID = A.HIRK_TG_CAT_ID) AS HIRK_TG_CAT_NM
+		       ,USE_YN
+		       ,SRT_VAL_NM
+		       ,CONNECT_BY_ISLEAF AS LEAF
+		FROM    TBAEPGKM017M AS A
+		WHERE   1=1
+		AND     CONNECT_BY_ISLEAF = '1'
+		AND     TG_CAT_NM LIKE '%'||#KLD_CAT_NM#||'%'
+		START WITH HIRK_TG_CAT_ID IS NULL
+		       AND USE_YN = 'Y'
+		CONNECT BY PRIOR TG_CAT_ID = HIRK_TG_CAT_ID
+		ORDER BY SRT_VAL_NM
+	</select>
+	
+	<select id="AEPGKM019Ecountselect" parameterClass="java.util.Map" resultClass="java.lang.Integer">
+		SELECT  COUNT(*) AS COUNT
+		FROM    TBAEPGKM017M
+		WHERE   1 = 1 
+		<isNotEmpty property="USE_YN" prepend="AND">
+				USE_YN = #USE_YN#
+		</isNotEmpty>
+		<isNotEmpty property="KLD_CAT_NM" prepend="AND">
+				TG_CAT_NM LIKE '%'||#KLD_CAT_NM#||'%' 
+		</isNotEmpty>
+	</select>
+	
+	<select id="AEPGKM019Ecountselect2" parameterClass="java.util.Map" resultClass="java.lang.Integer">
+		SELECT  COUNT(1) AS COUNT
+		FROM    TBAEPGKM017M
+		WHERE   CONNECT_BY_ISLEAF = '1'
+		<isNotEmpty property="KLD_CAT_NM" prepend="AND">
+				TG_CAT_NM LIKE '%'||#KLD_CAT_NM#||'%' 
+		</isNotEmpty>
+		<isNotEmpty property="USE_YN" prepend="AND">
+				USE_YN = #USE_YN#
+		</isNotEmpty>
+		START WITH HIRK_TG_CAT_ID IS NULL
+		CONNECT BY PRIOR TG_CAT_ID = HIRK_TG_CAT_ID
+	</select>
+	
+	<select id="AEPGKM019Echeckdelete" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	COUNT(1) AS COUNT
+		FROM	TBAEPGKM001M
+		WHERE	KLD_CAT_CD = #TG_CAT_ID#
+	</select>
+	
+	<select id="AEPGKM019EMaxselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT   (SELECT SRT_VAL_NM
+		          FROM   TBAEPGKM017M
+		          WHERE  TG_CAT_ID = #HIRK_TG_CAT_ID#
+		         ) AS HIRK_SRT_VAL_NM
+		        ,TO_CHAR(NVL(LPAD(TO_NUMBER(SUBSTR(MAX(SRT_VAL_NM), -3)) + 1, '3', '0'), '001')) AS SRT_VAL_NM
+		        ,(SELECT   MAX(TO_NUMBER(TG_CAT_ID)) + 1 AS CTG_ID
+		          FROM     TBAEPGKM017M) AS TG_CAT_ID
+		FROM     TBAEPGKM017M
+		WHERE    NVL(HIRK_TG_CAT_ID, '000000000') = #HIRK_TG_CAT_ID#
+	</select>
+	
+	<insert id="AEPGKM019Emaininsert" parameterClass="java.util.Map">
+		INSERT INTO TBAEPGKM017M
+				(
+				 TG_CAT_ID
+				,TG_CAT_NM
+				,HIRK_TG_CAT_ID
+				,SRT_VAL_NM
+				,USE_YN
+				,FRT_USR_ID
+				,FNL_USR_ID
+				,FNL_DEAL_DPT_CD
+				,FNL_MNU_ID
+				,FRT_REGI_DH
+				,FNL_MDF_DH
+				)
+		VALUES	(
+				#TG_CAT_ID#,
+				#TG_CAT_NM#,
+				#HIRK_TG_CAT_ID#,
+				#HIRK_SRT_VAL_NM# || #SRT_VAL_NM#,
+				#USE_YN#,
+				#FRT_USR_ID#,
+				#FNL_USR_ID#,
+				#FNL_DEAL_DPT_CD#,
+				#FNL_MNU_ID#,
+				SYSDATE,
+				SYSDATE
+				)
+	</insert>
+	
+	<update id="AEPGKM019Emainupdate" parameterClass="java.util.Map">
+		UPDATE	TBAEPGKM017M
+		SET		TG_CAT_NM = #TG_CAT_NM#,
+				USE_YN = #USE_YN#,
+				HIRK_TG_CAT_ID = #HIRK_TG_CAT_ID#,
+				FNL_USR_ID = #FNL_USR_ID#,
+				FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#,
+				FNL_MNU_ID = #FNL_MNU_ID#,
+				<isNotEmpty property="SRT_VAL_NM">
+					SRT_VAL_NM = #SRT_VAL_NM#,
+				</isNotEmpty>
+				FNL_MDF_DH = SYSDATE
+		WHERE	TG_CAT_ID = #TG_CAT_ID#
+	</update>
+	
+	<delete id="AEPGKM019Emaindelete" parameterClass="java.util.Map">
+		DELETE FROM TBAEPGKM017M
+		WHERE	1=1	
+		AND		TG_CAT_ID = #TG_CAT_ID#
+	</delete>
+	
+	<update id="AEPGKM019Emoveselect" parameterClass="java.util.Map">
+		DECLARE
+			BEGIN
+				FOR CS IN (
+					SELECT A.SRT_VAL_NM AS CHANGE_NM
+						  ,B.SRT_VAL_NM AS ORIGIN_NM
+					FROM TBAEPGKM017M A, TBAEPGKM017M B
+					WHERE 1=1
+					AND A.TG_CAT_ID = #CHANGE_CAT_ID#
+					AND B.TG_CAT_ID = #ORIGIN_CAT_ID#
+				)
+			LOOP
+				UPDATE	TBAEPGKM017M
+				SET		SRT_VAL_NM		= CS.CHANGE_NM,
+						FNL_USR_ID		= #FNL_USR_ID#, 
+						FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#, 
+						FNL_MNU_ID		= #FNL_MNU_ID#, 
+						FNL_MDF_DH		= SYSDATE 
+				WHERE   TG_CAT_ID		= #ORIGIN_CAT_ID#
+				;
+				UPDATE	TBAEPGKM017M
+				SET 	SRT_VAL_NM		= CS.ORIGIN_NM,
+						FNL_USR_ID		= #FNL_USR_ID#, 
+						FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#, 
+						FNL_MNU_ID		= #FNL_MNU_ID#, 
+						FNL_MDF_DH		= SYSDATE 
+				WHERE   TG_CAT_ID 		= #CHANGE_CAT_ID#
+				;
+			END LOOP
+			;
+		END
+		;
+	</update>
+	
+	<!-- 데이터베이스에 등록된 하이라키 키를 가져온다. -->
+	<select id="AEPGKM019EHirkTgCatIdselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT NVL(HIRK_TG_CAT_ID, '000000000') AS HIRK_TG_CAT_ID
+		  FROM TBAEPGKM017M
+		 WHERE TG_CAT_ID = #TG_CAT_ID#
+	</select>
+</sqlMap>
+

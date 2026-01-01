@@ -1,0 +1,524 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.bad.fre.dao.BADFRE015PMapper">
+
+<select id="selectSbcnData" parameterType="paramMap"
+        resultType="egovMap">
+        /* kr.go.bai.eip.bad.fre.dao.BADFRE015PMapper.selectSbcnData */
+        <![CDATA[
+        SELECT 
+            (SELECT MIN(TO_CHAR(TO_DATE(RVW_CMPT_DT),'YYYY"-"MM"-"DD'))
+                FROM TBBADFRE112D ST1
+               WHERE ST1.ACP_YR = A.ACP_YR
+                 AND ST1.ACP_SRNO = A.ACP_SRNO
+                 AND ST1.ACP_DVSN_CD = A.ACP_DVSN_CD) AS RVW_CMPT_DT
+            , A.ACP_YR || '-' || DECODE(A.ACP_DVSN_CD, '1', '심사', '재심') || '-' || DECODE(A.ORG_ACP_SRNO, null, A.ACP_SRNO, A.ORG_ACP_SRNO) AS ACP_YR_NO
+            , B.TIT_NM as TITLE_NM
+            ,(SELECT F_DPT_INFO(DPT_CD,'1')
+                FROM TBBADFRE012M 
+                WHERE
+                    ACP_YR = A.ACP_YR
+                AND ACP_DVSN_CD = A.ACP_DVSN_CD
+                AND ACP_SRNO = A.ACP_SRNO)        AS MNG_DPT_NM
+            , B.REGI_NO
+            , F_USR_INFO(B.CHF_CMTR_ID,'2') AS CHF_CMTR_NM
+            ,B.CHF_CMTR_ID
+            , (SELECT SBMT_DVSN_NO
+                  FROM TBBADDED116M
+                 WHERE CMTR_CNB =(SELECT CHF_CMTR_CNB AS CHF_CMTR_ID
+                                                       FROM TBBADDED116L ST1
+                                                      WHERE ST1.AUD_YR = #{acpYr} AND ST1.AUD_NO = #{acpSrno} AND ST1.TASK_DVSN_CD = #{acpDvsnCd}
+                                                        AND ST1.SRNO = (SELECT MAX(SRNO) FROM TBBADDED116L WHERE AUD_YR = #{acpYr} AND AUD_NO = #{acpSrno} AND TASK_DVSN_CD = #{acpDvsnCd})) 
+              ) AS SBMT_DVSN
+        FROM TBBADFRE012M A
+             LEFT OUTER JOIN TBBADFRE112M B
+             ON (A.ACP_YR = B.ACP_YR AND A.ACP_SRNO = B.ACP_SRNO AND A.ACP_DVSN_CD = B.ACP_DVSN_CD)
+        WHERE 1=1
+        AND A.ACP_YR = #{acpYr}
+        AND A.ACP_SRNO = #{acpSrno}
+        AND A.ACP_DVSN_CD = #{acpDvsnCd}
+        ]]>
+    </select>
+    
+    
+    
+    
+    <select id="selectAffList" parameterType="paramMap"
+     resultType="egovMap">
+     /* kr.go.bai.eip.bad.fre.dao.BADFRE015PMapper.selectAffList */
+     <![CDATA[
+		SELECT A.ACP_YR || '-' || DECODE(A.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || DECODE(A.ORG_ACP_SRNO, null, A.ACP_SRNO, A.ORG_ACP_SRNO) AS AFF_CD_NM /* 분류번호 */
+			     ,to_char(to_date(A.ACP_DT), 'YYYY-MM-DD') AS ACP_DT		/* 접수일 */
+			     ,to_char(to_date(A.DSP_OFC_ACP_DT), 'YYYY-MM-DD') AS DSP_OFC_ACP_DT		/* 처분청접수일자 */
+			     ,A.ORG_NM /* 처분청 */
+			     ,A.DSP_OFC_UP_INSTT_CD /* 처분청상급기관코드 */
+			     ,A.DSP_OFC_UP_INSTT_NAM  /* 처분청상급기관명 */
+			     ,A.DSPTCH_INSTT_NAM /* 발신기관명 */
+			     ,A.REQR_NM /* 청구인명 */
+			     ,A.TIT_NM as TITLE_NM /* 청구내용 */
+			     ,A.JDG_REQ_DVSN_CD /* 심사청구부분코드 */
+			     ,F_CODE_NM('1000043', A.JDG_REQ_DVSN_CD) AS JDG_REQ_DVSN_NM /* 심사청구구분명 */
+			     ,A.DPT_CD /* 부서코드 */
+			     ,(SELECT DPT_NM FROM TBDCMACM002M WHERE DPT_CD = A.DPT_CD) AS DPT_NM /* 처리과 */
+			     ,A.HNDL_CHGR_NM /* 담당자 */
+			     ,A.ACP_HNDL_STA_CD /* 진행단계 */
+			     ,F_CODE_NM('1000807', A.ACP_HNDL_STA_CD) AS ACP_HNDL_STA_NM /* 진행단계명 */
+			     ,A.VT_KND_CD /* 의결종류 */
+			     ,F_CODE_NM('1000045', A.VT_KND_CD) AS VT_KND_NM /* 의결종류명 */
+			     ,to_char(to_date(A.DCS_DT), 'YYYY-MM-DD') AS DCS_DT /* 결정일자 */
+			     ,A.ACP_YR /* 접수년도 */
+			     ,A.ACP_DVSN_CD /* 접수구분코드 */
+			     ,A.ACP_SRNO /* 접수일련번호 */
+			     ,A.ORG_ACP_SRNO /* 기존접수일련번호 */
+			     ,A.MG_ACP_YR /* 병합접수년도 */
+			     ,A.MG_ACP_DVSN_CD /* 병합접수구분코드 */
+			     ,A.MG_ACP_SRNO /* 병합접수일련번호 */
+			     ,A.MG_DPT_CD /* 병합부서코드 */
+			     ,A.MG_DIV_CD /* 병합병행구분코드 */
+			     ,CASE WHEN (A.ACP_YR = A.MG_ACP_YR AND A.ACP_DVSN_CD = A.MG_ACP_DVSN_CD AND A.ACP_SRNO = A.MG_ACP_SRNO) THEN '대표'
+			             WHEN A.MG_DIV_CD IS NULL AND A.MG_ACP_YR IS NULL THEN '대표'
+			             WHEN A.MG_DIV_CD IS NULL THEN '대표'
+			             WHEN A.MG_DIV_CD = '10' THEN '병합'
+			             WHEN A.MG_DIV_CD = '20' THEN '병행'
+			      END AS MG_DIV_NM /* 병합병행구분명 */
+			    ,(SELECT MAX(LINK_URL)
+			       FROM TBBADFRE101M
+			      WHERE ACP_YR = A.ACP_YR
+			         AND ACP_DVSN_CD = A.ACP_DVSN_CD
+			         AND ACP_SRNO = A.ACP_SRNO
+			         AND STEP_CMPT_YN = 'P'
+			         AND NECES_YN ='Y') AS LINK_URL
+			    ,TO_DATE(SYSDATE, 'YYYY-MM-DD') - TO_DATE(A.ACP_DT, 'YYYY-MM-DD') AS PASS_DAY /* 경과일 */
+			    ,DECODE(A.BAI_DSP_YN, 'Y', 'O', 'X') AS BAI_DSP_YN /* 감사원처분여부 */
+			    ,to_char(to_date(A.HNDL_DDLN_DT), 'YYYY-MM-DD') AS HNDL_DDLN_DT /* 처리기한 */
+			    ,A.REFER_ENT /* 부의위임여부 Y,N */
+			    ,to_char(to_date(B.ENFM_DT), 'YYYY-MM-DD') AS ENFM_DT		/* 집행일 */
+			    ,B.ENFM_TXT /* 집행내용 */
+			    ,B.LWS_YO /* 소송유무 */
+			    ,B.FRTRL_EVT_NO_TXT /* 1심사건번호 */
+			    ,B.FRTRL_CT_NM /* 1심법원명 */
+			    ,(SELECT DOC_ID
+			       FROM TBBADFRE103M
+			      WHERE ACP_YR = A.ACP_YR
+			         AND ACP_DVSN_CD = A.ACP_DVSN_CD
+			         AND ACP_SRNO = A.ACP_SRNO
+		]]>
+
+        		  <if test='rprtNm != null and rprtNm != ""'>
+        		     AND RPRT_NM = #{rprtNm}
+				  </if>
+				  <if test='acpStepCd != null and acpStepCd != ""'>
+        		     AND ACP_STEP_CD = DECODE('${acpStepCd}','D1030','D1020','E1030','E1020','E1050','E1040')
+				  </if>
+			         AND RPRT_CD = DECODE('${acpStepCd}','D1030','D10200100','E1030','E10200100','E1050','E10400100')
+		<![CDATA[
+			      ) AS DOC_ID /* 문서 ID */
+		 FROM TBBADFRE012M A
+		         ,TBBADFRE013D B
+	    WHERE 1=1
+		   AND A.ACP_YR 		= B.ACP_YR(+)
+		   AND A.ACP_DVSN_CD 	= B.ACP_DVSN_CD(+)
+		   AND A.ACP_SRNO 		= B.ACP_SRNO(+)
+		   AND A.DEL_YN IS NULL
+		]]>
+		
+		<if test='acpYr != null and acpYr != ""'>
+            AND A.ACP_YR = #{acpYr}
+        </if>
+        <if test='acpDvsnCd != null and acpDvsnCd != ""'>
+            AND A.ACP_DVSN_CD = #{acpDvsnCd}
+        </if>
+        <if test='acpSrno != null and acpSrno != ""'>
+            AND A.ACP_SRNO = #{acpSrno}
+        </if>
+        <if test='mgAcpYr != null and mgAcpYr != ""'>
+		  AND A.MG_ACP_YR 		= #{mgAcpYr}
+		</if>
+		<if test='mgAcpDvsnCd != null and mgAcpDvsnCd != ""'>
+		  AND A.MG_ACP_DVSN_CD 	= #{mgAcpDvsnCd}
+		</if>
+		<if test='mgAcpSrno != null and mgAcpSrno != ""'>
+		  AND A.MG_ACP_SRNO 		= #{mgAcpSrno}
+		</if>
+		<if test='mgDptCd != null and mgDptCd != ""'>
+		  AND A.MG_DPT_CD		= #{mgDptCd}
+		</if>
+        
+       ORDER BY MG_DIV_NM, A.ACP_YR DESC, A.ACP_SRNO, A.ORG_ACP_SRNO DESC
+	</select>
+    
+    
+    
+    
+    
+    <select id="selectRegiList" parameterType="paramMap"
+        resultType="egovMap">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB015PMapper.selectRegiList */
+        <![CDATA[
+        SELECT 
+             AUD_YR
+            , AUD_NO
+            , DOC_ID
+            , APVR_CD
+            , AFF_SNO
+            , DSP_RQ_SNO
+            , T3.AUD_KND_CD
+            , T3.AUD_GRN_NO
+            , T2.AFF_DSP_CD
+            , T2.DSP_RQ_CD
+            , DECODE(T2.AFF_DSP_CD, '00', '', 
+                       F_MNG_KND_AUDYRNO(AUD_YR, AUD_NO, T1.AUD_KND_CD, '-')||'-'||T1.AFF_CD||'-'||T2.AFF_DSP_CD) AS DSP_RQ_SNO_NM
+            , TITLE_NM
+            , F_CODE_NM('1000002',T2.DSP_RQ_CD ) AS DSP_RQ_NM
+            , RLTN_ORG_CD
+            , CASE WHEN RLTN_ORG_CD IS NOT NULL THEN F_ORG_INFO(RLTN_ORG_CD,'1')ELSE '' END COPT_OFI_NM
+            , AFF_CD
+            , AUD_STEP_CD
+            , RLTN_ORG_CD
+            , SSBCN_REGI_REQ_DT
+            
+        FROM 
+            TBBADDED145M T1
+            JOIN
+            TBBADDED146M T2
+            USING(AUD_YR, AUD_NO, AUD_STEP_CD, DOC_ID, APVR_CD, AFF_SNO)
+            JOIN
+            TBBADDED114M T3
+            USING(AUD_YR, AUD_NO, DOC_ID, APVR_CD, AFF_SNO, DSP_RQ_SNO)
+        WHERE
+            AUD_YR = #{audYr}
+        AND AUD_NO = #{audNo}
+        AND AUD_STEP_CD = 'A1070'
+        AND APVR_CD = '0010600'
+        ORDER BY AFF_CD, AFF_DSP_CD
+        ]]>
+    </select>
+
+    
+    <select id="selectMaxMainStepSno" parameterType="paramMap"
+        resultType="egovMap">
+        /* kr.go.bai.eip.bad.fre.dao.BADFRE015PMapper.selectMaxMainStepSno */
+        <![CDATA[
+        SELECT 
+            NVL(MAX(TO_NUMBER(ACP_MAIN_STEP_SNO)),0) AS ACP_MAIN_STEP_SNO
+        FROM TBBADFRE102M
+        WHERE ACP_YR = #{rlAcpYr}
+        AND ACP_SRNO = #{rlAcpSrno}
+        AND ACP_STEP_CD = #{acpStepCd}
+        AND ACP_DVSN_CD = #{acpDvsnCd}
+        AND SUBSTR(ACP_MAIN_STEP_ID,0,2) = '31'
+        ]]>
+    </select>
+    
+    <select id="selectSbcnDy" parameterType="paramMap"
+        resultType="egovMap">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB015PMapper.selectSbcnDy */
+        <![CDATA[
+        SELECT 
+            MAX(SBCN_DY) AS SBCN_DY
+        FROM TBBADDED113M
+        WHERE AUD_YR = #{audYr}
+        AND AUD_NO = #{audNo}
+        AND SBCN_REGI_REQ_DT = #{sbcnRegiReqDt}
+        ]]>
+    </select>
+    
+    <select id="selectSbcnStrtPrcs" parameterType="paramMap"
+        resultType="egovMap">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB015PMapper.selectSbcnStrtPrcs */
+        <![CDATA[
+        SELECT 
+            T2.AUD_YR, 
+            T2.AUD_NO, 
+            T1.AUD_STEP_CD,
+            T1.AUD_MAIN_STEP_ID,
+            #{audMainStepSno} AS AUD_MAIN_STEP_SNO,
+            T1.AUD_MAIN_SEQ_W,
+            T1.AUD_MAIN_SEQ_H,
+            T1.AUD_DOC_CD,
+            CASE
+                WHEN T1.AUD_MAIN_STEP_ID = '720101' THEN 'Y'
+                ELSE 'N'
+            END AS CMPT_YN,             /* 등재요청후 부의실시 업무 프로세스 등록 하므로 720101 =  Y */
+            T2.AUD_KND_CD,
+            T2.AUD_GRN_NO,
+            T1.AUD_MAIN_STEP_NM AS MAIN_JOB_NM,
+            T1.LINK_TYPE,
+            T1.LINK_URL,
+            NULL AS DOC_ID,
+            NULL AS SORT_SNO 
+        FROM 
+            TBBADDED102B T1
+            INNER JOIN TBBADDED001M T2
+            ON T1.AUD_KND_CD = SUBSTR(T2.AUD_KND_CD,-1)
+        WHERE 
+            T2.AUD_YR = #{audYr}
+        AND T2.AUD_NO = #{audNo}
+        AND T1.AUD_STEP_CD = 'A1070'
+        AND SUBSTR(T1.AUD_MAIN_STEP_ID,0,2) = '72' 
+        ]]>
+    </select>
+
+
+    <insert id="insertSsbcnPrcs">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB015PMapper.insertSsbcnPrcs */
+        <![CDATA[
+         INSERT INTO TBBADDED102M(
+             AUD_YR
+            ,AUD_NO
+            ,AUD_STEP_CD
+            ,AUD_MAIN_STEP_ID
+            ,AUD_MAIN_STEP_SNO
+            ,AUD_MAIN_SEQ_W
+            ,AUD_MAIN_SEQ_H
+            ,AUD_DOC_CD
+            ,AUD_KND_CD
+            ,AUD_GRN_NO
+            ,MAIN_JOB_NM
+            ,LINK_TYPE
+            ,LINK_URL
+            ,SORT_SNO
+            ,FRT_USR_ID
+            ,FNL_USR_ID
+            ,FNL_DEAL_DPT_CD
+            ,FNL_MNU_ID
+            ,FRT_REGI_DH
+            ,FNL_MDF_DH )
+         SELECT 
+            AUD_YR
+            ,AUD_NO
+            ,AUD_STEP_CD
+            ,AUD_MAIN_STEP_ID
+            ,(SELECT MAX(NVL(AUD_MAIN_STEP_SNO,1)) + 1
+             FROM TBBADDED102M
+             WHERE AUD_YR = #{audYr}
+             AND AUD_NO =  #{audNo}
+             AND AUD_STEP_CD = 'A1070'
+             AND SUBSTR(AUD_MAIN_STEP_ID,0,2) = '71')
+            ,AUD_MAIN_SEQ_W
+            ,AUD_MAIN_SEQ_H
+            ,AUD_DOC_CD
+            ,AUD_KND_CD
+            ,AUD_GRN_NO
+            ,MAIN_JOB_NM
+            ,LINK_TYPE
+            ,LINK_URL
+            ,SORT_SNO
+            ,#{usrId}
+            ,#{usrId}
+            ,#{dptCd}
+            ,'AEPASB015P'
+            ,SYSDATE
+            ,SYSDATE
+           FROM TBBADDED102M
+         WHERE AUD_YR = #{audYr}
+              AND AUD_NO = #{audNo}
+              AND AUD_STEP_CD = 'A1070'
+              AND SUBSTR(AUD_MAIN_STEP_ID,0,2) = '71'
+              AND AUD_MAIN_STEP_SNO = 1
+        ]]>
+    </insert>
+    
+    <insert id="insertAgdList">
+        /* kr.go.bai.eip.bad.fre.dao.BADFRE015PMapper.insertAgdList */
+	<![CDATA[
+	INSERT INTO TBBADFRE114M(
+            ACP_MAIN_STEP_SNO
+            ,ACP_YR 
+            ,ACP_SRNO 
+            ,ACP_STEP_CD 
+            ,DOC_ID 
+            ,AFF_CD
+            ,APVR_CD  
+            ,AFF_SNO  
+            ,SBMT_SEQ 
+            , ACP_DVSN_CD
+            ,TITLE_NM 
+            ,SBMT_DVSN_CD 
+            ,SBMT_STA_CD 
+            ,FRT_USR_ID 
+            ,FNL_USR_ID
+            ,FNL_DEAL_DPT_CD 
+            , FNL_MNU_ID 
+            , FRT_REGI_DH 
+            , FNL_MDF_DH
+            
+            )
+    VALUES(
+    
+    		#{acpMainStepSno}
+            ,#{acpYr}
+            , #{acpSrno}
+            , #{acpStepCd}
+            , NVL(#{docId}, (SELECT REF_ID FROM TBBADFRE103M
+                             WHERE (ACP_YR, ACP_DVSN_CD, ACP_SRNO) IN (SELECT MG_ACP_YR, MG_ACP_DVSN_CD, MG_ACP_SRNO 
+                                                                       FROM TBBADFRE012M 
+                                                                       WHERE ACP_YR = #{acpYr} AND ACP_DVSN_CD = #{acpDvsnCd} AND ACP_SRNO = #{acpSrno})
+                             AND RPRT_CD IN ('D10300200','E10200200') AND APV_STA_CD = '30'))
+            , #{affCd}
+            , '0013600'
+            ,(SELECT NVL((SELECT MAX(NVL(AFF_SNO,0))
+					                                      FROM TBBADFRE114M
+					                                     WHERE ACP_YR = #{acpYr}),0) + 1
+					                  FROM DUAL)
+            , (SELECT NVL((SELECT MAX(NVL(SBMT_SEQ,0))
+                                      FROM TBBADFRE114M
+                                     WHERE ACP_YR = #{acpYr}),0) + 1 
+                  FROM DUAL)
+            , #{acpDvsnCd}
+            , #{titleNm}
+            , 'A10'
+            ,'10'
+            , #{frtUsrId}
+            , #{fnlUsrId}
+            , #{fnlDealDptCd}
+            , 'BADFRE313E'
+            , SYSDATE
+            , SYSDATE
+            
+            )
+		]]>
+    </insert>
+    
+    <insert id="insertSbmtPrssEtc">
+    	/* kr.go.bai.eip.bad.fre.dao.BADFRE015PMapper.insertSbmtPrssEtc */
+        <![CDATA[
+         INSERT INTO TBBADFRE102M(
+             ACP_YR
+            ,ACP_SRNO
+            ,ACP_STEP_CD
+            ,ACP_DVSN_CD
+            ,ACP_MAIN_STEP_ID
+            ,ACP_MAIN_STEP_SNO
+            ,ACP_MAIN_SEQ_W
+            ,AcP_MAIN_SEQ_H
+            ,ACP_DOC_CD
+            ,ACP_KND_CD
+            ,ACP_GRN_NO
+            ,MAIN_JOB_NM
+            ,LINK_TYPE
+            ,LINK_URL
+            ,SORT_SNO
+            ,FRT_USR_ID
+            ,FNL_USR_ID
+            ,FNL_DEAL_DPT_CD
+            ,FNL_MNU_ID
+            ,FRT_REGI_DH
+            ,FNL_MDF_DH )
+         SELECT 
+            #{rlAcpYr}
+            ,#{rlAcpSrno}
+            ,ACP_STEP_CD
+            ,ACP_DVSN_CD
+            ,ACP_MAIN_STEP_ID
+            ,NVL( (SELECT MAX(NVL(ACP_MAIN_STEP_SNO,0)) + 1
+             FROM TBBADFRE102M
+             WHERE ACP_YR = #{rlAcpYr}
+             AND ACP_DVSN_CD =  #{acpDvsnCd}
+             AND ACP_SRNO =  #{rlAcpSrno}
+             AND ACP_STEP_CD = #{acpStepCd}
+             AND SUBSTR(ACP_MAIN_STEP_ID,0,2) = '31') ,'1' )
+            ,ACP_MAIN_SEQ_W
+            ,ACP_MAIN_SEQ_H
+            ,ACP_DOC_CD
+            ,ACP_KND_CD
+            ,ACP_GRN_NO
+            ,MAIN_JOB_NM
+            ,LINK_TYPE
+            ,LINK_URL
+            ,SORT_SNO
+            ,#{usrId}
+            ,#{usrId}
+            ,#{dptCd}
+            ,FNL_MNU_ID
+            ,SYSDATE
+            ,SYSDATE
+           FROM TBBADFRE102M
+         WHERE ACP_YR = #{acpYr}
+              AND ACP_SRNO = #{acpSrno}
+              AND ACP_DVSN_CD = #{acpDvsnCd}
+              AND ACP_STEP_CD = #{acpStepCd}
+              AND SUBSTR(ACP_MAIN_STEP_ID,0,2) = '31'
+              AND ACP_MAIN_STEP_SNO = 1
+        ]]>
+    </insert>
+    
+    <insert id="insertAgdDspRqList">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB015PMapper.insertAgdDspRqList */
+    <![CDATA[
+        INSERT INTO TBBADDED114D(
+                AUD_YR,
+                AUD_NO,
+                AUD_STEP_CD,
+                DOC_ID,
+                APVR_CD,
+                AFF_SNO,
+                SBMT_SEQ,
+                SBMT_DTL_SEQ,
+                SBMT_DTL_DVSN,
+                DSP_RQ_SNO,
+                FRT_USR_ID,
+                FNL_USR_ID,
+                FNL_DEAL_DPT_CD,
+                FNL_MNU_ID,
+                FRT_REGI_DH,
+                FNL_MDF_DH
+                )
+         SELECT 
+            #{audYr}
+            , #{audNo}
+            , #{audStepCd}
+            , #{docId}
+            , #{apvrCd}
+            , #{affSno}
+            , (SELECT NVL((SELECT MAX(NVL(SBMT_SEQ,0))
+                                        FROM TBBADDED114M
+                                      WHERE AUD_YR = #{audYr}),1)
+                  FROM DUAL)
+            , ROWNUM
+            , '90'
+            , T1.DSP_RQ_SNO
+            , #{frtUsrId}
+            , #{fnlUsrId}
+            , #{fnlDealDptCd}
+            , 'AEPASB015P'
+            , SYSDATE
+            , SYSDATE
+          FROM TBBADDED146M T1
+         WHERE T1.AUD_YR = #{audYr}
+           AND T1.AUD_NO = #{audNo}
+           AND T1.AUD_STEP_CD = #{audStepCd}
+           AND T1.DOC_ID = #{docId}
+           AND T1.APVR_CD = #{apvrCd}
+           AND T1.AFF_SNO = #{affSno}
+        ]]>
+    </insert>
+    
+    <delete id="deleteAgdList">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB015PMapper.deleteAgdList */
+    <![CDATA[
+    DECLARE
+        BEGIN
+            DELETE TBBADDED114M
+            WHERE 
+                AUD_YR = #{audYr}
+            AND AUD_NO =  #{audNo}
+            AND DOC_ID =  #{docId}
+            AND APVR_CD =  #{apvrCd}
+            AND AFF_SNO =  #{affSno}
+            AND DSP_RQ_SNO =  #{dspRqSno}
+            AND SSBCN_REGI_REQ_DT = #{sbcnRegiReqDt};
+            
+            DELETE TBBADDED102M
+             WHERE AUD_YR = #{audYr}
+             AND AUD_NO = #{audNo}
+             AND AUD_STEP_CD = 'A1070'
+             AND SUBSTR(AUD_MAIN_STEP_ID,0,2) = '71'
+             AND AUD_MAIN_STEP_SNO = #{audMainStepSno};
+        END;
+        ]]>
+    </delete>
+
+
+</mapper> 

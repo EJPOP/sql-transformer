@@ -1,0 +1,2853 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper">
+
+	<select id="CSPCommonSelectDate" parameterType="paramMap"
+		resultType="egovMap">
+		/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.CSPCommonSelectDate */
+		<![CDATA[
+			SELECT 	YYYY AS CD,
+					YYYY AS CD_NM
+			FROM	(
+						SELECT TO_CHAR(SYSDATE,'YYYY') - LEVEL + 3 YYYY
+						FROM DUAL
+						CONNECT BY TO_CHAR(SYSDATE,'YYYY') - LEVEL + 3 >= 1980
+					)
+		]]>
+	</select>
+
+	<select id="CSPCommonSelectSmg" parameterType="paramMap"
+		resultType="egovMap">
+		/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.CSPCommonSelectSmg */
+		<![CDATA[
+			SELECT	SMG_FRT_CVPT_APL_GCC_ORG_CD
+					,SMG_CVPT_APL_NO
+			FROM	TBCSPDCP101M
+			WHERE	REQ_DVSN_CD = #{reqDvsnCd}
+			AND		ACP_YR = #{acpYr}
+			AND		CVPT_ACP_NO = #{cvptAcpNo}
+		]]>
+
+	</select>
+
+	<select id="selectCspPrcsList" parameterType="paramMap" resultType="egovMap" >
+			/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.selectCspPrcsList */
+            SELECT A.ACP_YR        /* 접수년도 */
+                  ,A.REQ_DVSN_CD        /* 구분코드 */
+                  ,A.CVPT_ACP_NO    /* 접수번호 */
+                  ,A.ACP_STEP_CD   /* 단계 코드 */
+                  ,A.ACP_STEP_NM   /* 단계명 */
+                  ,A.STEP_CMPT_YN  /* 단계완료상태 : NULL:미진행, P:진행 Y:완료 */
+                <if test='acpStepCd != null and acpStepCd != ""'>
+                  ,A.TSK_DESC       /*업무설명 */
+                </if>
+                  ,A.LINK_URL       /* 링크주소 */
+                  ,A.NECES_YN       /* 필수 여부 */
+             FROM TBCSPDCP601M A
+              WHERE 1=1
+                <if test='acpYr != null and acpYr != ""'>
+                    AND A.ACP_YR = #{acpYr} /* PARAM : 접수년도 */
+                </if>
+                <if test='reqDvsnCd != null and reqDvsnCd != ""'>
+                    AND A.REQ_DVSN_CD = #{reqDvsnCd} /* PARAM : 구분코드 */
+                </if>
+                <if test='cvptAcpNo != null and cvptAcpNo != ""'>
+                    AND A.CVPT_ACP_NO = #{cvptAcpNo} /* PARAM : 접수번호 */
+                </if>
+                <if test='acpStepCd != null and acpStepCd != ""'>
+                    AND A.ACP_STEP_CD = #{acpStepCd} /* PARAM : 단계코드  */
+                </if>
+                <if test='sType != null and sType != ""'>
+                	AND ACP_STEP_CD LIKE #{sType} || '%'
+                </if>
+                 <if test='srno != null and srno != ""'>
+                	 AND A.SRNO = #{srno} 
+                </if>
+            ORDER BY ACP_STEP_CD ASC
+    </select>
+
+    <select id="selectCspTskPrcsList" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.selectCspTskPrcsList */
+        SELECT A.ACP_MAIN_STEP_ID  /*주요업무코드*/
+             , A.ACP_STEP_CD /*단계코드*/
+             , (SELECT ACP_STEP_NM 
+                FROM TBCSPDCP601M 
+                WHERE REQ_DVSN_CD = A.REQ_DVSN_CD
+                AND ACP_YR = A.ACP_YR 
+                AND CVPT_ACP_NO = A.CVPT_ACP_NO 
+                AND ACP_STEP_CD = A.ACP_STEP_CD
+                AND SRNO = A.SRNO) ACP_STEP_NM
+             , A.ACP_MAIN_STEP_SNO  /*주요업무순번 */
+             , A.ACP_MAIN_SEQ_W /*주요업무순서_가로 */
+             , A.ACP_MAIN_SEQ_H /*주요업무순서_세로 */
+             , A.CMPT_YN /*완료여부*/
+             , A.CVPT_ACP_NO  /*접수번호*/
+             , A.ACP_DOC_CD /*문서ID*/
+             , TRIM(A.MAIN_JOB_NM) AS MAIN_JOB_NM /*주요업무명*/
+             , TRIM(A.LINK_TYPE) AS LINK_TYPE/*링크유형*/
+             , DECODE(TRIM(A.LINK_TYPE), 'NAN', ''
+                                 , 'POP', A.LINK_URL
+                                 , 'FUNC', A.LINK_URL
+                                 , CASE WHEN A.ACP_DOC_CD = 'B10300100' THEN 
+                                        (SELECT B.DOC_ID
+                                          FROM TBFDMADM002M B
+                                         WHERE A.ACP_DOC_CD = B.AUD_DOC_CD
+                                           AND B.DOC_KND_CD = DECODE(A.LINK_TYPE, 'DOC', '10', '20')
+                                           AND B.DTIL_AUD_DOC_NO = (
+                                               SELECT F.DTIL_AUD_DOC_NO 
+                                               FROM (
+                                                    SELECT MAX(C.SRNO)
+                                                        , CASE WHEN C.CVPT_HNDL_DVSN_CD = '10' THEN '289'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '20' THEN '290'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '30' THEN '291'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '40' THEN '291'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '50' THEN '293'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '60' THEN '292'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '70' THEN '292'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '80' THEN '292'
+                                                                ELSE '288' END AS DTIL_AUD_DOC_NO
+                                                        FROM TBCSPDCP205L C
+                                                        LEFT OUTER JOIN TBCSPDCP602M D 
+                                                        ON(
+                                                            C.ACP_YR = D.ACP_YR 
+                                                            AND C.REQ_DVSN_CD = D.REQ_DVSN_CD 
+                                                            AND C.CVPT_ACP_NO = D.CVPT_ACP_NO
+                                                        ) 
+                                                        WHERE C.ACP_YR = #{acpYr}
+                                                        AND C.REQ_DVSN_CD = #{reqDvsnCd}
+                                                        AND C.CVPT_ACP_NO = #{cvptAcpNo}
+                                                        AND (C.ACP_YR , C.REQ_DVSN_CD, C.CVPT_ACP_NO, C.SRNO)
+                                                        	IN ( SELECT S1.ACP_YR, S1.REQ_DVSN_CD, S1.CVPT_ACP_NO, MIN(S1.SRNO)  
+                                                        	       FROM TBCSPDCP205L S1
+                                                        	      WHERE S1.ACP_YR = #{acpYr}
+                                                        	        AND S1.REQ_DVSN_CD = #{reqDvsnCd}
+                                                        	        AND S1.CVPT_ACP_NO = #{cvptAcpNo}
+                                                        	        GROUP BY S1.ACP_YR, S1.REQ_DVSN_CD, S1.CVPT_ACP_NO
+                                                        	    ) 
+                                                        
+                                                        GROUP BY (CASE WHEN C.CVPT_HNDL_DVSN_CD = '10' THEN '289'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '20' THEN '290'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '30' THEN '291'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '40' THEN '291'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '50' THEN '293'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '60' THEN '292'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '70' THEN '292'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '80' THEN '292'
+                                                                ELSE '288' END)
+                                              ) F
+                                           )
+                                        )
+                                   ELSE
+                                        (SELECT NVL(DOC_ID,HWP_DOC_ID)
+                                          FROM TBFDMADM002M B
+                                         WHERE A.ACP_DOC_CD = B.AUD_DOC_CD
+                                           AND B.DOC_KND_CD = DECODE(A.LINK_TYPE, 'DOC', '10', '20')
+                                           /* BEST20 제보, 민원 구분 ( 조사결과보고서) */
+                                           AND ((B.AUD_DOC_CD IN ('B20200400','B10200400') AND B.AUD_RPRT_TYPE_CD  = (SELECT AA.RM_ACP_KND_CD  
+																						                                                         FROM TBCSPDCP101M AA
+																						                                                        WHERE AA.REQ_DVSN_CD =  A.REQ_DVSN_CD
+																						                                                          AND AA.ACP_YR  = A.ACP_YR
+																						                                                          AND AA.CVPT_ACP_NO = A.CVPT_ACP_NO ) ) 
+                                                   OR 
+                                                  (B.AUD_DOC_CD NOT IN ('B20200400','B10200400')))
+                                           AND ROWNUM = 1)
+                                   END
+                     ) AS LINK_URL /*링크주소*/
+                  /* BEST20 2020.09.23 제보- 처리구분이 이첩인경우 사용 */
+                , (SELECT NVL(DOC_ID,HWP_DOC_ID)
+                    FROM TBFDMADM002M B
+                   WHERE A.ACP_DOC_CD = B.AUD_DOC_CD
+                      AND B.DOC_KND_CD = DECODE(A.LINK_TYPE, 'DOC', '10', '20')
+                      AND B.DTIL_AUD_DOC_NM LIKE '%80')    AS LINK_URL2
+          FROM TBCSPDCP602M A
+         WHERE 1=1
+        <if test='acpYr != null and acpYr != ""'>
+            AND A.ACP_YR = #{acpYr} /* PARAM : 접수년도 */
+        </if>
+        <if test='reqDvsnCd != null and reqDvsnCd != ""'>
+            AND A.REQ_DVSN_CD = #{reqDvsnCd} /* PARAM : 구분코드 */
+        </if>
+        <if test='cvptAcpNo != null and cvptAcpNo != ""'>
+        	AND A.CVPT_ACP_NO = #{cvptAcpNo} /* PARAM : 접수번호 */
+        </if>
+        <if test='acpStepCd != null and acpStepCd != ""'>
+            AND A.ACP_STEP_CD = #{acpStepCd} /* PARAM : 단계코드  */
+        </if>
+        <if test='sType != null and sType != ""'>
+        	AND ACP_STEP_CD LIKE #{sType} || '%'
+        </if>
+        <if test='srno != null and srno != ""'>
+        	AND A.SRNO = #{srno}
+        </if>
+         ORDER BY A.ACP_MAIN_STEP_SNO, A.ACP_MAIN_SEQ_W ASC
+    </select>
+
+	<select id="CSPDCP601BSelect"  parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.CSPDCP601BSelect */
+		SELECT  ACP_STEP_CD /* 제보청구 단계코드 */
+		         , ACP_STEP_NM /* 제보청구 단계명 */
+		         , NECES_YN /* 필수여부 */
+		         , STAD_DT /* 기준일 */
+	             , TSK_DESC /* 업무설명 */
+	             , LINK_URL /* 링크주소 */
+	             , SORT_SNO /* 정렬순번 */
+	     FROM TBCSPDCP601B
+	    WHERE REQ_DVSN_CD = #{reqDvsnCd}
+		<if test='sType != null and sType != ""'>
+       		AND ACP_STEP_CD LIKE #{sType} || '%'
+        </if>
+	    ORDER BY SORT_SNO
+	</select>
+
+	<insert id="CSPDCP601MInsert" parameterType="paramMap">
+   		/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.CSPDCP601MInsert */
+   		MERGE INTO TBCSPDCP601M T1
+   		USING	(	SELECT 	#{reqDvsnCd} AS REQ_DVSN_CD 
+        						,#{acpYr} AS ACP_YR
+        						,#{cvptAcpNo} AS CVPT_ACP_NO
+        						,#{acpStepCd} AS ACP_STEP_CD
+        				FROM DUAL
+        			) T2
+        ON		(	T1.REQ_DVSN_CD = T2.REQ_DVSN_CD
+        				AND	T1.ACP_YR = T2.ACP_YR
+        				AND T1.CVPT_ACP_NO = T2.CVPT_ACP_NO
+        				AND T1.ACP_STEP_CD = T2.ACP_STEP_CD
+        			)
+        WHEN MATCHED THEN
+        		UPDATE
+        		SET		NECES_YN = #{necesYn}
+        				,TSK_DESC = #{tskDesc}
+        				,LINK_URL = #{linkUrl}
+        				<if test="stepCmptYn != '' and stepCmptYn eq 'P'.toString()">
+        				,STEP_CMPT_YN = #{stepCmptYn}
+        				,STEP_CMPT_DH = SYSDATE
+        				</if>
+        				,SORT_SNO = #{sortSno}
+        				,FNL_USR_ID = #{usrId}
+        				,FNL_DEAL_DPT_CD= #{dptCd}
+        				,FNL_MNU_ID = #{menuNo}
+        				,FNL_MDF_DH = SYSDATE
+        WHEN NOT MATCHED THEN
+				INSERT	(	 REQ_DVSN_CD
+							, ACP_YR
+							, CVPT_ACP_NO
+							, ACP_STEP_CD
+							, ACP_STEP_NM
+							, NECES_YN
+							, TSK_DESC
+							, LINK_URL
+							<if test="stepCmptYn != '' and stepCmptYn eq 'P'.toString()">
+	                        , STEP_CMPT_YN
+	                        , STEP_CMPT_DH
+	                        </if>
+							, SORT_SNO
+							, FRT_USR_ID
+	    					, FNL_USR_ID
+	    					, FNL_DEAL_DPT_CD
+	    					, FNL_MNU_ID
+	    					, FRT_REGI_DH
+	    					, FNL_MDF_DH
+	    				)
+	   			VALUES	( #{reqDvsnCd}
+							, #{acpYr}
+							, #{cvptAcpNo}
+							, #{acpStepCd}
+							, #{acpStepNm}
+							, #{necesYn}
+							, #{tskDesc}
+							, #{linkUrl}
+							<if test="stepCmptYn != '' and stepCmptYn eq 'P'.toString()">
+		                    , #{stepCmptYn}
+		                    , SYSDATE
+	                        </if>
+	                        , #{sortSno}
+							, #{usrId}
+	                        , #{usrId}
+	                        , #{dptCd}
+	                        , #{menuNo}
+	    					, SYSDATE
+	    					, SYSDATE
+	    				)
+   	</insert>
+   	
+   	<!-- BEST20 2020.09.16 이송(대내) 프로세스 추가 -->
+   	<insert id="CSPDCP601MInsertByTrnf" parameterType="paramMap">
+   		/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.CSPDCP601MInsertByTrnf */
+   		MERGE INTO TBCSPDCP601M T1
+   		USING	(	SELECT 	#{reqDvsnCd} AS REQ_DVSN_CD 
+        						,#{acpYr} AS ACP_YR
+        						,#{cvptAcpNo} AS CVPT_ACP_NO
+        						,#{acpStepCd} AS ACP_STEP_CD
+        						,#{srno} AS SRNO
+        				FROM DUAL
+        			) T2
+        ON		(	T1.REQ_DVSN_CD = T2.REQ_DVSN_CD
+        				AND	T1.ACP_YR = T2.ACP_YR
+        				AND T1.CVPT_ACP_NO = T2.CVPT_ACP_NO
+        				AND T1.ACP_STEP_CD = T2.ACP_STEP_CD
+        				AND T1.SRNO = T2.SRNO
+        			)
+        WHEN MATCHED THEN
+        		UPDATE
+        		SET		NECES_YN = #{necesYn}
+        				,TSK_DESC = #{tskDesc}
+        				,LINK_URL = #{linkUrl}
+        				<if test="stepCmptYn != '' and stepCmptYn eq 'P'.toString()">
+        				,STEP_CMPT_YN = #{stepCmptYn}
+        				,STEP_CMPT_DH = SYSDATE
+        				</if>
+        				,SORT_SNO = #{sortSno}
+        				,FNL_USR_ID = #{usrId}
+        				,FNL_DEAL_DPT_CD= #{dptCd}
+        				,FNL_MNU_ID = #{menuNo}
+        				,FNL_MDF_DH = SYSDATE
+        WHEN NOT MATCHED THEN
+				INSERT	(	 REQ_DVSN_CD
+							, ACP_YR
+							, CVPT_ACP_NO
+							, ACP_STEP_CD
+							, SRNO
+							, ACP_STEP_NM
+							, NECES_YN
+							, TSK_DESC
+							, LINK_URL
+							<if test="stepCmptYn != '' and stepCmptYn eq 'P'.toString()">
+	                        , STEP_CMPT_YN
+	                        , STEP_CMPT_DH
+	                        </if>
+							, SORT_SNO
+							, FRT_USR_ID
+	    					, FNL_USR_ID
+	    					, FNL_DEAL_DPT_CD
+	    					, FNL_MNU_ID
+	    					, FRT_REGI_DH
+	    					, FNL_MDF_DH
+	    				)
+	   			VALUES	( #{reqDvsnCd}
+							, #{acpYr}
+							, #{cvptAcpNo}
+							, #{acpStepCd}
+							, NVL(#{srno},1)
+							, #{acpStepNm}
+							, #{necesYn}
+							, #{tskDesc}
+							, #{linkUrl}
+							<if test="stepCmptYn != '' and stepCmptYn eq 'P'.toString()">
+		                    , #{stepCmptYn}
+		                    , SYSDATE
+	                        </if>
+	                        , #{sortSno}
+							, #{usrId}
+	                        , #{usrId}
+	                        , #{dptCd}
+	                        , #{menuNo}
+	    					, SYSDATE
+	    					, SYSDATE
+	    				)
+   	</insert>
+
+	<select id="CSPDCP602BSelect"  parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.CSPDCP602BSelect */
+		SELECT  ACP_STEP_CD /* 제보청구 단계코드 */
+		         , ACP_MAIN_STEP_ID /* 주요업무코드 */
+		         , ACP_MAIN_STEP_NM /* 주요업무명 */
+		         , ACP_MAIN_STEP_SNO /* 주요업무순번 */
+		         , ACP_MAIN_SEQ_W /* 주요업무순서_가로 */
+		         , ACP_MAIN_SEQ_H /* 주요업무순서_세로 */
+		         , ACP_DOC_CD
+		         , LINK_TYPE /* 링크유형 */
+		         , LINK_URL /* 링크주소 */
+	     FROM TBCSPDCP602B
+	    WHERE REQ_DVSN_CD = #{reqDvsnCd}
+		<if test='sType != null and sType != ""'>
+        	AND ACP_STEP_CD LIKE #{sType} || '%'
+        </if>
+	    ORDER BY ACP_STEP_CD, ACP_MAIN_STEP_SNO
+	</select>
+
+	<insert id="CSPDCP602MInsert" parameterType="paramMap">
+   		/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.CSPDCP602MInsert */
+   		MERGE INTO TBCSPDCP602M T1
+   		USING	(	SELECT 	#{reqDvsnCd} AS REQ_DVSN_CD 
+        						,#{acpYr} AS ACP_YR
+        						,#{cvptAcpNo} AS CVPT_ACP_NO
+        						,#{acpStepCd} AS ACP_STEP_CD
+        						,#{acpMainStepId} AS ACP_MAIN_STEP_ID
+        						,#{acpMainStepSno} AS ACP_MAIN_STEP_SNO
+        				FROM DUAL
+        			) T2
+        ON		(	T1.REQ_DVSN_CD = T2.REQ_DVSN_CD
+        				AND	T1.ACP_YR = T2.ACP_YR
+        				AND T1.CVPT_ACP_NO = T2.CVPT_ACP_NO
+        				AND T1.ACP_STEP_CD = T2.ACP_STEP_CD
+        				AND T1.ACP_MAIN_STEP_ID = T2.ACP_MAIN_STEP_ID
+        				AND T1.ACP_MAIN_STEP_SNO = T2.ACP_MAIN_STEP_SNO
+        			)
+        WHEN MATCHED THEN
+        		UPDATE
+        		SET		ACP_MAIN_SEQ_W = #{acpMainSeqW}
+        				,ACP_MAIN_SEQ_H = #{acpMainSeqH}
+        				,ACP_DOC_CD = #{acpDocCd}
+        				,MAIN_JOB_NM = #{acpMainStepNm}
+        				,LINK_TYPE = #{linkType}
+        				,LINK_URL = #{linkUrl}
+        				,FNL_USR_ID = #{usrId}
+        				,FNL_DEAL_DPT_CD= #{dptCd}
+        				,FNL_MNU_ID = #{menuNo}
+        				,FNL_MDF_DH = SYSDATE
+        WHEN NOT MATCHED THEN
+				INSERT (	 REQ_DVSN_CD
+								, ACP_YR
+								, CVPT_ACP_NO
+								, ACP_STEP_CD
+								, ACP_MAIN_STEP_ID
+		                        , ACP_MAIN_STEP_SNO
+		                        , ACP_MAIN_SEQ_W
+		                        , ACP_MAIN_SEQ_H
+		                        , ACP_DOC_CD
+		                        , MAIN_JOB_NM
+								, LINK_TYPE
+								, LINK_URL
+								, FRT_USR_ID
+		    					, FNL_USR_ID
+		    					, FNL_DEAL_DPT_CD
+		    					, FNL_MNU_ID
+		    					, FRT_REGI_DH
+		    					, FNL_MDF_DH
+		    				)
+		   			VALUES	( #{reqDvsnCd}
+								, #{acpYr}
+								, #{cvptAcpNo}
+								, #{acpStepCd}
+								, #{acpMainStepId}
+		                        , #{acpMainStepSno}
+		                        , #{acpMainSeqW}
+		                        , #{acpMainSeqH}
+								, #{acpDocCd}
+								, #{acpMainStepNm}
+								, #{linkType}
+								, #{linkUrl}
+								, #{usrId}
+		                        , #{usrId}
+		                        , #{dptCd}
+		                        , #{menuNo}
+		    					, SYSDATE
+		    					, SYSDATE
+		    				)
+   	</insert>
+   	
+   	<!-- BEST20 2020.09.16 이송(대내) 프로세스 추가 -->
+   	<insert id="CSPDCP602MInsertByTrnf" parameterType="paramMap">
+   		/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.CSPDCP602MInsertByTrnf */
+   		MERGE INTO TBCSPDCP602M T1
+   		USING	(	SELECT 	#{reqDvsnCd} AS REQ_DVSN_CD 
+        						,#{acpYr} AS ACP_YR
+        						,#{cvptAcpNo} AS CVPT_ACP_NO
+        						,#{acpStepCd} AS ACP_STEP_CD
+        						,#{acpMainStepId} AS ACP_MAIN_STEP_ID
+        						,#{acpMainStepSno} AS ACP_MAIN_STEP_SNO
+        						,#{srno} AS SRNO
+        				FROM DUAL
+        			) T2
+        ON		(	T1.REQ_DVSN_CD = T2.REQ_DVSN_CD
+        				AND	T1.ACP_YR = T2.ACP_YR
+        				AND T1.CVPT_ACP_NO = T2.CVPT_ACP_NO
+        				AND T1.ACP_STEP_CD = T2.ACP_STEP_CD
+        				AND T1.ACP_MAIN_STEP_ID = T2.ACP_MAIN_STEP_ID
+        				AND T1.ACP_MAIN_STEP_SNO = T2.ACP_MAIN_STEP_SNO
+        				AND T1.SRNO = T2.SRNO
+        			)
+        WHEN MATCHED THEN
+        		UPDATE
+        		SET		ACP_MAIN_SEQ_W = #{acpMainSeqW}
+        				,ACP_MAIN_SEQ_H = #{acpMainSeqH}
+        				,ACP_DOC_CD = #{acpDocCd}
+        				,MAIN_JOB_NM = #{acpMainStepNm}
+        				,LINK_TYPE = #{linkType}
+        				,LINK_URL = #{linkUrl}
+        				,FNL_USR_ID = #{usrId}
+        				,FNL_DEAL_DPT_CD= #{dptCd}
+        				,FNL_MNU_ID = #{menuNo}
+        				,FNL_MDF_DH = SYSDATE
+        WHEN NOT MATCHED THEN
+				INSERT (	 REQ_DVSN_CD
+								, ACP_YR
+								, CVPT_ACP_NO
+								, ACP_STEP_CD
+								, ACP_MAIN_STEP_ID
+		                        , ACP_MAIN_STEP_SNO
+		                        , SRNO
+		                        , ACP_MAIN_SEQ_W
+		                        , ACP_MAIN_SEQ_H
+		                        , ACP_DOC_CD
+		                        , MAIN_JOB_NM
+								, LINK_TYPE
+								, LINK_URL
+								, FRT_USR_ID
+		    					, FNL_USR_ID
+		    					, FNL_DEAL_DPT_CD
+		    					, FNL_MNU_ID
+		    					, FRT_REGI_DH
+		    					, FNL_MDF_DH
+		    				)
+		   			VALUES	( #{reqDvsnCd}
+								, #{acpYr}
+								, #{cvptAcpNo}
+								, #{acpStepCd}
+								, #{acpMainStepId}
+		                        , #{acpMainStepSno}
+		                        , NVL(#{srno},1)
+		                        , #{acpMainSeqW}
+		                        , #{acpMainSeqH}
+								, #{acpDocCd}
+								, #{acpMainStepNm}
+								, #{linkType}
+								, #{linkUrl}
+								, #{usrId}
+		                        , #{usrId}
+		                        , #{dptCd}
+		                        , #{menuNo}
+		    					, SYSDATE
+		    					, SYSDATE
+		    				)
+   	</insert>
+
+   	<select id="CSPDCP601MStepCdMinSelect"  parameterType="paramMap" resultType="String">
+		/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.CSPDCP601MStepCdMinSelect */
+		SELECT  MIN(ACP_STEP_CD) /* 제보청구 단계코드 */
+	     FROM TBCSPDCP601M A
+	     WHERE 1=1
+	        AND STEP_CMPT_YN IS NULL
+        <if test='acpYr != null and acpYr != ""'>
+            AND A.ACP_YR = #{acpYr} /* PARAM : 접수년도 */
+        </if>
+        <if test='reqDvsnCd != null and reqDvsnCd != ""'>
+            AND A.REQ_DVSN_CD = #{reqDvsnCd} /* PARAM : 구분코드 */
+        </if>
+        <if test='cvptAcpNo != null and cvptAcpNo != ""'>
+        	AND A.CVPT_ACP_NO = #{cvptAcpNo} /* PARAM : 접수번호 */
+        </if>
+		<if test='sType != null and sType != ""'>
+        	AND ACP_STEP_CD LIKE #{sType} || '%'
+        </if>
+        <if test='srno != null and srno != ""'>
+        	AND SRNO LIKE #{srno} || '%'
+        </if>
+	    ORDER BY SORT_SNO
+	</select>
+
+   	<update id="CSPDCP601MStepCmptUpdate" parameterType="paramMap">
+        /* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.CSPDCP601MStepCmptUpdate */
+        UPDATE TBCSPDCP601M
+            SET
+            FNL_MDF_DH = SYSDATE
+            ,STEP_CMPT_YN = #{stepCmptYn}
+            <if test='stepCmptYn == "Y"'>
+                ,STEP_CMPT_DH = SYSDATE
+            </if>
+            ,FNL_USR_ID = #{usrId}
+            ,FNL_DEAL_DPT_CD =#{dptCd}
+            WHERE 1=1
+            AND ACP_YR = #{acpYr}
+            AND REQ_DVSN_CD = #{reqDvsnCd}
+            AND CVPT_ACP_NO = #{cvptAcpNo}
+            AND ACP_STEP_CD = #{acpStepCd}
+             <if test='srno != null and srno != ""'>
+            AND SRNO   = #{srno}
+            </if>
+    </update>
+
+    <update id="CSPDCP602MCmptYnUpdate" parameterType="paramMap">
+        /* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.CSPDCP602MCmptYnUpdate */
+        UPDATE TBCSPDCP602M
+            SET
+            FNL_MDF_DH = SYSDATE
+            ,CMPT_YN  = #{cmptYn}
+            ,FNL_USR_ID = #{usrId}
+            ,FNL_DEAL_DPT_CD =#{dptCd}
+            WHERE 1=1
+            AND ACP_YR = #{acpYr}
+            AND REQ_DVSN_CD = #{reqDvsnCd}
+            AND CVPT_ACP_NO = #{cvptAcpNo}
+            AND ACP_STEP_CD = #{acpStepCd}
+            AND ACP_MAIN_STEP_ID  = #{acpMainStepId}
+            <if test='acpMainStepSno != null and acpMainStepSno != ""'>
+            AND ACP_MAIN_STEP_SNO   = #{acpMainStepSno}
+            </if>
+            <if test='srno != null and srno != ""'>
+            AND SRNO   = #{srno}
+            </if>
+    </update>
+
+    <select id="selectDocumentList" parameterType="paramMap" resultType="egovMap">
+        /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.selectDocumentList*/
+        /*문서함(결재정보)*/
+        <![CDATA[
+        SELECT
+            RPRT_NM,
+           APV_STA_CD,
+           APV_RQS_ID,
+           DOC_ID,
+           APV_SRNO,
+           PST_NM,
+           APVR_NM,
+           APV_DH ,
+           CASE
+                WHEN ROW_NUMBER() OVER(PARTITION BY DOC_ID ORDER BY APV_SRNO) = 1 THEN COUNT(*) OVER(PARTITION BY DOC_ID)
+                ELSE 0
+           END ROWSPAN_CNT
+      FROM (
+           SELECT
+                  A.RPRT_NM ,       /*보고서명 */
+                  A.APV_STA_CD ,    /*결재상태코드 */
+                  A.DOC_ID ,        /*결재문서번호 */
+                  A.APV_RQS_ID,     /*결재요청ID */
+                  B.APV_SRNO ,      /*결재순번 */
+                  B.PST_NM ,        /*결재자직위코드 */
+                  B.APVR_NM ,       /*결재자전산번호 */
+                  B.APV_DH          /*결재일시 */
+             FROM TBCSPDCP603M A,
+                  (
+                  SELECT T1.APV_DOC_NO AS APV_RQS_ID ,
+                         T1.APV_SNO AS APV_SRNO ,
+                         CASE WHEN T1.APVR_PST_CD IS NULL
+                              THEN (SELECT MAX(T1.ONR_PST_NM) FROM TBDCMACM001M WHERE CNB = T1.APVR_CNB)
+                              ELSE F_CODE_NM('1000176', T1.APVR_PST_CD)
+                         END  AS PST_NM ,
+                         DECODE(T1.APVR_STA_CD, '206', (
+                                                     SELECT '(代)' || F_USR_INFO(T2.APVR_CNB, '2')
+                                                       FROM TBDCMACM023L T2
+                                                      WHERE T2.APV_DOC_NO = T1.APV_DOC_NO
+                                                        AND T2.APV_SNO = T1.APV_SNO
+                                                        AND T2.APVR_STA_CD = '203'
+                                                    ), F_USR_INFO(T1.APVR_CNB, '2')) AS APVR_NM ,
+                         
+                         CASE WHEN SUBSTR(T1.APVR_STA_CD,0,1) = '2' THEN TO_CHAR(T1.APV_DH, 'YYYY.MM.DD')
+                                  ELSE ''
+                         END  AS APV_DH
+                    FROM TBDCMACM023L T1
+                   WHERE APV_SNO <> '1'
+                   AND APVR_KND_CD NOT IN ('4','6','7')
+                   UNION ALL
+                  SELECT DH1.APV_RQS_ID,
+                         DH1.APV_SRNO,
+                         (SELECT H2.PST_NM AS PST_NM
+                            FROM TBDCMACM111H H1,
+                                 TBDCMACM112H H2
+                           WHERE 1=1
+                             AND H1.RCPT_DT = H2.RCPT_DT
+                             AND H1.RCPT_ID = H2.RCPT_ID
+                             AND H1.ONR_DOC_MNG_CRD_ID = DH1.APV_RQS_ID
+                             AND H2.APVR_ID = DH1.APVR_ID
+                           GROUP BY H2.PST_NM ) AS PST_NM,
+                         DH1.APVR_NM,
+                         DH1.APV_DH
+                    FROM
+                         (SELECT ONR_DOC_MNG_CRD_ID AS APV_RQS_ID,
+                                 APV_HIS_SRNO AS APV_SRNO,
+                                 APVR_ID,
+                                 APVR_NM AS APVR_NM,
+                                 TO_CHAR(APV_DH, 'YYYY.MM.DD') AS APV_DH
+                            FROM TBDCMACM102L D2
+                           WHERE 1=1
+                             AND ONR_APV_DVSN_CD <> '10' --(기안자 제외)
+                           ORDER BY APV_RQS_ID,APV_SRNO
+                         ) DH1
+                  ) B
+            WHERE A.ACP_YR = #{acpYr}
+              AND A.REQ_DVSN_CD = #{reqDvsnCd}
+              AND A.CVPT_ACP_NO = #{cvptAcpNo}
+              AND A.ACP_STEP_CD = #{acpStepCd}
+              AND A.APV_RQS_ID = B.APV_RQS_ID
+        ]]>
+        <if test="rprtCd != null and rprtCd != ''">
+            AND A.RPRT_CD  = #{rprtCd}
+        </if>
+        ORDER BY A.SORT_SNO
+        )
+    </select>
+
+    <select id="selectDocumentList2" parameterType="paramMap" resultType="egovMap" >
+        /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.selectDocumentList2*/
+        /*문서함(문서자체정보)*/
+        <![CDATA[
+          SELECT
+                  CASE WHEN A.RPRT_CD = 'A10700500'     /*부의안 요약 + 부의안 한줄로 처리 */
+                    THEN  A.RPRT_NM ||'<br>'|| (SELECT RPRT_NM
+                                        FROM TBCSPDCP603M ST1
+                                        WHERE ST1.ACP_YR = A.ACP_YR
+                                        AND ST1.REQ_DVSN_CD = A.REQ_DVSN_CD
+                                        AND ST1.CVPT_ACP_NO = A.CVPT_ACP_NO
+                                        AND ST1.ACP_STEP_CD = A.ACP_STEP_CD
+                                        AND RPRT_CD = 'A10700600')
+                    ELSE A.RPRT_NM
+               END AS RPRT_NM ,       /*보고서명 */
+               A.RPRT_CD ,       /*보고서코드*/
+               A.APV_STA_CD,    /*결재상태코드 */
+               F_CODE_NM('1000773',A.APV_STA_CD) AS APV_STA_NM ,    /*결재상태코드 */
+               A.SORT_SNO ,      /*보고서순번  */
+               A.DOC_ID,         /*결재문서번호 */
+               A.APV_RQS_ID,      /*결재ID*/
+               'N' AS APV_YN ,           /*결재여부 */
+               CON_PGM_CD    /*연계프로그램코드*/
+                  /*필수여부*/
+                  ,A.NECES_YN
+                  ,A.APV_WAY_CD /*결재방법코드*/
+                  ,A.ACP_STEP_CD
+                  ,A.ACP_YR
+                  ,A.REQ_DVSN_CD
+                  ,A.CVPT_ACP_NO
+                  ,F_OPEN_EDIT(A.LINK_URL) AS DOC_TYPE
+          FROM TBCSPDCP603M AS A
+         WHERE A.ACP_YR = #{acpYr}
+            AND A.REQ_DVSN_CD = #{reqDvsnCd}
+            AND A.CVPT_ACP_NO = #{cvptAcpNo}
+        ]]>
+        <if test="acpStepCd != null and acpStepCd != ''">
+            AND A.ACP_STEP_CD = #{acpStepCd}
+        </if>
+          
+        <if test="rprtCd != null and rprtCd != ''">
+            AND A.RPRT_CD  = #{rprtCd}
+        </if>
+        
+        <if test="srno != null and srno != ''">
+            AND A.SRNO  = #{srno}
+        </if>
+        ORDER BY A.SORT_SNO
+    </select>
+    
+    <select id="selectDocumentList3" parameterType="paramMap" resultType="egovMap" >
+        /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.selectDocumentList3*/
+        /*문서함(문서자체정보)*/
+        <![CDATA[
+          SELECT
+                  CASE WHEN A.RPRT_CD = 'A10700500'     /*부의안 요약 + 부의안 한줄로 처리 */
+                    THEN  A.RPRT_NM ||'<br>'|| (SELECT RPRT_NM
+                                        FROM TBCSPDCP603M ST1
+                                        WHERE ST1.ACP_YR = A.ACP_YR
+                                        AND ST1.REQ_DVSN_CD = A.REQ_DVSN_CD
+                                        AND ST1.CVPT_ACP_NO = A.CVPT_ACP_NO
+                                        AND ST1.ACP_STEP_CD = A.ACP_STEP_CD
+                                        AND RPRT_CD = 'A10700600')
+                    ELSE A.RPRT_NM
+               END AS RPRT_NM ,       /*보고서명 */
+               A.RPRT_CD ,       /*보고서코드*/
+               A.APV_STA_CD,    /*결재상태코드 */
+               F_CODE_NM('1000773',A.APV_STA_CD) AS APV_STA_NM ,    /*결재상태코드 */
+               A.SORT_SNO ,      /*보고서순번  */
+               A.DOC_ID,         /*결재문서번호 */
+               A.APV_RQS_ID,      /*결재ID*/
+               'N' AS APV_YN ,           /*결재여부 */
+               CON_PGM_CD    /*연계프로그램코드*/
+                  /*필수여부*/
+                  ,A.NECES_YN
+                  ,A.APV_WAY_CD /*결재방법코드*/
+                  ,A.ACP_STEP_CD
+                  ,A.ACP_YR
+                  ,A.REQ_DVSN_CD
+                  ,A.CVPT_ACP_NO
+                  ,F_OPEN_EDIT(A.LINK_URL) AS DOC_TYPE
+          FROM TBCSPDCP603M AS A
+         WHERE A.ACP_YR = #{acpYr}
+            AND A.REQ_DVSN_CD = #{reqDvsnCd}
+            AND A.CVPT_ACP_NO = #{cvptAcpNo}
+        ]]>
+        <if test="acpStepCd != null and acpStepCd != ''">
+            AND A.ACP_STEP_CD = #{acpStepCd}
+        </if>
+          
+        <if test="rprtCd != null and rprtCd != ''">
+            AND A.RPRT_CD  = #{rprtCd}
+        </if>
+        <![CDATA[
+        UNION ALL
+        SELECT
+                  CASE WHEN A.RPRT_CD = 'A10700500'     /*부의안 요약 + 부의안 한줄로 처리 */
+                    THEN  A.RPRT_NM ||'<br>'|| (SELECT RPRT_NM
+                                        FROM TBCSPDCP603M ST1
+                                        WHERE ST1.ACP_YR = A.ACP_YR
+                                        AND ST1.REQ_DVSN_CD = A.REQ_DVSN_CD
+                                        AND ST1.CVPT_ACP_NO = A.CVPT_ACP_NO
+                                        AND ST1.ACP_STEP_CD = A.ACP_STEP_CD
+                                        AND RPRT_CD = 'A10700600')
+                    ELSE A.RPRT_NM
+               END AS RPRT_NM ,       /*보고서명 */
+               A.RPRT_CD ,       /*보고서코드*/
+               A.APV_STA_CD,    /*결재상태코드 */
+               F_CODE_NM('1000773',A.APV_STA_CD) AS APV_STA_NM ,    /*결재상태코드 */
+               A.SORT_SNO ,      /*보고서순번  */
+               A.DOC_ID,         /*결재문서번호 */
+               A.APV_RQS_ID,      /*결재ID*/
+               'N' AS APV_YN ,           /*결재여부 */
+               CON_PGM_CD    /*연계프로그램코드*/
+                  /*필수여부*/
+                  ,A.NECES_YN
+                  ,A.APV_WAY_CD /*결재방법코드*/
+                  ,A.ACP_STEP_CD
+                  ,A.ACP_YR
+                  ,A.REQ_DVSN_CD
+                  ,A.CVPT_ACP_NO
+                  ,F_OPEN_EDIT(A.LINK_URL) AS DOC_TYPE
+          FROM TBCSPDCP603M AS A
+         WHERE (A.ACP_YR, A.REQ_DVSN_CD, A.CVPT_ACP_NO) IN (SELECT S1.ACP_YR, S1.REQ_DVSN_CD, S1.CVPT_ACP_NO
+         															FROM TBCSPDCP105L S1 
+														         WHERE S1.SUC_ACP_YR = #{acpYr}
+														            AND S1.SUC_REQ_DVSN_CD = #{reqDvsnCd}
+														            AND S1.SUC_CVPT_ACP_NO = #{cvptAcpNo}
+														            )
+        ]]>
+        <if test="acpStepCd != null and acpStepCd != ''">
+            AND A.ACP_STEP_CD = #{acpStepCd}
+        </if>
+          
+        <if test="rprtCd != null and rprtCd != ''">
+            AND A.RPRT_CD  = #{rprtCd}
+        </if>
+        ORDER BY A.SORT_SNO
+    </select>
+    
+    <select id="selectPrcsDocCmptYn" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.selectPrcsDocCmptYn*/
+        SELECT COUNT(1) AS RPRT_CNT, 
+                  NVL(T2.CMPT_YN,'N') AS CMPT_YN,
+                  NVL(T2.ACP_MAIN_STEP_ID,'N') AS ACP_MAIN_STEP_ID
+          FROM TBCSPDCP603M T1
+            LEFT JOIN
+                  TBCSPDCP602M T2
+              ON T2.ACP_YR = T1.ACP_YR
+             AND T2.REQ_DVSN_CD = T1.REQ_DVSN_CD
+             AND T2.CVPT_ACP_NO = T1.CVPT_ACP_NO
+             AND T2.ACP_DOC_CD = T1.RPRT_CD
+                 <if test='acpMainStepSno != null and acpMainStepSno != ""'>
+                   AND T2.ACP_MAIN_STEP_SNO   = #{acpMainStepSno}
+                 </if>
+             AND T2.SRNO = NVL(T1.SRNO,1)
+         WHERE T1.ACP_YR = #{acpYr}
+           AND T1.REQ_DVSN_CD = #{reqDvsnCd}
+           AND T1.CVPT_ACP_NO = #{cvptAcpNo}
+           AND T1.RPRT_CD = #{rprtCd}
+           <if test='srno != null and srno != ""'>
+               AND T1.SRNO   = #{srno}
+           </if>
+         GROUP BY
+                   NVL(T2.CMPT_YN,'N')
+                , NVL(T2.ACP_MAIN_STEP_ID,'N')
+    </select>
+    
+    <update id="updateCmptYn" parameterType="paramMap">
+        /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.updateCmptYn*/
+        UPDATE TBCSPDCP602M
+            SET
+            FNL_MDF_DH = SYSDATE
+            ,CMPT_YN  = #{cmptYn}
+            ,FNL_USR_ID = #{fnlUsrId}
+            ,FNL_DEAL_DPT_CD =#{fnlDealDptCd}
+            WHERE 1=1
+            AND ACP_YR = #{acpYr}
+            AND REQ_DVSN_CD = #{reqDvsnCd}
+            AND CVPT_ACP_NO = #{cvptAcpNo}
+            AND ACP_STEP_CD = #{acpStepCd}
+            AND ACP_MAIN_STEP_ID = #{acpMainStepId}
+            <if test='acpMainStepSno != null and acpMainStepSno != ""'>
+            AND ACP_MAIN_STEP_SNO   = #{acpMainStepSno}
+            </if>
+             <if test='srno != null and srno != ""'>
+            AND SRNO   = #{srno}
+            </if>
+    </update>
+    
+    <update id="deleteDoc" parameterType="paramMap">
+    /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.deleteDoc*/
+        DELETE FROM TBCSPDCP603M
+        WHERE 
+            ACP_YR  = #{acpYr}
+        AND REQ_DVSN_CD = #{reqDvsnCd}
+        AND CVPT_ACP_NO  =#{cvptAcpNo}
+        AND ACP_STEP_CD  = #{acpStepCd}
+        AND DOC_ID  = #{docId}
+    </update>
+    
+     <delete id="deleteApvInfo" parameterType="paramMap">
+	    /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.deleteApvInfo*/
+	        DECLARE
+	         BEGIN
+	            DELETE 
+	              FROM PTL_ORDER_NOTI
+	              WHERE seq in (SELECT SEQ
+	                          FROM PTL_ORDER_LIST
+	                         WHERE DOC_No  = #{apvRqsId}) 
+	            ;
+	            DELETE
+	              FROM PTL_ORDER_RECEIVE_LIST
+	             WHERE seq in (SELECT SEQ
+	                          FROM PTL_ORDER_LIST
+	                         WHERE DOC_No  = #{apvRqsId})
+	            ;
+	            DELETE
+	              from PTL_ORDER_LIST
+	             where seq in (SELECT SEQ
+	            			  FROM PTL_ORDER_LIST
+	            			 WHERE DOC_No  = #{apvRqsId})
+	            ;
+	            delete
+	              from TBDCMACM023H
+	             where apv_doc_no = #{apvRqsId}
+	             ; 
+	            delete
+	              from TBDCMACM022H
+	             where apv_doc_no = #{apvRqsId}
+	             ;
+	            delete
+	              from TBDCMACM023L
+	             where apv_doc_no = #{apvRqsId}
+	             ;
+	            delete
+	              from TBDCMACM022L
+	             where apv_doc_no = #{apvRqsId}
+	             ;
+	         END;
+    </delete>
+    
+    <delete id="deleteApvInfo2" parameterType="paramMap">
+    /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.deleteApvInfo2*/
+        DELETE FROM TBDCMACM023L A
+        WHERE A.APV_DOC_NO = (SELECT APV_RQS_ID 
+						        FROM TBCSPDCP603M B
+						        WHERE B.DOC_ID = #{docId})
+    </delete>
+    
+     <select id="selectDoc" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.selectDoc*/
+        SELECT B.REQ_DVSN_CD
+		       , B.ACP_YR
+		       , B.CVPT_ACP_NO
+		       , B.ACP_STEP_CD
+		       , B.DOC_ID
+		       , B.RPRT_NM
+		       , B.LINK_URL
+		       , B.NECES_YN
+		       , B.APV_STA_CD
+		       , B.RPRT_CD
+		       , B.APV_RQS_ID
+		       , B.DOC_KND_CD
+		       , B.SORT_SNO
+		       , B.CON_PGM_CD
+		       , B.APV_WAY_CD
+		       , F_OPEN_EDIT(B.LINK_URL) AS DOC_TYPE
+		FROM TBCSPDCP602M A
+		INNER JOIN TBCSPDCP603M B ON(A.REQ_DVSN_CD = B.REQ_DVSN_CD
+		                             AND A.ACP_YR = B.ACP_YR
+		                             AND A.CVPT_ACP_NO = B.CVPT_ACP_NO
+		                             AND A.ACP_DOC_CD = B.RPRT_CD) 
+		WHERE A.REQ_DVSN_CD = #{reqDvsnCd}
+		AND A.ACP_YR = #{acpYr}
+		AND A.CVPT_ACP_NO = #{cvptAcpNo}
+		AND A.ACP_STEP_CD = #{acpStepCd}
+		AND A.ACP_DOC_CD = #{acpDocCd}
+    </select>
+    
+    <select id="selectDocCOR" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.selectDocCOR*/
+        SELECT B.REQ_DVSN_CD
+		       , B.ACP_YR
+		       , B.CVPT_ACP_NO
+		       , B.ACP_STEP_CD
+		       , B.DOC_ID
+		       , B.RPRT_NM
+		       , B.LINK_URL
+		       , B.NECES_YN
+		       , B.APV_STA_CD
+		       , B.RPRT_CD
+		       , B.APV_RQS_ID
+		       , B.DOC_KND_CD
+		       , B.SORT_SNO
+		       , B.CON_PGM_CD
+		       , B.APV_WAY_CD
+		       , F_OPEN_EDIT(B.LINK_URL) AS DOC_TYPE
+		FROM TBCORCOR602M A
+		INNER JOIN
+				 TBCORCOR603M B
+		ON(A.REQ_DVSN_CD = B.REQ_DVSN_CD
+		                             AND A.ACP_YR = B.ACP_YR
+		                             AND A.CVPT_ACP_NO = B.CVPT_ACP_NO
+		                             AND A.ACP_DOC_CD = B.RPRT_CD) 
+		WHERE A.REQ_DVSN_CD = #{reqDvsnCd}
+		AND A.ACP_YR = #{acpYr}
+		AND A.CVPT_ACP_NO = #{cvptAcpNo}
+		AND A.ACP_STEP_CD = #{acpStepCd}
+		AND A.ACP_DOC_CD = #{acpDocCd}
+    </select>
+    
+     <select id="selectDocDCP" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.selectDocDCP*/
+        SELECT B.REQ_DVSN_CD
+		       , B.ACP_YR
+		       , B.CVPT_ACP_NO
+		       , B.ACP_STEP_CD
+		       , B.DOC_ID
+		       , B.RPRT_NM
+		       , B.LINK_URL
+		       , B.NECES_YN
+		       , B.APV_STA_CD
+		       , B.RPRT_CD
+		       , B.APV_RQS_ID
+		       , B.DOC_KND_CD
+		       , B.SORT_SNO
+		       , B.CON_PGM_CD
+		       , B.APV_WAY_CD
+		       , F_OPEN_EDIT(B.LINK_URL) AS DOC_TYPE
+		FROM TBDCPDCP602M A
+		INNER JOIN
+				 TBDCPDCP603M B
+		ON(A.REQ_DVSN_CD = B.REQ_DVSN_CD
+		                             AND A.ACP_YR = B.ACP_YR
+		                             AND A.CVPT_ACP_NO = B.CVPT_ACP_NO
+		                             AND A.ACP_DOC_CD = B.RPRT_CD) 
+		WHERE A.REQ_DVSN_CD = #{reqDvsnCd}
+		AND A.ACP_YR = #{acpYr}
+		AND A.CVPT_ACP_NO = #{cvptAcpNo}
+		AND A.ACP_STEP_CD = #{acpStepCd}
+		AND A.ACP_DOC_CD = #{acpDocCd}
+    </select>
+    
+    
+    <select id="selectAudPrcsYn" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.selectAudPrcsYn*/
+    	SELECT A.AUD_YR
+              , A.AUD_NO
+              , CASE WHEN SUM(DECODE(F_CODE_NM ('1000030', B.AUD_BZT_KND_CD),'실지감사',1,0)) <![CDATA[>]]> 0 THEN
+                'Y' ELSE 'N' END AS AUD_STRT_YN
+              , DECODE(C.RPRT_NM, NULL, 'N','Y') AS AUD_RSLT_YN
+              , DECODE(D.RPRT_NM, NULL, 'N','Y') AS AUD_RPRT_YN
+              , DECODE(E.SBCN_DY, NULL, 'N','Y') AS AUD_CMT_YN
+        FROM TBBADDED030L A
+        INNER JOIN TBBADDED002M B
+        ON (A.AUD_YR = B.REL_AUD_YR 
+            AND A.AUD_NO = B.REL_AUD_NO)
+        INNER JOIN TBBADDED103M C
+        ON (A.AUD_YR = C.AUD_YR 
+            AND A.AUD_NO = C.AUD_NO
+            AND C.RPRT_CD = 'A10500200'
+        )
+        INNER JOIN TBBADDED103M D
+        ON (A.AUD_YR = D.AUD_YR 
+            AND A.AUD_NO = D.AUD_NO
+            AND D.RPRT_CD = 'A10600200'
+        )
+        INNER JOIN TBBADDED113M E
+        ON (A.AUD_YR = E.AUD_YR 
+            AND A.AUD_NO = E.AUD_NO
+        )
+        WHERE A.TSK_KEY1 = #{acpYr}
+          AND A.TSK_KEY2 = #{reqDvsnCd}
+          AND A.TSK_KEY3 = #{cvptAcpNo}
+          GROUP BY A.AUD_YR, A.AUD_NO, C.RPRT_NM, D.RPRT_NM, E.SBCN_DY
+    </select>
+    
+    
+    <!-- 결재요청ID 업데이트 -->
+	<update id="CSPDCP603MApvRqsIdUpdate" parameterType="paramMap">
+		 /* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.CSPDCP603MApvRqsIdUpdate */
+		 <![CDATA[
+        UPDATE TBCSPDCP603M
+            SET APV_RQS_ID = #{apvRqsId} /* 결재요청ID */
+                ,APV_STA_CD = DECODE(#{apvStaCd} ,'20',DECODE((SELECT COUNT(*) 
+	                                                     FROM TBDCMACM023L 
+	                                                    WHERE APV_DOC_NO = #{apvRqsId}
+	                                                      AND APVR_KND_CD <> '1' 
+	                                                      AND APVR_SEQ <> 1 
+	                                                      AND APV_DH IS NOT NULL
+	                                                      AND SUBSTR(APVR_STA_CD, 0,1) = '2'),0,'20','25')
+	                                           ,#{apvStaCd})
+                ,FNL_MDF_DH = SYSDATE
+                ,FNL_USR_ID = #{fnlUsrId}
+                ,FNL_DEAL_DPT_CD = #{fnlDealDptCd}
+            WHERE ACP_YR = #{acpYr}
+               AND REQ_DVSN_CD = #{reqDvsnCd}
+               AND CVPT_ACP_NO = #{cvptAcpNo}
+               AND ACP_STEP_CD = #{acpStepCd}
+               AND DOC_ID = #{docId}
+          ]]>
+	</update>
+
+	<!-- 결재정보 저장 -->
+	<insert id="CSPDCP609MInsert" parameterType="paramMap">
+		/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.CSPDCP609MInsert */
+		<![CDATA[
+		INSERT INTO	TBCSPDCP609M
+							(	 APV_RQS_ID        /* 결재요청ID */
+								,ACP_YR              /* 접수년도 */
+								,REQ_DVSN_CD     /* 접수구분코드 */
+								,CVPT_ACP_NO          /* 접수번호 */
+								,ACP_STEP_CD       /* 단계코드 */
+								,DOC_ID              /* 문서ID */
+								,APV_DVSN_CD     /* 결재구분코드 */
+								,APV_DOC_DVSN_CD /* 결재문서구분코드 */
+								,SORT_SNO         /* 정렬순번 */ 
+								,FRT_USR_ID        /* 최초사용자ID */
+								,FNL_USR_ID        /* 최종사용자ID */
+								,FNL_DEAL_DPT_CD/* 최종거래부서코드 */
+								,FNL_MNU_ID       /* 최종메뉴ID */
+								,FRT_REGI_DH       /* 최초등록일시 */
+								,FNL_MDF_DH       /* 최종수정일시 */
+							)
+					VALUES	(
+					             #{apvRqsId}
+								,#{acpYr}
+								,#{reqDvsnCd}
+								,#{cvptAcpNo}
+								,#{acpStepCd}
+								,#{docId}
+								,#{apvDvsnCd}
+								,#{apvDocDvsnCd}
+								,#{sortSno}
+								,#{frtUsrId}
+								,#{fnlUsrId}
+								,#{fnlDealDptCd}
+								,#{fnlMnuId}
+								,SYSDATE
+								,SYSDATE
+							)
+		]]>
+	</insert>
+
+	<!-- 결재정보 삭제 -->
+	<delete id="CSPDCP609MDelete" parameterType="paramMap">
+    	/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.CSPDCP609MDelete*/
+    	DELETE FROM TBCSPDCP609M
+        WHERE APV_RQS_ID = #{apvRqsId}
+           AND ACP_YR = #{acpYr}
+           AND REQ_DVSN_CD = #{reqDvsnCd}
+           AND CVPT_ACP_NO = #{cvptAcpNo}
+           AND ACP_STEP_CD = #{acpStepCd}
+           AND DOC_ID = #{docId}
+    </delete>
+    
+    	<!-- 문서함 목록 -->
+	<select id="CSPDCP603MSelectAll" parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.bad.fre.dao.CSPCOMMON001Mapper.CSPDCP603MSelectAll */
+		SELECT   ACP_YR
+		         ,REQ_DVSN_CD
+		         ,CVPT_ACP_NO
+		         ,ACP_STEP_CD
+		         ,RPRT_NM
+		         ,DOC_ID
+		         ,CASE WHEN APV_STA_CD = '10' THEN '작성중'
+		                 WHEN APV_STA_CD = '20' THEN '결재요청'
+		                 WHEN APV_STA_CD = '25' THEN '결재중'
+		                 WHEN APV_STA_CD = '30' THEN '결재완료'
+		          END AS APV_STA_NM
+		 FROM TBCSPDCP603M
+	   WHERE ACP_YR = #{acpYr}
+	      AND REQ_DVSN_CD = #{reqDvsnCd}
+	      AND CVPT_ACP_NO = #{cvptAcpNo}
+	</select>
+	
+	
+	
+	<select id="CSPDCP603MSelectRprtCd" parameterType="paramMap" resultType="string">
+		/* kr.go.bai.eip.bad.fre.dao.CSPCOMMON001Mapper.CSPDCP603MSelectRprtCd */
+		SELECT   RPRT_CD
+		 FROM TBCSPDCP603M
+	   WHERE APV_RQS_ID = #{apvRqsId}
+	</select>
+	
+	<select id="selectDocumentApvList" parameterType="paramMap" resultType="egovMap">
+	/* kr.go.bai.eip.bad.fre.dao.CSPCOMMON001Mapper.selectDocumentApvList */
+	<![CDATA[
+		SELECT
+			  A.REQ_DVSN_CD,
+              A.CVPT_ACP_NO,
+              A.ACP_YR,
+              A.ACP_STEP_CD,
+               A.RPRT_NM,
+               A.RPRT_CD ,       /*보고서코드*/
+               A.APV_STA_CD,    /*결재상태코드 */
+               F_CODE_NM('1000773',A.APV_STA_CD) AS APV_STA_NM ,    /*결재상태코드 */
+               A.SORT_SNO ,      /*보고서순번  */
+               A.DOC_ID,         /*결재문서번호 */
+               A.APV_RQS_ID,      /*결재ID*/
+               'N' AS APV_YN ,           /*결재여부 */
+               CON_PGM_CD    /*연계프로그램코드*/
+                  /*필수여부*/
+                  ,A.NECES_YN
+                  ,A.APV_WAY_CD /*결재방법코드*/
+                  , TO_CHAR(B.FNL_APV_DH,'YYYY.MM.DD HH24:MI') AS FNL_APV_DH    /*결재완료일시*/
+                  , TO_CHAR(TO_DATE(C.APV_DH),'YYYYMMDD') AS ONR_APV_DH    /*온나라결재완료일시*/
+	    FROM TBCSPDCP603M A
+	    LEFT OUTER JOIN TBDCMACM022L B ON (A.APV_RQS_ID = B.APV_DOC_NO
+	                                       AND B.APV_STA_CD = '3')
+	    LEFT OUTER JOIN (SELECT  ONR_DOC_MNG_CRD_ID,
+                                 MAX(APV_HIS_SRNO),
+                                 APVR_ID,
+                                 APVR_NM,
+                                 TO_CHAR(APV_DH, 'YYYY.MM.DD') AS APV_DH
+                            FROM TBDCMACM102L D2
+                           WHERE 1=1
+                             AND ONR_APV_DVSN_CD <> '10'
+                             AND NVL(ONR_APV_RSLT_CD,'hh') <>'50'
+                             GROUP BY ONR_DOC_MNG_CRD_ID, APVR_ID, APVR_NM, APV_DH) C ON (A.APV_RQS_ID = C.ONR_DOC_MNG_CRD_ID)
+	    WHERE 	A.REQ_DVSN_CD = #{reqDvsnCd}
+	    AND		A.ACP_YR = #{acpYr}
+	    AND		A.CVPT_ACP_NO = #{cvptAcpNo}
+	    AND  	A.RPRT_CD = #{rprtCd}
+	    ]]>
+	</select>
+	
+	
+	
+	<select id="CSPDCP603MParentKeySelect" parameterType="String" resultType="egovMap">
+		/* kr.go.bai.eip.bad.fre.dao.CSPCOMMON001Mapper.CSPDCP603MParentKeySelect */
+		SELECT   ACP_YR
+		         ,REQ_DVSN_CD
+		         ,CVPT_ACP_NO
+		         ,ACP_STEP_CD
+		         ,RPRT_NM
+		         ,DOC_ID
+		         ,CASE WHEN APV_STA_CD = '10' THEN '작성중'
+		                 WHEN APV_STA_CD = '20' THEN '결재요청'
+		                 WHEN APV_STA_CD = '25' THEN '결재중'
+		                 WHEN APV_STA_CD = '30' THEN '결재완료'
+		          END AS APV_STA_NM
+		FROM TBCSPDCP603M
+		WHERE APV_RQS_ID = #{apvRqsId}
+	</select>
+	
+	<select id="CSPDCP603MSelectViewAuth" parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.bad.fre.dao.CSPCOMMON001Mapper.CSPDCP603MSelectViewAuth */
+		SELECT B.HNDL_CHGR_ID
+	       ,B.AUD_EXEC_DCS_CHGR_ID
+	       ,C.USR_ID 					AS APVR_ID
+	       ,D.USR_ID 					AS SBM_ID
+	       ,A.DOC_WRT_ID
+		FROM TBCSPDCP603M A 
+		<if test='rprtCd == "C10320500" or rprtCd == "C10230100" or rprtCd == "C10320100" or rprtCd == "C10230500"'>
+		INNER JOIN TBCSPEAR011M AA ON (A.REQ_DVSN_CD = AA.CMT_DVSN_CD+6 AND A.ACP_YR = AA.CMT_OEN_YE AND A.CVPT_ACP_NO = AA.CMT_DGE)
+		INNER JOIN TBCSPEAR001M B ON (AA.REQ_DVSN_CD = B.REQ_DVSN_CD AND AA.ACP_YR = B.ACP_YR AND AA.CVPT_ACP_NO = B.CVPT_ACP_NO )
+		</if>
+		<if test='rprtCd != "C10320500" and rprtCd != "C10230100" and rprtCd != "C10320100" and rprtCd != "C10230500"'>
+		INNER JOIN TBCSPEAR001M B ON (A.REQ_DVSN_CD = B.REQ_DVSN_CD AND A.ACP_YR = B.ACP_YR AND A.CVPT_ACP_NO = B.CVPT_ACP_NO )
+		</if>
+		LEFT OUTER JOIN (SELECT T2.APVR_CNB, T2.APV_DOC_NO, T1.USR_ID
+		                FROM TBDCMACM001M T1
+		                INNER JOIN TBDCMACM023L T2 ON (T1.CNB = T2.APVR_CNB)
+		                ) C ON (A.APV_RQS_ID = C.APV_DOC_NO)
+		LEFT OUTER JOIN (SELECT T2.SBM_CNB, T2.APV_DOC_NO, T1.USR_ID
+		                FROM TBDCMACM001M T1
+		                INNER JOIN TBDCMACM022L T2 ON (T1.CNB = T2.SBM_CNB)
+		                ) D ON (A.APV_RQS_ID = D.APV_DOC_NO)
+		WHERE A.DOC_ID = #{docId}
+	</select>
+	
+	
+	<select id="CSPDCP603MSelectDcpViewAuth" parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.bad.fre.dao.CSPCOMMON001Mapper.CSPDCP603MSelectDcpViewAuth */
+		SELECT B.HNDL_CHGR_ID
+	       ,C.USR_ID 					AS APVR_ID
+	       ,D.USR_ID 					AS SBM_ID
+	       ,A.DOC_WRT_ID
+		FROM TBCSPDCP603M A 
+		INNER JOIN TBCSPDCP201M B ON (A.REQ_DVSN_CD = B.REQ_DVSN_CD AND A.ACP_YR = B.ACP_YR AND A.CVPT_ACP_NO = B.CVPT_ACP_NO )
+		LEFT OUTER JOIN (SELECT T2.APVR_CNB, T2.APV_DOC_NO, T1.USR_ID
+		                FROM TBDCMACM001M T1
+		                INNER JOIN TBDCMACM023L T2 ON (T1.CNB = T2.APVR_CNB)
+		                ) C ON (A.APV_RQS_ID = C.APV_DOC_NO)
+		LEFT OUTER JOIN (SELECT T2.SBM_CNB, T2.APV_DOC_NO, T1.USR_ID
+		                FROM TBDCMACM001M T1
+		                INNER JOIN TBDCMACM022L T2 ON (T1.CNB = T2.SBM_CNB)
+		                ) D ON (A.APV_RQS_ID = D.APV_DOC_NO)
+		WHERE A.DOC_ID = #{docId}
+	</select>
+	
+
+	   <!--* BEST20 20.09.18 청탁금지*/  -->
+    <select id="selectDcpTskPrcsList" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.selectDcpTskPrcsList */
+        SELECT A.ACP_MAIN_STEP_ID  /*주요업무코드*/
+             , A.ACP_STEP_CD /*단계코드*/
+             , (SELECT ACP_STEP_NM 
+                FROM TBDCPDCP601M 
+                WHERE REQ_DVSN_CD = A.REQ_DVSN_CD
+                AND ACP_YR = A.ACP_YR 
+                AND CVPT_ACP_NO = A.CVPT_ACP_NO 
+                AND ACP_STEP_CD = A.ACP_STEP_CD) ACP_STEP_NM
+             , A.ACP_MAIN_STEP_SNO  /*주요업무순번 */
+             , A.ACP_MAIN_SEQ_W /*주요업무순서_가로 */
+             , A.ACP_MAIN_SEQ_H /*주요업무순서_세로 */
+             , A.CMPT_YN /*완료여부*/
+             , A.CVPT_ACP_NO  /*접수번호*/
+             , A.ACP_DOC_CD /*문서ID*/
+             , TRIM(A.MAIN_JOB_NM) AS MAIN_JOB_NM /*주요업무명*/
+             , TRIM(A.LINK_TYPE) AS LINK_TYPE/*링크유형*/
+             , DECODE(TRIM(A.LINK_TYPE), 'NAN', ''
+                                 , 'POP', A.LINK_URL
+                                 , 'FUNC', A.LINK_URL
+                                 , CASE WHEN A.ACP_DOC_CD = 'G10300100' THEN 
+                                        (SELECT B.DOC_ID
+                                          FROM TBFDMADM002M B
+                                         WHERE A.ACP_DOC_CD = B.AUD_DOC_CD
+                                           AND B.DOC_KND_CD = DECODE(A.LINK_TYPE, 'DOC', '10', '20')
+                                           AND B.DTIL_AUD_DOC_NO = (
+                                               SELECT F.DTIL_AUD_DOC_NO 
+                                               FROM (
+                                                    SELECT MAX(SRNO)
+                                                        , CASE WHEN C.CVPT_HNDL_DVSN_CD = '10' THEN '289'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '20' THEN '290'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '30' THEN '291'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '40' THEN '291'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '50' THEN '293'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '60' THEN '292'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '70' THEN '292'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '80' THEN '292'
+                                                                ELSE '288' END AS DTIL_AUD_DOC_NO
+                                                        FROM TBDCPDCP205L C
+                                                        LEFT OUTER JOIN TBDCPDCP602M D 
+                                                        ON(
+                                                            C.ACP_YR = D.ACP_YR 
+                                                            AND C.REQ_DVSN_CD = D.REQ_DVSN_CD 
+                                                            AND C.CVPT_ACP_NO = D.CVPT_ACP_NO
+                                                        ) 
+                                                        WHERE C.ACP_YR = #{acpYr}
+                                                        AND C.REQ_DVSN_CD = #{reqDvsnCd}
+                                                        AND C.CVPT_ACP_NO = #{cvptAcpNo}
+                                                        AND (C.ACP_YR , C.REQ_DVSN_CD, C.CVPT_ACP_NO, C.SRNO)
+                                                        	IN ( SELECT S1.ACP_YR, S1.REQ_DVSN_CD, S1.CVPT_ACP_NO, MIN(S1.SRNO)  
+                                                        	       FROM TBDCPDCP205L S1
+                                                        	      WHERE S1.ACP_YR = #{acpYr}
+                                                        	        AND S1.REQ_DVSN_CD = #{reqDvsnCd}
+                                                        	        AND S1.CVPT_ACP_NO = #{cvptAcpNo}
+                                                        	        GROUP BY S1.ACP_YR, S1.REQ_DVSN_CD, S1.CVPT_ACP_NO
+                                                        	    ) 
+                                                        
+                                                        GROUP BY (CASE WHEN C.CVPT_HNDL_DVSN_CD = '10' THEN '289'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '20' THEN '290'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '30' THEN '291'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '40' THEN '291'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '50' THEN '293'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '60' THEN '292'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '70' THEN '292'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '80' THEN '292'
+                                                                ELSE '288' END)
+                                              ) F
+                                           )
+                                        )
+                                   ELSE
+                                        (SELECT NVL(DOC_ID,HWP_DOC_ID)
+                                          FROM TBFDMADM002M B
+                                         WHERE A.ACP_DOC_CD = B.AUD_DOC_CD
+                                           AND B.DOC_KND_CD = DECODE(A.LINK_TYPE, 'DOC', '10', '20')
+                                           AND B.DTIL_AUD_DOC_NM LIKE '%00')
+                                           
+                                   END
+                     ) AS LINK_URL /*링크주소*/
+                     
+                     /* BEST20 2020.10.13 청금- 처리구분이 이송인경우 사용 */
+                     ,(SELECT NVL(DOC_ID,HWP_DOC_ID)
+                    FROM TBFDMADM002M B
+                   WHERE A.ACP_DOC_CD = B.AUD_DOC_CD
+                      AND B.DOC_KND_CD = DECODE(A.LINK_TYPE, 'DOC', '10', '20')
+                      AND B.DTIL_AUD_DOC_NM LIKE '%30')    AS LINK_URL2
+                      
+                      /* BEST20 2020.10.13 청금- 처리구분이 이의신청(종결)인경우 사용 */
+                      ,(SELECT NVL(DOC_ID,HWP_DOC_ID)
+                    FROM TBFDMADM002M B
+                   WHERE A.ACP_DOC_CD = B.AUD_DOC_CD
+                      AND B.DOC_KND_CD = DECODE(A.LINK_TYPE, 'DOC', '10', '20')
+                      AND B.DTIL_AUD_DOC_NM LIKE '%99')    AS LINK_URL3
+                      
+                      /* BEST20 2020.10.13 청금- 처리구분이 실지감사(이의신청)인경우 사용 */
+                       ,(SELECT NVL(DOC_ID,HWP_DOC_ID)
+                    FROM TBFDMADM002M B
+                   WHERE A.ACP_DOC_CD = B.AUD_DOC_CD
+                      AND B.DOC_KND_CD = DECODE(A.LINK_TYPE, 'DOC', '10', '20')
+                      AND B.DTIL_AUD_DOC_NM = '청탁금지이의신청보고서40')    AS LINK_URL4
+                      
+                      /* BEST20 2020.10.13 청금- 처리구분이 실지감사(신고사항)인경우 사용 */
+                       ,(SELECT NVL(DOC_ID,HWP_DOC_ID)
+                    FROM TBFDMADM002M B
+                   WHERE A.ACP_DOC_CD = B.AUD_DOC_CD
+                      AND B.DOC_KND_CD = DECODE(A.LINK_TYPE, 'DOC', '10', '20')
+                      AND B.DTIL_AUD_DOC_NM = '청탁금지조사결과보고서40')    AS LINK_URL5
+                      
+                       /* BEST20 2020.10.13 청금- 처리구분이 반려인경우 사용 */
+                       ,(SELECT NVL(DOC_ID,HWP_DOC_ID)
+                    FROM TBFDMADM002M B
+                   WHERE A.ACP_DOC_CD = B.AUD_DOC_CD
+                      AND B.DOC_KND_CD = DECODE(A.LINK_TYPE, 'DOC', '10', '20')
+                      AND B.DTIL_AUD_DOC_NM = '청탁금지조사결과보고서50')    AS LINK_URL6
+                      
+          FROM TBDCPDCP602M A
+         WHERE 1=1
+        <if test='acpYr != null and acpYr != ""'>
+            AND A.ACP_YR = #{acpYr} /* PARAM : 접수년도 */
+        </if>
+        <if test='reqDvsnCd != null and reqDvsnCd != ""'>
+            AND A.REQ_DVSN_CD = #{reqDvsnCd} /* PARAM : 구분코드 */
+        </if>
+        <if test='cvptAcpNo != null and cvptAcpNo != ""'>
+        	AND A.CVPT_ACP_NO = #{cvptAcpNo} /* PARAM : 접수번호 */
+        </if>
+        <if test='acpStepCd != null and acpStepCd != ""'>
+            AND A.ACP_STEP_CD = #{acpStepCd} /* PARAM : 단계코드  */
+        </if>
+        <if test='sType != null and sType != ""'>
+        	AND ACP_STEP_CD LIKE #{sType} || '%'
+        </if>
+         ORDER BY A.ACP_MAIN_STEP_SNO, A.ACP_MAIN_SEQ_W ASC
+    </select>
+
+	<select id="selectDcpPrcsList" parameterType="paramMap" resultType="egovMap" >
+			/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper."selectDcpPrcsList" */
+            SELECT A.ACP_YR        /* 접수년도 */
+                  ,A.REQ_DVSN_CD        /* 구분코드 */
+                  ,A.CVPT_ACP_NO    /* 접수번호 */
+                  ,A.ACP_STEP_CD   /* 단계 코드 */
+                  ,A.ACP_STEP_NM   /* 단계명 */
+                  ,A.STEP_CMPT_YN  /* 단계완료상태 : NULL:미진행, P:진행 Y:완료 */
+                <if test='acpStepCd != null and acpStepCd != ""'>
+                  ,A.TSK_DESC       /*업무설명 */
+                </if>
+                  ,A.LINK_URL       /* 링크주소 */
+                  ,A.NECES_YN       /* 필수 여부 */
+             FROM TBDCPDCP601M A
+              WHERE 1=1
+                <if test='acpYr != null and acpYr != ""'>
+                    AND A.ACP_YR = #{acpYr} /* PARAM : 접수년도 */
+                </if>
+                <if test='reqDvsnCd != null and reqDvsnCd != ""'>
+                    AND A.REQ_DVSN_CD = #{reqDvsnCd} /* PARAM : 구분코드 */
+                </if>
+                <if test='cvptAcpNo != null and cvptAcpNo != ""'>
+                    AND A.CVPT_ACP_NO = #{cvptAcpNo} /* PARAM : 접수번호 */
+                </if>
+                <if test='acpStepCd != null and acpStepCd != ""'>
+                    AND A.ACP_STEP_CD = #{acpStepCd} /* PARAM : 단계코드  */
+                </if>
+                <if test='sType != null and sType != ""'>
+                	AND ACP_STEP_CD LIKE #{sType} || '%'
+                </if>
+            ORDER BY ACP_STEP_CD ASC
+    </select>
+    
+    <select id="DCPDCP601BSelect"  parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.DCPDCP601BSelect */
+		SELECT  ACP_STEP_CD /* 제보청구 단계코드 */
+		         , ACP_STEP_NM /* 제보청구 단계명 */
+		         , NECES_YN /* 필수여부 */
+		         , STAD_DT /* 기준일 */
+	             , TSK_DESC /* 업무설명 */
+	             , LINK_URL /* 링크주소 */
+	             , SORT_SNO /* 정렬순번 */
+	     FROM TBDCPDCP601B
+	    WHERE REQ_DVSN_CD = #{reqDvsnCd}
+		<if test='sType != null and sType != ""'>
+       		AND ACP_STEP_CD LIKE #{sType} || '%'
+        </if>
+	    ORDER BY SORT_SNO
+	</select>
+	
+	<insert id="DCPDCP601MInsert" parameterType="paramMap">
+   		/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.DCPDCP601MInsert */
+   		MERGE INTO TBDCPDCP601M T1
+   		USING	(	SELECT 	#{reqDvsnCd} AS REQ_DVSN_CD 
+        						,#{acpYr} AS ACP_YR
+        						,#{cvptAcpNo} AS CVPT_ACP_NO
+        						,#{acpStepCd} AS ACP_STEP_CD
+        				FROM DUAL
+        			) T2
+        ON		(	T1.REQ_DVSN_CD = T2.REQ_DVSN_CD
+        				AND	T1.ACP_YR = T2.ACP_YR
+        				AND T1.CVPT_ACP_NO = T2.CVPT_ACP_NO
+        				AND T1.ACP_STEP_CD = T2.ACP_STEP_CD
+        			)
+        WHEN MATCHED THEN
+        		UPDATE
+        		SET		NECES_YN = #{necesYn}
+        				,TSK_DESC = #{tskDesc}
+        				,LINK_URL = #{linkUrl}
+        				<if test="stepCmptYn != '' and stepCmptYn eq 'P'.toString()">
+        				,STEP_CMPT_YN = #{stepCmptYn}
+        				,STEP_CMPT_DH = SYSDATE
+        				</if>
+        				,SORT_SNO = #{sortSno}
+        				,FNL_USR_ID = #{usrId}
+        				,FNL_DEAL_DPT_CD= #{dptCd}
+        				,FNL_MNU_ID = #{menuNo}
+        				,FNL_MDF_DH = SYSDATE
+        WHEN NOT MATCHED THEN
+				INSERT	(	 REQ_DVSN_CD
+							, ACP_YR
+							, CVPT_ACP_NO
+							, ACP_STEP_CD
+							, ACP_STEP_NM
+							, NECES_YN
+							, TSK_DESC
+							, LINK_URL
+							<if test="stepCmptYn != '' and stepCmptYn eq 'P'.toString()">
+	                        , STEP_CMPT_YN
+	                        , STEP_CMPT_DH
+	                        </if>
+							, SORT_SNO
+							, FRT_USR_ID
+	    					, FNL_USR_ID
+	    					, FNL_DEAL_DPT_CD
+	    					, FNL_MNU_ID
+	    					, FRT_REGI_DH
+	    					, FNL_MDF_DH
+	    				)
+	   			VALUES	( #{reqDvsnCd}
+							, #{acpYr}
+							, #{cvptAcpNo}
+							, #{acpStepCd}
+							, #{acpStepNm}
+							, #{necesYn}
+							, #{tskDesc}
+							, #{linkUrl}
+							<if test="stepCmptYn != '' and stepCmptYn eq 'P'.toString()">
+		                    , #{stepCmptYn}
+		                    , SYSDATE
+	                        </if>
+	                        , #{sortSno}
+							, #{usrId}
+	                        , #{usrId}
+	                        , #{dptCd}
+	                        , #{menuNo}
+	    					, SYSDATE
+	    					, SYSDATE
+	    				)
+   	</insert>
+   	
+   	<select id="DCPDCP602BSelect"  parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.DCPDCP602BSelect */
+		SELECT  ACP_STEP_CD /* 제보청구 단계코드 */
+		         , ACP_MAIN_STEP_ID /* 주요업무코드 */
+		         , ACP_MAIN_STEP_NM  /* 주요업무명 */
+		         , ACP_MAIN_STEP_SNO /* 주요업무순번 */
+		         , ACP_MAIN_SEQ_W /* 주요업무순서_가로 */
+		         , ACP_MAIN_SEQ_H /* 주요업무순서_세로 */
+		         , ACP_DOC_CD
+		         , LINK_TYPE /* 링크유형 */
+		         , LINK_URL /* 링크주소 */
+	     FROM TBDCPDCP602B
+	    WHERE REQ_DVSN_CD = #{reqDvsnCd}
+		<if test='sType != null and sType != ""'>
+        	AND ACP_STEP_CD LIKE #{sType} || '%'
+        </if>
+	    ORDER BY ACP_STEP_CD, ACP_MAIN_STEP_SNO
+	</select>
+	
+	<insert id="DCPDCP602MInsert" parameterType="paramMap">
+   		/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.DCPDCP602MInsert */
+   		MERGE INTO TBDCPDCP602M T1
+   		USING	(	SELECT 	#{reqDvsnCd} AS REQ_DVSN_CD 
+        						,#{acpYr} AS ACP_YR
+        						,#{cvptAcpNo} AS CVPT_ACP_NO
+        						,#{acpStepCd} AS ACP_STEP_CD
+        						,#{acpMainStepId} AS ACP_MAIN_STEP_ID
+        						,#{acpMainStepSno} AS ACP_MAIN_STEP_SNO
+        				FROM DUAL
+        			) T2
+        ON		(	T1.REQ_DVSN_CD = T2.REQ_DVSN_CD
+        				AND	T1.ACP_YR = T2.ACP_YR
+        				AND T1.CVPT_ACP_NO = T2.CVPT_ACP_NO
+        				AND T1.ACP_STEP_CD = T2.ACP_STEP_CD
+        				AND T1.ACP_MAIN_STEP_ID = T2.ACP_MAIN_STEP_ID
+        				AND T1.ACP_MAIN_STEP_SNO = T2.ACP_MAIN_STEP_SNO
+        			)
+        WHEN MATCHED THEN
+        		UPDATE
+        		SET		ACP_MAIN_SEQ_W = #{acpMainSeqW}
+        				,ACP_MAIN_SEQ_H = #{acpMainSeqH}
+        				,ACP_DOC_CD = #{acpDocCd}
+        				,MAIN_JOB_NM = #{acpMainStepNm}
+        				,LINK_TYPE = #{linkType}
+        				,LINK_URL = #{linkUrl}
+        				,FNL_USR_ID = #{usrId}
+        				,FNL_DEAL_DPT_CD= #{dptCd}
+        				,FNL_MNU_ID = #{menuNo}
+        				,FNL_MDF_DH = SYSDATE
+        WHEN NOT MATCHED THEN
+				INSERT (	 REQ_DVSN_CD
+								, ACP_YR
+								, CVPT_ACP_NO
+								, ACP_STEP_CD
+								, ACP_MAIN_STEP_ID
+		                        , ACP_MAIN_STEP_SNO
+		                        , ACP_MAIN_SEQ_W
+		                        , ACP_MAIN_SEQ_H
+		                        , ACP_DOC_CD
+		                        , MAIN_JOB_NM
+								, LINK_TYPE
+								, LINK_URL
+								, FRT_USR_ID
+		    					, FNL_USR_ID
+		    					, FNL_DEAL_DPT_CD
+		    					, FNL_MNU_ID
+		    					, FRT_REGI_DH
+		    					, FNL_MDF_DH
+		    				)
+		   			VALUES	( #{reqDvsnCd}
+								, #{acpYr}
+								, #{cvptAcpNo}
+								, #{acpStepCd}
+								, #{acpMainStepId}
+		                        , #{acpMainStepSno}
+		                        , #{acpMainSeqW}
+		                        , #{acpMainSeqH}
+								, #{acpDocCd}
+								, #{acpMainStepNm}
+								, #{linkType}
+								, #{linkUrl}
+								, #{usrId}
+		                        , #{usrId}
+		                        , #{dptCd}
+		                        , #{menuNo}
+		    					, SYSDATE
+		    					, SYSDATE
+		    				)
+   	</insert>
+   	
+   	<update id="DCPDCP602MCmptYnUpdate" parameterType="paramMap">
+        /* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.DCPDCP602MCmptYnUpdate */
+        UPDATE TBDCPDCP602M
+            SET
+            FNL_MDF_DH = SYSDATE
+            ,CMPT_YN  = #{cmptYn}
+            ,FNL_USR_ID = #{usrId}
+            ,FNL_DEAL_DPT_CD =#{dptCd}
+            WHERE 1=1
+            AND ACP_YR = #{acpYr}
+            AND REQ_DVSN_CD = #{reqDvsnCd}
+            AND CVPT_ACP_NO = #{cvptAcpNo}
+            AND ACP_STEP_CD = #{acpStepCd}
+            AND ACP_MAIN_STEP_ID  = #{acpMainStepId}
+            <if test='acpMainStepSno != null and acpMainStepSno != ""'>
+            AND ACP_MAIN_STEP_SNO   = #{acpMainStepSno}
+            </if>
+    </update>
+    
+    <select id="selectDcpDocumentList3" parameterType="paramMap" resultType="egovMap" >
+        /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.selectDcpDocumentList3*/
+        /*문서함(문서자체정보)*/
+        <![CDATA[
+          SELECT
+                  CASE WHEN A.RPRT_CD = 'A10700500'     /*부의안 요약 + 부의안 한줄로 처리 */
+                    THEN  A.RPRT_NM ||'<br>'|| (SELECT RPRT_NM
+                                        FROM TBDCPDCP603M ST1
+                                        WHERE ST1.ACP_YR = A.ACP_YR
+                                        AND ST1.REQ_DVSN_CD = A.REQ_DVSN_CD
+                                        AND ST1.CVPT_ACP_NO = A.CVPT_ACP_NO
+                                        AND ST1.ACP_STEP_CD = A.ACP_STEP_CD
+                                        AND RPRT_CD = 'A10700600')
+                    ELSE A.RPRT_NM
+               END AS RPRT_NM ,       /*보고서명 */
+               A.RPRT_CD ,       /*보고서코드*/
+               A.APV_STA_CD,    /*결재상태코드 */
+               F_CODE_NM('1000773',A.APV_STA_CD) AS APV_STA_NM ,    /*결재상태코드 */
+               A.SORT_SNO ,      /*보고서순번  */
+               A.DOC_ID,         /*결재문서번호 */
+               A.APV_RQS_ID,      /*결재ID*/
+               'N' AS APV_YN ,           /*결재여부 */
+               CON_PGM_CD    /*연계프로그램코드*/
+                  /*필수여부*/
+                  ,A.NECES_YN
+                  ,A.APV_WAY_CD /*결재방법코드*/
+                  ,A.ACP_STEP_CD
+                  ,A.ACP_YR
+                  ,A.REQ_DVSN_CD
+                  ,A.CVPT_ACP_NO
+                  ,F_OPEN_EDIT(A.LINK_URL) AS DOC_TYPE
+          FROM TBDCPDCP603M AS A
+         WHERE A.ACP_YR = #{acpYr}
+            AND A.REQ_DVSN_CD = #{reqDvsnCd}
+            AND A.CVPT_ACP_NO = #{cvptAcpNo}
+        ]]>
+        <if test="acpStepCd != null and acpStepCd != ''">
+            AND A.ACP_STEP_CD = #{acpStepCd}
+        </if>
+          
+        <if test="rprtCd != null and rprtCd != ''">
+            AND A.RPRT_CD  = #{rprtCd}
+        </if>
+        <![CDATA[
+        UNION ALL
+        SELECT
+                  CASE WHEN A.RPRT_CD = 'A10700500'     /*부의안 요약 + 부의안 한줄로 처리 */
+                    THEN  A.RPRT_NM ||'<br>'|| (SELECT RPRT_NM
+                                        FROM TBDCPDCP603M ST1
+                                        WHERE ST1.ACP_YR = A.ACP_YR
+                                        AND ST1.REQ_DVSN_CD = A.REQ_DVSN_CD
+                                        AND ST1.CVPT_ACP_NO = A.CVPT_ACP_NO
+                                        AND ST1.ACP_STEP_CD = A.ACP_STEP_CD
+                                        AND RPRT_CD = 'A10700600')
+                    ELSE A.RPRT_NM
+               END AS RPRT_NM ,       /*보고서명 */
+               A.RPRT_CD ,       /*보고서코드*/
+               A.APV_STA_CD,    /*결재상태코드 */
+               F_CODE_NM('1000773',A.APV_STA_CD) AS APV_STA_NM ,    /*결재상태코드 */
+               A.SORT_SNO ,      /*보고서순번  */
+               A.DOC_ID,         /*결재문서번호 */
+               A.APV_RQS_ID,      /*결재ID*/
+               'N' AS APV_YN ,           /*결재여부 */
+               CON_PGM_CD    /*연계프로그램코드*/
+                  /*필수여부*/
+                  ,A.NECES_YN
+                  ,A.APV_WAY_CD /*결재방법코드*/
+                  ,A.ACP_STEP_CD
+                  ,A.ACP_YR
+                  ,A.REQ_DVSN_CD
+                  ,A.CVPT_ACP_NO
+                  ,F_OPEN_EDIT(A.LINK_URL) AS DOC_TYPE
+          FROM TBDCPDCP603M AS A
+         WHERE (A.ACP_YR, A.REQ_DVSN_CD, A.CVPT_ACP_NO) IN (SELECT S1.ACP_YR, S1.REQ_DVSN_CD, S1.CVPT_ACP_NO
+         															FROM TBDCPDCP105L S1 
+														         WHERE S1.SUC_ACP_YR = #{acpYr}
+														            AND S1.SUC_REQ_DVSN_CD = #{reqDvsnCd}
+														            AND S1.SUC_CVPT_ACP_NO = #{cvptAcpNo}
+														            )
+        ]]>
+        <if test="acpStepCd != null and acpStepCd != ''">
+            AND A.ACP_STEP_CD = #{acpStepCd}
+        </if>
+          
+        <if test="rprtCd != null and rprtCd != ''">
+            AND A.RPRT_CD  = #{rprtCd}
+        </if>
+        ORDER BY A.SORT_SNO
+    </select>
+	<select id="selectDcpDocumentList2" parameterType="paramMap" resultType="egovMap" >
+        /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.selectDcpDocumentList2*/
+        /*문서함(문서자체정보)*/
+        <![CDATA[
+          SELECT
+                  CASE WHEN A.RPRT_CD = 'A10700500'     /*부의안 요약 + 부의안 한줄로 처리 */
+                    THEN  A.RPRT_NM ||'<br>'|| (SELECT RPRT_NM
+                                        FROM TBDCPDCP603M ST1
+                                        WHERE ST1.ACP_YR = A.ACP_YR
+                                        AND ST1.REQ_DVSN_CD = A.REQ_DVSN_CD
+                                        AND ST1.CVPT_ACP_NO = A.CVPT_ACP_NO
+                                        AND ST1.ACP_STEP_CD = A.ACP_STEP_CD
+                                        AND RPRT_CD = 'A10700600')
+                    ELSE A.RPRT_NM
+               END AS RPRT_NM ,       /*보고서명 */
+               A.RPRT_CD ,       /*보고서코드*/
+               A.APV_STA_CD,    /*결재상태코드 */
+               F_CODE_NM('1000773',A.APV_STA_CD) AS APV_STA_NM ,    /*결재상태코드 */
+               A.SORT_SNO ,      /*보고서순번  */
+               A.DOC_ID,         /*결재문서번호 */
+               A.APV_RQS_ID,      /*결재ID*/
+               'N' AS APV_YN ,           /*결재여부 */
+               CON_PGM_CD    /*연계프로그램코드*/
+                  /*필수여부*/
+                  ,A.NECES_YN
+                  ,A.APV_WAY_CD /*결재방법코드*/
+                  ,A.ACP_STEP_CD
+                  ,A.ACP_YR
+                  ,A.REQ_DVSN_CD
+                  ,A.CVPT_ACP_NO
+                  ,F_OPEN_EDIT(A.LINK_URL) AS DOC_TYPE
+          FROM TBDCPDCP603M AS A
+         WHERE A.ACP_YR = #{acpYr}
+            AND A.REQ_DVSN_CD = #{reqDvsnCd}
+            AND A.CVPT_ACP_NO = #{cvptAcpNo}
+        ]]>
+        <if test="acpStepCd != null and acpStepCd != ''">
+            AND A.ACP_STEP_CD = #{acpStepCd}
+        </if>
+          
+        <if test="rprtCd != null and rprtCd != ''">
+            AND A.RPRT_CD  = #{rprtCd}
+        </if>
+        ORDER BY A.SORT_SNO
+    </select>
+    
+    <select id="selectDcpDocumentList" parameterType="paramMap" resultType="egovMap">
+        /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.selectDcpDocumentList*/
+        /*문서함(결재정보)*/
+        <![CDATA[
+        SELECT
+            RPRT_NM,
+           APV_STA_CD,
+           APV_RQS_ID,
+           DOC_ID,
+           APV_SRNO,
+           PST_NM,
+           APVR_NM,
+           APV_DH ,
+           CASE
+                WHEN ROW_NUMBER() OVER(PARTITION BY DOC_ID ORDER BY APV_SRNO) = 1 THEN COUNT(*) OVER(PARTITION BY DOC_ID)
+                ELSE 0
+           END ROWSPAN_CNT
+      FROM (
+           SELECT
+                  A.RPRT_NM ,       /*보고서명 */
+                  A.APV_STA_CD ,    /*결재상태코드 */
+                  A.DOC_ID ,        /*결재문서번호 */
+                  A.APV_RQS_ID,     /*결재요청ID */
+                  B.APV_SRNO ,      /*결재순번 */
+                  B.PST_NM ,        /*결재자직위코드 */
+                  B.APVR_NM ,       /*결재자전산번호 */
+                  B.APV_DH          /*결재일시 */
+             FROM TBDCPDCP603M A,
+                  (
+                  SELECT APV_DOC_NO AS APV_RQS_ID ,
+                         APV_SNO AS APV_SRNO ,
+                         CASE WHEN APVR_PST_CD IS NULL
+                              THEN (SELECT MAX(ONR_PST_NM) FROM TBDCMACM001M WHERE CNB = APVR_CNB)
+                              ELSE F_CODE_NM('1000176', APVR_PST_CD)
+                         END  AS PST_NM ,
+                         F_USR_INFO(APVR_CNB, '2') AS APVR_NM ,
+                         CASE WHEN SUBSTR(APVR_STA_CD,0,1) = '2' THEN TO_CHAR(APV_DH, 'YYYY.MM.DD')
+                                  ELSE ''
+                         END  AS APV_DH
+                    FROM TBDCMACM023L
+                   WHERE APV_SNO <> '1'
+                   AND APVR_KND_CD NOT IN ('4','6','7')
+                   UNION ALL
+                  SELECT DH1.APV_RQS_ID,
+                         DH1.APV_SRNO,
+                         (SELECT H2.PST_NM AS PST_NM
+                            FROM TBDCMACM111H H1,
+                                 TBDCMACM112H H2
+                           WHERE 1=1
+                             AND H1.RCPT_DT = H2.RCPT_DT
+                             AND H1.RCPT_ID = H2.RCPT_ID
+                             AND H1.ONR_DOC_MNG_CRD_ID = DH1.APV_RQS_ID
+                             AND H2.APVR_ID = DH1.APVR_ID
+                           GROUP BY H2.PST_NM ) AS PST_NM,
+                         DH1.APVR_NM,
+                         DH1.APV_DH
+                    FROM
+                         (SELECT ONR_DOC_MNG_CRD_ID AS APV_RQS_ID,
+                                 APV_HIS_SRNO AS APV_SRNO,
+                                 APVR_ID,
+                                 APVR_NM AS APVR_NM,
+                                 TO_CHAR(APV_DH, 'YYYY.MM.DD') AS APV_DH
+                            FROM TBDCMACM102L D2
+                           WHERE 1=1
+                             AND ONR_APV_DVSN_CD <> '10' --(기안자 제외)
+                           ORDER BY APV_RQS_ID,APV_SRNO
+                         ) DH1
+                  ) B
+            WHERE A.ACP_YR = #{acpYr}
+              AND A.REQ_DVSN_CD = #{reqDvsnCd}
+              AND A.CVPT_ACP_NO = #{cvptAcpNo}
+              AND A.ACP_STEP_CD = #{acpStepCd}
+              AND A.APV_RQS_ID = B.APV_RQS_ID
+        ]]>
+        <if test="rprtCd != null and rprtCd != ''">
+            AND A.RPRT_CD  = #{rprtCd}
+        </if>
+        ORDER BY A.SORT_SNO
+        )
+    </select>
+    
+    	<update id="DCPDCP601MStepCmptUpdate" parameterType="paramMap">
+        /* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.DCPDCP601MStepCmptUpdate */
+        UPDATE TBDCPDCP601M
+            SET
+            FNL_MDF_DH = SYSDATE
+            ,STEP_CMPT_YN = #{stepCmptYn}
+            <if test='stepCmptYn == "Y"'>
+                ,STEP_CMPT_DH = SYSDATE
+            </if>
+            ,FNL_USR_ID = #{usrId}
+            ,FNL_DEAL_DPT_CD =#{dptCd}
+            WHERE 1=1
+            AND ACP_YR = #{acpYr}
+            AND REQ_DVSN_CD = #{reqDvsnCd}
+            AND CVPT_ACP_NO = #{cvptAcpNo}
+            AND ACP_STEP_CD = #{acpStepCd}
+    </update>
+    
+    <select id="DCPDCP601MStepCdMinSelect"  parameterType="paramMap" resultType="String">
+		/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.DCPDCP601MStepCdMinSelect */
+		SELECT  MIN(ACP_STEP_CD) /* 제보청구 단계코드 */
+	     FROM TBDCPDCP601M A
+	     WHERE 1=1
+	        AND STEP_CMPT_YN IS NULL
+        <if test='acpYr != null and acpYr != ""'>
+            AND A.ACP_YR = #{acpYr} /* PARAM : 접수년도 */
+        </if>
+        <if test='reqDvsnCd != null and reqDvsnCd != ""'>
+            AND A.REQ_DVSN_CD = #{reqDvsnCd} /* PARAM : 구분코드 */
+        </if>
+        <if test='cvptAcpNo != null and cvptAcpNo != ""'>
+        	AND A.CVPT_ACP_NO = #{cvptAcpNo} /* PARAM : 접수번호 */
+        </if>
+		<if test='sType != null and sType != ""'>
+        	AND ACP_STEP_CD LIKE #{sType} || '%'
+        </if>
+	    ORDER BY SORT_SNO
+	</select>
+	
+	<select id="selectPrcsDocCmptYnDcp" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.selectPrcsDocCmptYnDcp*/
+        SELECT COUNT(1) AS RPRT_CNT, 
+                MAX(NVL(
+                   (SELECT MAX(CMPT_YN)
+                      FROM TBDCPDCP602M ST1
+                     WHERE ST1.ACP_YR = T1.ACP_YR
+                       AND ST1.REQ_DVSN_CD = T1.REQ_DVSN_CD
+                       AND ST1.CVPT_ACP_NO = T1.CVPT_ACP_NO
+                       AND ST1.ACP_DOC_CD = T1.RPRT_CD
+                       <if test='acpMainStepSno != null and acpMainStepSno != ""'>
+                        AND ST1.ACP_MAIN_STEP_SNO   = #{acpMainStepSno}
+                        </if>
+                       )
+                       ,'N')) AS CMPT_YN,
+                  MAX(NVL(
+                   (SELECT MAX(ACP_MAIN_STEP_ID)
+                      FROM TBDCPDCP602M ST1
+                     WHERE ST1.ACP_YR = T1.ACP_YR
+                       AND ST1.REQ_DVSN_CD = T1.REQ_DVSN_CD
+                       AND ST1.CVPT_ACP_NO = T1.CVPT_ACP_NO
+                       AND ST1.ACP_DOC_CD = T1.RPRT_CD
+                       <if test='acpMainStepSno != null and acpMainStepSno != ""'>
+                        AND ST1.ACP_MAIN_STEP_SNO   = #{acpMainStepSno}
+                        </if>
+                       )
+                       ,'N')) AS ACP_MAIN_STEP_ID
+          FROM TBDCPDCP603M T1
+         WHERE T1.ACP_YR = #{acpYr}
+           AND T1.REQ_DVSN_CD = #{reqDvsnCd}
+           AND T1.CVPT_ACP_NO = #{cvptAcpNo}
+           AND T1.RPRT_CD = #{rprtCd}
+    </select>
+    
+    <update id="updateCmptYnDcp" parameterType="paramMap">
+        /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.updateCmptYnDcp*/
+        UPDATE TBDCPDCP602M
+            SET
+            FNL_MDF_DH = SYSDATE
+            ,CMPT_YN  = #{cmptYn}
+            ,FNL_USR_ID = #{fnlUsrId}
+            ,FNL_DEAL_DPT_CD =#{fnlDealDptCd}
+            WHERE 1=1
+            AND ACP_YR = #{acpYr}
+            AND REQ_DVSN_CD = #{reqDvsnCd}
+            AND CVPT_ACP_NO = #{cvptAcpNo}
+            AND ACP_STEP_CD = #{acpStepCd}
+            AND ACP_MAIN_STEP_ID = #{acpMainStepId}
+            <if test='acpMainStepSno != null and acpMainStepSno != ""'>
+            AND ACP_MAIN_STEP_SNO   = #{acpMainStepSno}
+            </if>
+    </update>
+    
+    <update id="deleteDocDcp" parameterType="paramMap">
+    /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.deleteDocDcp*/
+        DELETE FROM TBDCPDCP603M
+        WHERE 
+            ACP_YR  = #{acpYr}
+        AND REQ_DVSN_CD = #{reqDvsnCd}
+        AND CVPT_ACP_NO  =#{cvptAcpNo}
+        AND ACP_STEP_CD  = #{acpStepCd}
+        AND DOC_ID  = #{docId}
+    </update>
+
+	
+	<!-- BEST20 2020.09.16 이송(대내) 일련번호 조회 -->
+	<select id="CSPDCP205LSelectSrno" parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.bad.fre.dao.CSPCOMMON001Mapper."CSPDCP205LSelectSrno" */
+		SELECT T1.SRNO
+         FROM TBCSPDCP205L T1
+        WHERE T1.REQ_DVSN_CD = #{reqDvsnCd}
+	       AND T1.ACP_YR = #{acpYr}
+	       AND T1.CVPT_ACP_NO = #{cvptAcpNo}
+	</select>
+
+    <select id="CORCOR601BSelect"  parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.CORCOR601BSelect */
+		SELECT  ACP_STEP_CD /* 제보청구 단계코드 */
+		         , ACP_STEP_NM /* 제보청구 단계명 */
+		         , NECES_YN /* 필수여부 */
+		         , STAD_DT /* 기준일 */
+	             , TSK_DESC /* 업무설명 */
+	             , LINK_URL /* 링크주소 */
+	             , SORT_SNO /* 정렬순번 */
+	     FROM TBCORCOR601B
+	    WHERE REQ_DVSN_CD = #{reqDvsnCd}
+		<if test='sType != null and sType != ""'>
+       		AND ACP_STEP_CD LIKE #{sType} || '%'
+        </if>
+	    ORDER BY SORT_SNO
+	</select>
+
+    <select id="CORCOR602BSelect"  parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.CORCOR602BSelect */
+		SELECT  ACP_STEP_CD /* 제보청구 단계코드 */
+		         , ACP_MAIN_STEP_ID /* 주요업무코드 */
+		         , ACP_MAIN_STEP_NM /* 주요업무명 */
+		         , ACP_MAIN_STEP_SNO /* 주요업무순번 */
+		         , ACP_MAIN_SEQ_W /* 주요업무순서_가로 */
+		         , ACP_MAIN_SEQ_H /* 주요업무순서_세로 */
+		         , ACP_DOC_CD
+		         , LINK_TYPE /* 링크유형 */
+		         , LINK_URL /* 링크주소 */
+	     FROM TBCORCOR602B
+	    WHERE REQ_DVSN_CD = #{reqDvsnCd}
+		<if test='sType != null and sType != ""'>
+        	AND ACP_STEP_CD LIKE #{sType} || '%'
+        </if>
+	    ORDER BY ACP_STEP_CD, ACP_MAIN_STEP_SNO
+	</select>
+
+    <update id="CORCOR602MCmptYnUpdate" parameterType="paramMap">
+        /* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.CORCOR602MCmptYnUpdate */
+        UPDATE TBCORCOR602M
+            SET
+            FNL_MDF_DH = SYSDATE
+            ,CMPT_YN  = #{cmptYn}
+            ,FNL_USR_ID = #{usrId}
+            ,FNL_DEAL_DPT_CD =#{dptCd}
+            WHERE 1=1
+            AND ACP_YR = #{acpYr}
+            AND REQ_DVSN_CD = #{reqDvsnCd}
+            AND CVPT_ACP_NO = #{cvptAcpNo}
+            AND ACP_STEP_CD = #{acpStepCd}
+            AND ACP_MAIN_STEP_ID  = #{acpMainStepId}
+            <if test='acpMainStepSno != null and acpMainStepSno != ""'>
+            AND ACP_MAIN_STEP_SNO   = #{acpMainStepSno}
+            </if>
+    </update>
+    
+    <update id="CORCOR601MStepCmptUpdate" parameterType="paramMap">
+        /* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.CORCOR601MStepCmptUpdate */
+        UPDATE TBCORCOR601M
+            SET
+            FNL_MDF_DH = SYSDATE
+            ,STEP_CMPT_YN = #{stepCmptYn}
+            <if test='stepCmptYn == "Y"'>
+                ,STEP_CMPT_DH = SYSDATE
+            </if>
+            ,FNL_USR_ID = #{usrId}
+            ,FNL_DEAL_DPT_CD =#{dptCd}
+            WHERE 1=1
+            AND ACP_YR = #{acpYr}
+            AND REQ_DVSN_CD = #{reqDvsnCd}
+            AND CVPT_ACP_NO = #{cvptAcpNo}
+            AND ACP_STEP_CD = #{acpStepCd}
+    </update>
+
+    <select id="CORCOR601MStepCdMinSelect"  parameterType="paramMap" resultType="String">
+		/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.CORCOR601MStepCdMinSelect */
+		SELECT  MIN(ACP_STEP_CD) /* 제보청구 단계코드 */
+	     FROM TBCORCOR601M A
+	     WHERE 1=1
+	        AND STEP_CMPT_YN IS NULL
+        <if test='acpYr != null and acpYr != ""'>
+            AND A.ACP_YR = #{acpYr} /* PARAM : 접수년도 */
+        </if>
+        <if test='reqDvsnCd != null and reqDvsnCd != ""'>
+            AND A.REQ_DVSN_CD = #{reqDvsnCd} /* PARAM : 구분코드 */
+        </if>
+        <if test='cvptAcpNo != null and cvptAcpNo != ""'>
+        	AND A.CVPT_ACP_NO = #{cvptAcpNo} /* PARAM : 접수번호 */
+        </if>
+		<if test='sType != null and sType != ""'>
+        	AND ACP_STEP_CD LIKE #{sType} || '%'
+        </if>
+	    ORDER BY SORT_SNO
+	</select>
+
+    <select id="selectCorPrcsList" parameterType="paramMap" resultType="egovMap" >
+			/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.selectCorPrcsList */
+            SELECT A.ACP_YR        /* 접수년도 */
+                  ,A.REQ_DVSN_CD        /* 구분코드 */
+                  ,A.CVPT_ACP_NO    /* 접수번호 */
+                  ,A.ACP_STEP_CD   /* 단계 코드 */
+                  ,A.ACP_STEP_NM   /* 단계명 */
+                  ,A.STEP_CMPT_YN  /* 단계완료상태 : NULL:미진행, P:진행 Y:완료 */
+                <if test='acpStepCd != null and acpStepCd != ""'>
+                  ,A.TSK_DESC       /*업무설명 */
+                </if>
+                  ,A.LINK_URL       /* 링크주소 */
+                  ,A.NECES_YN       /* 필수 여부 */
+             FROM TBCORCOR601M A
+              WHERE 1=1
+                <if test='acpYr != null and acpYr != ""'>
+                    AND A.ACP_YR = #{acpYr} /* PARAM : 접수년도 */
+                </if>
+                <if test='reqDvsnCd != null and reqDvsnCd != ""'>
+                    AND A.REQ_DVSN_CD = #{reqDvsnCd} /* PARAM : 구분코드 */
+                </if>
+                <if test='cvptAcpNo != null and cvptAcpNo != ""'>
+                    AND A.CVPT_ACP_NO = #{cvptAcpNo} /* PARAM : 접수번호 */
+                </if>
+                <if test='acpStepCd != null and acpStepCd != ""'>
+                    AND A.ACP_STEP_CD = #{acpStepCd} /* PARAM : 단계코드  */
+                </if>
+                <if test='sType != null and sType != ""'>
+                	AND ACP_STEP_CD LIKE #{sType} || '%'
+                </if>
+            ORDER BY ACP_STEP_CD ASC
+    </select>
+
+    <select id="selectCorTskPrcsList" parameterType="paramMap" resultType="egovMap" >
+        /* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.selectCorTskPrcsList */
+        SELECT A.ACP_MAIN_STEP_ID  /*주요업무코드*/
+             , A.ACP_STEP_CD /*단계코드*/
+             , (SELECT ACP_STEP_NM 
+                FROM TBCORCOR601M 
+                WHERE REQ_DVSN_CD = A.REQ_DVSN_CD
+                AND ACP_YR = A.ACP_YR 
+                AND CVPT_ACP_NO = A.CVPT_ACP_NO 
+                AND ACP_STEP_CD = A.ACP_STEP_CD) ACP_STEP_NM
+             , A.ACP_MAIN_STEP_SNO  /*주요업무순번 */
+             , A.ACP_MAIN_SEQ_W /*주요업무순서_가로 */
+             , A.ACP_MAIN_SEQ_H /*주요업무순서_세로 */
+             , A.CMPT_YN /*완료여부*/
+             , A.CVPT_ACP_NO  /*접수번호*/
+             , A.ACP_DOC_CD /*문서ID*/
+             , TRIM(A.MAIN_JOB_NM) AS MAIN_JOB_NM /*주요업무명*/
+             , TRIM(A.LINK_TYPE) AS LINK_TYPE/*링크유형*/
+             , DECODE(TRIM(A.LINK_TYPE), 'NAN', ''
+                                 , 'POP', A.LINK_URL
+                                 , 'FUNC', A.LINK_URL
+                                 , CASE WHEN A.ACP_DOC_CD = 'F10300100' THEN 
+                                        (SELECT B.DOC_ID
+                                          FROM TBFDMADM002M B
+                                         WHERE A.ACP_DOC_CD = B.AUD_DOC_CD
+                                           AND B.DOC_KND_CD = DECODE(A.LINK_TYPE, 'DOC', '10', '20')
+                                           AND B.DTIL_AUD_DOC_NO = (
+                                               SELECT F.DTIL_AUD_DOC_NO 
+                                               FROM (
+                                                    SELECT MAX(SRNO)
+                                                        , CASE WHEN C.CVPT_HNDL_DVSN_CD = '10' THEN '289'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '20' THEN '290'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '30' THEN '291'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '40' THEN '291'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '50' THEN '293'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '60' THEN '292'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '70' THEN '292'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '80' THEN '292'
+                                                                ELSE '288' END AS DTIL_AUD_DOC_NO
+                                                        FROM TBCORCOR205L C
+                                                        LEFT OUTER JOIN TBCORCOR602M D 
+                                                        ON(
+                                                            C.ACP_YR = D.ACP_YR 
+                                                            AND C.REQ_DVSN_CD = D.REQ_DVSN_CD 
+                                                            AND C.CVPT_ACP_NO = D.CVPT_ACP_NO
+                                                        ) 
+                                                        WHERE C.ACP_YR = #{acpYr}
+                                                        AND C.REQ_DVSN_CD = #{reqDvsnCd}
+                                                        AND C.CVPT_ACP_NO = #{cvptAcpNo}
+                                                        AND (C.ACP_YR , C.REQ_DVSN_CD, C.CVPT_ACP_NO, C.SRNO)
+                                                        	IN ( SELECT S1.ACP_YR, S1.REQ_DVSN_CD, S1.CVPT_ACP_NO, MIN(S1.SRNO)  
+                                                        	       FROM TBCORCOR205L S1
+                                                        	      WHERE S1.ACP_YR = #{acpYr}
+                                                        	        AND S1.REQ_DVSN_CD = #{reqDvsnCd}
+                                                        	        AND S1.CVPT_ACP_NO = #{cvptAcpNo}
+                                                        	        GROUP BY S1.ACP_YR, S1.REQ_DVSN_CD, S1.CVPT_ACP_NO
+                                                        	    ) 
+                                                        
+                                                        GROUP BY (CASE WHEN C.CVPT_HNDL_DVSN_CD = '10' THEN '289'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '20' THEN '290'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '30' THEN '291'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '40' THEN '291'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '50' THEN '293'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '60' THEN '292'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '70' THEN '292'
+                                                                WHEN C.CVPT_HNDL_DVSN_CD = '80' THEN '292'
+                                                                ELSE '288' END)
+                                              ) F
+                                           )
+                                        )
+                                   ELSE
+                                        (SELECT DOC_ID
+                                          FROM TBFDMADM002M B
+                                         WHERE A.ACP_DOC_CD = B.AUD_DOC_CD
+                                           AND B.DOC_KND_CD = DECODE(A.LINK_TYPE, 'DOC', '10', '20')
+                                           AND ROWNUM = 1)
+                                   END
+                     ) AS LINK_URL /*링크주소*/
+                     
+                      ,(SELECT NVL(DOC_ID,HWP_DOC_ID)
+                    FROM TBFDMADM002M B
+                   WHERE A.ACP_DOC_CD = B.AUD_DOC_CD
+                      AND B.DOC_KND_CD = DECODE(A.LINK_TYPE, 'DOC', '10', '20')
+                      AND B.DTIL_AUD_DOC_NM LIKE '%대내이송')    AS LINK_URL2
+                     
+          FROM TBCORCOR602M A
+          
+         WHERE 1=1
+        <if test='acpYr != null and acpYr != ""'>
+            AND A.ACP_YR = #{acpYr} /* PARAM : 접수년도 */
+        </if>
+        <if test='reqDvsnCd != null and reqDvsnCd != ""'>
+            AND A.REQ_DVSN_CD = #{reqDvsnCd} /* PARAM : 구분코드 */
+        </if>
+        <if test='cvptAcpNo != null and cvptAcpNo != ""'>
+        	AND A.CVPT_ACP_NO = #{cvptAcpNo} /* PARAM : 접수번호 */
+        </if>
+        <if test='acpStepCd != null and acpStepCd != ""'>
+            AND A.ACP_STEP_CD = #{acpStepCd} /* PARAM : 단계코드  */
+        </if>
+        <if test='sType != null and sType != ""'>
+        	AND ACP_STEP_CD LIKE #{sType} || '%'
+        </if>
+         ORDER BY A.ACP_MAIN_STEP_SNO, A.ACP_MAIN_SEQ_W ASC
+    </select>
+
+    <select id="selectDocumentListCOR" parameterType="paramMap" resultType="egovMap">
+        /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.selectDocumentListCOR*/
+        /*문서함(결재정보)*/
+        <![CDATA[
+        SELECT
+            RPRT_NM,
+           APV_STA_CD,
+           APV_RQS_ID,
+           DOC_ID,
+           APV_SRNO,
+           PST_NM,
+           APVR_NM,
+           APV_DH ,
+           CASE
+                WHEN ROW_NUMBER() OVER(PARTITION BY DOC_ID ORDER BY APV_SRNO) = 1 THEN COUNT(*) OVER(PARTITION BY DOC_ID)
+                ELSE 0
+           END ROWSPAN_CNT
+      FROM (
+           SELECT
+                  A.RPRT_NM ,       /*보고서명 */
+                  A.APV_STA_CD ,    /*결재상태코드 */
+                  A.DOC_ID ,        /*결재문서번호 */
+                  A.APV_RQS_ID,     /*결재요청ID */
+                  B.APV_SRNO ,      /*결재순번 */
+                  B.PST_NM ,        /*결재자직위코드 */
+                  B.APVR_NM ,       /*결재자전산번호 */
+                  B.APV_DH          /*결재일시 */
+             FROM TBCORCOR603M A,
+                  (
+                  SELECT APV_DOC_NO AS APV_RQS_ID ,
+                         APV_SNO AS APV_SRNO ,
+                         CASE WHEN APVR_PST_CD IS NULL
+                              THEN (SELECT MAX(ONR_PST_NM) FROM TBDCMACM001M WHERE CNB = APVR_CNB)
+                              ELSE F_CODE_NM('1000176', APVR_PST_CD)
+                         END  AS PST_NM ,
+                         F_USR_INFO(APVR_CNB, '2') AS APVR_NM ,
+                         CASE WHEN SUBSTR(APVR_STA_CD,0,1) = '2' THEN TO_CHAR(APV_DH, 'YYYY.MM.DD')
+                                  ELSE ''
+                         END  AS APV_DH
+                    FROM TBDCMACM023L
+                   WHERE APV_SNO <> '1'
+                   AND APVR_KND_CD NOT IN ('4','6','7')
+                   UNION ALL
+                  SELECT DH1.APV_RQS_ID,
+                         DH1.APV_SRNO,
+                         (SELECT H2.PST_NM AS PST_NM
+                            FROM TBDCMACM111H H1,
+                                 TBDCMACM112H H2
+                           WHERE 1=1
+                             AND H1.RCPT_DT = H2.RCPT_DT
+                             AND H1.RCPT_ID = H2.RCPT_ID
+                             AND H1.ONR_DOC_MNG_CRD_ID = DH1.APV_RQS_ID
+                             AND H2.APVR_ID = DH1.APVR_ID
+                           GROUP BY H2.PST_NM ) AS PST_NM,
+                         DH1.APVR_NM,
+                         DH1.APV_DH
+                    FROM
+                         (SELECT ONR_DOC_MNG_CRD_ID AS APV_RQS_ID,
+                                 APV_HIS_SRNO AS APV_SRNO,
+                                 APVR_ID,
+                                 APVR_NM AS APVR_NM,
+                                 TO_CHAR(APV_DH, 'YYYY.MM.DD') AS APV_DH
+                            FROM TBDCMACM102L D2
+                           WHERE 1=1
+                             AND ONR_APV_DVSN_CD <> '10' --(기안자 제외)
+                           ORDER BY APV_RQS_ID,APV_SRNO
+                         ) DH1
+                  ) B
+            WHERE A.ACP_YR = #{acpYr}
+              AND A.REQ_DVSN_CD = #{reqDvsnCd}
+              AND A.CVPT_ACP_NO = #{cvptAcpNo}
+              AND A.ACP_STEP_CD = #{acpStepCd}
+              AND A.APV_RQS_ID = B.APV_RQS_ID
+        ]]>
+        <if test="rprtCd != null and rprtCd != ''">
+            AND A.RPRT_CD  = #{rprtCd}
+        </if>
+        ORDER BY A.SORT_SNO
+        )
+    </select>
+
+    <select id="selectDocumentList2COR" parameterType="paramMap" resultType="egovMap" >
+        /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.selectDocumentList2COR*/
+        /*문서함(문서자체정보)*/
+        <![CDATA[
+          SELECT
+                  CASE WHEN A.RPRT_CD = 'F10700500'     /*부의안 요약 + 부의안 한줄로 처리 */
+                    THEN  A.RPRT_NM ||'<br>'|| (SELECT RPRT_NM
+                                        FROM TBCORCOR603M ST1
+                                        WHERE ST1.ACP_YR = A.ACP_YR
+                                        AND ST1.REQ_DVSN_CD = A.REQ_DVSN_CD
+                                        AND ST1.CVPT_ACP_NO = A.CVPT_ACP_NO
+                                        AND ST1.ACP_STEP_CD = A.ACP_STEP_CD
+                                        AND RPRT_CD = 'F10700600')
+                    ELSE A.RPRT_NM
+               END AS RPRT_NM ,       /*보고서명 */
+               A.RPRT_CD ,       /*보고서코드*/
+               A.APV_STA_CD,    /*결재상태코드 */
+               F_CODE_NM('1000773',A.APV_STA_CD) AS APV_STA_NM ,    /*결재상태코드 */
+               A.SORT_SNO ,      /*보고서순번  */
+               A.DOC_ID,         /*결재문서번호 */
+               A.APV_RQS_ID,      /*결재ID*/
+               'N' AS APV_YN ,           /*결재여부 */
+               CON_PGM_CD    /*연계프로그램코드*/
+                  /*필수여부*/
+                  ,A.NECES_YN
+                  ,A.APV_WAY_CD /*결재방법코드*/
+                  ,A.ACP_STEP_CD
+                  ,A.ACP_YR
+                  ,A.REQ_DVSN_CD
+                  ,A.CVPT_ACP_NO
+                  ,F_OPEN_EDIT(A.LINK_URL) AS DOC_TYPE
+          FROM TBCORCOR603M AS A
+         WHERE A.ACP_YR = #{acpYr}
+            AND A.REQ_DVSN_CD = #{reqDvsnCd}
+            AND A.CVPT_ACP_NO = #{cvptAcpNo}
+        ]]>
+        <if test="acpStepCd != null and acpStepCd != ''">
+            AND A.ACP_STEP_CD = #{acpStepCd}
+        </if>
+          
+        <if test="rprtCd != null and rprtCd != ''">
+            AND A.RPRT_CD  = #{rprtCd}
+        </if>
+        ORDER BY A.SORT_SNO
+    </select>
+    
+    <select id="selectDocumentList3COR" parameterType="paramMap" resultType="egovMap" >
+        /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.selectDocumentList3COR*/
+        /*문서함(문서자체정보)*/
+        <![CDATA[
+          SELECT
+                  CASE WHEN A.RPRT_CD = 'F10700500'     /*부의안 요약 + 부의안 한줄로 처리 */
+                    THEN  A.RPRT_NM ||'<br>'|| (SELECT RPRT_NM
+                                        FROM TBDCPDCP603M ST1
+                                        WHERE ST1.ACP_YR = A.ACP_YR
+                                        AND ST1.REQ_DVSN_CD = A.REQ_DVSN_CD
+                                        AND ST1.CVPT_ACP_NO = A.CVPT_ACP_NO
+                                        AND ST1.ACP_STEP_CD = A.ACP_STEP_CD
+                                        AND RPRT_CD = 'F10700600')
+                    ELSE A.RPRT_NM
+               END AS RPRT_NM ,       /*보고서명 */
+               A.RPRT_CD ,       /*보고서코드*/
+               A.APV_STA_CD,    /*결재상태코드 */
+               F_CODE_NM('1000773',A.APV_STA_CD) AS APV_STA_NM ,    /*결재상태코드 */
+               A.SORT_SNO ,      /*보고서순번  */
+               A.DOC_ID,         /*결재문서번호 */
+               A.APV_RQS_ID,      /*결재ID*/
+               'N' AS APV_YN ,           /*결재여부 */
+               CON_PGM_CD    /*연계프로그램코드*/
+                  /*필수여부*/
+                  ,A.NECES_YN
+                  ,A.APV_WAY_CD /*결재방법코드*/
+                  ,A.ACP_STEP_CD
+                  ,A.ACP_YR
+                  ,A.REQ_DVSN_CD
+                  ,A.CVPT_ACP_NO
+                  ,F_OPEN_EDIT(A.LINK_URL) AS DOC_TYPE
+          FROM TBCORCOR603M AS A
+         WHERE A.ACP_YR = #{acpYr}
+            AND A.REQ_DVSN_CD = #{reqDvsnCd}
+            AND A.CVPT_ACP_NO = #{cvptAcpNo}
+        ]]>
+        <if test="acpStepCd != null and acpStepCd != ''">
+            AND A.ACP_STEP_CD = #{acpStepCd}
+        </if>
+          
+        <if test="rprtCd != null and rprtCd != ''">
+            AND A.RPRT_CD  = #{rprtCd}
+        </if>
+        <![CDATA[
+        UNION ALL
+        SELECT
+                  CASE WHEN A.RPRT_CD = 'F10700500'     /*부의안 요약 + 부의안 한줄로 처리 */
+                    THEN  A.RPRT_NM ||'<br>'|| (SELECT RPRT_NM
+                                        FROM TBDCPDCP603M ST1
+                                        WHERE ST1.ACP_YR = A.ACP_YR
+                                        AND ST1.REQ_DVSN_CD = A.REQ_DVSN_CD
+                                        AND ST1.CVPT_ACP_NO = A.CVPT_ACP_NO
+                                        AND ST1.ACP_STEP_CD = A.ACP_STEP_CD
+                                        AND RPRT_CD = 'F10700600')
+                    ELSE A.RPRT_NM
+               END AS RPRT_NM ,       /*보고서명 */
+               A.RPRT_CD ,       /*보고서코드*/
+               A.APV_STA_CD,    /*결재상태코드 */
+               F_CODE_NM('1000773',A.APV_STA_CD) AS APV_STA_NM ,    /*결재상태코드 */
+               A.SORT_SNO ,      /*보고서순번  */
+               A.DOC_ID,         /*결재문서번호 */
+               A.APV_RQS_ID,      /*결재ID*/
+               'N' AS APV_YN ,           /*결재여부 */
+               CON_PGM_CD    /*연계프로그램코드*/
+                  /*필수여부*/
+                  ,A.NECES_YN
+                  ,A.APV_WAY_CD /*결재방법코드*/
+                  ,A.ACP_STEP_CD
+                  ,A.ACP_YR
+                  ,A.REQ_DVSN_CD
+                  ,A.CVPT_ACP_NO
+                  ,F_OPEN_EDIT(A.LINK_URL) AS DOC_TYPE
+          FROM TBCORCOR603M AS A
+         WHERE (A.ACP_YR, A.REQ_DVSN_CD, A.CVPT_ACP_NO) IN (SELECT S1.ACP_YR, S1.REQ_DVSN_CD, S1.CVPT_ACP_NO
+         															FROM TBCORCOR105L S1 
+														         WHERE S1.SUC_ACP_YR = #{acpYr}
+														            AND S1.SUC_REQ_DVSN_CD = #{reqDvsnCd}
+														            AND S1.SUC_CVPT_ACP_NO = #{cvptAcpNo}
+														            )
+        ]]>
+        <if test="acpStepCd != null and acpStepCd != ''">
+            AND A.ACP_STEP_CD = #{acpStepCd}
+        </if>
+          
+        <if test="rprtCd != null and rprtCd != ''">
+            AND A.RPRT_CD  = #{rprtCd}
+        </if>
+        ORDER BY A.SORT_SNO
+    </select>
+
+    <select id="CORCOR603MSelectViewAuth" parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.bad.fre.dao.CSPCOMMON001Mapper.CORCOR603MSelectViewAuth */
+		SELECT B.HNDL_CHGR_ID
+	       ,B.AUD_EXEC_DCS_CHGR_ID
+	       ,C.USR_ID 					AS APVR_ID
+	       ,D.USR_ID 					AS SBM_ID
+	       ,A.DOC_WRT_ID
+		FROM TBCORCOR603M A 
+		<if test='rprtCd == "C10320500" or rprtCd == "C10230100" or rprtCd == "C10320100" or rprtCd == "C10230500"'>
+		INNER JOIN TBCSPEAR011M AA ON (A.REQ_DVSN_CD = AA.CMT_DVSN_CD+6 AND A.ACP_YR = AA.CMT_OEN_YE AND A.CVPT_ACP_NO = AA.CMT_DGE)
+		INNER JOIN TBCSPEAR001M B ON (AA.REQ_DVSN_CD = B.REQ_DVSN_CD AND AA.ACP_YR = B.ACP_YR AND AA.CVPT_ACP_NO = B.CVPT_ACP_NO )
+		</if>
+		<if test='rprtCd != "C10320500" and rprtCd != "C10230100" and rprtCd != "C10320100" and rprtCd != "C10230500"'>
+		INNER JOIN TBCSPEAR001M B ON (A.REQ_DVSN_CD = B.REQ_DVSN_CD AND A.ACP_YR = B.ACP_YR AND A.CVPT_ACP_NO = B.CVPT_ACP_NO )
+		</if>
+		LEFT OUTER JOIN (SELECT T2.APVR_CNB, T2.APV_DOC_NO, T1.USR_ID
+		                FROM TBDCMACM001M T1
+		                INNER JOIN TBDCMACM023L T2 ON (T1.CNB = T2.APVR_CNB)
+		                ) C ON (A.APV_RQS_ID = C.APV_DOC_NO)
+		LEFT OUTER JOIN (SELECT T2.SBM_CNB, T2.APV_DOC_NO, T1.USR_ID
+		                FROM TBDCMACM001M T1
+		                INNER JOIN TBDCMACM022L T2 ON (T1.CNB = T2.SBM_CNB)
+		                ) D ON (A.APV_RQS_ID = D.APV_DOC_NO)
+		WHERE A.DOC_ID = #{docId}
+	</select>
+
+    <select id="selectPrcsDocCmptYnCOR" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.selectPrcsDocCmptYnCOR*/
+        SELECT COUNT(1) AS RPRT_CNT, 
+                MAX(nvl(
+                   (SELECT MAX(CMPT_YN)
+                      FROM TBCORCOR602M ST1
+                     WHERE ST1.ACP_YR = T1.ACP_YR
+                       AND ST1.REQ_DVSN_CD = T1.REQ_DVSN_CD
+                       AND ST1.CVPT_ACP_NO = T1.CVPT_ACP_NO
+                       AND ST1.ACP_DOC_CD = T1.RPRT_CD
+                       <if test='acpMainStepSno != null and acpMainStepSno != ""'>
+                        AND ST1.ACP_MAIN_STEP_SNO   = #{acpMainStepSno}
+                        </if>
+                       )
+                       ,'N')) AS CMPT_YN,
+                  MAX(nvl(
+                   (SELECT MAX(ACP_MAIN_STEP_ID)
+                      FROM TBCORCOR602M ST1
+                     WHERE ST1.ACP_YR = T1.ACP_YR
+                       AND ST1.REQ_DVSN_CD = T1.REQ_DVSN_CD
+                       AND ST1.CVPT_ACP_NO = T1.CVPT_ACP_NO
+                       AND ST1.ACP_DOC_CD = T1.RPRT_CD
+                       <if test='acpMainStepSno != null and acpMainStepSno != ""'>
+                        AND ST1.ACP_MAIN_STEP_SNO   = #{acpMainStepSno}
+                        </if>
+                       )
+                       ,'N')) AS ACP_MAIN_STEP_ID
+          FROM TBCORCOR603M T1
+         WHERE T1.ACP_YR = #{acpYr}
+           AND T1.REQ_DVSN_CD = #{reqDvsnCd}
+           AND T1.CVPT_ACP_NO = #{cvptAcpNo}
+           AND T1.RPRT_CD = #{rprtCd}
+    </select>
+
+    <update id="updateCmptYnCOR" parameterType="paramMap">
+        /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.updateCmptYnCOR*/
+        UPDATE TBCORCOR602M
+            SET
+            FNL_MDF_DH = SYSDATE
+            ,CMPT_YN  = #{cmptYn}
+            ,FNL_USR_ID = #{fnlUsrId}
+            ,FNL_DEAL_DPT_CD =#{fnlDealDptCd}
+            WHERE 1=1
+            AND ACP_YR = #{acpYr}
+            AND REQ_DVSN_CD = #{reqDvsnCd}
+            AND CVPT_ACP_NO = #{cvptAcpNo}
+            AND ACP_STEP_CD = #{acpStepCd}
+            AND ACP_MAIN_STEP_ID = #{acpMainStepId}
+            <if test='acpMainStepSno != null and acpMainStepSno != ""'>
+            AND ACP_MAIN_STEP_SNO   = #{acpMainStepSno}
+            </if>
+    </update>
+
+    <update id="deleteDocCOR" parameterType="paramMap">
+    /*kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.deleteDocCOR*/
+        DELETE FROM TBCORCOR603M
+        WHERE 
+            ACP_YR  = #{acpYr}
+        AND REQ_DVSN_CD = #{reqDvsnCd}
+        AND CVPT_ACP_NO  =#{cvptAcpNo}
+        AND ACP_STEP_CD  = #{acpStepCd}
+        AND DOC_ID  = #{docId}
+    </update>
+
+    <insert id="CORCOR601MInsert" parameterType="paramMap">
+   		/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.CORCOR601MInsert */
+   		MERGE INTO TBCORCOR601M T1
+   		USING	(	SELECT 	#{reqDvsnCd} AS REQ_DVSN_CD 
+        						,#{acpYr} AS ACP_YR
+        						,#{cvptAcpNo} AS CVPT_ACP_NO
+        						,#{acpStepCd} AS ACP_STEP_CD
+        				FROM DUAL
+        			) T2
+        ON		(	T1.REQ_DVSN_CD = T2.REQ_DVSN_CD
+        				AND	T1.ACP_YR = T2.ACP_YR
+        				AND T1.CVPT_ACP_NO = T2.CVPT_ACP_NO
+        				AND T1.ACP_STEP_CD = T2.ACP_STEP_CD
+        			)
+        WHEN MATCHED THEN
+        		UPDATE
+        		SET		NECES_YN = #{necesYn}
+        				,TSK_DESC = #{tskDesc}
+        				,LINK_URL = #{linkUrl}
+        				<if test="stepCmptYn != '' and stepCmptYn eq 'P'.toString()">
+        				,STEP_CMPT_YN = #{stepCmptYn}
+        				,STEP_CMPT_DH = SYSDATE
+        				</if>
+        				,SORT_SNO = #{sortSno}
+        				,FNL_USR_ID = #{usrId}
+        				,FNL_DEAL_DPT_CD= #{dptCd}
+        				,FNL_MNU_ID = #{menuNo}
+        				,FNL_MDF_DH = SYSDATE
+        WHEN NOT MATCHED THEN
+				INSERT	(	 REQ_DVSN_CD
+							, ACP_YR
+							, CVPT_ACP_NO
+							, ACP_STEP_CD
+							, ACP_STEP_NM
+							, NECES_YN
+							, TSK_DESC
+							, LINK_URL
+							<if test="stepCmptYn != '' and stepCmptYn eq 'P'.toString()">
+	                        , STEP_CMPT_YN
+	                        , STEP_CMPT_DH
+	                        </if>
+							, SORT_SNO
+							, FRT_USR_ID
+	    					, FNL_USR_ID
+	    					, FNL_DEAL_DPT_CD
+	    					, FNL_MNU_ID
+	    					, FRT_REGI_DH
+	    					, FNL_MDF_DH
+	    				)
+	   			VALUES	( #{reqDvsnCd}
+							, #{acpYr}
+							, #{cvptAcpNo}
+							, #{acpStepCd}
+							, #{acpStepNm}
+							, #{necesYn}
+							, #{tskDesc}
+							, #{linkUrl}
+							<if test="stepCmptYn != '' and stepCmptYn eq 'P'.toString()">
+		                    , #{stepCmptYn}
+		                    , SYSDATE
+	                        </if>
+	                        , #{sortSno}
+							, #{usrId}
+	                        , #{usrId}
+	                        , #{dptCd}
+	                        , #{menuNo}
+	    					, SYSDATE
+	    					, SYSDATE
+	    				)
+   	</insert>
+
+
+
+       <insert id="CORCOR602MInsert" parameterType="paramMap">
+   		/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.CORCOR602MInsert */
+   		MERGE INTO TBCORCOR602M T1
+   		USING	(	SELECT 	#{reqDvsnCd} AS REQ_DVSN_CD 
+        						,#{acpYr} AS ACP_YR
+        						,#{cvptAcpNo} AS CVPT_ACP_NO
+        						,#{acpStepCd} AS ACP_STEP_CD
+        						,#{acpMainStepId} AS ACP_MAIN_STEP_ID
+        						,#{acpMainStepSno} AS ACP_MAIN_STEP_SNO
+        				FROM DUAL
+        			) T2
+        ON		(	T1.REQ_DVSN_CD = T2.REQ_DVSN_CD
+        				AND	T1.ACP_YR = T2.ACP_YR
+        				AND T1.CVPT_ACP_NO = T2.CVPT_ACP_NO
+        				AND T1.ACP_STEP_CD = T2.ACP_STEP_CD
+        				AND T1.ACP_MAIN_STEP_ID = T2.ACP_MAIN_STEP_ID
+        				AND T1.ACP_MAIN_STEP_SNO = T2.ACP_MAIN_STEP_SNO
+        			)
+        WHEN MATCHED THEN
+        		UPDATE
+        		SET		ACP_MAIN_SEQ_W = #{acpMainSeqW}
+        				,ACP_MAIN_SEQ_H = #{acpMainSeqH}
+        				,ACP_DOC_CD = #{acpDocCd}
+        				,MAIN_JOB_NM = #{acpMainStepNm}
+        				,LINK_TYPE = #{linkType}
+        				,LINK_URL = #{linkUrl}
+        				,FNL_USR_ID = #{usrId}
+        				,FNL_DEAL_DPT_CD= #{dptCd}
+        				,FNL_MNU_ID = #{menuNo}
+        				,FNL_MDF_DH = SYSDATE
+        WHEN NOT MATCHED THEN
+				INSERT (	 REQ_DVSN_CD
+								, ACP_YR
+								, CVPT_ACP_NO
+								, ACP_STEP_CD
+								, ACP_MAIN_STEP_ID
+		                        , ACP_MAIN_STEP_SNO
+		                        , ACP_MAIN_SEQ_W
+		                        , ACP_MAIN_SEQ_H
+		                        , ACP_DOC_CD
+		                        , MAIN_JOB_NM
+								, LINK_TYPE
+								, LINK_URL
+								, FRT_USR_ID
+		    					, FNL_USR_ID
+		    					, FNL_DEAL_DPT_CD
+		    					, FNL_MNU_ID
+		    					, FRT_REGI_DH
+		    					, FNL_MDF_DH
+		    				)
+		   			VALUES	( #{reqDvsnCd}
+								, #{acpYr}
+								, #{cvptAcpNo}
+								, #{acpStepCd}
+								, #{acpMainStepId}
+		                        , #{acpMainStepSno}
+		                        , #{acpMainSeqW}
+		                        , #{acpMainSeqH}
+								, #{acpDocCd}
+								, #{acpMainStepNm}
+								, #{linkType}
+								, #{linkUrl}
+								, #{usrId}
+		                        , #{usrId}
+		                        , #{dptCd}
+		                        , #{menuNo}
+		    					, SYSDATE
+		    					, SYSDATE
+		    				)
+   	</insert>
+   	
+   	<!-- BEST20 부패행위 문서함 조회 -->
+   	<select id="CORCOR603MParentKeySelect" parameterType="String" resultType="egovMap">
+		/* kr.go.bai.eip.bad.fre.dao.CSPCOMMON001Mapper.CORCOR603MParentKeySelect */
+		SELECT   ACP_YR
+		         ,REQ_DVSN_CD
+		         ,CVPT_ACP_NO
+		         ,ACP_STEP_CD
+		         ,RPRT_NM
+		         ,DOC_ID
+		         ,CASE WHEN APV_STA_CD = '10' THEN '작성중'
+		                 WHEN APV_STA_CD = '20' THEN '결재요청'
+		                 WHEN APV_STA_CD = '25' THEN '결재중'
+		                 WHEN APV_STA_CD = '30' THEN '결재완료'
+		          END AS APV_STA_NM
+		FROM TBCORCOR603M
+		WHERE APV_RQS_ID = #{apvRqsId}
+	</select>
+	
+	<!-- BEST20 부패방지 보고서 코드 조회 -->
+	<select id="CORCOR603MSelectRprtCd" parameterType="paramMap" resultType="string">
+		/* kr.go.bai.eip.bad.fre.dao.CSPCOMMON001Mapper.CORCOR603MSelectRprtCd */
+		SELECT   RPRT_CD
+		 FROM TBCORCOR603M
+	   WHERE APV_RQS_ID = #{apvRqsId}
+	</select>
+	
+	<!-- BEST20 부패방지 결재요청ID 업데이트 -->
+	<update id="CORCOR603MApvRqsIdUpdate" parameterType="paramMap">
+		 /* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.CORCOR603MApvRqsIdUpdate */
+		 <![CDATA[
+        UPDATE TBCORCOR603M
+            SET APV_RQS_ID = #{apvRqsId} /* 결재요청ID */
+                ,APV_STA_CD = DECODE(#{apvStaCd} ,'20',DECODE((SELECT COUNT(*) 
+	                                                     FROM TBDCMACM023L 
+	                                                    WHERE APV_DOC_NO = #{apvRqsId}
+	                                                      AND APVR_KND_CD <> '1' 
+	                                                      AND APVR_SEQ <> 1 
+	                                                      AND APV_DH IS NOT NULL
+	                                                      AND SUBSTR(APVR_STA_CD, 0,1) = '2'),0,'20','25')
+	                                           ,#{apvStaCd})
+                ,FNL_MDF_DH = SYSDATE
+                ,FNL_USR_ID = #{fnlUsrId}
+                ,FNL_DEAL_DPT_CD = #{fnlDealDptCd}
+            WHERE ACP_YR = #{acpYr}
+               AND REQ_DVSN_CD = #{reqDvsnCd}
+               AND CVPT_ACP_NO = #{cvptAcpNo}
+               AND ACP_STEP_CD = #{acpStepCd}
+               AND DOC_ID = #{docId}
+          ]]>
+	</update>
+
+	<!-- BEST20 부패방지 결재정보 저장 -->
+	<insert id="CORCOR609MInsert" parameterType="paramMap">
+		/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.CORCOR609MInsert */
+		<![CDATA[
+		INSERT INTO	TBCORCOR609M
+							(	 APV_RQS_ID        /* 결재요청ID */
+								,ACP_YR              /* 접수년도 */
+								,REQ_DVSN_CD     /* 접수구분코드 */
+								,CVPT_ACP_NO          /* 접수번호 */
+								,ACP_STEP_CD       /* 단계코드 */
+								,DOC_ID              /* 문서ID */
+								,APV_DVSN_CD     /* 결재구분코드 */
+								,APV_DOC_DVSN_CD /* 결재문서구분코드 */
+								,SORT_SNO         /* 정렬순번 */ 
+								,FRT_USR_ID        /* 최초사용자ID */
+								,FNL_USR_ID        /* 최종사용자ID */
+								,FNL_DEAL_DPT_CD/* 최종거래부서코드 */
+								,FNL_MNU_ID       /* 최종메뉴ID */
+								,FRT_REGI_DH       /* 최초등록일시 */
+								,FNL_MDF_DH       /* 최종수정일시 */
+							)
+					VALUES	(
+					             #{apvRqsId}
+								,#{acpYr}
+								,#{reqDvsnCd}
+								,#{cvptAcpNo}
+								,#{acpStepCd}
+								,#{docId}
+								,#{apvDvsnCd}
+								,#{apvDocDvsnCd}
+								,#{sortSno}
+								,#{frtUsrId}
+								,#{fnlUsrId}
+								,#{fnlDealDptCd}
+								,#{fnlMnuId}
+								,SYSDATE
+								,SYSDATE
+							)
+		]]>
+	</insert>
+
+	<!-- BEST20 청탁금지 결재정보 삭제 -->
+	<delete id="CORCOR609MDelete" parameterType="paramMap">
+    	/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.CORCOR609MDelete*/
+    	DELETE FROM TBCORCOR609M
+        WHERE APV_RQS_ID = #{apvRqsId}
+           AND ACP_YR = #{acpYr}
+           AND REQ_DVSN_CD = #{reqDvsnCd}
+           AND CVPT_ACP_NO = #{cvptAcpNo}
+           AND ACP_STEP_CD = #{acpStepCd}
+           AND DOC_ID = #{docId}
+    </delete>
+	
+   	<!-- BEST20 청탁금지 문서함 조회 -->
+   	<select id="DCPDCP603MParentKeySelect" parameterType="String" resultType="egovMap">
+		/* kr.go.bai.eip.bad.fre.dao.CSPCOMMON001Mapper.DCPDCP603MParentKeySelect */
+		SELECT   ACP_YR
+		         ,REQ_DVSN_CD
+		         ,CVPT_ACP_NO
+		         ,ACP_STEP_CD
+		         ,RPRT_NM
+		         ,DOC_ID
+		         ,CASE WHEN APV_STA_CD = '10' THEN '작성중'
+		                 WHEN APV_STA_CD = '20' THEN '결재요청'
+		                 WHEN APV_STA_CD = '25' THEN '결재중'
+		                 WHEN APV_STA_CD = '30' THEN '결재완료'
+		          END AS APV_STA_NM
+		FROM TBDCPDCP603M
+		WHERE APV_RQS_ID = #{apvRqsId}
+	</select>
+	
+	<!-- BEST20 청탁금지 보고서 코드 조회 -->
+	<select id="DCPDCP603MSelectRprtCd" parameterType="paramMap" resultType="string">
+		/* kr.go.bai.eip.bad.fre.dao.CSPCOMMON001Mapper.DCPDCP603MSelectRprtCd */
+		SELECT   RPRT_CD
+		 FROM TBDCPDCP603M
+	   WHERE APV_RQS_ID = #{apvRqsId}
+	</select>
+	
+	<!-- BEST20 청탁금지 결재요청ID 업데이트 -->
+	<update id="DCPDCP603MApvRqsIdUpdate" parameterType="paramMap">
+		 /* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.DCPDCP603MApvRqsIdUpdate */
+		 <![CDATA[
+        UPDATE TBDCPDCP603M
+            SET APV_RQS_ID = #{apvRqsId} /* 결재요청ID */
+                ,APV_STA_CD = DECODE(#{apvStaCd} ,'20',DECODE((SELECT COUNT(*) 
+	                                                     FROM TBDCMACM023L 
+	                                                    WHERE APV_DOC_NO = #{apvRqsId}
+	                                                      AND APVR_KND_CD <> '1' 
+	                                                      AND APVR_SEQ <> 1 
+	                                                      AND APV_DH IS NOT NULL
+	                                                      AND SUBSTR(APVR_STA_CD, 0,1) = '2'),0,'20','25')
+	                                           ,#{apvStaCd})
+                ,FNL_MDF_DH = SYSDATE
+                ,FNL_USR_ID = #{fnlUsrId}
+                ,FNL_DEAL_DPT_CD = #{fnlDealDptCd}
+            WHERE ACP_YR = #{acpYr}
+               AND REQ_DVSN_CD = #{reqDvsnCd}
+               AND CVPT_ACP_NO = #{cvptAcpNo}
+               AND ACP_STEP_CD = #{acpStepCd}
+               AND DOC_ID = #{docId}
+          ]]>
+	</update>
+
+	<!-- BEST20 청탁금지 결재정보 저장 -->
+	<insert id="DCPDCP609MInsert" parameterType="paramMap">
+		/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.DCPDCP609MInsert */
+		<![CDATA[
+		INSERT INTO	TBDCPDCP609M
+							(	 APV_RQS_ID        /* 결재요청ID */
+								,ACP_YR              /* 접수년도 */
+								,REQ_DVSN_CD     /* 접수구분코드 */
+								,CVPT_ACP_NO          /* 접수번호 */
+								,ACP_STEP_CD       /* 단계코드 */
+								,DOC_ID              /* 문서ID */
+								,APV_DVSN_CD     /* 결재구분코드 */
+								,APV_DOC_DVSN_CD /* 결재문서구분코드 */
+								,SORT_SNO         /* 정렬순번 */ 
+								,FRT_USR_ID        /* 최초사용자ID */
+								,FNL_USR_ID        /* 최종사용자ID */
+								,FNL_DEAL_DPT_CD/* 최종거래부서코드 */
+								,FNL_MNU_ID       /* 최종메뉴ID */
+								,FRT_REGI_DH       /* 최초등록일시 */
+								,FNL_MDF_DH       /* 최종수정일시 */
+							)
+					VALUES	(
+					             #{apvRqsId}
+								,#{acpYr}
+								,#{reqDvsnCd}
+								,#{cvptAcpNo}
+								,#{acpStepCd}
+								,#{docId}
+								,#{apvDvsnCd}
+								,#{apvDocDvsnCd}
+								,#{sortSno}
+								,#{frtUsrId}
+								,#{fnlUsrId}
+								,#{fnlDealDptCd}
+								,#{fnlMnuId}
+								,SYSDATE
+								,SYSDATE
+							)
+		]]>
+	</insert>
+
+	<!-- BEST20 청탁금지 결재정보 삭제 -->
+	<delete id="DCPDCP609MDelete" parameterType="paramMap">
+    	/* kr.go.bai.eip.csp.cm.dao.CSPCOMMON001Mapper.DCPDCP609MDelete*/
+    	DELETE FROM TBDCPDCP609M
+        WHERE APV_RQS_ID = #{apvRqsId}
+           AND ACP_YR = #{acpYr}
+           AND REQ_DVSN_CD = #{reqDvsnCd}
+           AND CVPT_ACP_NO = #{cvptAcpNo}
+           AND ACP_STEP_CD = #{acpStepCd}
+           AND DOC_ID = #{docId}
+    </delete>
+
+</mapper>

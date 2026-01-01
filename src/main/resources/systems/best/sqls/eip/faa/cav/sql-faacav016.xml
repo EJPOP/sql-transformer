@@ -1,0 +1,662 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.go.bai.eip.faa.cav.dao.FAACAV016QMapper">
+    
+    <select id="selectLoadSttcList" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.faa.cav.dao.FAACAV016QMapper.selectLoadSttcList */
+        <![CDATA[
+			WITH BASE_DATA AS ( 
+			    SELECT T1.AUD_YR
+			          ,T1.AUD_NO
+			          ,T1.DSP_RQ_SNO
+			          ,T1.DSP_RQ_KND_CD
+			          ,CASE WHEN DSP_RQ_KND_CD = '110'                            THEN '100'    /* 변상판정*/
+			                WHEN DSP_RQ_KND_CD = '210'                            THEN '200'    /* 징계문책 */
+			                WHEN DSP_RQ_KND_CD IN ('310','320','390','391','395','396') THEN '300'    /* 시정 */
+			                WHEN DSP_RQ_KND_CD IN ('510','520','530')             THEN '400'    /* 개선 */
+			                WHEN DSP_RQ_KND_CD = '611'                            THEN '500'    /* 권고 */          
+			                WHEN DSP_RQ_KND_CD IN ('610','630','904','905')       THEN '600'    /* 통보 */                          
+			                WHEN DSP_RQ_KND_CD IN ('620','621')                   THEN '700'    /* 통보(인사) */     
+			                WHEN DSP_RQ_KND_CD = '623'                            THEN '800'    /* 통보(비위) */            
+			                WHEN DSP_RQ_KND_CD IN ('810','820','830','840','850') THEN '900'    /* 통보(모범) */            
+			                ELSE 'ERROR'
+			            END                                                                       AS DSP_RQ_KND_CD_STD           
+			          ,T2.DTM_STA_CD
+			          ,T2.ENF_DT
+			          ,T2.HNDL_DDLN_DT 
+			          ,T2.ENFM_MNG_BRDV_CD         
+			          ,T2.NOP_CNT
+			          ,NVL(T2.PNL_DRIN_PSVT_AM,0) + NVL(T2.RSR_AM,0) + NVL(T2.SPLP_AM,0) AS AM
+			          
+			          /* 건수 ------------------------------------------------------------------------------------------------------------------- */
+			          ,(CASE WHEN ENF_DT <  (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '0101' AND (ENFM_WHLS_DTM_DT >= (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '0101' OR ENFM_WHLS_DTM_DT IS NULL) THEN 1 ELSE 0 END) 
+			                                                                                          AS TOT_BEFORE     /* 전년이월 */     
+			                                                                                      
+			          ,(CASE WHEN ENF_DT >= (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '0101' AND  ENF_DT <= (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' THEN 1 ELSE 0 END)                         
+                                                                                                      AS TOT_NOW        /* 신규발생 */     
+			          
+			          ,(CASE WHEN ENF_DT <  (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '0101' AND (ENFM_WHLS_DTM_DT BETWEEN (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '0101' AND (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' ) THEN 1 ELSE 0 END) 
+			                                                                                          AS TOT_DTM_1      /* 전년이월 이행 */                                                                                                       
+			                                                                                       
+			          ,(CASE WHEN ENF_DT >= (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '0101' AND (ENFM_WHLS_DTM_DT BETWEEN (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '0101' AND (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' ) THEN 1 ELSE 0 END) 
+			                                                                                          AS TOT_DTM_2      /* 신규발생 이행 */        
+			          
+			          ,(CASE WHEN (ENFM_WHLS_DTM_DT IS NULL OR ENFM_WHLS_DTM_DT > (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' )   AND HNDL_DDLN_DT <= (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' THEN 1 ELSE 0 END) 
+			                                                                                          AS NO_DTM_COME    /* 미이행 기간도래 */  
+			          
+			          ,(CASE WHEN (ENFM_WHLS_DTM_DT IS NULL OR ENFM_WHLS_DTM_DT > (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' )   AND HNDL_DDLN_DT  > (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' THEN 1 ELSE 0 END) 
+			                                                                                          AS NO_DTM_NO_COME /* 미이행 기간미도래 */  
+			
+			          ,(CASE WHEN (ENFM_WHLS_DTM_DT IS NULL OR ENFM_WHLS_DTM_DT > (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' )   AND MONTHS_BETWEEN( TO_DATE(  (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231'  ), TO_DATE(ENF_DT,'YYYYMMDD') ) < 24 THEN 1 ELSE 0 END) 
+			                                                                                          AS NO_DTM_YR_2    /* 미이행기간 2년 */  
+			                                                                                      
+			          ,(CASE WHEN (ENFM_WHLS_DTM_DT IS NULL OR ENFM_WHLS_DTM_DT > (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' )   AND (MONTHS_BETWEEN(TO_DATE(  (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231'  ), TO_DATE(ENF_DT,'YYYYMMDD') ) >= 24 AND MONTHS_BETWEEN(TO_DATE( (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231'), TO_DATE(ENF_DT,'YYYYMMDD')) < 36) THEN 1 ELSE 0 END) 
+			                                                                                          AS NO_DTM_YR_23   /* 미이행기간 2~3년 */
+			                                                                                      
+			          ,(CASE WHEN (ENFM_WHLS_DTM_DT IS NULL OR ENFM_WHLS_DTM_DT > (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' )   AND MONTHS_BETWEEN( TO_DATE(  (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231'  ), TO_DATE(ENF_DT,'YYYYMMDD') ) >= 36 THEN 1 ELSE 0 END) 
+			                                                                                          AS NO_DTM_YR_3    /* 미이행기간 3년 */  
+                                                                                                  
+			                                                                                      
+			          /* 금액 ------------------------------------------------------------------------------------------------------------------- */
+			          ,(CASE WHEN ENF_DT <  (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '0101' AND (ENFM_WHLS_DTM_DT >= (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '0101' OR ENFM_WHLS_DTM_DT IS NULL) THEN NVL(T2.PNL_DRIN_PSVT_AM,0) + NVL(T2.RSR_AM,0) + NVL(T2.SPLP_AM,0) ELSE 0 END) 
+			                                                                                      AS TOT_BEFORE_AM     /* 전년이월 */
+			                                                                                      
+			          ,(CASE WHEN ENF_DT >= (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '0101' AND  ENF_DT <= (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' THEN NVL(T2.PNL_DRIN_PSVT_AM,0) + NVL(T2.RSR_AM,0) + NVL(T2.SPLP_AM,0) ELSE 0 END) 
+			                                                                                      AS TOT_NOW_AM        /* 신규발생 */      
+			          
+			          ,(CASE WHEN ENF_DT <  (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '0101' AND (ENFM_WHLS_DTM_DT BETWEEN (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '0101' AND (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' ) THEN NVL(T2.PNL_DRIN_PSVT_AM,0) + NVL(T2.RSR_AM,0) + NVL(T2.SPLP_AM,0) ELSE 0 END) 
+			                                                                                       AS TOT_DTM_1_AM     /* 전년이월 이행 */
+			                                                                                       
+			          ,(CASE WHEN ENF_DT >= (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '0101' AND (ENFM_WHLS_DTM_DT BETWEEN (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '0101' AND (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' ) THEN NVL(T2.PNL_DRIN_PSVT_AM,0) + NVL(T2.RSR_AM,0) + NVL(T2.SPLP_AM,0) ELSE 0 END) 
+			                                                                                       AS TOT_DTM_2_AM     /* 신규발생 이행 */                                                                                       
+			          
+			          ,(CASE WHEN (ENFM_WHLS_DTM_DT IS NULL OR ENFM_WHLS_DTM_DT > (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' )   AND HNDL_DDLN_DT <= (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' THEN NVL(T2.PNL_DRIN_PSVT_AM,0) + NVL(T2.RSR_AM,0) + NVL(T2.SPLP_AM,0) ELSE 0 END) 
+			                                                                                      AS NO_DTM_COME_AM    /* 미이행 기간도래 */
+			          
+			          ,(CASE WHEN (ENFM_WHLS_DTM_DT IS NULL OR ENFM_WHLS_DTM_DT > (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' )   AND HNDL_DDLN_DT  > (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' THEN NVL(T2.PNL_DRIN_PSVT_AM,0) + NVL(T2.RSR_AM,0) + NVL(T2.SPLP_AM,0) ELSE 0 END) 
+			                                                                                      AS NO_DTM_NO_COME_AM /* 미이행 기간미도래 */    
+			
+			          ,(CASE WHEN (ENFM_WHLS_DTM_DT IS NULL OR ENFM_WHLS_DTM_DT > (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' )   AND MONTHS_BETWEEN( TO_DATE(  (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231'  ), TO_DATE(ENF_DT,'YYYYMMDD') ) < 24 THEN NVL(T2.PNL_DRIN_PSVT_AM,0) + NVL(T2.RSR_AM,0) + NVL(T2.SPLP_AM,0) ELSE 0 END) 
+			                                                                                      AS NO_DTM_YR_2_AM    /* 미이행기간 2년 */
+			                                                                                      
+			          ,(CASE WHEN (ENFM_WHLS_DTM_DT IS NULL OR ENFM_WHLS_DTM_DT > (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' )   AND (MONTHS_BETWEEN(TO_DATE(  (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231'  ), TO_DATE(ENF_DT,'YYYYMMDD') ) >= 24 AND MONTHS_BETWEEN(TO_DATE( (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231'), TO_DATE(ENF_DT,'YYYYMMDD')) < 36) THEN NVL(T2.PNL_DRIN_PSVT_AM,0) + NVL(T2.RSR_AM,0) + NVL(T2.SPLP_AM,0) ELSE 0 END) 
+			                                                                                      AS NO_DTM_YR_23_AM    /* 미이행기간 2~3년 */
+			                                                                                      
+			          ,(CASE WHEN (ENFM_WHLS_DTM_DT IS NULL OR ENFM_WHLS_DTM_DT > (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' )   AND MONTHS_BETWEEN( TO_DATE(  (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231'  ), TO_DATE(ENF_DT,'YYYYMMDD') ) >= 36 THEN NVL(T2.PNL_DRIN_PSVT_AM,0) + NVL(T2.RSR_AM,0) + NVL(T2.SPLP_AM,0) ELSE 0 END) 
+			                                                                                      AS NO_DTM_YR_3_AM    /* 미이행기간 3년 */   
+
+			          /* 인원 ------------------------------------------------------------------------------------------------------------------- */
+			          ,(CASE WHEN ENF_DT <  (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '0101' AND (ENFM_WHLS_DTM_DT >= (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '0101' OR ENFM_WHLS_DTM_DT IS NULL) THEN T2.NOP_CNT  ELSE 0 END) 
+			                                                                                      AS TOT_BEFORE_NOP_CNT     /* 전년이월 */
+			                                                                                      
+			          ,(CASE WHEN ENF_DT >= (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '0101' AND  ENF_DT <= (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' THEN T2.NOP_CNT  ELSE 0 END) 
+			                                                                                      AS TOT_NOW_NOP_CNT        /* 신규발생 */      
+			          
+			          ,(CASE WHEN ENF_DT <  (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '0101' AND (ENFM_WHLS_DTM_DT BETWEEN (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '0101' AND (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' ) THEN T2.NOP_CNT  ELSE 0 END) 
+			                                                                                       AS TOT_DTM_1_NOP_CNT     /* 전년이월 이행 */
+			                                                                                       
+			          ,(CASE WHEN ENF_DT >= (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '0101' AND (ENFM_WHLS_DTM_DT BETWEEN (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '0101' AND (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' ) THEN T2.NOP_CNT  ELSE 0 END) 
+			                                                                                       AS TOT_DTM_2_NOP_CNT     /* 신규발생 이행 */  
+			          
+			          ,(CASE WHEN (ENFM_WHLS_DTM_DT IS NULL OR ENFM_WHLS_DTM_DT > (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' )   AND HNDL_DDLN_DT <= (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' THEN T2.NOP_CNT  ELSE 0 END) 
+			                                                                                      AS NO_DTM_COME_NOP_CNT    /* 미이행 기간도래 */
+			          
+			          ,(CASE WHEN (ENFM_WHLS_DTM_DT IS NULL OR ENFM_WHLS_DTM_DT > (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' )   AND HNDL_DDLN_DT  > (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' THEN T2.NOP_CNT  ELSE 0 END) 
+			                                                                                      AS NO_DTM_NO_COME_NOP_CNT /* 미이행 기간미도래 */   
+			
+			          ,(CASE WHEN (ENFM_WHLS_DTM_DT IS NULL OR ENFM_WHLS_DTM_DT > (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' )   AND MONTHS_BETWEEN( TO_DATE(  (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231'  ), TO_DATE(ENF_DT,'YYYYMMDD') ) < 24 THEN T2.NOP_CNT  ELSE 0 END) 
+			                                                                                      AS NO_DTM_YR_2_NOP_CNT    /* 미이행기간 2년 */
+			                                                                                      
+			          ,(CASE WHEN (ENFM_WHLS_DTM_DT IS NULL OR ENFM_WHLS_DTM_DT > (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' )   AND (MONTHS_BETWEEN(TO_DATE(  (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231'  ), TO_DATE(ENF_DT,'YYYYMMDD') ) >= 24 AND MONTHS_BETWEEN(TO_DATE( (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231'), TO_DATE(ENF_DT,'YYYYMMDD')) < 36) THEN T2.NOP_CNT  ELSE 0 END) 
+			                                                                                      AS NO_DTM_YR_23_NOP_CNT    /* 미이행기간 2~3년 */
+			                                                                                      
+			          ,(CASE WHEN (ENFM_WHLS_DTM_DT IS NULL OR ENFM_WHLS_DTM_DT > (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231' )   AND MONTHS_BETWEEN( TO_DATE(  (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231'  ), TO_DATE(ENF_DT,'YYYYMMDD') ) >= 36 THEN T2.NOP_CNT  ELSE 0 END) 
+			                                                                                      AS NO_DTM_YR_3_NOP_CNT    /* 미이행기간 3년 */
+			      FROM TBBADEAR001M T1
+			          ,TBBADEAR002D T2
+			     WHERE T1.AUD_YR     = T2.AUD_YR
+			       AND T1.AUD_NO     = T2.AUD_NO
+			       AND T1.DSP_RQ_SNO = T2.DSP_RQ_SNO
+			       AND T1.DSP_RQ_KND_CD IN ('110','210','310','320','391','396','620','621','623','630','510','520','530','610','611','810','820','830','840','850')
+			       AND T2.DTM_STA_CD    IN ('1','2')  
+			       AND CASE WHEN (T2.DTM_STA_CD = '2' AND T2.ENFM_WHLS_DTM_DT IS NULL) THEN 1
+			                ELSE 0
+			            END = 0
+			       AND T2.ENF_DT        BETWEEN '20000101' AND (TO_NUMBER(SUBSTR(#{proStadDt},0,4)) - 1) || '1231'
+			       AND T2.ENFM_MNG_BRDV_CD IS NOT NULL
+
+				]]>	
+		            <if test="schSpvBrdvCd != null and schSpvBrdvCd != ''">
+		            	AND T2.ENFM_MNG_BRDV_CD LIKE SUBSTR(#{schSpvBrdvCd},0,3) || '%'
+		            </if>					       
+		        <![CDATA[
+
+			) , BASE_DATA2 AS (
+			SELECT DSP_RQ_KND_CD_STD
+			      , '10' AS DSP_RQ_KND_CD_TYP
+			       /* 건수 */
+			      ,SUM(TOT_BEFORE) + SUM(TOT_NOW)                          AS TOT_TARGET
+			      ,SUM(TOT_BEFORE)                                         AS TOT_BEFORE
+			      ,SUM(TOT_NOW)                                            AS TOT_NOW
+			      ,SUM(TOT_DTM_1) + SUM(TOT_DTM_2)                         AS TOT_DTM
+			      
+			      ,SUM(NO_DTM_COME) + SUM(NO_DTM_NO_COME)                  AS NO_DTM_AM
+			      ,SUM(CASE WHEN DSP_RQ_KND_CD_STD < '400' THEN NO_DTM_COME
+			                ELSE 0
+			            END)                                               AS NO_DTM_COME
+			      ,SUM(CASE WHEN DSP_RQ_KND_CD_STD < '400' THEN NO_DTM_NO_COME
+			                ELSE NO_DTM_COME + NO_DTM_NO_COME
+			            END)                                               AS NO_DTM_NO_COME_AM
+			            
+			      ,SUM(NO_DTM_YR_2) + SUM(NO_DTM_YR_23) + SUM(NO_DTM_YR_3) AS TOT_NO_DTM_YR
+			      ,SUM(NO_DTM_YR_2)                                        AS NO_DTM_YR_2
+			      ,SUM(NO_DTM_YR_23)                                       AS NO_DTM_YR_23
+			      ,SUM(NO_DTM_YR_3)                                        AS NO_DTM_YR_3
+			  FROM BASE_DATA
+			 GROUP BY DSP_RQ_KND_CD_STD
+			 UNION ALL
+			SELECT DSP_RQ_KND_CD_STD
+			      , '20' AS DSP_RQ_KND_CD_TYP
+			      /* 금액 */
+			      ,SUM(TOT_BEFORE_AM) + SUM(TOT_NOW_AM)                   AS TOT_TARGET
+			      ,SUM(TOT_BEFORE_AM)                                     AS TOT_BEFORE
+			      ,SUM(TOT_NOW_AM)                                        AS TOT_NOW
+			      ,SUM(TOT_DTM_1_AM) + SUM(TOT_DTM_2_AM)                  AS TOT_DTM
+			
+			      ,SUM(NO_DTM_COME_AM) + SUM(NO_DTM_NO_COME_AM)           AS NO_DTM_AM
+			      ,SUM(CASE WHEN DSP_RQ_KND_CD_STD < '400' THEN NO_DTM_COME_AM
+			                ELSE 0
+			            END)                                              AS NO_DTM_COME
+			      ,SUM(CASE WHEN DSP_RQ_KND_CD_STD < '400' THEN NO_DTM_NO_COME_AM
+			                ELSE NO_DTM_COME_AM + NO_DTM_NO_COME_AM
+			            END)                                              AS NO_DTM_NO_COME_AM
+			            
+			      ,SUM(NO_DTM_YR_2_AM) + SUM(NO_DTM_YR_23_AM) + SUM(NO_DTM_YR_3_AM) AS TOT_NO_DTM_YR
+			      ,SUM(NO_DTM_YR_2_AM)                                    AS NO_DTM_YR_2
+			      ,SUM(NO_DTM_YR_23_AM)                                   AS NO_DTM_YR_23
+			      ,SUM(NO_DTM_YR_3_AM)                                    AS NO_DTM_YR_3
+			  FROM BASE_DATA
+			 GROUP BY DSP_RQ_KND_CD_STD
+			 UNION ALL
+			SELECT DSP_RQ_KND_CD_STD
+			      , '30' AS DSP_RQ_KND_CD_TYP
+			      /* 인원 */
+			      ,SUM(TOT_BEFORE_NOP_CNT + TOT_NOW_NOP_CNT)              AS TOT_TARGET
+			      ,SUM(TOT_BEFORE_NOP_CNT)                                AS TOT_BEFORE
+			      ,SUM(TOT_NOW_NOP_CNT)                                   AS TOT_NOW
+			      ,SUM(TOT_DTM_1_NOP_CNT) + SUM(TOT_DTM_2_NOP_CNT)        AS TOT_DTM
+			
+			      ,SUM(NO_DTM_COME_NOP_CNT) + SUM(NO_DTM_NO_COME_NOP_CNT) AS NO_DTM_AM
+			      ,SUM(CASE WHEN DSP_RQ_KND_CD_STD < '400' THEN NO_DTM_COME_NOP_CNT
+			                ELSE 0
+			            END)                                              AS NO_DTM_COME
+			      ,SUM(CASE WHEN DSP_RQ_KND_CD_STD < '400' THEN NO_DTM_NO_COME_NOP_CNT
+			                ELSE NO_DTM_COME_NOP_CNT + NO_DTM_NO_COME_NOP_CNT
+			            END)                                              AS NO_DTM_NO_COME_AM
+			            
+			      ,SUM(NO_DTM_YR_2_NOP_CNT) + SUM(NO_DTM_YR_23_NOP_CNT) + SUM(NO_DTM_YR_3_NOP_CNT) 
+			                                                              AS TOT_NO_DTM_YR
+			      ,SUM(NO_DTM_YR_2_NOP_CNT)                               AS  NO_DTM_YR_2
+			      ,SUM(NO_DTM_YR_23_NOP_CNT)                              AS NO_DTM_YR_23
+			      ,SUM(NO_DTM_YR_3_NOP_CNT)                               AS NO_DTM_YR_3
+			  FROM BASE_DATA
+			 GROUP BY DSP_RQ_KND_CD_STD
+			 ), BASE_DATA3 AS (
+			 SELECT DSP_RQ_KND_CD_STD
+			      , DSP_RQ_KND_CD_TYP
+			      , TOT_TARGET
+			      , TOT_BEFORE
+			      , TOT_NOW
+			      , TOT_DTM
+			
+			      , NO_DTM_AM
+			      , NO_DTM_COME
+			      , NO_DTM_NO_COME_AM
+			            
+			      , TOT_NO_DTM_YR
+			      , NO_DTM_YR_2
+			      , NO_DTM_YR_23
+			      , NO_DTM_YR_3
+			  FROM BASE_DATA2
+			 WHERE DSP_RQ_KND_CD_TYP = '10' 
+			    OR (DSP_RQ_KND_CD_STD = '000' AND DSP_RQ_KND_CD_TYP IN ('20', '30'))
+			    OR (DSP_RQ_KND_CD_STD = '100' AND DSP_RQ_KND_CD_TYP = '20') -- 건수, 금액
+			    OR (DSP_RQ_KND_CD_STD = '200' AND DSP_RQ_KND_CD_TYP = '30') -- 건수, 인원
+			    OR (DSP_RQ_KND_CD_STD = '300' AND DSP_RQ_KND_CD_TYP = '20') -- 건수, 금액
+			    OR (DSP_RQ_KND_CD_STD = '600' AND DSP_RQ_KND_CD_TYP IN ('20', '30'))
+			    OR (DSP_RQ_KND_CD_STD = '700' AND DSP_RQ_KND_CD_TYP = '30') -- 건수, 인원
+			    OR (DSP_RQ_KND_CD_STD = '800' AND DSP_RQ_KND_CD_TYP = '30') -- 건수, 인원
+			    OR (DSP_RQ_KND_CD_STD = '900' AND DSP_RQ_KND_CD_TYP = '30') -- 건수, 인원
+			 UNION ALL
+			  SELECT '050' AS DSP_RQ_KND_CD_STD
+			      , DSP_RQ_KND_CD_TYP
+			      , SUM(TOT_TARGET) AS TOT_TARGET
+			      , SUM(TOT_BEFORE) AS TOT_BEFORE
+			      , SUM(TOT_NOW) AS TOT_NOW
+			      , SUM(TOT_DTM) AS TOT_DTM
+			
+			      , SUM(NO_DTM_AM) AS NO_DTM_AM
+			      , SUM(NO_DTM_COME) AS NO_DTM_COME
+			      , SUM(NO_DTM_NO_COME_AM) AS NO_DTM_NO_COME_AM
+			            
+			      , SUM(TOT_NO_DTM_YR) AS TOT_NO_DTM_YR
+			      , SUM(NO_DTM_YR_2) AS NO_DTM_YR_2
+			      , SUM(NO_DTM_YR_23) AS NO_DTM_YR_23
+			      , SUM(NO_DTM_YR_3) AS NO_DTM_YR_3
+			  FROM BASE_DATA2
+			 WHERE DSP_RQ_KND_CD_STD IN ('100', '200', '300', '400')
+			 GROUP BY DSP_RQ_KND_CD_TYP
+			  UNION ALL
+			  SELECT '000'                 AS DSP_RQ_KND_CD_STD
+			      , DSP_RQ_KND_CD_TYP
+			      , SUM(TOT_TARGET) AS TOT_TARGET
+			      , SUM(TOT_BEFORE) AS TOT_BEFORE
+			      , SUM(TOT_NOW) AS TOT_NOW
+			      , SUM(TOT_DTM) AS TOT_DTM
+			
+			      , SUM(NO_DTM_AM) AS NO_DTM_AM
+			      , SUM(NO_DTM_COME) AS NO_DTM_COME
+			      , SUM(NO_DTM_NO_COME_AM) AS NO_DTM_NO_COME_AM
+			            
+			      , SUM(TOT_NO_DTM_YR) AS TOT_NO_DTM_YR
+			      , SUM(NO_DTM_YR_2) AS NO_DTM_YR_2
+			      , SUM(NO_DTM_YR_23) AS NO_DTM_YR_23
+			      , SUM(NO_DTM_YR_3) AS NO_DTM_YR_3
+			  FROM BASE_DATA2
+			 GROUP BY DSP_RQ_KND_CD_TYP
+			  )
+              
+			 SELECT * FROM(
+			 	SELECT	TO_CHAR(SUBSTR(ADD_MONTHS(#{proStadDt}, -1),0,4))	AS AUD_YR  
+			 		, 'Y' AS VIEW_YN
+			 		, 'Y' AS CHART_VIEW_YN 
+					,CASE WHEN DSP_RQ_KND_CD_STD = '000' AND DSP_RQ_KND_CD_TYP = '10' THEN '0'
+						WHEN DSP_RQ_KND_CD_STD = '000' AND DSP_RQ_KND_CD_TYP = '20' THEN '1'
+						WHEN DSP_RQ_KND_CD_STD = '000' AND DSP_RQ_KND_CD_TYP = '30' THEN '2'
+						WHEN DSP_RQ_KND_CD_STD = '050' AND DSP_RQ_KND_CD_TYP = '10' THEN '3'
+						WHEN DSP_RQ_KND_CD_STD = '050' AND DSP_RQ_KND_CD_TYP = '20' THEN '4'
+						WHEN DSP_RQ_KND_CD_STD = '050' AND DSP_RQ_KND_CD_TYP = '30' THEN '5'
+						WHEN DSP_RQ_KND_CD_STD = '100' AND DSP_RQ_KND_CD_TYP = '10' THEN '6'
+						WHEN DSP_RQ_KND_CD_STD = '100' AND DSP_RQ_KND_CD_TYP = '20' THEN '7'
+						WHEN DSP_RQ_KND_CD_STD = '200' AND DSP_RQ_KND_CD_TYP = '10' THEN '8'
+						WHEN DSP_RQ_KND_CD_STD = '200' AND DSP_RQ_KND_CD_TYP = '30' THEN '9'
+						WHEN DSP_RQ_KND_CD_STD = '300' AND DSP_RQ_KND_CD_TYP = '10' THEN '10'
+						WHEN DSP_RQ_KND_CD_STD = '300' AND DSP_RQ_KND_CD_TYP = '20' THEN '11'
+						WHEN DSP_RQ_KND_CD_STD = '400' AND DSP_RQ_KND_CD_TYP = '10' THEN '12'
+						WHEN DSP_RQ_KND_CD_STD = '500' AND DSP_RQ_KND_CD_TYP = '10' THEN '13'
+						WHEN DSP_RQ_KND_CD_STD = '600' AND DSP_RQ_KND_CD_TYP = '10' THEN '14'
+						WHEN DSP_RQ_KND_CD_STD = '600' AND DSP_RQ_KND_CD_TYP = '20' THEN '15'
+						WHEN DSP_RQ_KND_CD_STD = '600' AND DSP_RQ_KND_CD_TYP = '30' THEN '16'
+						WHEN DSP_RQ_KND_CD_STD = '700' AND DSP_RQ_KND_CD_TYP = '10' THEN '17'
+						WHEN DSP_RQ_KND_CD_STD = '700' AND DSP_RQ_KND_CD_TYP = '30' THEN '18'
+						WHEN DSP_RQ_KND_CD_STD = '800' AND DSP_RQ_KND_CD_TYP = '10' THEN '19'
+						WHEN DSP_RQ_KND_CD_STD = '800' AND DSP_RQ_KND_CD_TYP = '30' THEN '20'
+						WHEN DSP_RQ_KND_CD_STD = '900' AND DSP_RQ_KND_CD_TYP = '10' THEN '21'
+						WHEN DSP_RQ_KND_CD_STD = '900' AND DSP_RQ_KND_CD_TYP = '30' THEN '22'
+						END 												AS ROW_KND_CD
+			 		,CASE WHEN DSP_RQ_KND_CD_TYP = '10' AND DSP_RQ_KND_CD_STD = '000' THEN '건수합계'
+			            WHEN DSP_RQ_KND_CD_TYP = '20' AND DSP_RQ_KND_CD_STD = '000' THEN '금액합계'
+			            WHEN DSP_RQ_KND_CD_TYP = '30' AND DSP_RQ_KND_CD_STD = '000' THEN '인원합계'
+						WHEN DSP_RQ_KND_CD_STD = '500' THEN '권고'         
+			            WHEN DSP_RQ_KND_CD_STD = '600' THEN '통보'                       
+			            WHEN DSP_RQ_KND_CD_STD = '700' THEN '통보(인사)'     
+			            WHEN DSP_RQ_KND_CD_STD = '800' THEN '통보(비위)'              
+			            WHEN DSP_RQ_KND_CD_STD = '900' THEN '통보(모범)'
+			 			ELSE '처분요구'
+			 		END														AS STTC_TIT1--구분1
+			   	  , CASE WHEN DSP_RQ_KND_CD_STD = '100' THEN '변상판정'   
+			             WHEN DSP_RQ_KND_CD_STD = '200' THEN '징계문책'  
+			             WHEN DSP_RQ_KND_CD_STD = '300' THEN '시정'  
+			             WHEN DSP_RQ_KND_CD_STD = '400' THEN '개선'  
+			             WHEN DSP_RQ_KND_CD_STD = '500' THEN(CASE WHEN DSP_RQ_KND_CD_TYP = '10' THEN '건수' WHEN DSP_RQ_KND_CD_TYP = '20' THEN '금액' WHEN DSP_RQ_KND_CD_TYP = '30' THEN '인원' END)        
+			             WHEN DSP_RQ_KND_CD_STD = '600' THEN(CASE WHEN DSP_RQ_KND_CD_TYP = '10' THEN '건수' WHEN DSP_RQ_KND_CD_TYP = '20' THEN '금액' WHEN DSP_RQ_KND_CD_TYP = '30' THEN '인원' END)                          
+			             WHEN DSP_RQ_KND_CD_STD = '700' THEN(CASE WHEN DSP_RQ_KND_CD_TYP = '10' THEN '건수' WHEN DSP_RQ_KND_CD_TYP = '20' THEN '금액' WHEN DSP_RQ_KND_CD_TYP = '30' THEN '인원' END)       
+			             WHEN DSP_RQ_KND_CD_STD = '800' THEN(CASE WHEN DSP_RQ_KND_CD_TYP = '10' THEN '건수' WHEN DSP_RQ_KND_CD_TYP = '20' THEN '금액' WHEN DSP_RQ_KND_CD_TYP = '30' THEN '인원' END)               
+			             WHEN DSP_RQ_KND_CD_STD = '900' THEN(CASE WHEN DSP_RQ_KND_CD_TYP = '10' THEN '건수' WHEN DSP_RQ_KND_CD_TYP = '20' THEN '금액' WHEN DSP_RQ_KND_CD_TYP = '30' THEN '인원' END)  
+			             WHEN DSP_RQ_KND_CD_STD = '050' THEN '소계'
+			             ELSE DECODE(DSP_RQ_KND_CD_TYP, '10', '건수', '20', '금액', '30', '인원')||'합계'
+			         END                                                   AS STTC_TIT2--구분2
+			     , CASE WHEN DSP_RQ_KND_CD_TYP = '10' THEN(CASE WHEN DSP_RQ_KND_CD_STD = '000' THEN '건수합계' ELSE '건수' END)
+			            WHEN DSP_RQ_KND_CD_TYP = '20' THEN(CASE WHEN DSP_RQ_KND_CD_STD = '000' THEN '금액합계' ELSE '금액' END)
+			            WHEN DSP_RQ_KND_CD_TYP = '30' THEN(CASE WHEN DSP_RQ_KND_CD_STD = '000' THEN '인원합계' ELSE '인원' END)
+			         END                                                   AS STTC_TIT3--구분3
+			     , CASE WHEN DSP_RQ_KND_CD_TYP = '20'  AND DSP_RQ_KND_CD_STD = '000' THEN TRUNC(TOT_TARGET/1000000)      
+			     		WHEN DSP_RQ_KND_CD_STD = '050' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_TARGET/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '100' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_TARGET/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '200' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_TARGET/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '300' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_TARGET/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '400' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_TARGET/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '600' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_TARGET/1000000)
+			     		ELSE TOT_TARGET
+			     	END 				AS STTC_COL1--"총 이행대상 계"
+			     , CASE WHEN DSP_RQ_KND_CD_TYP = '20'  AND DSP_RQ_KND_CD_STD = '000' THEN TRUNC(TOT_BEFORE/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '050' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_BEFORE/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '100' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_BEFORE/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '200' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_BEFORE/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '300' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_BEFORE/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '400' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_BEFORE/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '600' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_BEFORE/1000000)
+			     		ELSE TOT_BEFORE
+			     	END        			AS STTC_COL2--"총 이행대상 전년이월"
+			     , CASE WHEN DSP_RQ_KND_CD_TYP = '20'  AND DSP_RQ_KND_CD_STD = '000' THEN TRUNC(TOT_NOW/1000000)        
+			     		WHEN DSP_RQ_KND_CD_STD = '050' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_NOW/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '100' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_NOW/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '200' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_NOW/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '300' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_NOW/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '400' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_NOW/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '600' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_NOW/1000000)
+			     		ELSE TOT_NOW
+			     	END 				AS STTC_COL3--"총 이행대상 신규발생"
+			     , CASE WHEN DSP_RQ_KND_CD_TYP = '20'  AND DSP_RQ_KND_CD_STD = '000' THEN TRUNC(TOT_DTM/1000000)        
+			     		WHEN DSP_RQ_KND_CD_STD = '050' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_DTM/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '100' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_DTM/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '200' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_DTM/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '300' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_DTM/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '400' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_DTM/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '600' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_DTM/1000000)
+			     		ELSE TOT_DTM
+			     	END 				AS STTC_COL4--"이행"
+			
+			     , CASE WHEN DSP_RQ_KND_CD_TYP = '20'  AND DSP_RQ_KND_CD_STD = '000' THEN TRUNC(NO_DTM_AM/1000000)        
+			     		WHEN DSP_RQ_KND_CD_STD = '050' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_AM/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '100' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_AM/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '200' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_AM/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '300' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_AM/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '400' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_AM/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '600' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_AM/1000000)
+			     		ELSE NO_DTM_AM
+			     	END 				AS STTC_COL5--"미이행 계"
+			     , CASE WHEN DSP_RQ_KND_CD_TYP = '20' AND DSP_RQ_KND_CD_STD = '000' THEN TRUNC(NO_DTM_COME/1000000)        
+			     		WHEN DSP_RQ_KND_CD_STD = '050' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_COME/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '100' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_COME/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '200' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_COME/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '300' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_COME/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '400' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_COME/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '600' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_COME/1000000)
+			     		ELSE NO_DTM_COME
+			     	END 				AS STTC_COL6--"기한도래"
+			     , CASE WHEN DSP_RQ_KND_CD_TYP = '20' AND DSP_RQ_KND_CD_STD = '000' THEN TRUNC(NO_DTM_NO_COME_AM/1000000)        
+			     		WHEN DSP_RQ_KND_CD_STD = '050' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_NO_COME_AM/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '100' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_NO_COME_AM/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '200' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_NO_COME_AM/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '300' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_NO_COME_AM/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '400' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_NO_COME_AM/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '600' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_NO_COME_AM/1000000)
+			     		ELSE NO_DTM_NO_COME_AM
+			     	END 				AS STTC_COL7--"기한미도래"
+			           
+			     , CASE WHEN DSP_RQ_KND_CD_TYP = '20' AND DSP_RQ_KND_CD_STD = '000' THEN TRUNC(TOT_NO_DTM_YR/1000000)        
+			     		WHEN DSP_RQ_KND_CD_STD = '050' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_NO_DTM_YR/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '100' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_NO_DTM_YR/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '200' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_NO_DTM_YR/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '300' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_NO_DTM_YR/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '400' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_NO_DTM_YR/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '600' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(TOT_NO_DTM_YR/1000000)
+			     		ELSE TOT_NO_DTM_YR
+			     	END 				AS STTC_COL8--"미이행 기간 계"
+			     , CASE WHEN DSP_RQ_KND_CD_TYP = '20' AND DSP_RQ_KND_CD_STD = '000' THEN TRUNC(NO_DTM_YR_2/1000000)        
+			     		WHEN DSP_RQ_KND_CD_STD = '050' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_YR_2/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '100' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_YR_2/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '200' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_YR_2/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '300' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_YR_2/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '400' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_YR_2/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '600' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_YR_2/1000000)
+			     		ELSE NO_DTM_YR_2
+			     	END 				AS STTC_COL9--"2년 미만"
+			     , CASE WHEN DSP_RQ_KND_CD_TYP = '20' AND DSP_RQ_KND_CD_STD = '000' THEN TRUNC(NO_DTM_YR_23/1000000)        
+			     		WHEN DSP_RQ_KND_CD_STD = '050' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_YR_23/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '100' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_YR_23/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '200' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_YR_23/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '300' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_YR_23/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '400' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_YR_23/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '600' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_YR_23/1000000)
+			     		ELSE NO_DTM_YR_23
+			     	END 				      AS STTC_COL10--"2년 이상 ~ 3년 미만"
+			     , CASE WHEN DSP_RQ_KND_CD_TYP = '20' AND DSP_RQ_KND_CD_STD = '000' THEN TRUNC(NO_DTM_YR_3/1000000)        
+			     		WHEN DSP_RQ_KND_CD_STD = '050' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_YR_3/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '100' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_YR_3/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '200' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_YR_3/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '300' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_YR_3/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '400' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_YR_3/1000000)
+			     		WHEN DSP_RQ_KND_CD_STD = '600' AND DSP_RQ_KND_CD_TYP = '20'  THEN TRUNC(NO_DTM_YR_3/1000000)
+			     		ELSE NO_DTM_YR_3
+			     	END 				       AS STTC_COL11--"3년 이상"
+			  FROM BASE_DATA3 ORDER BY DSP_RQ_KND_CD_STD, DSP_RQ_KND_CD_TYP)
+		        ]]>
+    </select>
+    
+    <select id="selectComboList" parameterType="paramMap" resultType="egovMap">
+        <![CDATA[
+        /* kr.go.bai.eip.aep.arp.dao.FAACAV016QMapper.selectAffComboList */
+            SELECT STTC_TYP_SEQ AS CD,
+                   STTC_YR || '년 ' || STTC_STR_MON || '월' || DECODE(STTC_END_MON, '01', '', ' ~ ' || STTC_END_MON || '월') AS CD_NM
+              FROM TWFAACAV200M 
+             WHERE STTC_TYP_CD = '10'
+               AND STTC_CLSF_CD = '016'
+        ]]>
+        <if test='mngDptYn != "Y"'>
+               AND STTC_DTM_DY IS NOT NULL
+        </if>
+        <![CDATA[
+        	ORDER BY STTC_TYP_SEQ DESC
+        ]]>
+    </select>
+    
+    <select id="selectSttcList" parameterType="paramMap" resultType="egovMap">
+        <![CDATA[
+        /* kr.go.bai.eip.aep.arp.dao.FAACAV016QMapper.selectSttcList */
+            SELECT T1.RMK
+                  ,T1.ADM_OPIN
+                  ,TO_CHAR(T1.STTC_PROD_STAD_DY,'YYYY-MM-DD') AS STTC_PROD_STAD_DY
+                  ,CASE WHEN T1.STTC_DTM_DY IS NULL THEN 'N'
+                        ELSE 'Y'
+                   END AS STTC_DTM_YN
+                  ,T2.STTC_TYP_CD
+                  ,T2.STTC_CLSF_CD
+                  ,T2.STTC_TYP_SEQ
+                  ,T2.STTC_DATA_SNO
+                  ,T2.STTC_TIT1
+                  ,T2.STTC_TIT2
+                  ,T2.STTC_TIT3                                    
+                  ,T2.STTC_COL1
+                  ,T2.STTC_COL2
+                  ,T2.STTC_COL3
+                  ,T2.STTC_COL4
+                  ,T2.STTC_COL5
+                  ,T2.STTC_COL6
+                  ,T2.STTC_COL7
+                  ,T2.STTC_COL8
+                  ,T2.STTC_COL9
+                  ,T2.STTC_COL10
+                  ,T2.STTC_COL11
+                  ,CASE WHEN T1.STTC_YR > T2.AUD_YR THEN 'N'
+                  		WHEN AUD_YR IS NULL THEN 'N'
+                        ELSE 'Y'
+                   END VIEW_YN
+                  ,CASE WHEN T1.STTC_YR = T2.AUD_YR THEN 'N'
+                        WHEN AUD_YR IS NULL THEN 'N'
+                        WHEN T1.STTC_YR - 6 = T2.AUD_YR THEN 'N'
+                        ELSE 'Y'
+                   END CHART_VIEW_YN
+                  ,T2.AUD_YR
+                  ,T2.ROW_KND_CD
+                  ,NVL(TO_CHAR(T1.STTC_DTM_DY,'YYYY"-"MM"-"DD'),'미확정') AS STTC_DTM_DY
+              FROM TWFAACAV200M T1
+             INNER JOIN TWFAACAV200D T2 ON (
+                        T1.STTC_TYP_CD = T2.STTC_TYP_CD
+                    AND T1.STTC_CLSF_CD = T2.STTC_CLSF_CD
+                    AND T1.STTC_TYP_SEQ = T2.STTC_TYP_SEQ )
+             WHERE T1.STTC_CLSF_CD = '016'
+               AND T1.STTC_TYP_SEQ = #{sttcTypSeq}
+             ORDER BY STTC_DATA_SNO
+        ]]>
+    </select>
+    
+    <insert id="insertMaster">
+        /* kr.go.bai.eip.faa.cav.dao.FAACAV016QMapper.insertMaster */
+        <![CDATA[
+            INSERT INTO TWFAACAV200M (
+                 STTC_TYP_CD
+                ,STTC_CLSF_CD
+                ,STTC_TYP_SEQ
+                ,STTC_YR
+                ,STTC_STR_MON
+                ,STTC_END_MON
+                ,STTC_PROD_STAD_DY
+                ,STTC_DTM_DY
+                ,RMK
+                ,ADM_OPIN
+                ,FRT_USR_ID
+                ,FNL_USR_ID
+                ,FNL_DEAL_DPT_CD
+                ,FNL_MNU_ID
+                ,FRT_REGI_DH
+                ,FNL_MDF_DH )
+            VALUES (
+                 '10'
+                ,'016'
+                ,( SELECT NVL(MAX(STTC_TYP_SEQ), 0) + 1
+                     FROM TWFAACAV200M
+                    WHERE STTC_TYP_CD = '10'
+                      AND STTC_CLSF_CD = '016' )
+                ,SUBSTR(ADD_MONTHS(#{proStadDt}, -1), 0, 4)
+                ,'01'
+                ,TO_CHAR(TO_DATE(ADD_MONTHS(#{proStadDt}, -1)), 'MM')
+                ,#{proStadDt}
+                ,''
+                ,#{rmk}
+                ,#{admOpin}
+                ,#{usrId}
+                ,#{usrId}
+                ,#{dptCd}
+                ,#{mnuId}
+                ,SYSDATE
+                ,SYSDATE )
+        ]]>
+    </insert>
+    
+    <insert id="insertDetail">
+        /* kr.go.bai.eip.faa.cav.dao.FAACAV016QMapper.insertDetail */
+        <![CDATA[
+            INSERT INTO TWFAACAV200D (
+                 STTC_TYP_CD
+                ,STTC_CLSF_CD
+                ,STTC_TYP_SEQ
+                ,STTC_DATA_SNO
+                ,STTC_TIT1
+                ,STTC_TIT2
+                ,STTC_TIT3                                
+                ,STTC_COL1
+                ,STTC_COL2
+                ,STTC_COL3
+                ,STTC_COL4
+                ,STTC_COL5
+                ,STTC_COL6
+                ,STTC_COL7
+                ,STTC_COL8
+                ,STTC_COL9
+                ,STTC_COL10
+                ,STTC_COL11            
+                ,AUD_YR
+                ,ROW_KND_CD
+                ,FRT_USR_ID
+                ,FNL_USR_ID
+                ,FNL_DEAL_DPT_CD
+                ,FNL_MNU_ID
+                ,FRT_REGI_DH
+                ,FNL_MDF_DH )
+            VALUES (
+                 '10'
+                ,'016'
+                ,( SELECT NVL(MAX(STTC_TYP_SEQ), 0)
+                     FROM TWFAACAV200M
+                    WHERE STTC_TYP_CD = '10'
+                      AND STTC_CLSF_CD = '016' )
+                ,( SELECT NVL(MAX(STTC_DATA_SNO), 0) + 1
+                     FROM TWFAACAV200D
+                    WHERE STTC_TYP_CD = '10'
+                      AND STTC_CLSF_CD = '016' 
+                      AND STTC_TYP_SEQ = ( SELECT NVL(MAX(STTC_TYP_SEQ), 0)
+                                             FROM TWFAACAV200M
+                                            WHERE STTC_TYP_CD = '10'
+                                              AND STTC_CLSF_CD = '016' ))
+                ,#{sttcTit1}
+                ,#{sttcTit2}
+                ,#{sttcTit3}                                
+                ,#{sttcCol1}
+                ,#{sttcCol2}
+                ,#{sttcCol3}
+                ,#{sttcCol4}
+                ,#{sttcCol5}
+                ,#{sttcCol6}
+                ,#{sttcCol7}
+                ,#{sttcCol8}
+                ,#{sttcCol9}
+                ,#{sttcCol10}
+                ,#{sttcCol11}                
+                ,#{audYr}
+                ,#{rowKndCd}
+                ,#{usrId}
+                ,#{usrId}
+                ,#{dptCd}
+                ,#{mnuId}
+                ,SYSDATE
+                ,SYSDATE )
+        ]]>
+    </insert>
+    
+    <insert id="updateMaster">
+        /* kr.go.bai.eip.faa.cav.dao.FAACAV016QMapper.updateMaster */
+        <![CDATA[
+            UPDATE TWFAACAV200M
+               SET RMK = #{rmk}
+                  ,ADM_OPIN = #{admOpin}
+                  ,FNL_USR_ID = #{usrId}
+                  ,FNL_DEAL_DPT_CD = #{dptCd}
+                  ,FNL_MDF_DH = SYSDATE
+             WHERE STTC_TYP_CD = #{sttcTypCd}
+               AND STTC_CLSF_CD = #{sttcClsfCd}
+               AND STTC_TYP_SEQ = #{sttcTypSeq}
+        ]]>
+    </insert>
+    
+    <insert id="updateDetail">
+        /* kr.go.bai.eip.faa.cav.dao.FAACAV016QMapper.updateDetail */
+        <![CDATA[
+            UPDATE TWFAACAV200D
+               SET STTC_COL1 = #{sttcCol1}
+                  ,STTC_COL2 = #{sttcCol2}
+                  ,STTC_COL3 = #{sttcCol3}
+                  ,STTC_COL4 = #{sttcCol4}
+                  ,STTC_COL5 = #{sttcCol5}
+                  ,STTC_COL6 = #{sttcCol6}
+                  ,STTC_COL7 = #{sttcCol7}
+                  ,STTC_COL8 = #{sttcCol8}
+                  ,STTC_COL9 = #{sttcCol9}
+                  ,STTC_COL10 = #{sttcCol10}
+                  ,STTC_COL11 = #{sttcCol11}
+                  ,FNL_USR_ID = #{usrId}
+                  ,FNL_DEAL_DPT_CD = #{dptCd}
+                  ,FNL_MDF_DH = SYSDATE
+             WHERE STTC_TYP_CD = #{sttcTypCd}
+               AND STTC_CLSF_CD = #{sttcClsfCd}
+               AND STTC_TYP_SEQ = #{sttcTypSeq}
+               AND STTC_DATA_SNO = #{sttcDataSno}
+        ]]>
+    </insert>
+    
+    <insert id="updateMasterDtmDy">
+        /* kr.go.bai.eip.faa.cav.dao.FAACAV016QMapper.updateMasterDtmDy */
+        <![CDATA[
+            UPDATE TWFAACAV200M
+               SET STTC_DTM_DY = SYSDATE
+                  ,FNL_USR_ID = #{usrId}
+                  ,FNL_DEAL_DPT_CD = #{dptCd}
+                  ,FNL_MDF_DH = SYSDATE
+             WHERE STTC_TYP_CD = #{sttcTypCd}
+               AND STTC_CLSF_CD = #{sttcClsfCd}
+               AND STTC_TYP_SEQ = #{sttcTypSeq}
+        ]]>
+    </insert>
+    
+</mapper>

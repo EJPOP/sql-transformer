@@ -1,0 +1,953 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/ear/032">
+
+	<!--##################### 징계문책 관련자 중 동명이인 시작 #################################-->
+	<select id="BADEAR32Qselect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT PSON.DFNT_NAM                                                                                        AS USR_NAM,
+			       SUBSTR(DETAIL.ENF_DT,1,6)||'-'||DETAIL.ENF_BRDV_CD||'-'||DETAIL.DOC_SEN_NO||'-'||DETAIL.DSP_RQ_SRNO  AS NO,
+			       PSON.EIN                                                                                             AS EIN
+			  FROM TBBADEAR001M MASTER,
+			       TBBADEAR002D DETAIL,
+			       TBBADEAR007M PSON
+			 WHERE MASTER.AUD_YR       = DETAIL.AUD_YR
+			   AND MASTER.AUD_NO       = DETAIL.AUD_NO
+			   AND MASTER.DSP_RQ_SNO   = DETAIL.DSP_RQ_SNO
+			   AND MASTER.AUD_YR       = PSON.AUD_YR
+			   AND MASTER.AUD_NO       = PSON.AUD_NO
+			   AND MASTER.DSP_RQ_SNO   = PSON.DSP_RQ_SNO
+			   AND DETAIL.ENF_DT     BETWEEN #strStartFromDt# /*화면 시행기간 범위 FROM*/||'01' AND #strStartToDt# /*화면 시행기간 범위 TO*/||'31'
+			   AND MASTER.DSP_RQ_KND_CD = '210'
+			 ORDER BY PSON.DFNT_NAM
+        ]]>
+	</select>
+	<!--##################### 징계문책 관련자 중 동명이인 끝 #################################-->
+
+	<!--##################### 징계문책 관련자 중 동명이인 시작 #################################-->
+	<select id="BADEAR32Qselect2" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+		select b.ENF_BRDV_CD,/*부서코드*/
+		       b.DOC_SEN_NO, /*시행문서번호*/
+		       b.DSP_RQ_SRNO, /*처분요구번호*/
+		       b.ENF_DT,  /*시행일자*/
+		       F_ORG_INFO(b.COPT_OFI_CD, '1') as COMPTAUTH_NM, /*소관청명*/
+		       F_ORG_INFO(b.RLTN_ORG_CD, '1') as REL_ORG_NM, /*처분요구기관명*/
+		       F_CODE_NM('1000002', a.DSP_RQ_KND_CD ) as DSP_RQ_KND_CD_NM,/*처분요구명*/
+		       a.TIT_TXT /*제목*/
+		  from TBBADEAR001M a,
+		       TBBADEAR002D b
+		 where a.AUD_YR = b.AUD_YR
+		   and a.AUD_NO = b.AUD_NO
+		   and a.DSP_RQ_SNO = b.DSP_RQ_SNO
+		   and b.ENF_DT between #strStartFromDt#||'01' and #strStartToDt#||'31'
+		   and b.DTM_STA_CD != '0'
+		   and a.DSP_RQ_KND_CD <= '730'
+		   and SUBSTR(b.WRDO_TYP_CD, 1, 1) = '2'
+		   and SUBSTR(b.COPT_OFI_CD, 1, 3) != SUBSTR(b.RLTN_ORG_CD, 1, 3)
+        ]]>
+	</select>
+	<!--##################### 징계문책 관련자 중 동명이인 끝 #################################-->
+	
+	<!--##################### 징계문책 관련자 중 동명이인 시작 #################################-->
+	<select id="BADEAR32Qselect2-1" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+		select count(*) as READ_CNT /*READ_CNT*/
+		  from TBBADEAR001M a,
+		       TBBADEAR002D b
+		 where a.AUD_YR = b.AUD_YR
+		   and a.AUD_NO = b.AUD_NO
+		   and a.DSP_RQ_SNO = b.DSP_RQ_SNO
+		   and b.ENF_DT between #strStartFromDt#||'01' and #strStartToDt#||'31'
+		   and b.DTM_STA_CD != '0'
+		   and a.DSP_RQ_KND_CD <= '730'
+        ]]>
+	</select>
+	<!--##################### 징계문책 관련자 중 동명이인 끝 #################################-->
+	
+	
+	<!--##################### 개인별 감사활동 결과 적출실적 목록1 시작 #################################-->
+	<select id="BADEAR32Qselect3-1" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[      
+		        SELECT  F_MNG_KND_AUDYRNO(A.AUD_YR, A.AUD_NO, T1.AUD_KND_CD, '-') ||'-'|| A.DSP_RQ_SNO AS NO
+				       ,TO_CHAR(TO_DATE(B.ENF_DT),'YYYY.MM.DD')          AS ENF_DT
+				       ,F_CODE_NM('1000002',A.DSP_RQ_KND_CD)             AS DSP_RQ_KND_NM
+				       ,NVL(C.PNL_DRIN_PSVT_AM,0)                        AS PNL_DRIN_PSVT_AM
+				       ,NVL(C.IJS_AM,0)                                  AS IJS_AM
+				       ,TO_CHAR(NVL(C.NOP_RTE,0),'999,990.99')           AS NOP_RTE
+				       ,CASE WHEN C.CTB_RTE = 100 
+				                  THEN '단독' 
+				             ELSE '공동' 
+				         END                                             AS TYPE_GB
+				       ,F_ORG_INFO(B.RLTN_ORG_CD,'1')                    AS RLTN_ORG_NM
+				       ,A.TIT_TXT                                        AS TIT_TXT
+				  from  TBBADEAR001M A
+				       ,TBBADEAR002D B
+				       ,TBBADEAR004M C
+				       ,TBBADDED001M T1
+				 WHERE 1=1
+				   AND A.AUD_YR         = B.AUD_YR
+				   AND A.AUD_NO         = B.AUD_NO
+				   AND A.AUD_YR         = T1.AUD_YR
+				   AND A.AUD_NO         = T1.AUD_NO				   
+				   AND A.DSP_RQ_SNO     = B.DSP_RQ_SNO
+				   AND A.AUD_YR         = C.AUD_YR
+				   AND A.AUD_NO         = C.AUD_NO
+				   AND A.DSP_RQ_SNO     = C.DSP_RQ_SNO
+				   AND B.ENF_DT         BETWEEN #strStartFromDt#||'01' AND #strStartToDt#||'31'
+				   AND B.DTM_STA_CD    !='0'			   
+				   AND A.DSP_RQ_KND_CD <='730'
+                   AND C.ETR_PEN_ID     = #strEtrPenId#					   
+				 ORDER BY B.ENF_DT
+        ]]>
+	</select>
+	<!--##################### 개인별 감사활동 결과 적출실적 목록1  끝  #################################-->
+		
+	
+	<!--##################### 개인별 감사활동 결과 적출실적 목록2 시작 #################################-->
+	<select id="BADEAR32Qselect3-2" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+
+				 SELECT B.DISP_REQ_NM                          AS SUB0
+				       ,B.GUBUN                                AS SUB1
+				       ,NVL(A.A2, 0)                           AS SUB2
+				       ,NVL(A.A3, 0)                           AS SUB3
+				       ,NVL(A.A4, 0)                           AS SUB4
+				       ,TO_CHAR(NVL(A.A5,0),'999,990.99')      AS SUB5
+				       ,NVL(A.BUNHO, #strEtrPenId#)       AS SUB9 
+				  FROM (SELECT  CASE WHEN A.DSP_RQ_KND_CD = '611' THEN '01'
+				                     WHEN A.DSP_RQ_KND_CD = '510' THEN '02'
+				                     WHEN A.DSP_RQ_KND_CD = '110' THEN '03'
+				                     WHEN A.DSP_RQ_KND_CD = '730' THEN '04'
+				                     WHEN A.DSP_RQ_KND_CD = '310' THEN '05'
+				                     WHEN A.DSP_RQ_KND_CD = '320' THEN '05'
+				                     WHEN A.DSP_RQ_KND_CD = '720' THEN '06'
+				                     WHEN A.DSP_RQ_KND_CD = '520' THEN '07'
+				                     WHEN A.DSP_RQ_KND_CD = '410' THEN '08'
+				                     WHEN A.DSP_RQ_KND_CD = '710' THEN '09'
+				                     WHEN A.DSP_RQ_KND_CD = '210' THEN '10'
+				                     WHEN A.DSP_RQ_KND_CD = '610' THEN '11'
+				                     WHEN A.DSP_RQ_KND_CD = '630' THEN '12'
+				                     WHEN A.DSP_RQ_KND_CD = '620' THEN '13'
+				                     WHEN A.DSP_RQ_KND_CD = '621' THEN '13'
+				                     WHEN A.DSP_RQ_KND_CD = '530' THEN '14'
+				                     WHEN A.DSP_RQ_KND_CD = '390' THEN '15'
+				                     WHEN A.DSP_RQ_KND_CD = '391' THEN '15'
+				                     WHEN A.DSP_RQ_KND_CD = '490' THEN '16' 
+				                     WHEN A.DSP_RQ_KND_CD = '625' THEN '17' /* 통보(시정완료):625 추가 - 2016.11.23 yyh */
+				                     WHEN A.DSP_RQ_KND_CD = '395' THEN '18' /* 시정(국장전결):395 추가 - 2022.11.25 */
+				                     WHEN A.DSP_RQ_KND_CD = '396' THEN '18' /* 시정(국장전결):396 추가 - 2022.11.25 */
+				                     WHEN A.DSP_RQ_KND_CD = '495' THEN '19' /* 주의(국장전결):495 추가 - 2022.11.25 */
+				                     END       AS AA
+				               ,CASE WHEN NVL(C.CTB_RTE,0) = 100  THEN '단독' 
+				                     ELSE '공동' 
+				                 END                                                  AS A1
+				               ,COUNT(C.CTB_RTE)                                      AS A2
+				               ,SUM(NVL(C.PNL_DRIN_PSVT_AM,0))                        AS A3
+				               ,SUM(NVL(C.IJS_AM,0))                                  AS A4
+				               ,SUM(NVL(C.NOP_RTE,0))                                 AS A5
+				               ,MAX(C.ETR_PEN_ID)                                     AS BUNHO 
+				          from  TBBADEAR001M A, 
+				                TBBADEAR002D B, 
+				                TBBADEAR004M C
+				         WHERE 1=1
+				           AND B.DTM_STA_CD     !='0'
+				           AND A.DSP_RQ_KND_CD <='730'
+				           AND C.ETR_PEN_ID     = #strEtrPenId#
+				           AND B.ENF_DT BETWEEN #strStartFromDt#||'01' and #strStartToDt#||'31'
+				           AND A.AUD_YR         = B.AUD_YR
+				           AND A.AUD_NO         = B.AUD_NO
+				           AND A.DSP_RQ_SNO     = B.DSP_RQ_SNO
+				           AND A.AUD_YR         = C.AUD_YR
+				           AND A.AUD_NO         = C.AUD_NO
+				           AND A.DSP_RQ_SNO     = C.DSP_RQ_SNO
+				      GROUP BY CASE WHEN A.DSP_RQ_KND_CD = '611' THEN '01'
+				                    WHEN A.DSP_RQ_KND_CD = '510' THEN '02'
+				                    WHEN A.DSP_RQ_KND_CD = '110' THEN '03'
+				                    WHEN A.DSP_RQ_KND_CD = '730' THEN '04'
+				                    WHEN A.DSP_RQ_KND_CD = '310' THEN '05'
+				                    WHEN A.DSP_RQ_KND_CD = '320' THEN '05'
+				                    WHEN A.DSP_RQ_KND_CD = '720' THEN '06'
+				                    WHEN A.DSP_RQ_KND_CD = '520' THEN '07'
+				                    WHEN A.DSP_RQ_KND_CD = '410' THEN '08'
+				                    WHEN A.DSP_RQ_KND_CD = '710' THEN '09'
+				                    WHEN A.DSP_RQ_KND_CD = '210' THEN '10'
+				                    WHEN A.DSP_RQ_KND_CD = '610' THEN '11'
+				                    WHEN A.DSP_RQ_KND_CD = '630' THEN '12'
+				                    WHEN A.DSP_RQ_KND_CD = '620' THEN '13'
+				                    WHEN A.DSP_RQ_KND_CD = '621' THEN '13'
+				                    WHEN A.DSP_RQ_KND_CD = '530' THEN '14'
+				                    WHEN A.DSP_RQ_KND_CD = '390' THEN '15'
+				                    WHEN A.DSP_RQ_KND_CD = '391' THEN '15'
+				                    WHEN A.DSP_RQ_KND_CD = '490' THEN '16' 
+				                    WHEN A.DSP_RQ_KND_CD = '625' THEN '17'
+				                    WHEN A.DSP_RQ_KND_CD = '395' THEN '18'
+				                    WHEN A.DSP_RQ_KND_CD = '396' THEN '18' 
+				                    WHEN A.DSP_RQ_KND_CD = '495' THEN '19'
+				                    END 
+				              ,CASE WHEN NVL(C.CTB_RTE,0) = 100  THEN '단독'
+				                    ELSE '공동' 
+				                END
+				       ) A,
+				       (SELECT  B.DSP_RQ_KND_CD
+				               ,CASE WHEN B.DSP_RQ_KND_CD = '01' THEN  B.DISP_REQ_NM            
+				                     WHEN B.DSP_RQ_KND_CD = '02' THEN  B.DISP_REQ_NM            
+				                     WHEN B.DSP_RQ_KND_CD = '03' THEN  B.DISP_REQ_NM            
+				                     WHEN B.DSP_RQ_KND_CD = '04' THEN  B.DISP_REQ_NM            
+				                     WHEN B.DSP_RQ_KND_CD = '05' THEN  B.DISP_REQ_NM            
+				                     WHEN B.DSP_RQ_KND_CD = '06' THEN  B.DISP_REQ_NM            
+				                     WHEN B.DSP_RQ_KND_CD = '07' THEN  B.DISP_REQ_NM            
+				                     WHEN B.DSP_RQ_KND_CD = '08' THEN  B.DISP_REQ_NM            
+				                     WHEN B.DSP_RQ_KND_CD = '09' THEN  B.DISP_REQ_NM            
+				                     WHEN B.DSP_RQ_KND_CD = '10' THEN  B.DISP_REQ_NM            
+				                     WHEN B.DSP_RQ_KND_CD = '11' THEN  B.DISP_REQ_NM            
+				                     WHEN B.DSP_RQ_KND_CD = '12' THEN  B.DISP_REQ_NM            
+				                     WHEN B.DSP_RQ_KND_CD = '13' THEN  B.DISP_REQ_NM            
+				                     WHEN B.DSP_RQ_KND_CD = '14' THEN  B.DISP_REQ_NM            
+				                     WHEN B.DSP_RQ_KND_CD = '15' THEN  B.DISP_REQ_NM            
+				                     WHEN B.DSP_RQ_KND_CD = '16' THEN  B.DISP_REQ_NM 
+				                     WHEN B.DSP_RQ_KND_CD = '17' THEN  B.DISP_REQ_NM
+				                     WHEN B.DSP_RQ_KND_CD = '18' THEN  B.DISP_REQ_NM
+				                     WHEN B.DSP_RQ_KND_CD = '19' THEN  B.DISP_REQ_NM
+				                     END   AS DISP_REQ_NM
+				               ,A.GUBUN 
+				          from (SELECT '단독' AS GUBUN FROM DUAL
+				                UNION 
+				                SELECT '공동' AS GUBUN FROM DUAL
+				               ) A,
+				               (SELECT '01'   AS DSP_RQ_KND_CD,     '권    고' AS DISP_REQ_NM FROM DUAL
+				                UNION
+				                SELECT '02'   AS DSP_RQ_KND_CD,     '법령개선' AS DISP_REQ_NM FROM DUAL
+				                UNION
+				                SELECT '03'   AS DSP_RQ_KND_CD,     '변상판정' AS DISP_REQ_NM FROM DUAL
+				                UNION
+				                SELECT '04'   AS DSP_RQ_KND_CD,     '수사자료' AS DISP_REQ_NM FROM DUAL
+				                UNION
+				                SELECT '05'   AS DSP_RQ_KND_CD,     '시    정' AS DISP_REQ_NM FROM DUAL
+				                UNION
+				                SELECT '06'   AS DSP_RQ_KND_CD,     '자체고발' AS DISP_REQ_NM FROM DUAL
+				                UNION
+				                SELECT '07'   AS DSP_RQ_KND_CD,     '제도개선' AS DISP_REQ_NM FROM DUAL
+				                UNION
+				                SELECT '08'   AS DSP_RQ_KND_CD,     '주    의' AS DISP_REQ_NM FROM DUAL
+				                UNION
+				                SELECT '09'   AS DSP_RQ_KND_CD,     '직접고발' AS DISP_REQ_NM FROM DUAL
+				                UNION
+				                SELECT '10'   AS DSP_RQ_KND_CD,     '징계문책' AS DISP_REQ_NM FROM DUAL     
+				                UNION
+				                SELECT '11'   AS DSP_RQ_KND_CD,     '통    보' AS DISP_REQ_NM FROM DUAL                                                                                       
+				                UNION
+				                SELECT '12'   AS DSP_RQ_KND_CD,     '통보개선' AS DISP_REQ_NM FROM DUAL
+				                UNION
+				                SELECT '13'   AS DSP_RQ_KND_CD,     '통보인사' AS DISP_REQ_NM FROM DUAL     
+				                UNION
+				                SELECT '14'   AS DSP_RQ_KND_CD,     '행정개선' AS DISP_REQ_NM FROM DUAL     
+				                UNION
+				                SELECT '15'   AS DSP_RQ_KND_CD,     '현지시정' AS DISP_REQ_NM FROM DUAL     
+				                UNION
+				                SELECT '16'   AS DSP_RQ_KND_CD,     '현지주의' AS DISP_REQ_NM FROM DUAL   
+				                UNION
+				                SELECT '17'   AS DSP_RQ_KND_CD,     '통보(시정완료)' AS DISP_REQ_NM FROM DUAL
+				                UNION
+				                SELECT '18'   AS DSP_RQ_KND_CD,     '시정(국장전결)' AS DISP_REQ_NM FROM DUAL
+				                UNION
+				                SELECT '19'   AS DSP_RQ_KND_CD,     '주의(국장전결)' AS DISP_REQ_NM FROM DUAL   				                 
+				               ) B             
+				       ) B
+				 WHERE A.AA(+) = B.DSP_RQ_KND_CD
+				   AND A.A1(+) = B.GUBUN
+				 ORDER BY B.DISP_REQ_NM
+        ]]>
+	</select>
+	<!--##################### 개인별 감사활동 결과 적출실적 목록2  끝  #################################-->
+	
+	
+	<!--##################### 개인별 감사활동 결과 적출실적 목록3 시작 #################################-->
+	<select id="BADEAR32Qselect3-3" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[      
+			 SELECT MAX(CASE WHEN T1.NM = '공동' THEN A2 ELSE 0 END)                       AS A1
+                   ,MAX(CASE WHEN T1.NM = '공동' THEN A3 ELSE 0 END)                       AS A2
+                   ,MAX(CASE WHEN T1.NM = '공동' THEN A4 ELSE 0 END)                       AS A3
+                   ,TO_CHAR(MAX(CASE WHEN T1.NM = '공동' THEN A5 ELSE 0 END),'999,990.99') AS A4
+                   ,MAX(CASE WHEN T1.NM = '단독' THEN A2 ELSE 0 END)                       AS A5
+                   ,MAX(CASE WHEN T1.NM = '단독' THEN A3 ELSE 0 END)                       AS A6
+                   ,MAX(CASE WHEN T1.NM = '단독' THEN A4 ELSE 0 END)                       AS A7
+                   ,TO_CHAR(MAX(CASE WHEN T1.NM = '단독' THEN A5 ELSE 0 END),'999,990.99') AS A8                                                   
+                FROM (
+						 SELECT '공동'                                       AS NM 
+						        ,NVL(COUNT(C.CTB_RTE),0)                     AS A2
+						        ,NVL(SUM(NVL(C.PNL_DRIN_PSVT_AM,0)),0)       AS A3
+						        ,NVL(SUM(NVL(C.IJS_AM,0)),0)                 AS A4
+						        ,NVL(SUM(NVL(C.NOP_RTE,0)),0)                AS A5
+						   FROM TBBADEAR001M A
+						       ,TBBADEAR002D B
+						       ,TBBADEAR004M C
+						  WHERE 1=1
+						    AND B.DTM_STA_CD     !='0'
+						    AND A.DSP_RQ_KND_CD  <='730'
+						    AND C.ETR_PEN_ID      = #strEtrPenId#
+						    AND B.ENF_DT BETWEEN  #strStartFromDt#||'01' and #strStartToDt#||'31'
+						    AND A.AUD_YR          = B.AUD_YR
+						    AND A.AUD_NO          = B.AUD_NO
+						    AND A.DSP_RQ_SNO      = B.DSP_RQ_SNO
+						    AND A.AUD_YR          = C.AUD_YR
+						    AND A.AUD_NO          = C.AUD_NO
+						    AND A.DSP_RQ_SNO      = C.DSP_RQ_SNO
+						    AND NVL(C.CTB_RTE,0) != 100 
+						 
+						 UNION ALL
+						 
+						 SELECT '단독'                                      AS NM 
+						        ,NVL(COUNT(C.CTB_RTE),0)                   AS A2
+						        ,NVL(SUM(NVL(C.PNL_DRIN_PSVT_AM,0)),0)     AS A3
+						        ,NVL(SUM(NVL(C.IJS_AM,0)),0)               AS A4
+						        ,NVL(SUM(NVL(C.NOP_RTE,0)),0)              AS A5
+						   FROM TBBADEAR001M A
+						       ,TBBADEAR002D B
+						       ,TBBADEAR004M C
+						  WHERE 1=1
+						    AND B.DTM_STA_CD      !='0'
+						    AND A.DSP_RQ_KND_CD   <='730'
+						    AND C.ETR_PEN_ID       = #strEtrPenId#
+						    AND B.ENF_DT BETWEEN   #strStartFromDt#||'01' and #strStartToDt#||'31'
+						    AND A.AUD_YR           = B.AUD_YR
+						    AND A.AUD_NO           = B.AUD_NO
+						    AND A.DSP_RQ_SNO       = B.DSP_RQ_SNO
+						    AND A.AUD_YR           = C.AUD_YR
+						    AND A.AUD_NO           = C.AUD_NO
+						    AND A.DSP_RQ_SNO       = C.DSP_RQ_SNO
+						    AND NVL(C.CTB_RTE,0)   = 100
+				  ) T1				    
+        ]]>
+	</select>
+	<!--##################### 개인별 감사활동 결과 적출실적 목록3  끝  #################################-->
+	
+	
+	<!--##################### 개인별 감사활동 결과 적출실적 통계1 시작 #################################-->
+	<select id="BADEAR32Qselect4-1" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+			SELECT B.DISP_REQ_NM AS SUB0,
+			       B.GUBUN AS SUB1,
+			       NVL(A.A2, 0) AS SUB2,
+			       TO_CHAR(NVL(A.A6, 0), '999,990.99') AS SUB6,
+			       NVL(A.A3, 0) AS SUB3,
+			       NVL(A.A4, 0) AS SUB4,
+			       TO_CHAR(NVL(A.A5, 0), '999,990.99') AS SUB5,
+			       NVL(A.BUNHO, #strEtrPenId#) AS SUB9, /*전산번호 넣어야 함*/
+			       NVL(A.A7, 0) AS SUB7, /*중복제거 갯수*/
+			       TO_CHAR(NVL(A.A8, 0), '999,990.99') AS SUB8
+			  FROM (SELECT AAA.AA,AAA.A1,AAA.A2,AAA.A6,AAA.A3,AAA.A4,AAA.A5,AAA.BUNHO,AAA.A7,BBB.A8
+			FROM
+			(
+			SELECT
+			   CASE
+			     WHEN A.DSP_RQ_KND_CD = '611' THEN '01'
+			     WHEN A.DSP_RQ_KND_CD = '510' THEN '02'
+			     WHEN A.DSP_RQ_KND_CD = '110' THEN '03'
+			     WHEN A.DSP_RQ_KND_CD = '730' THEN '04'
+			     WHEN A.DSP_RQ_KND_CD = '310' THEN '05'
+			     WHEN A.DSP_RQ_KND_CD = '320' THEN '05'
+			     WHEN A.DSP_RQ_KND_CD = '720' THEN '06'
+			     WHEN A.DSP_RQ_KND_CD = '520' THEN '07'
+			     WHEN A.DSP_RQ_KND_CD = '410' THEN '08'
+			     WHEN A.DSP_RQ_KND_CD = '710' THEN '09'
+			     WHEN A.DSP_RQ_KND_CD = '210' THEN '10'
+			     WHEN A.DSP_RQ_KND_CD = '610' THEN '11'
+			     WHEN A.DSP_RQ_KND_CD = '630' THEN '12'
+			     WHEN A.DSP_RQ_KND_CD = '620' THEN '13'
+			     WHEN A.DSP_RQ_KND_CD = '621' THEN '13'
+			     WHEN A.DSP_RQ_KND_CD = '530' THEN '14'
+			     WHEN A.DSP_RQ_KND_CD = '390' THEN '15'
+			     WHEN A.DSP_RQ_KND_CD = '391' THEN '15'
+			     WHEN A.DSP_RQ_KND_CD = '490' THEN '16'
+			     WHEN A.DSP_RQ_KND_CD = '625' THEN '17' /* 통보(시정완료):625 추가 - 2016.11.23 yyh */
+			     WHEN A.DSP_RQ_KND_CD = '395' THEN '18'
+                 WHEN A.DSP_RQ_KND_CD = '396' THEN '18' 
+                 WHEN A.DSP_RQ_KND_CD = '495' THEN '19'
+			   END AS AA ,
+			   CASE
+			     WHEN NVL(C.CTB_RTE, 0) = 100 THEN '단독'
+			     ELSE '공동'
+			   END AS A1 ,
+			   COUNT(C.CTB_RTE) AS A2 ,
+			   NVL(SUM(C.CTB_RTE / 100), 0) AS A6 ,
+			   SUM(NVL(C.PNL_DRIN_PSVT_AM, 0)) AS A3 ,
+			   SUM(NVL(C.IJS_AM, 0)) AS A4 ,
+			   SUM(NVL(C.NOP_RTE, 0)) AS A5 ,
+			   MAX(C.ETR_PEN_ID) AS BUNHO,
+			   COUNT(DISTINCT (A.TIT_TXT)) AS A7
+			FROM TBBADEAR001M A,
+			   TBBADEAR002D B,
+			   TBBADEAR004M C
+			WHERE 1=1
+			AND B.DTM_STA_CD != '0'
+			AND A.DSP_RQ_KND_CD <= '730'
+			AND C.ETR_PEN_ID = #strEtrPenId#
+			AND B.ENF_DT BETWEEN #strStartFromDt# || '01' AND #strStartToDt# || '31'
+			AND A.AUD_YR = B.AUD_YR
+			AND A.AUD_NO = B.AUD_NO
+			AND A.DSP_RQ_SNO = B.DSP_RQ_SNO
+			AND A.AUD_YR = C.AUD_YR
+			AND A.AUD_NO = C.AUD_NO
+			AND A.DSP_RQ_SNO = C.DSP_RQ_SNO
+			GROUP BY
+			CASE
+			 WHEN A.DSP_RQ_KND_CD = '611' THEN '01'
+			 WHEN A.DSP_RQ_KND_CD = '510' THEN '02'
+			 WHEN A.DSP_RQ_KND_CD = '110' THEN '03'
+			 WHEN A.DSP_RQ_KND_CD = '730' THEN '04'
+			 WHEN A.DSP_RQ_KND_CD = '310' THEN '05'
+			 WHEN A.DSP_RQ_KND_CD = '320' THEN '05'
+			 WHEN A.DSP_RQ_KND_CD = '720' THEN '06'
+			 WHEN A.DSP_RQ_KND_CD = '520' THEN '07'
+			 WHEN A.DSP_RQ_KND_CD = '410' THEN '08'
+			 WHEN A.DSP_RQ_KND_CD = '710' THEN '09'
+			 WHEN A.DSP_RQ_KND_CD = '210' THEN '10'
+			 WHEN A.DSP_RQ_KND_CD = '610' THEN '11'
+			 WHEN A.DSP_RQ_KND_CD = '630' THEN '12'
+			 WHEN A.DSP_RQ_KND_CD = '620' THEN '13'
+			 WHEN A.DSP_RQ_KND_CD = '621' THEN '13'
+			 WHEN A.DSP_RQ_KND_CD = '530' THEN '14'
+			 WHEN A.DSP_RQ_KND_CD = '390' THEN '15'
+			 WHEN A.DSP_RQ_KND_CD = '391' THEN '15'
+			 WHEN A.DSP_RQ_KND_CD = '490' THEN '16'
+			 WHEN A.DSP_RQ_KND_CD = '625' THEN '17'
+			 WHEN A.DSP_RQ_KND_CD = '395' THEN '18'
+             WHEN A.DSP_RQ_KND_CD = '396' THEN '18' 
+             WHEN A.DSP_RQ_KND_CD = '495' THEN '19'
+			END ,
+			CASE
+			 WHEN NVL(C.CTB_RTE, 0) = 100 THEN '단독'
+			 ELSE '공동'
+			END
+			) AAA,
+			           
+			(           
+			SELECT 
+			    CASE
+			     WHEN A.DSP_RQ_KND_CD = '611' THEN '01'
+			     WHEN A.DSP_RQ_KND_CD = '510' THEN '02'
+			     WHEN A.DSP_RQ_KND_CD = '110' THEN '03'
+			     WHEN A.DSP_RQ_KND_CD = '730' THEN '04'
+			     WHEN A.DSP_RQ_KND_CD = '310' THEN '05'
+			     WHEN A.DSP_RQ_KND_CD = '320' THEN '05'
+			     WHEN A.DSP_RQ_KND_CD = '720' THEN '06'
+			     WHEN A.DSP_RQ_KND_CD = '520' THEN '07'
+			     WHEN A.DSP_RQ_KND_CD = '410' THEN '08'
+			     WHEN A.DSP_RQ_KND_CD = '710' THEN '09'
+			     WHEN A.DSP_RQ_KND_CD = '210' THEN '10'
+			     WHEN A.DSP_RQ_KND_CD = '610' THEN '11'
+			     WHEN A.DSP_RQ_KND_CD = '630' THEN '12'
+			     WHEN A.DSP_RQ_KND_CD = '620' THEN '13'
+			     WHEN A.DSP_RQ_KND_CD = '621' THEN '13'
+			     WHEN A.DSP_RQ_KND_CD = '530' THEN '14'
+			     WHEN A.DSP_RQ_KND_CD = '390' THEN '15'
+			     WHEN A.DSP_RQ_KND_CD = '391' THEN '15'
+			     WHEN A.DSP_RQ_KND_CD = '490' THEN '16'
+			     WHEN A.DSP_RQ_KND_CD = '625' THEN '17' /* 통보(시정완료):625 추가 - 2016.11.23 yyh */
+			     WHEN A.DSP_RQ_KND_CD = '395' THEN '18'
+                 WHEN A.DSP_RQ_KND_CD = '396' THEN '18' 
+                 WHEN A.DSP_RQ_KND_CD = '495' THEN '19'
+			   END AS BASE_DSP_RQ_KND_CD,
+			   CASE
+			     WHEN NVL(A.BASE_CTB_RTE, 0) = 100 THEN '단독'
+			     ELSE '공동'
+			   END AS A1 ,
+			   NVL(SUM(A.BASE_CTB_RTE / 100), 0) AS A8
+			        FROM (
+			            SELECT
+			                 DSP_RQ_KND_CD
+			                 ,TIT_TXT
+			                ,CASE
+			                    WHEN COUNT(TIT_TXT)>1 THEN AVG(C.CTB_RTE)
+			                    ELSE MAX(C.CTB_RTE)
+			                END AS BASE_CTB_RTE
+			            FROM TBBADEAR001M A,
+			               TBBADEAR002D B,
+			               TBBADEAR004M C
+			            WHERE 1=1
+			            AND B.DTM_STA_CD != '0'
+			            AND A.DSP_RQ_KND_CD <= '730'
+			            AND C.ETR_PEN_ID = #strEtrPenId#
+			            AND B.ENF_DT BETWEEN #strStartFromDt# || '01' AND #strStartToDt# || '31'
+			            AND A.AUD_YR = B.AUD_YR
+			            AND A.AUD_NO = B.AUD_NO
+			            AND A.DSP_RQ_SNO = B.DSP_RQ_SNO
+			            AND A.AUD_YR = C.AUD_YR
+			            AND A.AUD_NO = C.AUD_NO
+			            AND A.DSP_RQ_SNO = C.DSP_RQ_SNO
+			        GROUP BY DSP_RQ_KND_CD , TIT_TXT
+			        ) A
+			     GROUP BY
+			CASE
+			 WHEN A.DSP_RQ_KND_CD = '611' THEN '01'
+			 WHEN A.DSP_RQ_KND_CD = '510' THEN '02'
+			 WHEN A.DSP_RQ_KND_CD = '110' THEN '03'
+			 WHEN A.DSP_RQ_KND_CD = '730' THEN '04'
+			 WHEN A.DSP_RQ_KND_CD = '310' THEN '05'
+			 WHEN A.DSP_RQ_KND_CD = '320' THEN '05'
+			 WHEN A.DSP_RQ_KND_CD = '720' THEN '06'
+			 WHEN A.DSP_RQ_KND_CD = '520' THEN '07'
+			 WHEN A.DSP_RQ_KND_CD = '410' THEN '08'
+			 WHEN A.DSP_RQ_KND_CD = '710' THEN '09'
+			 WHEN A.DSP_RQ_KND_CD = '210' THEN '10'
+			 WHEN A.DSP_RQ_KND_CD = '610' THEN '11'
+			 WHEN A.DSP_RQ_KND_CD = '630' THEN '12'
+			 WHEN A.DSP_RQ_KND_CD = '620' THEN '13'
+			 WHEN A.DSP_RQ_KND_CD = '621' THEN '13'
+			 WHEN A.DSP_RQ_KND_CD = '530' THEN '14'
+			 WHEN A.DSP_RQ_KND_CD = '390' THEN '15'
+			 WHEN A.DSP_RQ_KND_CD = '391' THEN '15'
+			 WHEN A.DSP_RQ_KND_CD = '490' THEN '16'
+			 WHEN A.DSP_RQ_KND_CD = '625' THEN '17'
+			 WHEN A.DSP_RQ_KND_CD = '395' THEN '18'
+             WHEN A.DSP_RQ_KND_CD = '396' THEN '18' 
+             WHEN A.DSP_RQ_KND_CD = '495' THEN '19'
+			END ,
+			CASE
+			 WHEN NVL(A.BASE_CTB_RTE, 0) = 100 THEN '단독'
+			 ELSE '공동'
+			END
+			) BBB
+			WHERE 1=1
+			AND AAA.AA = BBB.BASE_DSP_RQ_KND_CD
+			AND AAA.A1 = BBB.A1 ) A,
+			       (SELECT B.DSP_RQ_KND_CD ,
+			                       CASE
+			                         WHEN B.DSP_RQ_KND_CD = '01' THEN B.DISP_REQ_NM
+			                         WHEN B.DSP_RQ_KND_CD = '02' THEN B.DISP_REQ_NM
+			                         WHEN B.DSP_RQ_KND_CD = '03' THEN B.DISP_REQ_NM
+			                         WHEN B.DSP_RQ_KND_CD = '04' THEN B.DISP_REQ_NM
+			                         WHEN B.DSP_RQ_KND_CD = '05' THEN B.DISP_REQ_NM
+			                         WHEN B.DSP_RQ_KND_CD = '06' THEN B.DISP_REQ_NM
+			                         WHEN B.DSP_RQ_KND_CD = '07' THEN B.DISP_REQ_NM
+			                         WHEN B.DSP_RQ_KND_CD = '08' THEN B.DISP_REQ_NM
+			                         WHEN B.DSP_RQ_KND_CD = '09' THEN B.DISP_REQ_NM
+			                         WHEN B.DSP_RQ_KND_CD = '10' THEN B.DISP_REQ_NM
+			                         WHEN B.DSP_RQ_KND_CD = '11' THEN B.DISP_REQ_NM
+			                         WHEN B.DSP_RQ_KND_CD = '12' THEN B.DISP_REQ_NM
+			                         WHEN B.DSP_RQ_KND_CD = '13' THEN B.DISP_REQ_NM
+			                         WHEN B.DSP_RQ_KND_CD = '14' THEN B.DISP_REQ_NM
+			                         WHEN B.DSP_RQ_KND_CD = '15' THEN B.DISP_REQ_NM
+			                         WHEN B.DSP_RQ_KND_CD = '16' THEN B.DISP_REQ_NM
+			                         WHEN B.DSP_RQ_KND_CD = '17' THEN B.DISP_REQ_NM
+			                         WHEN B.DSP_RQ_KND_CD = '18' THEN B.DISP_REQ_NM
+			                         WHEN B.DSP_RQ_KND_CD = '19' THEN B.DISP_REQ_NM
+			                       END AS DISP_REQ_NM ,
+			               A.GUBUN
+			          FROM (SELECT '단독' AS GUBUN
+			                  FROM DUAL
+			                 UNION
+			SELECT '공동' AS GUBUN
+			                  FROM DUAL ) A,
+			               (SELECT '01' AS DSP_RQ_KND_CD,
+			                       '권    고' AS DISP_REQ_NM
+			                  FROM DUAL
+			                 UNION
+			SELECT '02' AS DSP_RQ_KND_CD,
+			                       '법령개선' AS DISP_REQ_NM
+			                  FROM DUAL
+			                 UNION
+			SELECT '03' AS DSP_RQ_KND_CD,
+			                       '변상판정' AS DISP_REQ_NM
+			                  FROM DUAL
+			                 UNION
+			SELECT '04' AS DSP_RQ_KND_CD,
+			                       '수사자료' AS DISP_REQ_NM
+			                  FROM DUAL
+			                 UNION
+			SELECT '05' AS DSP_RQ_KND_CD,
+			                       '시    정' AS DISP_REQ_NM
+			                  FROM DUAL
+			                 UNION
+			SELECT '06' AS DSP_RQ_KND_CD,
+			                       '자체고발' AS DISP_REQ_NM
+			                  FROM DUAL
+			                 UNION
+			SELECT '07' AS DSP_RQ_KND_CD,
+			                       '제도개선' AS DISP_REQ_NM
+			                  FROM DUAL
+			                 UNION
+			SELECT '08' AS DSP_RQ_KND_CD,
+			                       '주    의' AS DISP_REQ_NM
+			                  FROM DUAL
+			                 UNION
+			SELECT '09' AS DSP_RQ_KND_CD,
+			                       '직접고발' AS DISP_REQ_NM
+			                  FROM DUAL
+			                 UNION
+			SELECT '10' AS DSP_RQ_KND_CD,
+			                       '징계문책' AS DISP_REQ_NM
+			                  FROM DUAL
+			                 UNION
+			SELECT '11' AS DSP_RQ_KND_CD,
+			                       '통    보' AS DISP_REQ_NM
+			                  FROM DUAL
+			                 UNION
+			SELECT '12' AS DSP_RQ_KND_CD,
+			                       '통보개선' AS DISP_REQ_NM
+			                  FROM DUAL
+			                 UNION
+			SELECT '13' AS DSP_RQ_KND_CD,
+			                       '통보인사' AS DISP_REQ_NM
+			                  FROM DUAL
+			                 UNION
+			SELECT '14' AS DSP_RQ_KND_CD,
+			                       '행정개선' AS DISP_REQ_NM
+			                  FROM DUAL
+			                 UNION
+			SELECT '15' AS DSP_RQ_KND_CD,
+			                       '현지시정' AS DISP_REQ_NM
+			                  FROM DUAL
+			                 UNION
+			SELECT '16' AS DSP_RQ_KND_CD,
+			                       '현지주의' AS DISP_REQ_NM
+			                  FROM DUAL
+			                 UNION
+			SELECT '17' AS DSP_RQ_KND_CD,
+			                       '통보(시정완료)' AS DISP_REQ_NM
+			                  FROM DUAL
+							 UNION
+			SELECT '18' AS DSP_RQ_KND_CD,
+			                       '시정(국장전결)' AS DISP_REQ_NM
+			                  FROM DUAL
+			                  UNION
+			SELECT '19' AS DSP_RQ_KND_CD,
+			                       '주의(국장전결)' AS DISP_REQ_NM
+			                  FROM DUAL ) B ) B
+			 WHERE A.AA(+) = B.DSP_RQ_KND_CD
+			   AND A.A1(+) = B.GUBUN
+			 ORDER BY B.DISP_REQ_NM
+        ]]>
+	</select>
+	<!--##################### 개인별 감사활동 결과 적출실적 통계1  끝  #################################-->	
+	
+	
+	<!--##################### 개인별 감사활동 결과 적출실적 통계2 시작 #################################-->
+	<select id="BADEAR32Qselect4-2" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[ 
+	        SELECT MAX(
+                       CASE
+                         WHEN T1.NM = '공동' THEN A2
+                         ELSE 0
+                       END) AS A1 ,
+		       TO_CHAR(MAX(
+                       CASE
+                         WHEN T1.NM = '공동' THEN A9
+                         ELSE 0
+                       END), '999,990.99') AS A9 ,
+		       MAX(
+						CASE
+						  WHEN T1.NM = '공동' THEN A3
+						  ELSE 0
+						END) AS A2 ,
+		       MAX(
+                       CASE
+                         WHEN T1.NM = '공동' THEN A4
+                         ELSE 0
+                       END) AS A3 ,
+		       TO_CHAR(MAX(
+                       CASE
+                         WHEN T1.NM = '공동' THEN A5
+                         ELSE 0
+                       END), '999,990.99') AS A4 ,
+		       MAX(
+                       CASE
+                         WHEN T1.NM = '공동' THEN DIS_TIT_TXT
+                         ELSE 0
+                       END) AS A11 ,
+		       TO_CHAR(MAX(
+                       CASE
+                         WHEN T1.NM = '공동' THEN DIS_CTB_RTE
+                         ELSE 0
+                       END), '999,990.99') AS A12 ,                                                      
+		       MAX(
+                       CASE
+                         WHEN T1.NM = '단독' THEN A2
+                         ELSE 0
+                       END) AS A5 ,
+		       TO_CHAR(MAX(
+                       CASE
+                         WHEN T1.NM = '단독' THEN A9
+                         ELSE 0
+                       END), '999,990.99') AS A10 ,
+		       MAX(
+                       CASE
+                         WHEN T1.NM = '단독' THEN A3
+                         ELSE 0
+                       END) AS A6 ,
+		       MAX(
+                       CASE
+                         WHEN T1.NM = '단독' THEN A4
+                         ELSE 0
+                       END) AS A7 ,
+		       TO_CHAR(MAX(
+                       CASE
+                         WHEN T1.NM = '단독' THEN A5
+                         ELSE 0
+                       END), '999,990.99') AS A8,                
+		             MAX(
+                       CASE
+                         WHEN T1.NM = '단독' THEN DIS_TIT_TXT
+                         ELSE 0
+                       END) AS A13 ,
+		       TO_CHAR(MAX(
+                       CASE
+                         WHEN T1.NM = '단독' THEN DIS_CTB_RTE
+                         ELSE 0
+                       END), '999,990.99') AS A14  
+		  FROM (SELECT '공동' AS NM ,A2 ,A9 ,A3 ,A4 ,A5 ,DIS_TIT_TXT,DIS_CTB_RTE
+		    FROM (
+		         SELECT
+		               NVL(COUNT(C.CTB_RTE), 0) AS A2 ,
+		               NVL(SUM(C.CTB_RTE / 100), 0) AS A9 ,
+		               NVL(SUM(NVL(C.PNL_DRIN_PSVT_AM, 0)), 0) AS A3 ,
+		               NVL(SUM(NVL(C.IJS_AM, 0)), 0) AS A4 ,
+		               NVL(SUM(NVL(C.NOP_RTE, 0)), 0) AS A5 
+		          FROM TBBADEAR001M A ,
+		               TBBADEAR002D B ,
+		               TBBADEAR004M C 
+		         WHERE 1 = 1
+		           AND B.DTM_STA_CD != '0'
+		           AND A.DSP_RQ_KND_CD <= '730'
+		           AND C.ETR_PEN_ID = #strEtrPenId#
+		           AND B.ENF_DT BETWEEN #strStartFromDt# || '01' AND #strStartToDt# || '31'
+		           AND A.AUD_YR = B.AUD_YR
+		           AND A.AUD_NO = B.AUD_NO
+		           AND A.DSP_RQ_SNO = B.DSP_RQ_SNO
+		           AND A.AUD_YR = C.AUD_YR
+		           AND A.AUD_NO = C.AUD_NO
+		           AND A.DSP_RQ_SNO = C.DSP_RQ_SNO
+		           AND NVL(C.CTB_RTE, 0) != 100
+		           ) AA,
+		            (
+		            SELECT
+		             SUM(COUNT(DISTINCT TIT_TXT)) AS DIS_TIT_TXT,
+		             NVL(SUM(CASE
+		                WHEN COUNT(TIT_TXT)>1 THEN AVG(C.CTB_RTE) 
+		                ELSE MAX(C.CTB_RTE)
+		             END)/100,0) AS DIS_CTB_RTE
+		            FROM TBBADEAR001M A,
+		            TBBADEAR002D B,
+		            TBBADEAR004M C
+		            WHERE 1=1
+		            AND B.DTM_STA_CD != '0'
+		            AND A.DSP_RQ_KND_CD <= '730'
+		            AND C.ETR_PEN_ID = #strEtrPenId#
+		            AND B.ENF_DT BETWEEN #strStartFromDt# || '01' AND #strStartToDt# || '31'
+		            AND A.AUD_YR = B.AUD_YR
+		            AND A.AUD_NO = B.AUD_NO
+		            AND A.DSP_RQ_SNO = B.DSP_RQ_SNO
+		            AND A.AUD_YR = C.AUD_YR
+		            AND A.AUD_NO = C.AUD_NO
+		            AND A.DSP_RQ_SNO = C.DSP_RQ_SNO
+		            AND NVL(C.CTB_RTE, 0) != 100
+		            GROUP BY DSP_RQ_KND_CD , TIT_TXT
+		           ) BB
+		           
+		         UNION ALL
+		         
+		SELECT '단독' AS NM ,A2 ,A9 ,A3 ,A4 ,A5 ,DIS_TIT_TXT,DIS_CTB_RTE
+		    FROM (
+		         SELECT
+		               NVL(COUNT(C.CTB_RTE), 0) AS A2 ,
+		               NVL(SUM(C.CTB_RTE / 100), 0) AS A9 ,
+		               NVL(SUM(NVL(C.PNL_DRIN_PSVT_AM, 0)), 0) AS A3 ,
+		               NVL(SUM(NVL(C.IJS_AM, 0)), 0) AS A4 ,
+		               NVL(SUM(NVL(C.NOP_RTE, 0)), 0) AS A5 
+		          FROM TBBADEAR001M A ,
+		               TBBADEAR002D B ,
+		               TBBADEAR004M C 
+		         WHERE 1 = 1
+		           AND B.DTM_STA_CD != '0'
+		           AND A.DSP_RQ_KND_CD <= '730'
+		           AND C.ETR_PEN_ID = #strEtrPenId#
+		           AND B.ENF_DT BETWEEN #strStartFromDt# || '01' AND #strStartToDt# || '31'
+		           AND A.AUD_YR = B.AUD_YR
+		           AND A.AUD_NO = B.AUD_NO
+		           AND A.DSP_RQ_SNO = B.DSP_RQ_SNO
+		           AND A.AUD_YR = C.AUD_YR
+		           AND A.AUD_NO = C.AUD_NO
+		           AND A.DSP_RQ_SNO = C.DSP_RQ_SNO
+		           AND NVL(C.CTB_RTE, 0) = 100
+		           ) AA,
+		            (
+		            SELECT
+		             SUM(COUNT(DISTINCT TIT_TXT)) AS DIS_TIT_TXT,
+		             NVL(SUM(CASE
+		                WHEN COUNT(TIT_TXT)>1 THEN AVG(C.CTB_RTE) 
+		                ELSE MAX(C.CTB_RTE)
+		             END)/100,0) AS DIS_CTB_RTE
+		            FROM TBBADEAR001M A,
+		            TBBADEAR002D B,
+		            TBBADEAR004M C
+		            WHERE 1=1
+		            AND B.DTM_STA_CD != '0'
+		            AND A.DSP_RQ_KND_CD <= '730'
+		            AND C.ETR_PEN_ID = #strEtrPenId#
+		            AND B.ENF_DT BETWEEN #strStartFromDt# || '01' AND #strStartToDt# || '31'
+		            AND A.AUD_YR = B.AUD_YR
+		            AND A.AUD_NO = B.AUD_NO
+		            AND A.DSP_RQ_SNO = B.DSP_RQ_SNO
+		            AND A.AUD_YR = C.AUD_YR
+		            AND A.AUD_NO = C.AUD_NO
+		            AND A.DSP_RQ_SNO = C.DSP_RQ_SNO
+		            AND NVL(C.CTB_RTE, 0) = 100
+		            GROUP BY DSP_RQ_KND_CD , TIT_TXT
+		           ) BB ) T1   
+        ]]>
+	</select>
+	<!--##################### 개인별 감사활동 결과 적출실적 통계2  끝  #################################-->		
+	
+	
+	<!--##################### 개인별 실적(인사) 시작 #################################-->
+	<select id="BADEAR32Qselect5" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[       
+
+			SELECT  M.DPT_CD
+			       ,M.DPT_NM
+			       ,M.USR_NAM
+			       ,M.RANK_NM
+			       ,(M.A1 + M.B1 + M.C1 + M.D1 + M.E1 + M.F1 + M.G1) AS GUNSU
+			       ,(M.A2 + M.C2)                                    AS AMT
+			       ,NVL((M.A3 + M.C3),0)                             AS AMT1
+			       ,TO_CHAR(M.B2 + M.F2 + M.G2, '999,990.99')        AS INWON
+			       ,M.A1
+			       ,M.A2
+			       ,M.A3
+			       ,M.B1
+			       ,TO_CHAR(M.B2,'999,990.99')                       AS B2
+			       ,M.C1
+			       ,M.C2
+			       ,M.C3
+			       ,M.D1
+			       ,M.E1
+			       ,M.F1
+			       ,TO_CHAR(M.F2,'999,990.99')                       AS F2
+			       ,M.G1
+			       ,TO_CHAR(M.G2,'999,990.99')                       AS G2 
+			  FROM (SELECT C.ETR_PEN_ID                                                                                AS ETR_PEN_ID
+			              ,NVL(D.DPT_CD,'ZZZZZZ')                                                                      AS DPT_CD
+			              ,E.DPT_NM                                                                                    AS DPT_NM
+			              ,D.USR_NAM                                                                                   AS USR_NAM
+			              ,F_CODE_NM('1000173',D.RANK_CD)                                                              AS RANK_NM
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='1' THEN 1 ELSE 0 END )                          AS A1
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='1' THEN NVL(C.PNL_DRIN_PSVT_AM,0) ELSE 0 END )  AS A2
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='1' THEN NVL(C.IJS_AM,0) ELSE  0 END )           AS A3 
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='2' THEN 1 ELSE 0 END )                          AS B1
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='2' THEN NVL(C.NOP_RTE,0) ELSE 0 END )           AS B2
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='3' THEN 1 ELSE 0 END )                          AS C1
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='3' THEN NVL(C.PNL_DRIN_PSVT_AM,0) ELSE 0 END )  AS C2
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='3' THEN NVL(C.IJS_AM,0) ELSE  0 END )           AS C3 
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='4' THEN 1 ELSE 0 END )                          AS D1
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='5' THEN 1 ELSE 0 END )                          AS E1 
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='6' THEN 1 ELSE 0 END )                          AS F1 
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='6' THEN NVL(C.NOP_RTE,0) ELSE 0 END )           AS F2
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='7' THEN 1 ELSE 0 END )                          AS G1
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='7' THEN NVL(C.NOP_RTE,0) ELSE 0 END )           AS G2  
+			         FROM  TBBADEAR001M   A, 
+			               TBBADEAR002D   B, 
+			               TBBADEAR004M   C,
+			               TBDCMACM001M   D, 
+			               TBDCMACM002M   E
+			         WHERE 1=1
+			           AND B.DTM_STA_CD     !='0'
+			           AND A.DSP_RQ_KND_CD  <='730'
+			           AND B.ENF_DT         BETWEEN #strStartFromDt#||'01' and #strStartToDt#||'31'
+			           AND A.AUD_YR          = B.AUD_YR
+			           AND A.AUD_NO          = B.AUD_NO
+			           AND A.DSP_RQ_SNO      = B.DSP_RQ_SNO
+			           AND A.AUD_YR          = C.AUD_YR
+			           AND A.AUD_NO          = C.AUD_NO
+			           AND A.DSP_RQ_SNO      = C.DSP_RQ_SNO
+			           AND C.ETR_PEN_ID      = D.CNB(+)
+			           AND D.DPT_CD          = E.DPT_CD(+)
+			         GROUP BY C.ETR_PEN_ID
+			                 ,D.DPT_CD
+			                 ,E.DPT_NM
+			                 ,D.USR_NAM
+			                 ,D.RANK_CD
+			       ) M
+			 ORDER BY M.DPT_CD
+			         ,M.RANK_NM
+			         ,M.USR_NAM
+			         ,M.DPT_NM
+
+        ]]>
+	</select>
+	
+	<select id="BADEAR32Qselect5Grid" parameterClass="paramMap" resultClass="resultMap">
+		<include refid="include.pageSelct" />
+        <![CDATA[       
+
+			SELECT  M.DPT_CD
+			       ,M.DPT_NM
+			       ,M.USR_NAM
+			       ,M.RANK_NM
+			       ,(M.A1 + M.B1 + M.C1 + M.D1 + M.E1 + M.F1 + M.G1) AS GUNSU
+			       ,(M.A2 + M.C2)                                    AS AMT
+			       ,NVL((M.A3 + M.C3),0)                             AS AMT1
+			       ,TO_CHAR(M.B2 + M.F2 + M.G2, '999,990.99')        AS INWON
+			       ,M.A1
+			       ,M.A2
+			       ,M.A3
+			       ,M.B1
+			       ,TO_CHAR(M.B2,'999,990.99')                       AS B2
+			       ,M.C1
+			       ,M.C2
+			       ,M.C3
+			       ,M.D1
+			       ,M.E1
+			       ,M.F1
+			       ,TO_CHAR(M.F2,'999,990.99')                       AS F2
+			       ,M.G1
+			       ,TO_CHAR(M.G2,'999,990.99')                       AS G2 
+			  FROM (SELECT C.ETR_PEN_ID                                                                                AS ETR_PEN_ID
+			              ,NVL(D.DPT_CD,'ZZZZZZ')                                                                      AS DPT_CD
+			              ,E.DPT_NM                                                                                    AS DPT_NM
+			              ,D.USR_NAM                                                                                   AS USR_NAM
+			              ,F_CODE_NM('1000173',D.RANK_CD)                                                              AS RANK_NM
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='1' THEN 1 ELSE 0 END )                          AS A1
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='1' THEN NVL(C.PNL_DRIN_PSVT_AM,0) ELSE 0 END )  AS A2
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='1' THEN NVL(C.IJS_AM,0) ELSE  0 END )           AS A3 
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='2' THEN 1 ELSE 0 END )                          AS B1
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='2' THEN NVL(C.NOP_RTE,0) ELSE 0 END )           AS B2
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='3' THEN 1 ELSE 0 END )                          AS C1
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='3' THEN NVL(C.PNL_DRIN_PSVT_AM,0) ELSE 0 END )  AS C2
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='3' THEN NVL(C.IJS_AM,0) ELSE  0 END )           AS C3 
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='4' THEN 1 ELSE 0 END )                          AS D1
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='5' THEN 1 ELSE 0 END )                          AS E1 
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='6' THEN 1 ELSE 0 END )                          AS F1 
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='6' THEN NVL(C.NOP_RTE,0) ELSE 0 END )           AS F2
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='7' THEN 1 ELSE 0 END )                          AS G1
+			              ,SUM( CASE WHEN SUBSTR(A.DSP_RQ_KND_CD,1,1)='7' THEN NVL(C.NOP_RTE,0) ELSE 0 END )           AS G2  
+			         FROM  TBBADEAR001M   A, 
+			               TBBADEAR002D   B, 
+			               TBBADEAR004M   C,
+			               TBDCMACM001M   D, 
+			               TBDCMACM002M   E
+			         WHERE 1=1
+			           AND B.DTM_STA_CD     !='0'
+			           AND A.DSP_RQ_KND_CD  <='730'
+			           AND B.ENF_DT         BETWEEN #strStartFromDt#||'01' and #strStartToDt#||'31'
+			           AND A.AUD_YR          = B.AUD_YR
+			           AND A.AUD_NO          = B.AUD_NO
+			           AND A.DSP_RQ_SNO      = B.DSP_RQ_SNO
+			           AND A.AUD_YR          = C.AUD_YR
+			           AND A.AUD_NO          = C.AUD_NO
+			           AND A.DSP_RQ_SNO      = C.DSP_RQ_SNO
+			           AND C.ETR_PEN_ID      = D.CNB(+)
+			           AND D.DPT_CD          = E.DPT_CD(+)
+			         GROUP BY C.ETR_PEN_ID
+			                 ,D.DPT_CD
+			                 ,E.DPT_NM
+			                 ,D.USR_NAM
+			                 ,D.RANK_CD
+			       ) M
+        ]]>
+        <include refid="include.pageOrder" />           
+	</select>	
+	<!--##################### 개인별 실적(인사) 끝  #################################-->
+
+</sqlMap> 

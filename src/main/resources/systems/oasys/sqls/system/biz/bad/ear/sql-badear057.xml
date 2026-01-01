@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/ear/057">
+
+	<!-- 감사사항 조회-->
+	<select id="BADEAR057QMainSelect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+            SELECT  /*BADEAR057QMainSelect*/
+            		F_MNG_KND_AUDYRNO(T1.AUD_YR, T1.AUD_NO, T1.AUD_KND_CD, '-') AS AUD_YR_NO  /*감사연번호*/
+            		, F_DPT_INFO(T1.SPV_BRDV_CD,'1')     AS SPV_BRDV_NM                     /*주관국과명*/
+            		,T1.AUD_SBJ_NM
+			        ,T2.ENF_DT
+			        ,T3.PRL_SMT_DT
+			        ,T3.REGI_DT
+			        ,T4.C_PRL_SMT_DT
+			        ,T4.C_REGI_DT
+			        ,DECODE(T5.AUD_STR_DT,NULL,NULL,TO_CHAR(TO_DATE(T5.AUD_STR_DT),'YY-MM-DD')||' ~ '||TO_CHAR(TO_DATE(T5.AUD_END_DT),'YY-MM-DD')) AS AUD_DT	/*감사기간*/
+			FROM    TBBADDED001M T1
+			        ,(  SELECT  AUD_YR, AUD_NO, MAX(ENF_DT) AS ENF_DT
+			            FROM    TBBADEAR002D S1
+			            GROUP BY AUD_YR, AUD_NO
+			        ) T2
+			        ,(  SELECT  SUBSTR(S1.AUD_SLN,1,4) AUD_YR
+			                    , SUBSTR(S1.AUD_SLN,5,3) AS AUD_NO
+			                    , MAX(DGE) AS DGE
+			                    , MAX(S1.PRL_SMT_DT) AS PRL_SMT_DT
+			                    , MAX(S1.REGI_DT) AS REGI_DT
+			            FROM    TBBADEAR028M S1
+			            GROUP BY S1.AUD_SLN
+			         ) T3   /*전문공개*/
+			         ,( SELECT  S1.AUD_YR
+			                    ,S1.AUD_NO
+			                    , MAX(S1.PRL_SMT_DT) AS C_PRL_SMT_DT
+			                    , MAX(S1.REGI_DT) AS C_REGI_DT
+			            FROM    TBBADEAR030M S1
+			            GROUP BY S1.AUD_YR, S1.AUD_NO
+			        ) T4
+			        ,(  SELECT  S1.REL_AUD_YR AS AUD_YR
+			                    ,S1.REL_AUD_NO AS AUD_NO
+			                    ,MIN(AUD_STR_DT) AS AUD_STR_DT
+			                    ,MAX(AUD_END_DT) AS AUD_END_DT
+			            FROM    TBBADDED002M S1
+			            GROUP BY S1.REL_AUD_YR, S1.REL_AUD_NO
+			        )T5
+			WHERE   1=1
+			AND     T1.BZT_BGT_DVSN_CD = '1'    /*원배정인 자료*/
+			AND     T1.AUD_YR = T2.AUD_YR(+)
+			AND     T1.AUD_NO = T2.AUD_NO(+)
+			AND     T1.AUD_YR = T3.AUD_YR(+)
+			AND     T1.AUD_NO = T3.AUD_NO(+)
+			AND     T1.AUD_YR = T4.AUD_YR(+)
+			AND     T1.AUD_NO = T4.AUD_NO(+)
+			AND     T1.AUD_YR = T5.AUD_YR(+)
+			AND     T1.AUD_NO = T5.AUD_NO(+)
+			AND 	T1.SPV_BRDV_CD      IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT('', 'ALL', '', #strDPT_CD#)))
+			
+		]]>	
+		
+		<isNotEmpty property="strAudYrSt">
+			<isNotEmpty property="strAudGrnNoSt">
+	        	<![CDATA[     		
+				  AND T1.AUD_YR||LPAD(T1.AUD_GRN_NO,4,'0') >= #strAudYrSt#||DECODE(#strAudGrnNoSt#,'','0000', LPAD(#strAudGrnNoSt#,4,'0'))
+				]]>
+			</isNotEmpty>
+		</isNotEmpty>	
+		<isNotEmpty property="strAudYrEnd">
+			<isNotEmpty property="strAudGrnNoEnd">
+	        	<![CDATA[     		
+				  AND T1.AUD_YR||LPAD(T1.AUD_GRN_NO,4,'0') <= #strAudYrEnd#||DECODE(#strAudGrnNoEnd#,'','9999', LPAD(#strAudGrnNoEnd#,4,'0'))
+				]]>
+			</isNotEmpty>
+		</isNotEmpty>    
+		<isNotEmpty property="strAudYrNoKndCdSt">
+        	<![CDATA[ 			
+                AND SUBSTR(T1.AUD_KND_CD,3,1) = SUBSTR(#strAudYrNoKndCdSt#,3,1)
+			]]>                 
+		</isNotEmpty>
+		
+		<isNotEmpty property="strAudSbjNm">	
+               AND T1.AUD_SBJ_NM LIKE '%'||#strAudSbjNm#||'%'
+		</isNotEmpty>
+		<isNotEmpty property="strCD2">
+			AND	T2.ENF_DT IS NOT NULL
+		</isNotEmpty>
+		<isNotEmpty property="strCD3">
+			AND	T3.PRL_SMT_DT IS NOT NULL
+		</isNotEmpty>
+		<isNotEmpty property="strCD4">
+			AND	T3.REGI_DT IS NOT NULL
+		</isNotEmpty>
+		<isNotEmpty property="strCD5">
+			AND	T4.C_PRL_SMT_DT IS NOT NULL
+		</isNotEmpty>
+		<isNotEmpty property="strCD6">
+			AND	T4.C_REGI_DT IS NOT NULL
+		</isNotEmpty>
+        <![CDATA[
+        	ORDER BY T1.AUD_YR DESC, T1.AUD_NO DESC
+		]]>
+	</select>
+	
+	<select id="BADEAR057QExcelSelect" parameterClass="paramMap" resultClass="resultMap">
+        <![CDATA[
+            SELECT  /*BADEAR057QExcelSelect*/
+            		F_MNG_KND_AUDYRNO(T1.AUD_YR, T1.AUD_NO, T1.AUD_KND_CD, '-') AS AUD_YR_NO  /*감사연번호*/
+            		, F_DPT_INFO(T1.SPV_BRDV_CD,'1')     AS SPV_BRDV_NM                     /*주관국과명*/
+            		,T1.AUD_SBJ_NM
+			        ,T2.ENF_DT
+			        ,T3.PRL_SMT_DT
+			        ,T3.REGI_DT
+			        ,T4.C_PRL_SMT_DT
+			        ,T4.C_REGI_DT
+			        ,DECODE(T5.AUD_STR_DT,NULL,NULL,TO_CHAR(TO_DATE(T5.AUD_STR_DT),'YY-MM-DD')||' ~ '||TO_CHAR(TO_DATE(T5.AUD_END_DT),'YY-MM-DD')) AS AUD_DT	/*감사기간*/
+			FROM    TBBADDED001M T1
+			        ,(  SELECT  AUD_YR, AUD_NO, MAX(ENF_DT) AS ENF_DT
+			            FROM    TBBADEAR002D S1
+			            GROUP BY AUD_YR, AUD_NO
+			        ) T2
+			        ,(  SELECT  SUBSTR(S1.AUD_SLN,1,4) AUD_YR
+			                    , SUBSTR(S1.AUD_SLN,5,3) AS AUD_NO
+			                    , MAX(DGE) AS DGE
+			                    , MAX(S1.PRL_SMT_DT) AS PRL_SMT_DT
+			                    , MAX(S1.REGI_DT) AS REGI_DT
+			            FROM    TBBADEAR028M S1
+			            GROUP BY S1.AUD_SLN
+			         ) T3   /*전문공개*/
+			         ,( SELECT  S1.AUD_YR
+			                    ,S1.AUD_NO
+			                    , MAX(S1.PRL_SMT_DT) AS C_PRL_SMT_DT
+			                    , MAX(S1.REGI_DT) AS C_REGI_DT
+			            FROM    TBBADEAR030M S1
+			            GROUP BY S1.AUD_YR, S1.AUD_NO
+			        ) T4
+			        ,(  SELECT  S1.REL_AUD_YR AS AUD_YR
+			                    ,S1.REL_AUD_NO AS AUD_NO
+			                    ,MIN(AUD_STR_DT) AS AUD_STR_DT
+			                    ,MAX(AUD_END_DT) AS AUD_END_DT
+			            FROM    TBBADDED002M S1
+			            GROUP BY S1.REL_AUD_YR, S1.REL_AUD_NO
+			        )T5
+			WHERE   1=1
+			AND     T1.BZT_BGT_DVSN_CD = '1'    /*원배정인 자료*/
+			AND     T1.AUD_YR = T2.AUD_YR(+)
+			AND     T1.AUD_NO = T2.AUD_NO(+)
+			AND     T1.AUD_YR = T3.AUD_YR(+)
+			AND     T1.AUD_NO = T3.AUD_NO(+)
+			AND     T1.AUD_YR = T4.AUD_YR(+)
+			AND     T1.AUD_NO = T4.AUD_NO(+)
+			AND     T1.AUD_YR = T5.AUD_YR(+)
+			AND     T1.AUD_NO = T5.AUD_NO(+)
+			AND 	T1.SPV_BRDV_CD      IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT('', 'ALL', '', #strDPT_CD#)))
+			
+		]]>	
+		
+		<isNotEmpty property="strAudYrSt">
+			<isNotEmpty property="strAudGrnNoSt">
+	        	<![CDATA[     		
+				  AND T1.AUD_YR||LPAD(T1.AUD_GRN_NO,4,'0') >= #strAudYrSt#||DECODE(#strAudGrnNoSt#,'','0000', LPAD(#strAudGrnNoSt#,4,'0'))
+				]]>
+			</isNotEmpty>
+		</isNotEmpty>	
+		<isNotEmpty property="strAudYrEnd">
+			<isNotEmpty property="strAudGrnNoEnd">
+	        	<![CDATA[     		
+				  AND T1.AUD_YR||LPAD(T1.AUD_GRN_NO,4,'0') <= #strAudYrEnd#||DECODE(#strAudGrnNoEnd#,'','9999', LPAD(#strAudGrnNoEnd#,4,'0'))
+				]]>
+			</isNotEmpty>
+		</isNotEmpty>    
+		<isNotEmpty property="strAudYrNoKndCdSt">
+        	<![CDATA[ 			
+                AND SUBSTR(T1.AUD_KND_CD,3,1) = SUBSTR(#strAudYrNoKndCdSt#,3,1)
+			]]>                 
+		</isNotEmpty>	         
+
+		<isNotEmpty property="strAudSbjNm">	
+               AND T1.AUD_SBJ_NM LIKE '%'||#strAudSbjNm#||'%'
+		</isNotEmpty>
+		<isNotEmpty property="strCD2">
+			AND	T2.ENF_DT IS NOT NULL
+		</isNotEmpty>
+		<isNotEmpty property="strCD3">
+			AND	T3.PRL_SMT_DT IS NOT NULL
+		</isNotEmpty>
+		<isNotEmpty property="strCD4">
+			AND	T3.REGI_DT IS NOT NULL
+		</isNotEmpty>
+		<isNotEmpty property="strCD5">
+			AND	T4.C_PRL_SMT_DT IS NOT NULL
+		</isNotEmpty>
+		<isNotEmpty property="strCD6">
+			AND	T4.C_REGI_DT IS NOT NULL
+		</isNotEmpty>
+        <![CDATA[
+        	ORDER BY T1.AUD_YR DESC, T1.AUD_NO DESC
+		]]>
+	</select>
+	
+	
+</sqlMap> 

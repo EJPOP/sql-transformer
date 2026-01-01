@@ -1,0 +1,747 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/ltt/007">
+ 
+ 	<select id="CSPLTT007EMainSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<![CDATA[
+			SELECT ROWNUM AS NO ,
+			       T1.*
+			  FROM (
+					SELECT	DECODE(A.ACP_NO,NULL,'',A.ACP_YE||'-'||A.ACP_NO) AS ACP_NO	/*접수번호*/
+							,A.TIT_NM		/*제안제목*/
+							,A.SMT_DT			/*접수일자*/
+							,A.PRSS_STA_CD		/*제안상태코드*/
+							,F_CODE_NM('1000992',A.PRSS_STA_CD) AS PRSS_STA_NM		/*제안상태코드*/
+							,A.TK_YE			/*제안연도*/
+							,A.TK_SLN			/*제안연번*/
+							,A.ACP_YE
+		       				,A.ACP_NO
+							,A.EXAM_APV_DOC_NO	/*검토결재문서번호*/
+							,A.EXAM_RSLT_CD
+							,A.MDT_APV_DOC_NO
+							,A.MDT_RSLT_CD
+							,A.SRCH_CNT      /*조회수*/
+					        ,(SELECT COUNT(*)
+					          FROM TBCSPLTT003M B
+					          WHERE B.TK_YE = A.TK_YE
+					          AND B.TK_SLN = A.TK_SLN
+					          AND B.RCMD_YN = 'Y') AS RCMD_CNT /*추천수*/
+					        ,(SELECT COUNT(*)
+					          FROM TBCSPLTT003M B
+					          WHERE B.TK_YE = A.TK_YE
+					          AND B.TK_SLN = A.TK_SLN
+					          AND B.RCMD_YN = 'N') AS DCMD_CNT /*비추천수*/
+					        ,(SELECT COUNT(*)
+					          FROM TBCSPLTT004M B
+					         WHERE B.TK_YE = A.TK_YE
+					           AND B.TK_SLN = A.TK_SLN) AS CMMT_CNT /*댓글수*/
+					        , CASE WHEN TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')) < TO_DATE(A.OPEN_DT)+3 THEN 'Y'
+							       ELSE 'N' END AS NEW_YN
+							, CASE WHEN (SELECT COUNT(*) FROM TBCSPLTT004M S1 WHERE (TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')) < TO_DATE(TO_CHAR(FRT_REGI_DH,'YYYYMMDD')) + 3) AND S1.TK_YE = A.TK_YE AND S1.TK_SLN = A.TK_SLN) > 0 THEN 'Y'
+							       ELSE 'N' END AS CMT_NEW_YN
+							, CASE WHEN NVL(A.MDT_YN,'N') = 'Y' AND A.PRSS_STA_CD IN ('M', 'N') AND TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')) < TO_DATE(A.MDT_CHOS_DCS_DT)+7 THEN 'Y' 
+	 						       WHEN NVL(A.MDT_YN,'N') = 'Y' AND A.PRSS_STA_CD IN ('P', 'G', 'H', 'I', 'J', 'K') AND TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')) < TO_DATE(A.CHOS_DCS_DT)+7 THEN 'Y'
+	 						       WHEN NVL(A.MDT_YN,'N') <> 'Y' AND A.PRSS_STA_CD IN ('M', 'N') AND TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')) < TO_DATE(A.CHOS_DCS_DT)+7 THEN 'Y'
+	 						       ELSE 'N' END AS EXAM_NEW_YN   
+					FROM	TBCSPLTT001M A
+					WHERE	1=1
+					AND		(EXAM_DPT_CD = #FNL_DEAL_DPT_CD# OR MDT_DPT_CD = #FNL_DEAL_DPT_CD#)
+			
+		]]>
+			<dynamic>
+				<isEmpty property="strPRSS_STA_CD">
+					AND	A.PRSS_STA_CD &gt;= 'G' 
+				</isEmpty>
+				<isNotEmpty property="strPRSS_STA_CD">
+					AND	A.PRSS_STA_CD = #strPRSS_STA_CD#
+				</isNotEmpty>
+				<isNotEmpty property="strSMT_DTS">
+					AND	A.SMT_DT &gt;= #strSMT_DTS#
+				</isNotEmpty>
+				<isNotEmpty property="strSMT_DTE">
+					AND	A.SMT_DT &lt;= #strSMT_DTE#
+				</isNotEmpty>
+				<isNotEmpty property="strTIT_NM">
+					AND	A.TIT_NM LIKE '%'||#strTIT_NM#||'%'
+				</isNotEmpty>
+			</dynamic> 
+		<![CDATA[
+					ORDER BY TO_NUMBER(A.ACP_YE) ASC , TO_NUMBER(A.ACP_NO) ASC) T1
+ 			ORDER BY TO_NUMBER(NO) DESC;
+		]]>
+	</select>
+	
+	<update id="CSPLTT007EExAcceptUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPLTT001M
+			SET		PRSS_STA_CD = 'H'		/*진행상태*/
+					,FNL_MDF_DH = SYSDATE			/*최종수정일시*/
+		]]>
+			<dynamic>
+				<isNotEmpty property="EXAM_CNB">
+					,EXAM_CNB = #EXAM_CNB#	/*검토자전산번호*/
+				</isNotEmpty>
+				<isEmpty property="EXAM_CNB">
+					,EXAM_CNB = #S_CNB#	/*검토자전산번호*/
+				</isEmpty>
+			</dynamic>
+		<![CDATA[
+			WHERE	TK_YE = #TK_YE#
+			AND		TK_SLN = #TK_SLN#
+		]]>
+	</update>
+	
+	<update id="CSPLTT007EExActCancleUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPLTT001M
+			SET		EXAM_CNB = ''	/*검토자전산번호*/
+					,PRSS_STA_CD = 'G'		/*진행상태*/
+					,FNL_MDF_DH = SYSDATE			/*최종수정일시*/
+			WHERE	TK_YE = #TK_YE#
+			AND		TK_SLN = #TK_SLN#
+		]]>
+	</update>
+	
+	<update id="CSPLTT007EExCompletionUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPLTT001M
+			SET		PRSS_STA_CD = 'L'		/*진행상태*/
+					,FNL_MDF_DH = SYSDATE			/*최종수정일시*/
+			WHERE	TK_YE = #TK_YE#
+			AND		TK_SLN = #TK_SLN#
+		]]>
+	</update>
+	
+	<update id="CSPLTT007EExCompCancleUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPLTT001M
+			SET		PRSS_STA_CD = 'K'		/*진행상태*/
+					,FNL_MDF_DH = SYSDATE			/*최종수정일시*/
+			WHERE	EXAM_APV_DOC_NO = #APV_DOC_NO#
+		]]>
+	</update>
+	
+	<update id="CSPLTT008EEndUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPLTT001M
+			SET		PRSS_STA_CD = #PRSS_STA_CD#		/*진행상태*/
+					,CHOS_DCS_DT = TO_CHAR(SYSDATE,'YYYYMMDD')
+					,FNL_MDF_DH = SYSDATE			/*최종수정일시*/
+			WHERE	EXAM_APV_DOC_NO = #APV_DOC_NO#
+		]]>
+	</update>
+	
+	<update id="CSPLTT008EMdtEndUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPLTT001M
+			SET		PRSS_STA_CD = #PRSS_STA_CD#		/*진행상태*/
+					,MDT_CHOS_DCS_DT = TO_CHAR(SYSDATE,'YYYYMMDD')
+					,FNL_MDF_DH = SYSDATE			/*최종수정일시*/
+			WHERE	MDT_APV_DOC_NO = #APV_DOC_NO#
+		]]>
+	</update>
+	
+	<update id="CSPLTT007EMdtCompCancleUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPLTT001M
+			SET		PRSS_STA_CD = 'K'		/*진행상태*/
+					,FNL_MDF_DH = SYSDATE			/*최종수정일시*/
+			WHERE	MDT_APV_DOC_NO = #APV_DOC_NO#
+		]]>
+	</update>
+	
+	<resultMap class="java.util.HashMap" id="CSPLTT008EMainSelect">
+			<result property="ACP_NO" 			 	column="ACP_NO" 			    	jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="SMT_DT" 			 	column="SMT_DT" 					jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="OPEN_DT" 			 	column="OPEN_DT" 					jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="TIT_NM" 			 	column="TIT_NM" 			    	jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="USR_NAM" 			 	column="USR_NAM" 					jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="DPT_NM" 	 		 	column="DPT_NM" 	     			jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="NAM_OPEN_YN" 			column="NAM_OPEN_YN" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="PRSS_STA_NM" 			column="PRSS_STA_NM" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="PRSS_STA_CD" 		 	column="PRSS_STA_CD" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="PRB_TXT" 			 	column="PRB_TXT" 					jdbcType="CLOB" 	javaType="java.lang.String" />
+			<result property="WSH_IMP_TXT" 			column="WSH_IMP_TXT" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="DOC_ID" 		 		column="DOC_ID" 					jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="EXAM_DPT_NM" 		 	column="EXAM_DPT_NM" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="EXAM_DPT_CD" 		 	column="EXAM_DPT_CD" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="EXAM_DT" 		 		column="EXAM_DT" 					jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="EXAM_NAM" 		 	column="EXAM_NAM" 					jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="EXAM_CNB" 			column="EXAM_CNB" 					jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="EXAM_TXT" 			column="EXAM_TXT" 					jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="EXAM_RSLT_CD" 		column="EXAM_RSLT_CD" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="EXAM_DOC_ID" 		 	column="EXAM_DOC_ID" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="MDT_YN" 		 		column="MDT_YN" 					jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="MDT_DPT_NM" 		 	column="MDT_DPT_NM" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="MDT_DPT_CD" 		 	column="MDT_DPT_CD" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="MDT_DT" 		 		column="MDT_DT" 					jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="MDT_NAM" 		 		column="MDT_NAM" 					jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="MDT_CNB" 		 		column="MDT_CNB" 					jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="MDT_TXT" 		 		column="MDT_TXT" 					jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="MDT_RSLT_CD" 		 	column="MDT_RSLT_CD" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="MDT_DOC_ID" 		 	column="MDT_DOC_ID" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="TK_YE" 		 		column="TK_YE" 						jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="TK_SLN" 		 		column="TK_SLN" 					jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="EXAM_APV_DOC_NO" 		column="EXAM_APV_DOC_NO" 			jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="EXEC_APT_DT" 		 	column="EXEC_APT_DT" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="MDT_APV_DOC_NO" 		column="MDT_APV_DOC_NO" 			jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="MDT_EXEC_APT_DT" 		column="MDT_EXEC_APT_DT" 			jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="CHOS_DCS_DT" 		 	column="CHOS_DCS_DT" 				jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="RCMD_CNT" 		 	column="RCMD_CNT" 					jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="SRCH_CNT" 		 	column="SRCH_CNT" 					jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="CMMT_CNT" 		 	column="CMMT_CNT" 		    		jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="DCMD_CNT" 		 	column="DCMD_CNT" 			    	jdbcType="VARCHAR2" javaType="java.lang.String" />
+	</resultMap>
+ 
+ 	<select id="CSPLTT008EMainSelect" parameterClass="paramMap" resultMap="CSPLTT008EMainSelect">
+		<![CDATA[
+			SELECT	DECODE(A.ACP_NO,NULL,'',A.TK_YE||'-'||A.ACP_NO) AS ACP_NO	/*접수번호*/
+					,A.SMT_DT			/*제출일자*/
+					,A.OPEN_DT			/*공개일자*/
+					,A.TIT_NM		/*제안제목*/
+					,CASE WHEN A.NAM_OPEN_YN = 'Y'
+                          THEN F_USR_INFO(DGUARD.DECRYPT('TB_ENC','EAN',  A.CNB),'2')
+                          ELSE '익명' END USR_NAM /*제안자명*/
+					,CASE WHEN A.NAM_OPEN_YN = 'Y' THEN F_DPT_INFO(DGUARD.DECRYPT('TB_ENC','EAN',  A.DPT_CD),'1')
+					      ELSE '' END AS DPT_NM
+					,A.NAM_OPEN_YN		/*성명공개여부*/
+					,F_CODE_NM('1000992',A.PRSS_STA_CD) AS PRSS_STA_NM	/*진행단계*/
+					,A.PRSS_STA_CD		/*제안상태코드*/
+					,A.PRB_TXT /*문제점내용*/
+					,A.WSH_IMP_TXT		/*희망 개선내용*/
+					,(SELECT 	Z.DOC_ID	
+						FROM	TBCSPLTT002M Z
+						WHERE	Z.TK_YE = A.TK_YE
+						AND		Z.TK_SLN = A.TK_SLN
+						AND		Z.ATT_FL_DVSN_CD = '1') AS DOC_ID	/*첨부파일 문서*/
+					,F_DPT_INFO(A.EXAM_DPT_CD,'1') AS EXAM_DPT_NM		/*검토부서*/
+					,A.EXAM_DPT_CD		/*검토부서코드*/
+					,A.EXAM_DT			/*검토일자*/
+					,F_USR_INFO(A.EXAM_CNB,'2') AS EXAM_NAM		/*검토자*/
+					,A.EXAM_CNB
+					,A.EXAM_TXT			/*검토의견*/
+					,A.EXAM_RSLT_CD		/*검토결과*/
+					,(SELECT 	Z.DOC_ID	
+						FROM	TBCSPLTT002M Z
+						WHERE	Z.TK_YE = A.TK_YE
+						AND		Z.TK_SLN = A.TK_SLN
+						AND		Z.ATT_FL_DVSN_CD = '2') AS EXAM_DOC_ID	/*검토첨부파일 문서*/
+					,A.MDT_YN   /*이견조정여부*/
+					,F_DPT_INFO(A.MDT_DPT_CD,'1') AS MDT_DPT_NM		/*검토부서*/
+					,A.MDT_DPT_CD		/*검토부서코드*/
+					,A.MDT_DT			/*검토일자*/
+					,F_USR_INFO(A.MDT_CNB,'2') AS MDT_NAM		/*검토자*/
+					,A.MDT_CNB
+					,A.MDT_TXT			/*검토의견*/
+					,A.MDT_RSLT_CD		/*검토결과*/
+					,(SELECT 	Z.DOC_ID	
+						FROM	TBCSPLTT002M Z
+						WHERE	Z.TK_YE = A.TK_YE
+						AND		Z.TK_SLN = A.TK_SLN
+						AND		Z.ATT_FL_DVSN_CD = '3') AS MDT_DOC_ID	/*검토첨부파일 문서*/
+					,A.TK_YE			/*제안연도*/
+					,A.TK_SLN			/*제안연번*/
+					,A.EXAM_APV_DOC_NO	/*검토결재문서번호*/
+					,A.EXEC_APT_DT      /*검토 후 실시예정일*/
+					,A.MDT_APV_DOC_NO
+					,A.MDT_EXEC_APT_DT
+					,A.CHOS_DCS_DT 		/*채택결정일*/
+					,A.SRCH_CNT      /*조회수*/
+			        ,(SELECT COUNT(*)
+			          FROM TBCSPLTT003M B
+			          WHERE B.TK_YE = A.TK_YE
+			          AND B.TK_SLN = A.TK_SLN
+			          AND B.RCMD_YN = 'Y') AS RCMD_CNT /*추천수*/
+			        ,(SELECT COUNT(*)
+			          FROM TBCSPLTT003M B
+			          WHERE B.TK_YE = A.TK_YE
+			          AND B.TK_SLN = A.TK_SLN
+			          AND B.RCMD_YN = 'N') AS DCMD_CNT /*비추천수*/
+			        ,(SELECT COUNT(*)
+			          FROM TBCSPLTT004M B
+			         WHERE B.TK_YE = A.TK_YE
+			           AND B.TK_SLN = A.TK_SLN) AS CMMT_CNT /*댓글수*/
+			FROM	TBCSPLTT001M A
+			WHERE 	1=1
+		]]>
+			<isNotEmpty property="strTK_YE">
+				AND 	A.TK_YE = #strTK_YE#
+			</isNotEmpty>
+			<isNotEmpty property="strTK_SLN">
+				AND 	A.TK_SLN = #strTK_SLN#
+			</isNotEmpty>
+			<isNotEmpty property="strDOC_NO">
+				AND ((MDT_APV_DOC_NO IS NOT NULL AND MDT_APV_DOC_NO = #strDOC_NO#) OR (EXAM_APV_DOC_NO IS NOT NULL AND EXAM_APV_DOC_NO = #strDOC_NO#))
+			</isNotEmpty>
+	</select>
+	
+	<select id="CSPLTT008ESubSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[
+			SELECT
+					ROW_NUMBER() OVER (ORDER BY TK_YE, TK_SLN, CMMT_SEQ) AS NO,
+					TK_YE,
+					TK_SLN,
+					CMMT_SEQ,
+					CASE WHEN NAM_OPEN_YN = 'N' THEN '익명' 
+						 WHEN DGUARD.DECRYPT('TB_ENC','EAN',  CRE_CNB) = '3223' THEN '' /* 요청에 의한 하드코딩 이름숨김 */
+						 WHEN NAM_OPEN_YN = 'Y' THEN F_USR_INFO(DGUARD.DECRYPT('TB_ENC','EAN',  CRE_CNB), 2)
+                         ELSE '익명' END AS CRE_USR_NAM,					
+                    CASE WHEN NAM_OPEN_YN = 'Y'
+                         THEN F_DPT_INFO(DGUARD.DECRYPT('TB_ENC','EAN', CRE_USR_DPT_CD),'1')
+                         ELSE '' END AS CRE_USR_DPT_NM,
+					NAM_OPEN_YN,
+					CASE WHEN DEL_YN = 'Y' THEN DEL_RSN
+			             WHEN DEL_YN = 'N' THEN CONTENT
+			             ELSE CONTENT
+			              END AS CONTENT, /* 댓글내용 */
+					DEL_YN,					
+					FRT_REGI_DH,
+					CASE WHEN TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD')) < TO_DATE(TO_CHAR(FRT_REGI_DH,'YYYYMMDD'))+3 THEN 'Y'
+			            ELSE 'N' END AS CMMT_NEW_YN
+			 FROM TBCSPLTT004M
+			WHERE 1=1
+			  AND TK_YE = #strTK_YE#
+			  AND TK_SLN = #strTK_SLN#
+	     ORDER BY TK_YE, TK_SLN, CMMT_SEQ
+		]]>
+	</select>
+	
+	<update id="CSPLTT008EExamUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPLTT001M
+			SET		EXAM_CNB = #EXAM_CNB#		/*검토자*/
+					,EXAM_RSLT_CD = NVL(#EXAM_RSLT_CD#,'N')
+					,EXAM_DT = #EXAM_DT#
+					,EXAM_TXT = #EXAM_TXT#
+					,PRSS_STA_CD = 'H'
+					,EXEC_APT_DT = #EXEC_APT_DT#		/*실시예정일시*/
+		]]>
+			<isNotEmpty property="MDT_YN">
+					,MDT_CNB = #MDT_CNB#		/*검토자*/
+					,MDT_RSLT_CD = NVL(#MDT_RSLT_CD#,'N')
+					,MDT_DT = #MDT_DT#
+					,MDT_TXT = #MDT_TXT#
+					,MDT_EXEC_APT_DT = #MDT_EXEC_APT_DT#		/*실시예정일시*/
+			</isNotEmpty>
+		<![CDATA[
+					,FNL_MDF_DH = SYSDATE			/*최종수정일시*/
+			WHERE	TK_YE = #TK_YE#
+			AND		TK_SLN = #TK_SLN#
+		]]>
+	</update>
+	
+	<update id="CSPLTT007EExamApvSave" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPLTT001M
+			SET		PRSS_STA_CD = 'I'		/*진행상태*/
+					,EXAM_APV_DOC_NO = #APV_DOC_NO#
+			WHERE	TK_YE = #TK_YE#
+			AND		TK_SLN = #TK_SLN#
+		]]>
+	</update>
+	
+	<update id="CSPLTT008EMdtApvSave" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPLTT001M
+			SET		PRSS_STA_CD = 'I'		/*진행상태*/
+					,MDT_APV_DOC_NO = #APV_DOC_NO#
+			WHERE	TK_YE = #TK_YE#
+			AND		TK_SLN = #TK_SLN#
+		]]>
+	</update>
+	
+	<insert id="CSPLTT008EFileInsert" parameterClass="paramMap">
+		<![CDATA[
+			MERGE INTO TBCSPLTT002M T1
+			USING (
+					SELECT
+					#TK_YE# AS TK_YE
+					,#TK_SLN# AS TK_SLN
+					,'2' AS ATT_FL_DVSN_CD
+					FROM DUAL
+				) T2
+			ON	(	
+					T1.TK_YE = T2.TK_YE
+					AND T1.TK_SLN = T2.TK_SLN
+					AND T1.ATT_FL_DVSN_CD = T2.ATT_FL_DVSN_CD
+				)
+			WHEN MATCHED THEN
+					UPDATE	
+        			SET		DOC_ID = #EXAM_DOC_ID#
+        	WHEN NOT MATCHED THEN
+					INSERT (
+								TK_YE				/*제안연도*/
+								,TK_SLN			/*제안연번*/
+								,ATT_FL_DVSN_CD	/*제안천부파일구분코드*/
+								,DOC_ID				/*첨부파일문서ID*/
+								,DOC_TYP_CD			/*문서유형코드*/
+								,FRT_REGI_DH		/*최초등록일시*/
+								,FNL_MDF_DH			/*최종수정일시*/
+							)
+						VALUES	(
+									#TK_YE#			/*제안연도*/
+									,#TK_SLN#			/*제안연번*/
+									,'2'				/*제안천부파일구분코드*/
+									,#EXAM_DOC_ID#			/*첨부파일문서ID*/
+									,''					/*문서유형코드*/
+									,SYSDATE			/*최초등록일시*/
+									,SYSDATE			/*최종수정일시*/
+								)
+		]]>
+	</insert>
+	
+	<insert id="CSPLTT008EFileInsert2" parameterClass="paramMap">
+		<![CDATA[
+			MERGE INTO TBCSPLTT002M T1
+			USING (
+					SELECT
+					#TK_YE# AS TK_YE
+					,#TK_SLN# AS TK_SLN
+					,'3' AS ATT_FL_DVSN_CD
+					FROM DUAL
+				) T2
+			ON	(	
+					T1.TK_YE = T2.TK_YE
+					AND T1.TK_SLN = T2.TK_SLN
+					AND T1.ATT_FL_DVSN_CD = T2.ATT_FL_DVSN_CD
+				)
+			WHEN MATCHED THEN
+					UPDATE	
+        			SET		DOC_ID = #MDT_DOC_ID#
+        	WHEN NOT MATCHED THEN
+					INSERT (
+								TK_YE				/*제안연도*/
+								,TK_SLN			/*제안연번*/
+								,ATT_FL_DVSN_CD	/*제안천부파일구분코드*/
+								,DOC_ID				/*첨부파일문서ID*/
+								,DOC_TYP_CD			/*문서유형코드*/
+								,FRT_REGI_DH		/*최초등록일시*/
+								,FNL_MDF_DH			/*최종수정일시*/
+							)
+						VALUES	(
+									#TK_YE#			/*제안연도*/
+									,#TK_SLN#			/*제안연번*/
+									,'3'				/*제안천부파일구분코드*/
+									,#MDT_DOC_ID#			/*첨부파일문서ID*/
+									,''					/*문서유형코드*/
+									,SYSDATE			/*최초등록일시*/
+									,SYSDATE			/*최종수정일시*/
+								)
+		]]>
+	</insert>
+	
+	<delete id="CSPLTT007EApvDDelete" parameterClass="paramMap">
+		<![CDATA[
+			DELETE	
+			FROM	TBDCMACM023L
+			WHERE	APV_DOC_NO = #EXAM_APV_DOC_NO#
+		]]>
+	</delete>
+	
+	<delete id="CSPLTT007EApvMDelete" parameterClass="paramMap">
+		<![CDATA[
+			DELETE	
+			FROM	TBDCMACM022L
+			WHERE	APV_DOC_NO = #EXAM_APV_DOC_NO#
+		]]>
+	</delete>
+	
+	
+	<select id="CSPLTT007ECnbSelect" parameterClass="paramMap" resultClass="resultMap">
+		<![CDATA[       
+			SELECT  DECODE(A.ACP_NO,NULL,'',A.TK_YE||'-'||A.ACP_NO) AS ACP_NO	/*접수번호*/ 
+					,A.TIT_NM		/*제안제목*/
+					,A.EXAM_DPT_CD		/*검토부서코드*/
+					,TO_CHAR(TO_DATE(A.EXEC_APT_DT,'YYYYMMDD'), 'YYYY-MM-DD') AS EXEC_APT_DT 	/*실시예정일*/
+					,F_DPT_INFO(A.EXAM_DPT_CD,'1') AS EXAM_DPT_NM		/*검토부서명*/
+					,F_CODE_NM('1000993',A.EXAM_RSLT_CD) AS EXAM_RSLT_NM		/*검토결과명*/
+					,A.EXAM_RSLT_CD		/*검토결과코드*/
+			  FROM TBCSPLTT001M A  
+			 WHERE 1=1
+			 ]]>
+			<isNotEmpty property="APV_DOC_NO">
+				AND	A.EXAM_APV_DOC_NO =  #APV_DOC_NO#
+			</isNotEmpty>
+			<isNotEmpty property="TK_YE">
+				AND A.TK_YE = #TK_YE#
+			</isNotEmpty>
+			<isNotEmpty property="TK_SLN">
+				AND 	A.TK_SLN= #TK_SLN#
+			</isNotEmpty>
+		
+	</select>
+	
+	<insert id="CSPLTT007EMsgInsert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO
+			TBDCMACM026L
+			(
+			  MSG_SNO
+			, TSK_CAT_CD
+			, FUNC_CAT_CD
+			, SEND_ID
+	        , MSG_TP_YN
+	        , MSG_TXT_2
+	        , RCNT_CNT
+	        , RCNT_HIS
+	        , MSG_REGI_DH
+			, FRT_USR_ID
+			, FNL_USR_ID
+			, FNL_DEAL_DPT_CD
+			, FNL_MNU_ID
+			, FRT_REGI_DH
+			, FNL_MDF_DH
+			)
+			VALUES
+			(
+			  (SELECT NVL(MAX(MSG_SNO),0)+1 FROM TBDCMACM026L)
+			, 'SP'
+			, 'BO'
+			, 'SYSTEM'
+	        , '0'
+	        , #MSG_TXT#
+	        , 1
+	        , #APL_CNB#
+	        , SYSDATE
+			, 'SYSTEM'
+			, 'SYSTEM'
+			, #FNL_DEAL_DPT_CD#
+			, 'CSPLTT007E'
+			, SYSDATE
+			, SYSDATE
+			);
+			
+		]]>
+	</insert>
+	
+	<update id="CSPLTT008EExamApvSave" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPLTT001M
+			SET		PRSS_STA_CD = 'I'		/*진행상태*/
+					,EXAM_APV_DOC_NO = #APV_DOC_NO#
+			WHERE	TK_YE = #TK_YE#
+			AND		TK_SLN = #TK_SLN#
+		]]>
+	</update>
+	
+	<!-- 결재처리정보를 수정한다 -->
+	<update id="CSPLTT008EApvInfoupdate" parameterClass="paramMap">
+           UPDATE TBCSPLTT008M                    		/* 함께합시다기본 */ 
+              SET APV_DOC_NO        = #APV_DOC_NO#,		/* 결재문서번호 */
+                  PRSS_STA_CD       = #PRSS_STA_CD#
+           WHERE  TK_YE				= #TK_YE# 
+             AND  TK_SLN			= #TK_SLN#
+	</update>
+
+	<update id="CSPLTT008EApvRetSave" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPLTT001M
+			SET		PRSS_STA_CD = 'J'		/*진행상태*/
+			WHERE	EXAM_APV_DOC_NO = #APV_DOC_NO#
+		]]>
+	</update>
+	
+	<update id="CSPLTT008EMdtRetSave" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPLTT001M
+			SET		PRSS_STA_CD = 'J'		/*진행상태*/
+			WHERE	MDT_APV_DOC_NO = #APV_DOC_NO#
+		]]>
+	</update>
+	
+	<select id="CSPLTT008EUpdateSelect2" parameterClass="paramMap"	resultClass="resultMap">
+        <![CDATA[
+        	SELECT	A.TK_YE,		/*연도*/ 
+        			A.TK_SLN, /*순번*/ 			
+        			NVL(A.MDT_YN,'N') AS MDT_YN,
+        			A.EXAM_RSLT_CD,
+        			A.MDT_RSLT_CD,
+        			A.NAM_OPEN_YN,
+        			A.TIT_NM,
+        			SUBSTR(A.EXEC_APT_DT,3,2)||'. '||SUBSTR(A.EXEC_APT_DT,5,2)||'. '||SUBSTR(A.EXEC_APT_DT,7,2) AS EXEC_APT_DT,
+                    SUBSTR(A.MDT_EXEC_APT_DT,3,2)||'. '||SUBSTR(A.MDT_EXEC_APT_DT,5,2)||'. '||SUBSTR(A.MDT_EXEC_APT_DT,7,2) AS MDT_EXEC_APT_DT
+        	FROM	TBCSPLTT001M A 
+        	WHERE 1=1
+        ]]>
+        	AND TK_YE = #TK_YE#
+        	AND TK_SLN = #TK_SLN#
+	</select>
+	
+	<select id="CSPLTT008EUpdateSelect" parameterClass="paramMap"	resultClass="resultMap">
+        <![CDATA[
+        	SELECT	A.TK_YE,		/*연도*/ 
+        			A.TK_SLN, /*순번*/ 			
+        			NVL(A.MDT_YN,'N') AS MDT_YN,
+        			A.EXAM_RSLT_CD,
+        			A.MDT_RSLT_CD,
+        			A.NAM_OPEN_YN,
+        			A.TIT_NM,
+        			SUBSTR(A.EXEC_APT_DT,3,2)||'. '||SUBSTR(A.EXEC_APT_DT,5,2)||'. '||SUBSTR(A.EXEC_APT_DT,7,2) AS EXEC_APT_DT,
+                    SUBSTR(A.MDT_EXEC_APT_DT,3,2)||'. '||SUBSTR(A.MDT_EXEC_APT_DT,5,2)||'. '||SUBSTR(A.MDT_EXEC_APT_DT,7,2) AS MDT_EXEC_APT_DT
+        	FROM	TBCSPLTT001M A 
+        	WHERE 1=1
+        ]]>
+        	AND ((MDT_APV_DOC_NO IS NOT NULL AND MDT_APV_DOC_NO = #APV_DOC_NO#) OR (EXAM_APV_DOC_NO IS NOT NULL AND EXAM_APV_DOC_NO = #APV_DOC_NO#))
+	</select>
+	
+	<update id="CSPLTT008EExApvCancleUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPLTT001M
+			SET		PRSS_STA_CD = 'H'		/*진행상태*/
+					,FNL_MDF_DH = SYSDATE			/*최종수정일시*/
+					,EXAM_APV_DOC_NO = #EXAM_APV_DOC_NO#
+			WHERE	TK_YE = #TK_YE#
+			  AND	TK_SLN = #TK_SLN#
+		]]>
+	</update>
+	
+	<update id="CSPLTT008EMdtApvCancleUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE	TBCSPLTT001M
+			SET		PRSS_STA_CD = 'H'		/*진행상태*/
+					,FNL_MDF_DH = SYSDATE			/*최종수정일시*/
+					,MDT_APV_DOC_NO = #MDT_APV_DOC_NO#
+			WHERE	TK_YE = #TK_YE#
+			  AND	TK_SLN = #TK_SLN#
+		]]>
+	</update>
+	
+	<select id="CSPLTT015PRPLSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+		<![CDATA[
+			SELECT TK_YE,
+			       TK_SLN,
+			       CASE WHEN MDT_YN = 'Y'
+			            THEN (SELECT MDT_RPL_TXT FROM TBCSPLTT001M WHERE TK_YE = #strTK_YE# AND TK_SLN = #strTK_SLN# AND NAM_OPEN_YN = 'Y')
+			            ELSE (SELECT EXAM_RPL_TXT FROM TBCSPLTT001M WHERE TK_YE = #strTK_YE# AND TK_SLN = #strTK_SLN# AND NAM_OPEN_YN = 'Y')
+			            END RPL_TXT,
+			       MDT_YN,
+			       EXAM_RSLT_CD,
+			       MDT_RSLT_CD,
+			       PRSS_STA_CD,
+			       TIT_NM,
+			       SUBSTR(EXEC_APT_DT,3,2)||'. '||SUBSTR(EXEC_APT_DT,5,2)||'. '||SUBSTR(EXEC_APT_DT,7,2) AS EXEC_APT_DT,
+                    SUBSTR(MDT_EXEC_APT_DT,3,2)||'. '||SUBSTR(MDT_EXEC_APT_DT,5,2)||'. '||SUBSTR(MDT_EXEC_APT_DT,7,2) AS MDT_EXEC_APT_DT
+			  FROM TBCSPLTT001M
+			 WHERE 1=1
+			   AND TK_YE = #strTK_YE#
+			   AND TK_SLN = #strTK_SLN#
+			ORDER BY  TO_NUMBER(TK_YE) DESC , TO_NUMBER(TK_SLN) DESC
+		]]>
+	</select>
+	
+	<select id="CSPLTT015PRcmrCnbSelect" parameterClass="paramMap"
+	resultClass="resultMap">
+		<![CDATA[
+			SELECT DGUARD.DECRYPT('TB_ENC','EAN',  CNB) AS CNB,
+				   NVL((SELECT TO_CHAR( EXTRACT(XMLAGG(XMLELEMENT(A, ''|| RCMR_CNB)ORDER BY RCMR_CNB), '//text()') ) FROM TBCSPLTT003M WHERE TK_YE = #TK_YE# AND TK_SLN = #TK_SLN#),'') AS RCMR_CNB
+			  FROM TBCSPLTT001M
+			 WHERE 1=1
+			   AND TK_YE = #TK_YE#
+			   AND TK_SLN = #TK_SLN#
+		]]>
+	</select>
+	
+	<select id="CSPLTT015PRcmrCnt" parameterClass="paramMap"
+	resultClass="resultMap">
+		<![CDATA[
+			SELECT TO_CHAR(COUNT(RCMR_CNB) + (SELECT COUNT(CNB) FROM TBCSPLTT001M WHERE TK_YE = #TK_YE# AND TK_SLN = #TK_SLN#)) AS RCNT_CNT
+			 FROM TBCSPLTT003M
+			 WHERE 1=1
+			   AND TK_YE = #TK_YE#
+			   AND TK_SLN = #TK_SLN#
+		]]>
+	</select>
+	
+	<update id="CSPLTT015PUpdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE TBCSPLTT001M
+			   SET 
+			   		PRSS_STA_CD = #PRSS_STA_CD#
+					,FNL_MDF_DH = SYSDATE			/*최종수정일시*/
+					]]>
+					<dynamic>
+			   		<isNotEmpty property="EXAM_RPL_TXT">
+						,CHOS_DCS_DT = TO_CHAR(SYSDATE,'YYYYMMDD')
+			   			,EXAM_RPL_TXT = #EXAM_RPL_TXT#
+			   		</isNotEmpty>
+			   		<isNotEmpty property="MDT_RPL_TXT">
+			   			,MDT_CHOS_DCS_DT = TO_CHAR(SYSDATE,'YYYYMMDD')
+			   			,MDT_RPL_TXT = #MDT_RPL_TXT#
+			   		</isNotEmpty>
+			   </dynamic>
+		<![CDATA[
+			 WHERE 1=1
+			   AND TK_YE = #TK_YE#
+			   AND TK_SLN = #TK_SLN#
+		]]>
+	</update>
+	
+	<insert id="CSPLTT015PMsgInsert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO
+			TBDCMACM026L
+			(
+			  MSG_SNO
+			, TSK_CAT_CD
+			, FUNC_CAT_CD
+			, SEND_ID
+	        , MSG_TP_YN
+	  
+	        , MSG_TXT_2
+	        , RCNT_CNT
+	        , RCNT_HIS
+	        , MSG_REGI_DH
+	
+			, FRT_USR_ID
+			, FNL_USR_ID
+			, FNL_DEAL_DPT_CD
+			, FNL_MNU_ID
+			, FRT_REGI_DH
+			,
+			FNL_MDF_DH
+	
+			)
+			VALUES
+			(
+			  (SELECT NVL(MAX(MSG_SNO),0)+1 FROM TBDCMACM026L)
+			, 'SP'
+			, 'SU'
+			, #S_USR_ID#
+	        , '0'
+	        , #MSG_TXT#
+	        , #RCNT_CNT#
+	        , #RCNT_CNB#
+	        , SYSDATE
+			, #FNL_USR_ID#
+			, #FNL_USR_ID#
+			, #FNL_DEAL_DPT_CD#
+			, #FNL_MNU_ID#
+			, SYSDATE
+			, SYSDATE
+	
+			);
+			
+		]]>
+	</insert>
+	
+	<select id="CSPLTT008EApvSelect" parameterClass="paramMap"
+	resultClass="resultMap">
+		<![CDATA[
+			SELECT MDT_YN, MDT_APV_DOC_NO
+			 FROM TBCSPLTT001M
+			 WHERE 1=1
+			 AND TK_YE = #TK_YE#
+			 AND TK_SLN = #TK_SLN#
+		]]>
+	</select>
+	
+	<select id="CSPLTT008EMdtYn" parameterClass="paramMap"
+		resultClass="resultMap">
+		<![CDATA[
+			SELECT NVL(MDT_YN,'N') AS MDT_YN FROM TBCSPLTT001M WHERE TK_YE = #TK_YE# AND TK_SLN = #TK_SLN#
+		]]>
+	</select>
+</sqlMap> 

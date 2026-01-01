@@ -1,0 +1,3157 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper">
+    
+    <!-- 법률자문 요청 목록 조회 -->
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectMainList */
+        SELECT LEGAL_REQ_DVSN_NM
+		     , LEGAL_REQ_DH
+		     , WRK_DVSN_NM
+		     , REQ_STAT_NM
+		     , AUD_YR_NO
+		     , AUD_SBJ_NM
+		     , AFF_NO
+		     , TITLE_NM
+		     , REQ_DPT_NM
+		     , APV_STA_NM
+		     , SND_YN
+		     , SND_DH
+		     , WRK_DVSN_CD
+		     , WRK_YR
+		     , WRK_NO
+		     , LEGAL_REQ_DVSN_CD
+		     , LEGAL_REQ_SRNO
+		     , REQ_STAT_CD
+		     , AFF_SNO
+		     , AUD_KND_CD
+		     , OPIN_DOC_WRT_YN
+		     , RCPT_DPT_CD
+		     , APVR_CD
+		     , DOC_WRT_NM
+		     , DOC_WRT_ID
+		     , DOC_TYPE
+		     , REQ_DVSN_CD
+		     , AUD_STEP_CD
+		  FROM (
+        /* 실지감사(A10) */
+		        SELECT F_CODE_NM('1000828', T1.LEGAL_REQ_DVSN_CD)                      AS LEGAL_REQ_DVSN_NM
+	                 , TO_CHAR(T1.LEGAL_REQ_DH, 'YYYY-MM-DD')                          AS LEGAL_REQ_DH
+	                 , F_CODE_NM('1000787', T1.WRK_DVSN_CD)                            AS WRK_DVSN_NM
+	                 , CASE WHEN T1.REQ_STAT_CD IN ('20', '30', '90')
+	                        THEN F_CODE_NM('1000830', T1.REQ_STAT_CD)
+	                        ELSE F_CODE_NM('1000831', T1.LEGAL_DPT_CD) || DECODE(T1.REQ_STAT_CD, '40', ' 수신', '50', ' 접수', '60', ' 회신완료') 
+	                    END || '(' || TO_CHAR(T1.REQ_STAT_CHG_DH, 'YYYY-MM-DD') || ')' AS REQ_STAT_NM
+	                 , F_MNG_KND_AUDYRNO(T1.WRK_YR, T1.WRK_NO, '', '-')                AS AUD_YR_NO
+	                 , T2.AUD_SBJ_NM
+	                 , DECODE(T3.AFF_CD, NULL, '', F_MNG_KND_AUDYRNO(T1.WRK_YR, T1.WRK_NO, '', '-') || '-' || T3.AFF_CD)
+	                                                                                   AS AFF_NO
+	                 , T3.TITLE_NM
+	                 , F_DPT_INFO(T2.SPV_BRDV_CD, 1)                                   AS REQ_DPT_NM
+	                 , NVL(F_CODE_NM('1000773', T5.APV_STA_CD), '미작성')              AS APV_STA_NM
+	                 , DECODE(T4.DOC_ID, NULL, '미발신', '발신완료')                   AS SND_YN
+	                 , TO_CHAR(T4.SND_DH, 'YYYY-MM-DD')                                AS SND_DH
+	                 , T1.WRK_DVSN_CD
+	                 , T1.WRK_YR
+	                 , T1.WRK_NO
+	                 , T1.LEGAL_REQ_DVSN_CD
+	                 , T1.LEGAL_REQ_SRNO
+	                 , T1.REQ_STAT_CD
+	                 , T3.AFF_SNO
+	                 , T2.AUD_KND_CD
+	                 , DECODE(T5.DOC_ID, NULL, 'Y', 'N')                               AS OPIN_DOC_WRT_YN
+	                 , T2.SPV_BRDV_CD AS RCPT_DPT_CD
+	                 , T1.APVR_CD
+	                 , F_USR_INFO_BY_ID(T6.DOC_WRT_ID, '2')                            AS DOC_WRT_NM
+	                 , T6.DOC_WRT_ID
+	                 , F_CODE_NM('1000894', T2.DOC_WRIT_KND_CD)                        AS DOC_TYPE
+	                 , ''                                                              AS REQ_DVSN_CD
+	                 , T1.AUD_STEP_CD
+                  FROM TBBADDED126M T1
+            INNER JOIN TBBADDED001M T2 ON (T1.WRK_YR = T2.AUD_YR
+                                       AND T1.WRK_NO = T2.AUD_NO)
+       LEFT OUTER JOIN (SELECT ST1.AUD_YR
+                             , ST1.AUD_NO
+                             , ST1.AFF_SNO
+                             , ST1.AFF_CD
+                             , ST1.TITLE_NM
+                             , ST1.RPRT_FILD_ID
+                          FROM TBBADDED145M ST1
+                         WHERE 1=1
+                           AND ST1.APVR_CD IN (SELECT NVL(MAX(APVR_CD), '0013600')
+                                                 FROM (SELECT RANK() OVER (PARTITION BY H.DOC_ID ORDER BY DECODE(H.APVR_CD, 'A1070', 1, '0010600', 2, '0055700', 3, '0055600', 4, '0045900', 5, '0015800', 6, '0035100', 7, '0058100', 8, '0013600', 9, 99) ASC) AS RN
+                                                            , H.APVR_CD
+                                                            , H.DOC_ID
+                                                            , H.AUD_YR
+                                                            , H.AUD_NO
+                                                         FROM TBBADDED145M H
+                                                        WHERE 1=1
+                                                          AND H.APVR_CD <![CDATA[<>]]> '0010200'
+                                                        GROUP BY H.DOC_ID
+                                                               , H.APVR_CD
+                                                               , H.AUD_YR
+                                                               , H.AUD_NO)
+                                                WHERE 1=1
+                                                  AND RN = 1 
+                                                  AND ST1.DOC_ID = DOC_ID
+                                                  AND ST1.AUD_YR = AUD_YR
+                                                  AND ST1.AUD_NO = AUD_NO)) T3 ON (T1.WRK_YR  = T3.AUD_YR
+                                                                               AND T1.WRK_NO  = T3.AUD_NO
+                                                                               AND T1.AFF_SNO = T3.AFF_SNO)
+       LEFT OUTER JOIN TBBADDED111M T4 ON (T1.WRK_YR                  = T4.AUD_YR
+                                       AND T1.WRK_NO                  = T4.AUD_NO
+                                       AND TO_CHAR(T1.LEGAL_REQ_SRNO) = T4.REF_ID
+                                       AND T4.RPRT_CD                 = 'A10602300'
+                                       AND T4.RCPT_DPT_CD             = '160100')
+       LEFT OUTER JOIN TBBADDED103M T5 ON (T1.WRK_YR                  = T5.AUD_YR
+                                       AND T1.WRK_NO                  = T5.AUD_NO
+                                       AND TO_CHAR(T1.LEGAL_REQ_SRNO) = T5.REF_ID
+                                       AND T5.RPRT_CD                 = 'A10602300')
+       LEFT OUTER JOIN TBBADDED103M T6 ON (T1.WRK_YR                  = T6.AUD_YR
+                                       AND T1.WRK_NO                  = T6.AUD_NO
+                                       AND TO_CHAR(T1.LEGAL_REQ_SRNO) = T6.REF_ID
+                                       AND T6.RPRT_CD                 = 'A10602100')
+                 WHERE 1=1
+                   AND T1.REQ_STAT_CD IN (40, 50, 60)
+                   AND T1.LEGAL_DPT_CD      = '160000'
+                   AND T1.WRK_DVSN_CD       = 'A10'
+        <if test="schAudYr != null and schAudYr != ''">
+                   AND T2.AUD_YR            = #{schAudYr}
+        </if>
+        <if test="schAudYrNoKndCd != null and schAudYrNoKndCd != ''">
+                   AND T2.AUD_KND_CD        = #{schAudYrNoKndCd}
+        </if>
+        <if test="schAudGrnNo != null and schAudGrnNo != ''">
+                   AND T2.AUD_GRN_NO        = #{schAudGrnNo}
+        </if>
+        <if test="schAudSbjNm != null and schAudSbjNm != ''">
+                   AND T2.AUD_SBJ_NM     LIKE '%'||#{schAudSbjNm}||'%'
+        </if>
+        <if test="schAudGrnNo2 != null and schAudGrnNo2 != ''">
+                   AND T2.AUD_GRN_NO        = #{schAudGrnNo2}
+        </if>
+        <if test="wrkDvsnCd != null and wrkDvsnCd != ''">
+                   AND T1.WRK_DVSN_CD       = #{wrkDvsnCd}
+        </if>
+        <if test="opinSta != null and opinSta != '' and opinSta eq 'R'.toString()">
+                   AND T1.REQ_STAT_CD       = '40'
+        </if>
+        <if test="opinSta != null and opinSta != '' and opinSta eq 'A'.toString()">
+                   AND T1.REQ_STAT_CD       = '50'
+        </if>
+        <if test="opinSta != null and opinSta != '' and opinSta eq 'S'.toString()">
+                   AND T1.REQ_STAT_CD       = '60'
+        </if>
+        <if test="schAffCd != null and schAffCd != ''">
+                   AND T3.AFF_CD            = #{schAffCd}
+                   AND T3.AFF_CD       IS NOT NULL
+        </if>
+        <if test="schAudSbjNm2 != null and schAudSbjNm2 != ''">
+                   AND T3.TITLE_NM          = #{schAudSbjNm2}
+                   AND T3.TITLE_NM     IS NOT NULL
+        </if>
+        <if test="reqDvsnCd != null and reqDvsnCd != ''">
+                   AND T1.LEGAL_REQ_DVSN_CD = #{reqDvsnCd}
+        </if>
+                   AND T1.HIDDEN_YN         = 'N'
+                 UNION ALL
+                /* 심사청구(D10), 재심의청구(E10) */
+                SELECT F_CODE_NM('1000828', T1.LEGAL_REQ_DVSN_CD)                      AS LEGAL_REQ_DVSN_NM
+	                 , TO_CHAR(T1.LEGAL_REQ_DH, 'YYYY-MM-DD')                          AS LEGAL_REQ_DH
+	                 , F_CODE_NM('1000787', T1.WRK_DVSN_CD)                            AS WRK_DVSN_NM
+	                 , CASE WHEN T1.REQ_STAT_CD IN ('20', '30', '90')
+	                        THEN F_CODE_NM('1000830', T1.REQ_STAT_CD)
+	                        ELSE F_CODE_NM('1000831', T1.LEGAL_DPT_CD) || DECODE(T1.REQ_STAT_CD, '40', ' 수신', '50', ' 접수', '60', ' 회신완료') 
+	                    END || '(' || TO_CHAR(T1.REQ_STAT_CHG_DH, 'YYYY-MM-DD') || ')' AS REQ_STAT_NM
+	                 , T2.ACP_YR || '-' || DECODE(T2.ACP_DVSN_CD, '1', '심사', '2', '재심', '3', '재심판정') || '-' || T2.ACP_SRNO
+	                                                                                   AS AUD_YR_NO
+	                 , T2.TIT_NM                                                       AS AUD_SBJ_NM
+	                 , ''                                                              AS AFF_NO
+	                 , ''                                                              AS TITLE_NM
+	                 , F_DPT_INFO(T2.DPT_CD, 1)                                        AS REQ_DPT_NM
+	                 , NVL(F_CODE_NM('1000773', T5.APV_STA_CD), '미작성')              AS APV_STA_NM
+	                 , DECODE(T4.DOC_ID, NULL, '미발신', '발신완료')                   AS SND_YN
+	                 , TO_CHAR(T4.SND_DH, 'YYYY-MM-DD')                                AS SND_DH
+	                 , T1.WRK_DVSN_CD
+	                 , T1.WRK_YR
+	                 , T1.WRK_NO
+	                 , T1.LEGAL_REQ_DVSN_CD
+	                 , T1.LEGAL_REQ_SRNO
+	                 , T1.REQ_STAT_CD
+	                 , NULL                                                            AS AFF_SNO
+	                 , ''                                                              AS ACP_KND_CD
+	                 , DECODE(T5.DOC_ID, NULL, 'Y', 'N')                               AS OPIN_DOC_WRT_YN
+	                 , T2.DPT_CD                                                       AS RCPT_DPT_CD
+	                 , T1.APVR_CD
+	                 , F_USR_INFO_BY_ID(T6.DOC_WRT_ID, '2')                            AS DOC_WRT_NM
+	                 , T6.DOC_WRT_ID
+	                 , F_CODE_NM('1000894', T2.DOC_WRIT_KND_CD)                        AS DOC_TYPE
+	                 , ''                                                              AS REQ_DVSN_CD
+	                 , T1.AUD_STEP_CD
+                  FROM TBBADDED126M T1
+            INNER JOIN TBBADFRE012M T2 ON (T1.WRK_YR                  = T2.ACP_YR
+                                       AND T1.WRK_DVSN_CD             = DECODE(T2.ACP_DVSN_CD, '1', 'D10', '2', 'E10')
+                                       AND T1.WRK_NO                  = T2.ACP_SRNO)
+       LEFT OUTER JOIN TBBADFRE111M T4 ON (T1.WRK_YR                  = T4.ACP_YR
+                                       AND T1.WRK_DVSN_CD             = DECODE(T4.ACP_DVSN_CD, '1', 'D10', '2', 'E10')
+                                       AND T1.WRK_NO                  = T4.ACP_SRNO
+                                       AND TO_CHAR(T1.LEGAL_REQ_SRNO) = T4.REF_ID
+                                       AND T4.RPRT_CD                IN ('D10200700', 'E10400500')
+                                       AND T4.RCPT_DPT_CD             = '160100')
+       LEFT OUTER JOIN TBBADFRE103M T5 ON (T1.WRK_YR                  = T5.ACP_YR
+                                       AND T1.WRK_DVSN_CD             = DECODE(T5.ACP_DVSN_CD, '1', 'D10', '2', 'E10') 
+                                       AND T1.WRK_NO                  = T5.ACP_SRNO
+                                       AND TO_CHAR(T1.LEGAL_REQ_SRNO) = T5.REF_ID
+                                       AND T5.RPRT_CD                IN ('D10200700', 'E10400500'))
+       LEFT OUTER JOIN TBBADFRE103M T6 ON (T1.WRK_YR                  = T6.ACP_YR
+                                       AND T1.WRK_DVSN_CD             = DECODE(T6.ACP_DVSN_CD, '1', 'D10', '2', 'E10') 
+                                       AND T1.WRK_NO                  = T6.ACP_SRNO
+                                       AND TO_CHAR(T1.LEGAL_REQ_SRNO) = T6.REF_ID
+                                       AND T6.RPRT_CD                IN ('D10200500', 'E10400300'))
+                 WHERE 1=1
+                   AND T1.REQ_STAT_CD BETWEEN 40 AND 60
+                   AND T1.LEGAL_DPT_CD      = '160000'
+                   AND T1.WRK_DVSN_CD      IN ('D10', 'E10')
+        <if test="schAudYr != null and schAudYr != ''">
+                   AND T2.ACP_YR            = #{schAudYr}
+        </if>
+        <if test="schAudYrNoKndCd != null and schAudYrNoKndCd != ''">
+                   AND T2.ACP_DVSN_CD       = #{schAudYrNoKndCd}
+        </if>
+        <if test="schAudGrnNo != null and schAudGrnNo != ''">
+                   AND T2.ACP_SRNO          = #{schAudGrnNo}
+        </if>
+        <if test="schAudSbjNm != null and schAudSbjNm != ''">
+                   AND T2.TIT_NM         LIKE '%'||#{schAudSbjNm}||'%'
+        </if>
+        <if test="wrkDvsnCd != null and wrkDvsnCd != ''">
+                   AND T1.WRK_DVSN_CD       = #{wrkDvsnCd}
+        </if>
+        <if test="opinSta != null and opinSta != '' and opinSta eq 'R'.toString()">
+                   AND T1.REQ_STAT_CD       = '40'
+        </if>
+        <if test="opinSta != null and opinSta != '' and opinSta eq 'A'.toString()">
+                   AND T1.REQ_STAT_CD       = '50'
+        </if>
+        <if test="opinSta != null and opinSta != '' and opinSta eq 'S'.toString()">
+                   AND T1.REQ_STAT_CD       = '60'
+        </if>
+        <if test="reqDvsnCd != null and reqDvsnCd != ''">
+                   AND T1.LEGAL_REQ_DVSN_CD = #{reqDvsnCd}
+        </if>
+                   AND T1.HIDDEN_YN         = 'N'
+                 UNION ALL
+                 /* 감사제보(B10), 감사청구(C10) */
+                SELECT F_CODE_NM('1000828', T1.LEGAL_REQ_DVSN_CD)                      AS LEGAL_REQ_DVSN_NM
+	                 , TO_CHAR(T1.LEGAL_REQ_DH, 'YYYY-MM-DD')                          AS LEGAL_REQ_DH
+	                 , F_CODE_NM('1000787', T1.WRK_DVSN_CD)                            AS WRK_DVSN_NM
+	                 , CASE WHEN T1.REQ_STAT_CD IN ('20', '30', '90')
+	                        THEN F_CODE_NM('1000830', T1.REQ_STAT_CD)
+	                        ELSE F_CODE_NM('1000831', T1.LEGAL_DPT_CD) || DECODE(T1.REQ_STAT_CD, '40', ' 수신', '50', ' 접수', '60', ' 회신완료') 
+	                    END || '(' || TO_CHAR(T1.REQ_STAT_CHG_DH, 'YYYY-MM-DD') || ')' AS REQ_STAT_NM
+	                 , T2.ACP_YR || '-' || DECODE(T2.REQ_DVSN_CD, '1', F_CODE_NM('1000949', T2.RM_ACP_KND_CD) , '2', '국민', '3', '공익', '4', '국회') || '-' || LTRIM(T2.RM_CVPT_ACP_NO, '0')
+	                                                                                   AS AUD_YR_NO
+	                 , T2.TIT_NM                                                       AS AUD_SBJ_NM
+	                 , ''                                                              AS AFF_NO
+	                 , ''                                                              AS TITLE_NM
+	                 , F_DPT_INFO(T2.ACP_DPT_CD, 1)                                    AS REQ_DPT_NM
+	                 , NVL(F_CODE_NM('1000773', T5.APV_STA_CD), '미작성')              AS APV_STA_NM
+	                 , DECODE(T4.DOC_ID, NULL, '미발신', '발신완료')                   AS SND_YN
+	                 , TO_CHAR(T4.SND_DH, 'YYYY-MM-DD')                                AS SND_DH
+	                 , T1.WRK_DVSN_CD
+	                 , T1.WRK_YR
+	                 , T1.WRK_NO
+	                 , T1.LEGAL_REQ_DVSN_CD
+	                 , T1.LEGAL_REQ_SRNO
+	                 , T1.REQ_STAT_CD
+	                 , NULL                                                            AS AFF_SNO
+	                 , ''                                                              AS ACP_KND_CD
+	                 , DECODE(T5.DOC_ID, NULL, 'Y', 'N')                               AS OPIN_DOC_WRT_YN
+	                 , T2.ACP_DPT_CD                                                   AS RCPT_DPT_CD
+	                 , T1.APVR_CD
+	                 , F_USR_INFO_BY_ID(T6.DOC_WRT_ID, '2')                            AS DOC_WRT_NM
+	                 , T6.DOC_WRT_ID
+	                 , F_CODE_NM('1000894', T2.DOC_WRIT_KND_CD)                        AS DOC_TYPE
+	                 , T2.REQ_DVSN_CD
+	                 , T1.AUD_STEP_CD
+                  FROM TBBADDED126M T1
+            INNER JOIN TBCSPDCP101M T2 ON (T1.WRK_YR                  = T2.ACP_YR
+                                       AND T1.WRK_DVSN_CD             = DECODE(T2.REQ_DVSN_CD, '1', 'B10', '2', 'C10', '3', 'C10', '4', 'C10', '5')
+                                       AND T1.AUD_STEP_CD = DECODE(T2.REQ_DVSN_CD,'1','B3011','2','C2012', '3', 'C2013', '4', 'C2010')
+                                       AND T1.WRK_NO                  = T2.CVPT_ACP_NO)
+       /* BEST20 의견서를 여러건 작성하면 row가 여러개 나와서 수정함 */
+       LEFT OUTER JOIN (SELECT AA.ACP_YR
+                             , AA.ACP_DVSN_CD
+                             , AA.ACP_SRNO
+                             , AA.REF_ID
+                             , AA.RPRT_CD
+                             , AA.RCPT_DPT_CD
+                             , MAX(AA.DOC_ID) AS DOC_ID
+                             , MAX(AA.SND_DH) AS SND_DH
+                          FROM TBCSPDCP111M AA
+                         GROUP BY
+                               AA.ACP_YR
+                             , AA.ACP_DVSN_CD
+                             , AA.ACP_SRNO
+                             , AA.REF_ID
+                             , AA.RPRT_CD
+                             , AA.RCPT_DPT_CD) T4 ON (T1.WRK_YR                  = T4.ACP_YR
+                                       AND T1.WRK_DVSN_CD             = DECODE(T2.REQ_DVSN_CD, '1', 'B10', '2', 'C10', '3', 'C10', '4', 'C10', '5')
+                                       AND T1.WRK_NO                  = T4.ACP_SRNO
+                                       AND TO_CHAR(T1.LEGAL_REQ_SRNO) = T4.REF_ID
+                                       AND T4.RPRT_CD                IN ('B40100300','C30100300')
+                                       AND T4.RCPT_DPT_CD             = '160100')
+       LEFT OUTER JOIN TBCSPDCP603M T5 ON (T1.WRK_YR                  = T5.ACP_YR
+                                       AND T1.WRK_DVSN_CD             = DECODE(T2.REQ_DVSN_CD, '1', 'B10', '2', 'C10', '3', 'C10', '4', 'C10', '5')
+                                       AND T1.WRK_NO                  = T5.CVPT_ACP_NO
+                                       AND T4.DOC_ID                  = T5.DOC_ID
+                                       AND TO_CHAR(T1.LEGAL_REQ_SRNO) = T5.REF_ID
+                                       AND T5.RPRT_CD                IN ('B40100300','C30100300'))
+       LEFT OUTER JOIN TBCSPDCP603M T6 ON (T1.WRK_YR                  = T6.ACP_YR
+                                       AND T1.WRK_DVSN_CD             = DECODE(T2.REQ_DVSN_CD, '1', 'B10', '2', 'C10', '3', 'C10', '4', 'C10', '5')
+                                       AND T1.WRK_NO                  = T6.CVPT_ACP_NO
+                                       AND TO_CHAR(T1.LEGAL_REQ_SRNO) = T6.REF_ID
+                                       AND T4.DOC_ID                  = T6.DOC_ID
+                                       AND T6.RPRT_CD                IN ('B40100300','C30100100'))
+                 WHERE 1=1
+                   AND T1.REQ_STAT_CD BETWEEN 40 AND 60
+                   AND T1.LEGAL_DPT_CD      = '160000'
+                   AND T1.WRK_DVSN_CD      IN ('B10', 'C10')
+        <if test="schAudYr != null and schAudYr != ''">
+                   AND T2.ACP_YR            = #{schAudYr}
+        </if>
+        <if test="schAudYrNoKndCd != null and schAudYrNoKndCd != ''">
+                   AND T2.REQ_DVSN_CD       = #{schAudYrNoKndCd}
+        </if>
+        <if test="schAudGrnNo != null and schAudGrnNo != ''">
+                   AND T2.CVPT_ACP_NO       = #{schAudGrnNo}
+        </if>
+        <if test="schAudSbjNm != null and schAudSbjNm != ''">
+                   AND T2.TIT_NM         LIKE '%'||#{schAudSbjNm}||'%'
+        </if>
+        <if test="wrkDvsnCd != null and wrkDvsnCd != ''">
+                   AND T1.WRK_DVSN_CD       = #{wrkDvsnCd}
+        </if>
+        <if test="opinSta != null and opinSta != '' and opinSta eq 'R'.toString()">
+                   AND T1.REQ_STAT_CD       = '40'
+        </if>
+        <if test="opinSta != null and opinSta != '' and opinSta eq 'A'.toString()">
+                   AND T1.REQ_STAT_CD       = '50'
+        </if>
+        <if test="opinSta != null and opinSta != '' and opinSta eq 'S'.toString()">
+                   AND T1.REQ_STAT_CD       = '60'
+        </if>
+        <if test="reqDvsnCd != null and reqDvsnCd != ''">
+                   AND T1.LEGAL_REQ_DVSN_CD = #{reqDvsnCd}
+        </if>
+                   AND T1.HIDDEN_YN         = 'N'  
+
+                   UNION ALL
+                 /* 부패행위(F10) */
+                SELECT F_CODE_NM('1000828', T1.LEGAL_REQ_DVSN_CD)                      AS LEGAL_REQ_DVSN_NM
+	                 , TO_CHAR(T1.LEGAL_REQ_DH, 'YYYY-MM-DD')                          AS LEGAL_REQ_DH
+	                 , F_CODE_NM('1000787', T1.WRK_DVSN_CD)                            AS WRK_DVSN_NM
+	                 , CASE WHEN T1.REQ_STAT_CD IN ('20', '30', '90')
+	                        THEN F_CODE_NM('1000830', T1.REQ_STAT_CD)
+	                        ELSE F_CODE_NM('1000831', T1.LEGAL_DPT_CD) || DECODE(T1.REQ_STAT_CD, '40', ' 수신', '50', ' 접수', '60', ' 회신완료') 
+	                    END || '(' || TO_CHAR(T1.REQ_STAT_CHG_DH, 'YYYY-MM-DD') || ')' AS REQ_STAT_NM
+	                 , T2.ACP_YR || '-' || '부감' || '-' || LTRIM(T2.RM_CVPT_ACP_NO, '0')
+	                                                                                   AS AUD_YR_NO
+	                 , T2.TIT_NM                                                       AS AUD_SBJ_NM
+	                 , ''                                                              AS AFF_NO
+	                 , ''                                                              AS TITLE_NM
+	                 , F_DPT_INFO(T2.ACP_DPT_CD, 1)                                    AS REQ_DPT_NM
+	                 , NVL(F_CODE_NM('1000773', T5.APV_STA_CD), '미작성')              AS APV_STA_NM
+	                 , DECODE(T4.DOC_ID, NULL, '미발신', '발신완료')                   AS SND_YN
+	                 , TO_CHAR(T4.SND_DH, 'YYYY-MM-DD')                                AS SND_DH
+	                 , T1.WRK_DVSN_CD
+	                 , T1.WRK_YR
+	                 , T1.WRK_NO
+	                 , T1.LEGAL_REQ_DVSN_CD
+	                 , T1.LEGAL_REQ_SRNO
+	                 , T1.REQ_STAT_CD
+	                 , NULL                                                            AS AFF_SNO
+	                 , ''                                                              AS ACP_KND_CD
+	                 , DECODE(T5.DOC_ID, NULL, 'Y', 'N')                               AS OPIN_DOC_WRT_YN
+	                 , T2.ACP_DPT_CD                                                   AS RCPT_DPT_CD
+	                 , T1.APVR_CD
+	                 , F_USR_INFO_BY_ID(T6.DOC_WRT_ID, '2')                            AS DOC_WRT_NM
+	                 , T6.DOC_WRT_ID
+	                 , F_CODE_NM('1000894', T2.DOC_WRIT_KND_CD)                        AS DOC_TYPE
+	                 , T2.REQ_DVSN_CD
+	                 , T1.AUD_STEP_CD
+                  FROM TBBADDED126M T1
+            INNER JOIN TBCORCOR101M T2 ON (T1.WRK_YR                  = T2.ACP_YR
+                                       AND T1.WRK_DVSN_CD             = DECODE(T2.REQ_DVSN_CD, '5', 'F10','')
+                                       AND T1.WRK_NO                  = T2.CVPT_ACP_NO)
+       /* BEST20 의견서를 여러건 작성하면 row가 여러개 나와서 수정함 */
+       LEFT OUTER JOIN (SELECT AA.ACP_YR
+                             , AA.ACP_DVSN_CD
+                             , AA.ACP_SRNO
+                             , AA.REF_ID
+                             , AA.RPRT_CD
+                             , AA.RCPT_DPT_CD
+                             , MAX(AA.DOC_ID) AS DOC_ID
+                             , MAX(AA.SND_DH) AS SND_DH
+                          FROM TBCORCOR111M AA
+                         GROUP BY
+                               AA.ACP_YR
+                             , AA.ACP_DVSN_CD
+                             , AA.ACP_SRNO
+                             , AA.REF_ID
+                             , AA.RPRT_CD
+                             , AA.RCPT_DPT_CD) T4 ON (T1.WRK_YR                  = T4.ACP_YR
+                                       AND T1.WRK_DVSN_CD             = DECODE(T4.ACP_DVSN_CD, '5', 'F10','')
+                                       AND T1.WRK_NO                  = T4.ACP_SRNO
+                                       AND TO_CHAR(T1.LEGAL_REQ_SRNO) = T4.REF_ID
+                                       AND T4.RPRT_CD                IN ('F40100300')
+                                       AND T4.RCPT_DPT_CD             = '160100')
+       LEFT OUTER JOIN TBCORCOR603M T5 ON (T1.WRK_YR                  = T5.ACP_YR
+                                       AND T1.WRK_DVSN_CD             = DECODE(T5.REQ_DVSN_CD, '5', 'F10','')
+                                       AND T1.WRK_NO                  = T5.CVPT_ACP_NO
+                                       AND T4.DOC_ID                  = T5.DOC_ID
+                                       AND TO_CHAR(T1.LEGAL_REQ_SRNO) = T5.REF_ID
+                                       AND T5.RPRT_CD                IN ('F40100300'))
+       LEFT OUTER JOIN TBCORCOR603M T6 ON (T1.WRK_YR                  = T6.ACP_YR
+                                       AND T1.WRK_DVSN_CD             = DECODE(T6.REQ_DVSN_CD, '5', 'F10','')
+                                       AND T1.WRK_NO                  = T6.CVPT_ACP_NO
+                                       AND TO_CHAR(T1.LEGAL_REQ_SRNO) = T6.REF_ID
+                                       AND T4.DOC_ID                  = T6.DOC_ID
+                                       AND T6.RPRT_CD                IN ('F40100300'))
+                 WHERE 1=1
+                   AND T1.REQ_STAT_CD BETWEEN 40 AND 60
+                   AND T1.LEGAL_DPT_CD      = '160000'
+                   AND T1.WRK_DVSN_CD      IN ('F10')
+        <if test="schAudYr != null and schAudYr != ''">
+                   AND T2.ACP_YR            = #{schAudYr}
+        </if>
+        <if test="schAudYrNoKndCd != null and schAudYrNoKndCd != ''">
+                   AND T2.REQ_DVSN_CD       = #{schAudYrNoKndCd}
+        </if>
+        <if test="schAudGrnNo != null and schAudGrnNo != ''">
+                   AND T2.CVPT_ACP_NO       = #{schAudGrnNo}
+        </if>
+        <if test="schAudSbjNm != null and schAudSbjNm != ''">
+                   AND T2.TIT_NM         LIKE '%'||#{schAudSbjNm}||'%'
+        </if>
+        <if test="wrkDvsnCd != null and wrkDvsnCd != ''">
+                   AND T1.WRK_DVSN_CD       = #{wrkDvsnCd}
+        </if>
+        <if test="opinSta != null and opinSta != '' and opinSta eq 'R'.toString()">
+                   AND T1.REQ_STAT_CD       = '40'
+        </if>
+        <if test="opinSta != null and opinSta != '' and opinSta eq 'A'.toString()">
+                   AND T1.REQ_STAT_CD       = '50'
+        </if>
+        <if test="opinSta != null and opinSta != '' and opinSta eq 'S'.toString()">
+                   AND T1.REQ_STAT_CD       = '60'
+        </if>
+        <if test="reqDvsnCd != null and reqDvsnCd != ''">
+                   AND T1.LEGAL_REQ_DVSN_CD = #{reqDvsnCd}
+        </if>
+                   AND T1.HIDDEN_YN         = 'N'
+
+
+                    UNION ALL
+                 /* 청탁금지(G10) */
+                SELECT F_CODE_NM('1000828', T1.LEGAL_REQ_DVSN_CD)                      AS LEGAL_REQ_DVSN_NM
+	                 , TO_CHAR(T1.LEGAL_REQ_DH, 'YYYY-MM-DD')                          AS LEGAL_REQ_DH
+	                 , F_CODE_NM('1000787', T1.WRK_DVSN_CD)                            AS WRK_DVSN_NM
+	                 , CASE WHEN T1.REQ_STAT_CD IN ('20', '30', '90')
+	                        THEN F_CODE_NM('1000830', T1.REQ_STAT_CD)
+	                        ELSE F_CODE_NM('1000831', T1.LEGAL_DPT_CD) || DECODE(T1.REQ_STAT_CD, '40', ' 수신', '50', ' 접수', '60', ' 회신완료') 
+	                    END || '(' || TO_CHAR(T1.REQ_STAT_CHG_DH, 'YYYY-MM-DD') || ')' AS REQ_STAT_NM
+	                 , T2.ACP_YR || '-' || '청금' || '-' || LTRIM(T2.RM_CVPT_ACP_NO, '0')
+	                                                                                   AS AUD_YR_NO
+	                 , T2.TIT_NM                                                       AS AUD_SBJ_NM
+	                 , ''                                                              AS AFF_NO
+	                 , ''                                                              AS TITLE_NM
+	                 , F_DPT_INFO(T2.ACP_DPT_CD, 1)                                    AS REQ_DPT_NM
+	                 , NVL(F_CODE_NM('1000773', T5.APV_STA_CD), '미작성')              AS APV_STA_NM
+	                 , DECODE(T4.DOC_ID, NULL, '미발신', '발신완료')                   AS SND_YN
+	                 , TO_CHAR(T4.SND_DH, 'YYYY-MM-DD')                                AS SND_DH
+	                 , T1.WRK_DVSN_CD
+	                 , T1.WRK_YR
+	                 , T1.WRK_NO
+	                 , T1.LEGAL_REQ_DVSN_CD
+	                 , T1.LEGAL_REQ_SRNO
+	                 , T1.REQ_STAT_CD
+	                 , NULL                                                            AS AFF_SNO
+	                 , ''                                                              AS ACP_KND_CD
+	                 , DECODE(T5.DOC_ID, NULL, 'Y', 'N')                               AS OPIN_DOC_WRT_YN
+	                 , T2.ACP_DPT_CD                                                   AS RCPT_DPT_CD
+	                 , T1.APVR_CD
+	                 , F_USR_INFO_BY_ID(T6.DOC_WRT_ID, '2')                            AS DOC_WRT_NM
+	                 , T6.DOC_WRT_ID
+	                 , F_CODE_NM('1000894', T2.DOC_WRIT_KND_CD)                        AS DOC_TYPE
+	                 , T2.REQ_DVSN_CD
+	                 , T1.AUD_STEP_CD
+                  FROM TBBADDED126M T1
+            INNER JOIN TBDCPDCP101M T2 ON (T1.WRK_YR                  = T2.ACP_YR
+                                       AND T1.WRK_DVSN_CD             = DECODE(T2.REQ_DVSN_CD, '6', 'G10','')
+                                       AND T1.WRK_NO                  = T2.CVPT_ACP_NO)
+       /* BEST20 의견서를 여러건 작성하면 row가 여러개 나와서 수정함 */
+       LEFT OUTER JOIN (SELECT AA.ACP_YR
+                             , AA.ACP_DVSN_CD
+                             , AA.ACP_SRNO
+                             , AA.REF_ID
+                             , AA.RPRT_CD
+                             , AA.RCPT_DPT_CD
+                             , MAX(AA.DOC_ID) AS DOC_ID
+                             , MAX(AA.SND_DH) AS SND_DH
+                          FROM TBDCPDCP111M AA
+                         GROUP BY
+                               AA.ACP_YR
+                             , AA.ACP_DVSN_CD
+                             , AA.ACP_SRNO
+                             , AA.REF_ID
+                             , AA.RPRT_CD
+                             , AA.RCPT_DPT_CD) T4 ON (T1.WRK_YR                  = T4.ACP_YR
+                                       AND T1.WRK_DVSN_CD             = DECODE(T4.ACP_DVSN_CD, '6', 'G10','')
+                                       AND T1.WRK_NO                  = T4.ACP_SRNO
+                                       AND TO_CHAR(T1.LEGAL_REQ_SRNO) = T4.REF_ID
+                                       AND T4.RPRT_CD                IN ('G40100300')
+                                       AND T4.RCPT_DPT_CD             = '160100')
+       LEFT OUTER JOIN TBDCPDCP603M T5 ON (T1.WRK_YR                  = T5.ACP_YR
+                                       AND T1.WRK_DVSN_CD             = DECODE(T5.REQ_DVSN_CD, '6', 'G10','')
+                                       AND T1.WRK_NO                  = T5.CVPT_ACP_NO
+                                       AND T4.DOC_ID                  = T5.DOC_ID
+                                       AND TO_CHAR(T1.LEGAL_REQ_SRNO) = T5.REF_ID
+                                       AND T5.RPRT_CD                IN ('G40100300'))
+       LEFT OUTER JOIN TBDCPDCP603M T6 ON (T1.WRK_YR                  = T6.ACP_YR
+                                       AND T1.WRK_DVSN_CD             = DECODE(T6.REQ_DVSN_CD, '6', 'G10','')
+                                       AND T1.WRK_NO                  = T6.CVPT_ACP_NO
+                                       AND TO_CHAR(T1.LEGAL_REQ_SRNO) = T6.REF_ID
+                                       AND T4.DOC_ID                  = T6.DOC_ID
+                                       AND T6.RPRT_CD                IN ('G40100300'))
+                 WHERE 1=1
+                   AND T1.REQ_STAT_CD BETWEEN 40 AND 60
+                   AND T1.LEGAL_DPT_CD      = '160000'
+                   AND T1.WRK_DVSN_CD      IN ('G10')
+        <if test="schAudYr != null and schAudYr != ''">
+                   AND T2.ACP_YR            = #{schAudYr}
+        </if>
+        <if test="schAudYrNoKndCd != null and schAudYrNoKndCd != ''">
+                   AND T2.REQ_DVSN_CD       = #{schAudYrNoKndCd}
+        </if>
+        <if test="schAudGrnNo != null and schAudGrnNo != ''">
+                   AND T2.CVPT_ACP_NO       = #{schAudGrnNo}
+        </if>
+        <if test="schAudSbjNm != null and schAudSbjNm != ''">
+                   AND T2.TIT_NM         LIKE '%'||#{schAudSbjNm}||'%'
+        </if>
+        <if test="wrkDvsnCd != null and wrkDvsnCd != ''">
+                   AND T1.WRK_DVSN_CD       = #{wrkDvsnCd}
+        </if>
+        <if test="opinSta != null and opinSta != '' and opinSta eq 'R'.toString()">
+                   AND T1.REQ_STAT_CD       = '40'
+        </if>
+        <if test="opinSta != null and opinSta != '' and opinSta eq 'A'.toString()">
+                   AND T1.REQ_STAT_CD       = '50'
+        </if>
+        <if test="opinSta != null and opinSta != '' and opinSta eq 'S'.toString()">
+                   AND T1.REQ_STAT_CD       = '60'
+        </if>
+        <if test="reqDvsnCd != null and reqDvsnCd != ''">
+                   AND T1.LEGAL_REQ_DVSN_CD = #{reqDvsnCd}
+        </if>
+                   AND T1.HIDDEN_YN         = 'N'
+               )
+         ORDER BY LEGAL_REQ_DH DESC
+                , DECODE(REQ_STAT_CD, '70', '30', REQ_STAT_CD)
+                , LEGAL_REQ_SRNO DESC
+    </select>
+    
+    <!-- 수신문서 목록 조회(실지감사(A10)) -->
+    <select id="selectRprtRcptList" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectRprtRcptList */
+        <![CDATA[
+        SELECT RPRT_NM
+             , DOC_ID
+             , DECODE(DOC_STA_CD, '10', '수신', F_CODE_NM('1000780', DOC_STA_CD))
+                                              AS DOC_STA_NM
+             , F_DPT_INFO(SND_DPT_CD, 1)      AS SND_DPT_NM
+             , TO_CHAR(SND_DH, 'YYYY-MM-DD')  AS SND_DT
+             , '법률자문관I'                  AS RCPT_DPT_NM
+             , TO_CHAR(RCPT_DH, 'YYYY-MM-DD') AS RCPT_DT
+             , SR_DOC_SNO
+             , SUPPLM_REQ
+             , DOC_STA_CD
+             , F_OPEN_EDIT(LINK_URL)          AS DOC_TYPE
+          FROM TBBADDED111M
+         WHERE 1=1
+           AND AUD_YR      = #{wrkYr}
+           AND AUD_NO      = #{wrkNo}
+           AND RPRT_CD    IN ('A10602100', 'A10602200')
+           AND RCPT_DPT_CD = '160000' --법률자문관I
+           AND SND_DPT_CD  = '160100' --법무부서 발신
+           AND REF_ID      = #{legalReqSrno}
+        ]]>
+    </select>
+
+    <!-- 수신문서 목록 조회(감사제보(B10), 감사청구(C10)) -->
+    <select id="selectRprtRcptListCSPDCP" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectRprtRcptListCSPDCP */
+        <![CDATA[
+        SELECT RPRT_NM
+             , DOC_ID
+             , F_DPT_INFO(SND_DPT_CD, 1)      AS SND_DPT_NM
+             , DECODE(DOC_STA_CD, '10', '수신', F_CODE_NM('1000780', DOC_STA_CD))
+                                              AS DOC_STA_NM
+             , TO_CHAR(SND_DH, 'YYYY-MM-DD')  AS SND_DT
+             , DECODE(RCPT_DPT_CD, '160000', '법률자문관I', '160100', '법률자문관II')
+                                              AS RCPT_DPT_NM
+             , TO_CHAR(RCPT_DH, 'YYYY-MM-DD') AS RCPT_DT
+             , SR_DOC_SNO
+             , SUPPLM_REQ
+             , DOC_STA_CD
+             , F_OPEN_EDIT(LINK_URL)          AS DOC_TYPE
+          FROM TBCSPDCP111M
+         WHERE 1=1
+           AND ACP_YR      = #{wrkYr}
+           AND ACP_DVSN_CD = #{reqDvsnCd}
+           AND ACP_SRNO    = #{wrkNo}
+           AND RPRT_CD    IN ('B40100100', 'B40100200','C30100100', 'C30100200')
+           AND RCPT_DPT_CD = '160000' --법률자문관I
+           AND SND_DPT_CD  = '160100' --법무부서 발신
+           AND REF_ID      = #{legalReqSrno}
+        ]]>
+    </select>
+    
+    <!-- 수신문서 목록 조회(심사청구(D10), 재심의청구(E10)) -->
+    <select id="selectRprtRcptListBADFRE" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectRprtRcptListBADFRE */
+        <![CDATA[
+        SELECT RPRT_NM
+             , DOC_ID
+             , F_DPT_INFO(SND_DPT_CD, 1)      AS SND_DPT_NM
+             , DECODE(DOC_STA_CD, '10', '수신', F_CODE_NM('1000780', DOC_STA_CD))
+                                              AS DOC_STA_NM
+             , TO_CHAR(SND_DH, 'YYYY-MM-DD')  AS SND_DT
+             , DECODE(RCPT_DPT_CD, '160000', '법률자문관I', '160100', '법률자문관II')
+                                              AS RCPT_DPT_NM
+             , TO_CHAR(RCPT_DH, 'YYYY-MM-DD') AS RCPT_DT
+             , SR_DOC_SNO
+             , SUPPLM_REQ
+             , DOC_STA_CD
+             , F_OPEN_EDIT(LINK_URL)          AS DOC_TYPE
+          FROM TBBADFRE111M
+         WHERE 1=1
+           AND ACP_YR      = #{wrkYr}
+           AND ACP_DVSN_CD = DECODE(#{wrkDvsnCd}, 'D10', '1', 'E10', '2', '')
+           AND ACP_SRNO    = #{wrkNo}
+           AND RPRT_CD    IN ('D10200500', 'D10200600', 'E10400300', 'E10400400')
+           AND RCPT_DPT_CD = '160000' --법률자문관I
+           AND SND_DPT_CD  = '160100' --법무부서 발신
+           AND REF_ID      = #{legalReqSrno}
+        ]]>
+    </select>
+
+    <!-- 수신문서 목록 조회(부패행위(F10)) -->
+    <select id="selectRprtRcptListCORCOR" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectRprtRcptListCORCOR */
+        <![CDATA[
+        SELECT RPRT_NM
+             , DOC_ID
+             , F_DPT_INFO(SND_DPT_CD, 1)      AS SND_DPT_NM
+             , DECODE(DOC_STA_CD, '10', '수신', F_CODE_NM('1000780', DOC_STA_CD))
+                                              AS DOC_STA_NM
+             , TO_CHAR(SND_DH, 'YYYY-MM-DD')  AS SND_DT
+             , DECODE(RCPT_DPT_CD, '160000', '법률자문관I', '160100', '법률자문관II')
+                                              AS RCPT_DPT_NM
+             , TO_CHAR(RCPT_DH, 'YYYY-MM-DD') AS RCPT_DT
+             , SR_DOC_SNO
+             , SUPPLM_REQ
+             , DOC_STA_CD
+             , F_OPEN_EDIT(LINK_URL)          AS DOC_TYPE
+          FROM TBCORCOR111M
+         WHERE 1=1
+           AND ACP_YR      = #{wrkYr}
+           AND ACP_DVSN_CD = #{reqDvsnCd}
+           AND ACP_SRNO    = #{wrkNo}
+           AND RPRT_CD    IN ('F40100100', 'F40100200')
+           AND RCPT_DPT_CD = '160000' --법률자문관I
+           AND SND_DPT_CD  = '160100' --법무부서 발신
+           AND REF_ID      = #{legalReqSrno}
+        ]]>
+    </select>
+
+    <!-- 수신문서 목록 조회(청탁금지(G10)) -->
+    <select id="selectRprtRcptListDCPDCP" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectRprtRcptListDCPDCP */
+        <![CDATA[
+        SELECT RPRT_NM
+             , DOC_ID
+             , F_DPT_INFO(SND_DPT_CD, 1)      AS SND_DPT_NM
+             , DECODE(DOC_STA_CD, '10', '수신', F_CODE_NM('1000780', DOC_STA_CD))
+                                              AS DOC_STA_NM
+             , TO_CHAR(SND_DH, 'YYYY-MM-DD')  AS SND_DT
+             , DECODE(RCPT_DPT_CD, '160000', '법률자문관I', '160100', '법률자문관II')
+                                              AS RCPT_DPT_NM
+             , TO_CHAR(RCPT_DH, 'YYYY-MM-DD') AS RCPT_DT
+             , SR_DOC_SNO
+             , SUPPLM_REQ
+             , DOC_STA_CD
+             , F_OPEN_EDIT(LINK_URL)          AS DOC_TYPE
+          FROM TBDCPDCP111M
+         WHERE 1=1
+           AND ACP_YR      = #{wrkYr}
+           AND ACP_DVSN_CD = #{reqDvsnCd}
+           AND ACP_SRNO    = #{wrkNo}
+           AND RPRT_CD    IN ('G40100100', 'G40100200')
+           AND RCPT_DPT_CD = '160000' --법률자문관I
+           AND SND_DPT_CD  = '160100' --법무부서 발신
+           AND REF_ID      = #{legalReqSrno}
+        ]]>
+    </select> 
+   
+    <!-- 의견문서 목록 조회(실지감사) -->
+    <select id="selectDocList" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectDocList */
+        <![CDATA[
+        SELECT G1.RPRT_NM
+             , G1.RPRT_NM         AS V_RPRT_NM
+             , G1.APV_STA_CD
+             , G1.APV_STA_NM
+             , G1.DOC_ID
+             , G1.APV_RQS_ID
+             , MAX(G1.APV_INFO_1) AS APV_INFO_1
+             , MAX(G1.APV_INFO_2) AS APV_INFO_2
+             , MAX(G1.APV_INFO_3) AS APV_INFO_3
+             , MAX(G1.APV_INFO_4) AS APV_INFO_4
+             , MAX(G1.APV_INFO_5) AS APV_INFO_5
+             , MAX(G1.APV_INFO_6) AS APV_INFO_6
+             , MAX(G1.APV_INFO_7) AS APV_INFO_7
+             , (SELECT DECODE(COUNT(1), 0, 'N', 'Y')
+                  FROM TBBADDED111M T3
+                 WHERE 1=1
+                   AND T3.AUD_YR  = G1.AUD_YR
+                   AND T3.AUD_NO  = G1.AUD_NO
+                   AND T3.RPRT_CD = G1.RPRT_CD
+                   AND T3.DOC_ID  = G1.DOC_ID)
+                                  AS SEND_YN
+             , G1.RPRT_CD
+             , G1.DOC_TYPE
+          FROM (SELECT AUD_YR
+	                 , AUD_NO
+	                 , RPRT_CD
+	                 , RPRT_NM
+	                 , APV_STA_CD
+	                 , APV_STA_NM
+	                 , DOC_ID
+	                 , APV_RQS_ID
+	                 , DOC_TYPE
+	                 , DECODE(ROW_ID, 1, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_1
+	                 , DECODE(ROW_ID, 2, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_2
+	                 , DECODE(ROW_ID, 3, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_3
+	                 , DECODE(ROW_ID, 4, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_4
+	                 , DECODE(ROW_ID, 5, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_5
+	                 , DECODE(ROW_ID, 6, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_6
+	                 , DECODE(ROW_ID, 7, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_7
+                  FROM (SELECT AUD_YR
+		                     , AUD_NO
+		                     , RPRT_CD
+		                     , RPRT_NM
+		                     , APV_STA_CD
+		                     , APV_STA_NM
+		                     , DOC_ID
+		                     , APV_RQS_ID
+		                     , PST_NM
+		                     , APVR_NM
+		                     , APV_DH
+		                     , DOC_TYPE
+		                     , ROW_NUMBER() OVER(PARTITION BY DOC_ID ORDER BY APV_SNO) AS ROW_ID 
+                          FROM (SELECT T1.AUD_YR
+			                         , T1.AUD_NO
+			                         , T1.RPRT_CD
+			                         , T1.RPRT_NM
+			                         , T1.APV_STA_CD
+			                         , F_CODE_NM('1000773', T1.APV_STA_CD) AS APV_STA_NM
+			                         , T1.DOC_ID
+			                         , T2.APV_SNO
+			                         , T1.APV_RQS_ID
+			                         , CASE WHEN APVR_PST_CD IS NULL
+			                                THEN (SELECT MAX(ONR_PST_NM)
+			                                        FROM TBDCMACM001M
+			                                       WHERE 1=1
+			                                         AND CNB = APVR_CNB)
+			                                ELSE F_CODE_NM('1000176', T2.APVR_PST_CD)
+			                            END                                AS PST_NM
+			                         , F_USR_INFO(T2.APVR_CNB, '2')        AS APVR_NM
+			                         , CASE WHEN SUBSTR(T2.APVR_STA_CD, 0, 1) = '2'
+			                                THEN TO_CHAR(T2.APV_DH, 'YYYY-MM-DD')
+			                                ELSE ''
+			                            END                                AS APV_DH
+			                         , F_OPEN_EDIT(T1.LINK_URL)            AS DOC_TYPE
+                                  FROM TBBADDED103M T1
+                       LEFT OUTER JOIN TBDCMACM023L T2 ON (T1.APV_RQS_ID   = T2.APV_DOC_NO
+                                                       AND T2.APV_SNO     <> '1'
+                                                       AND T2.APVR_KND_CD <> '4')
+                                 WHERE 1=1
+                                   AND T1.AUD_YR   = #{wrkYr}
+			                       AND T1.AUD_NO   = #{wrkNo}
+			                       AND T1.RPRT_CD IN ('A10602300')
+			                       AND T1.REF_ID   = #{legalReqSrno}
+			                   )
+                       )
+                 WHERE 1=1
+               ) AS G1
+         WHERE 1=1
+         GROUP BY G1.AUD_YR
+                , G1.AUD_NO
+                , G1.RPRT_CD
+                , G1.RPRT_NM
+                , G1.APV_STA_CD
+                , G1.APV_STA_NM
+                , G1.DOC_ID
+                , G1.APV_RQS_ID 
+                , G1.DOC_TYPE
+        ]]>
+    </select>
+
+    <!-- 의견목록 조회(감사제보(B10), 감사청구(C10)) -->
+    <select id="selectDocListCSPDCP" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectDocListCSPDCP */
+        <![CDATA[
+        SELECT G1.RPRT_NM
+             , G1.RPRT_NM         AS V_RPRT_NM
+             , G1.APV_STA_CD
+             , G1.APV_STA_NM
+             , G1.DOC_ID
+             , G1.APV_RQS_ID
+             , MAX(G1.APV_INFO_1) AS APV_INFO_1
+             , MAX(G1.APV_INFO_2) AS APV_INFO_2
+             , MAX(G1.APV_INFO_3) AS APV_INFO_3
+             , MAX(G1.APV_INFO_4) AS APV_INFO_4
+             , MAX(G1.APV_INFO_5) AS APV_INFO_5
+             , MAX(G1.APV_INFO_6) AS APV_INFO_6
+             , MAX(G1.APV_INFO_7) AS APV_INFO_7
+             , (SELECT DECODE(COUNT(1), 0, 'N', 'Y')
+                 FROM TBCSPDCP111M T3
+                WHERE 1=1
+                  AND T3.ACP_YR      = G1.ACP_YR
+                  AND T3.ACP_DVSN_CD = G1.ACP_DVSN_CD
+                  AND T3.ACP_SRNO    = G1.ACP_SRNO
+                  AND T3.RPRT_CD     = G1.RPRT_CD
+                  AND T3.DOC_ID      = G1.DOC_ID)
+                                  AS SEND_YN
+             , G1.RPRT_CD
+             , G1.DOC_TYPE
+          FROM (SELECT ACP_YR
+                     , ACP_DVSN_CD
+                     , ACP_SRNO
+                     , RPRT_CD
+                     , RPRT_NM
+                     , APV_STA_CD
+                     , APV_STA_NM
+                     , DOC_ID
+                     , APV_RQS_ID
+                     , DOC_TYPE
+                     , DECODE(ROW_ID, 1, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_1
+                     , DECODE(ROW_ID, 2, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_2
+                     , DECODE(ROW_ID, 3, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_3
+                     , DECODE(ROW_ID, 4, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_4
+                     , DECODE(ROW_ID, 5, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_5
+                     , DECODE(ROW_ID, 6, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_6
+                     , DECODE(ROW_ID, 7, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_7
+                  FROM (SELECT ACP_YR
+                             , ACP_DVSN_CD
+                             , ACP_SRNO
+                             , RPRT_CD
+                             , RPRT_NM
+                             , APV_STA_CD
+                             , APV_STA_NM
+                             , DOC_ID
+                             , APV_RQS_ID
+                             , PST_NM
+                             , APVR_NM
+                             , APV_DH
+                             , DOC_TYPE
+                             , ROW_NUMBER() OVER(PARTITION BY DOC_ID ORDER BY APV_SNO) AS ROW_ID
+                          FROM (SELECT T1.ACP_YR
+                                     , T1.REQ_DVSN_CD                      AS ACP_DVSN_CD
+                                     , T1.CVPT_ACP_NO                      AS ACP_SRNO
+                                     , T1.RPRT_CD
+                                     , T1.RPRT_NM
+                                     , T1.APV_STA_CD
+                                     , F_CODE_NM('1000773', T1.APV_STA_CD) AS APV_STA_NM
+                                     , T1.DOC_ID
+                                     , T2.APV_SNO
+                                     , T1.APV_RQS_ID
+                                     , CASE WHEN APVR_PST_CD IS NULL
+                                            THEN (SELECT MAX(ONR_PST_NM)
+                                                    FROM TBDCMACM001M
+                                                   WHERE 1=1
+                                                     AND CNB = APVR_CNB)
+                                            ELSE F_CODE_NM('1000176', T2.APVR_PST_CD)
+                                        END                                AS PST_NM
+                                     , F_USR_INFO(T2.APVR_CNB, '2')        AS APVR_NM
+                                     , CASE WHEN SUBSTR(T2.APVR_STA_CD, 0, 1) = '2'
+                                            THEN TO_CHAR(T2.APV_DH, 'YYYY-MM-DD')
+                                            ELSE ''
+                                        END                                AS APV_DH
+                                     , F_OPEN_EDIT(T1.LINK_URL)            AS DOC_TYPE
+                                  FROM TBCSPDCP603M T1
+                       LEFT OUTER JOIN TBDCMACM023L T2 ON (T1.APV_RQS_ID   = T2.APV_DOC_NO
+                                                       AND T2.APV_SNO     <> '1'
+                                                       AND T2.APVR_KND_CD <> '4')
+                                 WHERE 1=1
+                                   AND T1.ACP_YR      = #{wrkYr}
+                                   AND T1.REQ_DVSN_CD = #{reqDvsnCd}
+                                   AND T1.CVPT_ACP_NO = #{wrkNo}
+                                   AND T1.RPRT_CD    IN ('B40100300', 'C30100300')
+                                   AND T1.REF_ID      = #{legalReqSrno}
+                               )
+                         WHERE 1=1
+                       )
+                 WHERE 1=1
+               ) AS G1
+         WHERE 1=1
+         GROUP BY G1.ACP_YR
+                , G1.ACP_DVSN_CD
+                , G1.ACP_SRNO
+                , G1.RPRT_CD
+                , G1.RPRT_NM
+                , G1.APV_STA_CD
+                , G1.APV_STA_NM
+                , G1.DOC_ID
+                , G1.APV_RQS_ID 
+                , G1.DOC_TYPE
+        ]]>
+    </select>
+    
+    <!-- 의견목록 조회(심사청구(D10), 재심의청구(E10)) -->
+    <select id="selectDocListBADFRE" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectDocListBADFRE */
+        <![CDATA[
+        SELECT G1.RPRT_NM
+             , G1.RPRT_NM         AS V_RPRT_NM
+             , G1.APV_STA_CD
+             , G1.APV_STA_NM
+             , G1.DOC_ID
+             , G1.APV_RQS_ID
+             , MAX(G1.APV_INFO_1) AS APV_INFO_1
+             , MAX(G1.APV_INFO_2) AS APV_INFO_2
+             , MAX(G1.APV_INFO_3) AS APV_INFO_3
+             , MAX(G1.APV_INFO_4) AS APV_INFO_4
+             , MAX(G1.APV_INFO_5) AS APV_INFO_5
+             , MAX(G1.APV_INFO_6) AS APV_INFO_6
+             , MAX(G1.APV_INFO_7) AS APV_INFO_7
+             , (SELECT DECODE(COUNT(1), 0, 'N', 'Y')
+                 FROM TBBADFRE111M T3
+                WHERE 1=1
+                  AND T3.ACP_YR      = G1.ACP_YR
+                  AND T3.ACP_DVSN_CD = G1.ACP_DVSN_CD
+                  AND T3.ACP_SRNO    = G1.ACP_SRNO
+                  AND T3.RPRT_CD     = G1.RPRT_CD
+                  AND T3.DOC_ID      = G1.DOC_ID)
+                                  AS SEND_YN
+             , G1.RPRT_CD
+             , G1.DOC_TYPE
+          FROM (SELECT ACP_YR
+	                 , ACP_DVSN_CD
+	                 , ACP_SRNO
+	                 , RPRT_CD
+	                 , RPRT_NM
+	                 , APV_STA_CD
+	                 , APV_STA_NM
+	                 , DOC_ID
+	                 , APV_RQS_ID
+	                 , DOC_TYPE
+	                 , DECODE(ROW_ID, 1, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_1
+	                 , DECODE(ROW_ID, 2, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_2
+	                 , DECODE(ROW_ID, 3, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_3
+	                 , DECODE(ROW_ID, 4, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_4
+	                 , DECODE(ROW_ID, 5, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_5
+	                 , DECODE(ROW_ID, 6, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_6
+	                 , DECODE(ROW_ID, 7, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_7
+                  FROM (SELECT ACP_YR
+		                     , ACP_DVSN_CD
+		                     , ACP_SRNO
+		                     , RPRT_CD
+		                     , RPRT_NM
+		                     , APV_STA_CD
+		                     , APV_STA_NM
+		                     , DOC_ID
+		                     , APV_RQS_ID
+		                     , PST_NM
+		                     , APVR_NM
+		                     , APV_DH
+		                     , DOC_TYPE
+		                     , ROW_NUMBER() OVER(PARTITION BY DOC_ID ORDER BY APV_SNO) AS ROW_ID
+                          FROM (SELECT T1.ACP_YR
+			                         , T1.ACP_DVSN_CD
+			                         , T1.ACP_SRNO
+			                         , T1.RPRT_CD
+			                         , T1.RPRT_NM
+			                         , T1.APV_STA_CD
+			                         , F_CODE_NM('1000773', T1.APV_STA_CD) AS APV_STA_NM
+			                         , T1.DOC_ID
+			                         , T2.APV_SNO
+			                         , T1.APV_RQS_ID
+			                         , CASE WHEN APVR_PST_CD IS NULL
+			                                THEN (SELECT MAX(ONR_PST_NM)
+			                                        FROM TBDCMACM001M
+			                                       WHERE 1=1
+			                                         AND CNB = APVR_CNB)
+			                                ELSE F_CODE_NM('1000176', T2.APVR_PST_CD)
+			                            END                                AS PST_NM
+			                         , F_USR_INFO(T2.APVR_CNB, '2')        AS APVR_NM
+			                         , CASE WHEN SUBSTR(T2.APVR_STA_CD, 0, 1) = '2'
+			                                THEN TO_CHAR(T2.APV_DH, 'YYYY-MM-DD')
+			                                ELSE ''
+			                            END                                AS APV_DH
+			                         , F_OPEN_EDIT(T1.LINK_URL)            AS DOC_TYPE
+                                  FROM TBBADFRE103M T1
+                       LEFT OUTER JOIN TBDCMACM023L T2 ON (T1.APV_RQS_ID   = T2.APV_DOC_NO
+                                                       AND T2.APV_SNO     <> '1'
+                                                       AND T2.APVR_KND_CD <> '4')
+                                 WHERE 1=1
+                                   AND T1.ACP_YR      = #{wrkYr}
+			                       AND T1.ACP_DVSN_CD = DECODE(#{wrkDvsnCd}, 'D10', '1', 'E10', '2', '')
+			                       AND T1.ACP_SRNO    = #{wrkNo}
+			                       AND T1.RPRT_CD    IN ('D10200700', 'E10400500')
+			                       AND T1.REF_ID      = #{legalReqSrno}
+                               )
+                         WHERE 1=1
+                       )
+                 WHERE 1=1
+               ) AS G1
+         WHERE 1=1
+         GROUP BY G1.ACP_YR
+                , G1.ACP_DVSN_CD
+                , G1.ACP_SRNO
+                , G1.RPRT_CD
+                , G1.RPRT_NM
+                , G1.APV_STA_CD
+                , G1.APV_STA_NM
+                , G1.DOC_ID
+                , G1.APV_RQS_ID 
+                , G1.DOC_TYPE
+        ]]>
+    </select>
+    
+    <!-- 의견목록 조회(부패행위(F10)) -->
+    <select id="selectDocListCORCOR" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectDocListCORCOR */
+        <![CDATA[
+        SELECT G1.RPRT_NM
+             , G1.RPRT_NM         AS V_RPRT_NM
+             , G1.APV_STA_CD
+             , G1.APV_STA_NM
+             , G1.DOC_ID
+             , G1.APV_RQS_ID
+             , MAX(G1.APV_INFO_1) AS APV_INFO_1
+             , MAX(G1.APV_INFO_2) AS APV_INFO_2
+             , MAX(G1.APV_INFO_3) AS APV_INFO_3
+             , MAX(G1.APV_INFO_4) AS APV_INFO_4
+             , MAX(G1.APV_INFO_5) AS APV_INFO_5
+             , MAX(G1.APV_INFO_6) AS APV_INFO_6
+             , MAX(G1.APV_INFO_7) AS APV_INFO_7
+             , (SELECT DECODE(COUNT(1), 0, 'N', 'Y')
+                 FROM TBCORCOR111M T3
+                WHERE 1=1
+                  AND T3.ACP_YR      = G1.ACP_YR
+                  AND T3.ACP_DVSN_CD = G1.ACP_DVSN_CD
+                  AND T3.ACP_SRNO    = G1.ACP_SRNO
+                  AND T3.RPRT_CD     = G1.RPRT_CD
+                  AND T3.DOC_ID      = G1.DOC_ID)
+                                  AS SEND_YN
+             , G1.RPRT_CD
+             , G1.DOC_TYPE
+          FROM (SELECT ACP_YR
+                     , ACP_DVSN_CD
+                     , ACP_SRNO
+                     , RPRT_CD
+                     , RPRT_NM
+                     , APV_STA_CD
+                     , APV_STA_NM
+                     , DOC_ID
+                     , APV_RQS_ID
+                     , DOC_TYPE
+                     , DECODE(ROW_ID, 1, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_1
+                     , DECODE(ROW_ID, 2, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_2
+                     , DECODE(ROW_ID, 3, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_3
+                     , DECODE(ROW_ID, 4, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_4
+                     , DECODE(ROW_ID, 5, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_5
+                     , DECODE(ROW_ID, 6, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_6
+                     , DECODE(ROW_ID, 7, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_7
+                  FROM (SELECT ACP_YR
+                             , ACP_DVSN_CD
+                             , ACP_SRNO
+                             , RPRT_CD
+                             , RPRT_NM
+                             , APV_STA_CD
+                             , APV_STA_NM
+                             , DOC_ID
+                             , APV_RQS_ID
+                             , PST_NM
+                             , APVR_NM
+                             , APV_DH
+                             , DOC_TYPE
+                             , ROW_NUMBER() OVER(PARTITION BY DOC_ID ORDER BY APV_SNO) AS ROW_ID
+                          FROM (SELECT T1.ACP_YR
+                                     , T1.REQ_DVSN_CD                      AS ACP_DVSN_CD
+                                     , T1.CVPT_ACP_NO                      AS ACP_SRNO
+                                     , T1.RPRT_CD
+                                     , T1.RPRT_NM
+                                     , T1.APV_STA_CD
+                                     , F_CODE_NM('1000773', T1.APV_STA_CD) AS APV_STA_NM
+                                     , T1.DOC_ID
+                                     , T2.APV_SNO
+                                     , T1.APV_RQS_ID
+                                     , CASE WHEN APVR_PST_CD IS NULL
+                                            THEN (SELECT MAX(ONR_PST_NM)
+                                                    FROM TBDCMACM001M
+                                                   WHERE 1=1
+                                                     AND CNB = APVR_CNB)
+                                            ELSE F_CODE_NM('1000176', T2.APVR_PST_CD)
+                                        END                                AS PST_NM
+                                     , F_USR_INFO(T2.APVR_CNB, '2')        AS APVR_NM
+                                     , CASE WHEN SUBSTR(T2.APVR_STA_CD, 0, 1) = '2'
+                                            THEN TO_CHAR(T2.APV_DH, 'YYYY-MM-DD')
+                                            ELSE ''
+                                        END                                AS APV_DH
+                                     , F_OPEN_EDIT(T1.LINK_URL)            AS DOC_TYPE
+                                  FROM TBCORCOR603M T1
+                       LEFT OUTER JOIN TBDCMACM023L T2 ON (T1.APV_RQS_ID   = T2.APV_DOC_NO
+                                                       AND T2.APV_SNO     <> '1'
+                                                       AND T2.APVR_KND_CD <> '4')
+                                 WHERE 1=1
+                                   AND T1.ACP_YR      = #{wrkYr}
+                                   AND T1.REQ_DVSN_CD = #{reqDvsnCd}
+                                   AND T1.CVPT_ACP_NO = #{wrkNo}
+                                   AND T1.RPRT_CD    IN ('F40100300')
+                                   AND T1.REF_ID      = #{legalReqSrno}
+                               )
+                         WHERE 1=1
+                       )
+                 WHERE 1=1
+               ) AS G1
+         WHERE 1=1
+         GROUP BY G1.ACP_YR
+                , G1.ACP_DVSN_CD
+                , G1.ACP_SRNO
+                , G1.RPRT_CD
+                , G1.RPRT_NM
+                , G1.APV_STA_CD
+                , G1.APV_STA_NM
+                , G1.DOC_ID
+                , G1.APV_RQS_ID 
+                , G1.DOC_TYPE
+        ]]>
+    </select>
+
+    <!-- 의견목록 조회(청탁금지(G10)) -->
+    <select id="selectDocListDCPDCP" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectDocListDCPDCP */
+        <![CDATA[
+        SELECT G1.RPRT_NM
+             , G1.RPRT_NM         AS V_RPRT_NM
+             , G1.APV_STA_CD
+             , G1.APV_STA_NM
+             , G1.DOC_ID
+             , G1.APV_RQS_ID
+             , MAX(G1.APV_INFO_1) AS APV_INFO_1
+             , MAX(G1.APV_INFO_2) AS APV_INFO_2
+             , MAX(G1.APV_INFO_3) AS APV_INFO_3
+             , MAX(G1.APV_INFO_4) AS APV_INFO_4
+             , MAX(G1.APV_INFO_5) AS APV_INFO_5
+             , MAX(G1.APV_INFO_6) AS APV_INFO_6
+             , MAX(G1.APV_INFO_7) AS APV_INFO_7
+             , (SELECT DECODE(COUNT(1), 0, 'N', 'Y')
+                 FROM TBDCPDCP111M T3
+                WHERE 1=1
+                  AND T3.ACP_YR      = G1.ACP_YR
+                  AND T3.ACP_DVSN_CD = G1.ACP_DVSN_CD
+                  AND T3.ACP_SRNO    = G1.ACP_SRNO
+                  AND T3.RPRT_CD     = G1.RPRT_CD
+                  AND T3.DOC_ID      = G1.DOC_ID)
+                                  AS SEND_YN
+             , G1.RPRT_CD
+             , G1.DOC_TYPE
+          FROM (SELECT ACP_YR
+                     , ACP_DVSN_CD
+                     , ACP_SRNO
+                     , RPRT_CD
+                     , RPRT_NM
+                     , APV_STA_CD
+                     , APV_STA_NM
+                     , DOC_ID
+                     , APV_RQS_ID
+                     , DOC_TYPE
+                     , DECODE(ROW_ID, 1, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_1
+                     , DECODE(ROW_ID, 2, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_2
+                     , DECODE(ROW_ID, 3, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_3
+                     , DECODE(ROW_ID, 4, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_4
+                     , DECODE(ROW_ID, 5, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_5
+                     , DECODE(ROW_ID, 6, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_6
+                     , DECODE(ROW_ID, 7, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_7
+                  FROM (SELECT ACP_YR
+                             , ACP_DVSN_CD
+                             , ACP_SRNO
+                             , RPRT_CD
+                             , RPRT_NM
+                             , APV_STA_CD
+                             , APV_STA_NM
+                             , DOC_ID
+                             , APV_RQS_ID
+                             , PST_NM
+                             , APVR_NM
+                             , APV_DH
+                             , DOC_TYPE
+                             , ROW_NUMBER() OVER(PARTITION BY DOC_ID ORDER BY APV_SNO) AS ROW_ID
+                          FROM (SELECT T1.ACP_YR
+                                     , T1.REQ_DVSN_CD                      AS ACP_DVSN_CD
+                                     , T1.CVPT_ACP_NO                      AS ACP_SRNO
+                                     , T1.RPRT_CD
+                                     , T1.RPRT_NM
+                                     , T1.APV_STA_CD
+                                     , F_CODE_NM('1000773', T1.APV_STA_CD) AS APV_STA_NM
+                                     , T1.DOC_ID
+                                     , T2.APV_SNO
+                                     , T1.APV_RQS_ID
+                                     , CASE WHEN APVR_PST_CD IS NULL
+                                            THEN (SELECT MAX(ONR_PST_NM)
+                                                    FROM TBDCMACM001M
+                                                   WHERE 1=1
+                                                     AND CNB = APVR_CNB)
+                                            ELSE F_CODE_NM('1000176', T2.APVR_PST_CD)
+                                        END                                AS PST_NM
+                                     , F_USR_INFO(T2.APVR_CNB, '2')        AS APVR_NM
+                                     , CASE WHEN SUBSTR(T2.APVR_STA_CD, 0, 1) = '2'
+                                            THEN TO_CHAR(T2.APV_DH, 'YYYY-MM-DD')
+                                            ELSE ''
+                                        END                                AS APV_DH
+                                     , F_OPEN_EDIT(T1.LINK_URL)            AS DOC_TYPE
+                                  FROM TBDCPDCP603M T1
+                       LEFT OUTER JOIN TBDCMACM023L T2 ON (T1.APV_RQS_ID   = T2.APV_DOC_NO
+                                                       AND T2.APV_SNO     <> '1'
+                                                       AND T2.APVR_KND_CD <> '4')
+                                 WHERE 1=1
+                                   AND T1.ACP_YR      = #{wrkYr}
+                                   AND T1.REQ_DVSN_CD = #{reqDvsnCd}
+                                   AND T1.CVPT_ACP_NO = #{wrkNo}
+                                   AND T1.RPRT_CD    IN ('G40100300')
+                                   AND T1.REF_ID      = #{legalReqSrno}
+                               )
+                         WHERE 1=1
+                       )
+                 WHERE 1=1
+               ) AS G1
+         WHERE 1=1
+         GROUP BY G1.ACP_YR
+                , G1.ACP_DVSN_CD
+                , G1.ACP_SRNO
+                , G1.RPRT_CD
+                , G1.RPRT_NM
+                , G1.APV_STA_CD
+                , G1.APV_STA_NM
+                , G1.DOC_ID
+                , G1.APV_RQS_ID 
+                , G1.DOC_TYPE
+        ]]>
+    </select>
+    
+    <!-- 발신문서 목록 조회(실지감사(A10)) -->
+    <select id="selectRprtSndList" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectRprtSndList */
+        <![CDATA[
+        SELECT RPRT_NM
+             , DOC_ID
+             , DECODE(DOC_STA_CD, '10', '발신', '20', '수신', '')
+                                              AS STA_NM
+             , '법률자문관I'                  AS SND_DPT_NM
+             , TO_CHAR(SND_DH, 'YYYY-MM-DD')  AS SND_DT
+             , F_DPT_INFO(RCPT_DPT_CD, 1)     AS RCPT_DPT_NM
+             , TO_CHAR(RCPT_DH, 'YYYY-MM-DD') AS RCPT_DT
+             , F_OPEN_EDIT(LINK_URL)          AS DOC_TYPE
+          FROM TBBADDED111M
+         WHERE 1=1
+           AND AUD_YR     = #{wrkYr}
+           AND AUD_NO     = #{wrkNo}
+           AND RPRT_CD   IN ('A10602300', 'A10602310')
+           AND SND_DPT_CD = '160000' --법률자문관I
+           AND REF_ID     = #{legalReqSrno}
+        ]]>
+    </select>
+
+    <!-- 발신문서 목록 조회(감사제보(B10), 감사청구(C10) -->
+    <select id="selectRprtSndListCSPDCP" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectRprtSndListCSPDCP */
+        <![CDATA[
+        SELECT RPRT_NM
+             , DOC_ID
+             , DECODE(DOC_STA_CD, '10', '발신', '20', '수신', '')
+                                              AS STA_NM
+             , DECODE(SND_DPT_CD, '160000', '법률자문관I', '160100', '법률자문관II')
+                                              AS SND_DPT_NM
+             , TO_CHAR(SND_DH, 'YYYY-MM-DD')  AS SND_DT
+             , F_DPT_INFO(RCPT_DPT_CD, 1)     AS RCPT_DPT_NM
+             , TO_CHAR(RCPT_DH, 'YYYY-MM-DD') AS RCPT_DT
+             , F_OPEN_EDIT(LINK_URL)          AS DOC_TYPE
+          FROM TBCSPDCP111M
+         WHERE 1=1
+           AND ACP_YR      = #{wrkYr}
+           AND ACP_DVSN_CD = #{reqDvsnCd}
+           AND ACP_SRNO    = #{wrkNo}
+           AND RPRT_CD    IN ('B40100300', 'B40100400','C30100300', 'C30100400') --법률자문의견서, 법률자문의견서(확인용)
+           AND SND_DPT_CD  = '160000' --법률자문관I
+           AND REF_ID      = #{legalReqSrno}
+        ]]>
+    </select>
+    
+    <!-- 발신문서 목록 조회(심사청구(D10), 재심의청구(E10)) -->
+    <select id="selectRprtSndListBADFRE" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectRprtSndListBADFRE */
+        <![CDATA[
+        SELECT RPRT_NM
+             , DOC_ID
+             , DECODE(DOC_STA_CD, '10', '발신', '20', '수신', '')
+                                              AS STA_NM
+             , DECODE(SND_DPT_CD, '160000', '법률자문관I', '160100', '법률자문관II')
+                                              AS SND_DPT_NM
+             , TO_CHAR(SND_DH, 'YYYY-MM-DD')  AS SND_DT
+             , F_DPT_INFO(RCPT_DPT_CD, 1)     AS RCPT_DPT_NM
+             , TO_CHAR(RCPT_DH, 'YYYY-MM-DD') AS RCPT_DT
+             , F_OPEN_EDIT(LINK_URL)          AS DOC_TYPE
+          FROM TBBADFRE111M
+         WHERE 1=1
+           AND ACP_YR      = #{wrkYr}
+           AND ACP_DVSN_CD = DECODE(#{wrkDvsnCd}, 'D10', '1', 'E10', '2', '')
+           AND ACP_SRNO    = #{wrkNo}
+           AND RPRT_CD    IN ('D10200700', 'D10200800', 'E10400500', 'E10400600') --법률자문의견서, 의견서(확인용)
+           AND SND_DPT_CD  = '160000' --법률자문관I
+           AND REF_ID      = #{legalReqSrno}
+        ]]>
+    </select>
+    
+    <!-- 발신문서 목록 조회(부패행위(F10)) -->
+    <select id="selectRprtSndListCORCOR" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectRprtSndListCORCOR */
+        <![CDATA[
+        SELECT RPRT_NM
+             , DOC_ID
+             , DECODE(DOC_STA_CD, '10', '발신', '20', '수신', '')
+                                              AS STA_NM
+             , DECODE(SND_DPT_CD, '160000', '법률자문관I', '160100', '법률자문관II')
+                                              AS SND_DPT_NM
+             , TO_CHAR(SND_DH, 'YYYY-MM-DD')  AS SND_DT
+             , F_DPT_INFO(RCPT_DPT_CD, 1)     AS RCPT_DPT_NM
+             , TO_CHAR(RCPT_DH, 'YYYY-MM-DD') AS RCPT_DT
+             , F_OPEN_EDIT(LINK_URL)          AS DOC_TYPE
+          FROM TBCORCOR111M
+         WHERE 1=1
+           AND ACP_YR      = #{wrkYr}
+           AND ACP_DVSN_CD = #{reqDvsnCd}
+           AND ACP_SRNO    = #{wrkNo}
+           AND RPRT_CD    IN ('F40100300', 'F40100400') --법률자문의견서, 법률자문의견서(확인용)
+           AND SND_DPT_CD  = '160000' --법률자문관I
+           AND REF_ID      = #{legalReqSrno}
+        ]]>
+    </select>
+
+    <!-- 발신문서 목록 조회(청탁금지(G10)) -->
+    <select id="selectRprtSndListDCPDCP" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectRprtSndListDCPDCP */
+        <![CDATA[
+        SELECT RPRT_NM
+             , DOC_ID
+             , DECODE(DOC_STA_CD, '10', '발신', '20', '수신', '')
+                                              AS STA_NM
+             , DECODE(SND_DPT_CD, '160000', '법률자문관I', '160100', '법률자문관II')
+                                              AS SND_DPT_NM
+             , TO_CHAR(SND_DH, 'YYYY-MM-DD')  AS SND_DT
+             , F_DPT_INFO(RCPT_DPT_CD, 1)     AS RCPT_DPT_NM
+             , TO_CHAR(RCPT_DH, 'YYYY-MM-DD') AS RCPT_DT
+             , F_OPEN_EDIT(LINK_URL)          AS DOC_TYPE
+          FROM TBDCPDCP111M
+         WHERE 1=1
+           AND ACP_YR      = #{wrkYr}
+           AND ACP_DVSN_CD = #{reqDvsnCd}
+           AND ACP_SRNO    = #{wrkNo}
+           AND RPRT_CD    IN ('G40100300', 'G40100400') --법률자문의견서, 법률자문의견서(확인용)
+           AND SND_DPT_CD  = '160000' --법률자문관I
+           AND REF_ID      = #{legalReqSrno}
+        ]]>
+    </select>
+    
+    <!-- 법률자문 요청 목록 접수 -->
+    <update id="updateAcp" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.updateAcp */
+        <![CDATA[
+        UPDATE TBBADDED126M
+           SET REQ_STAT_CD      = '50'
+             , LEGAL_DPT_RCP_YN = 'Y'
+             , LEGAL_DPT_RCP_DH = SYSDATE
+             , REQ_STAT_CHG_DH  = SYSDATE
+             , FNL_USR_ID       = #{usrId}
+             , FNL_DEAL_DPT_CD  = #{dptCd}
+             , FNL_MNU_ID       = #{mnuId}
+             , FNL_MDF_DH       = SYSDATE
+         WHERE 1=1
+           AND WRK_DVSN_CD    = #{wrkDvsnCd}
+           AND WRK_YR         = #{wrkYr}
+           AND WRK_NO         = #{wrkNo}
+           AND LEGAL_REQ_SRNO = #{legalReqSrno}
+        ]]>
+    </update>
+    
+    <!-- 실질감사(A10) -->
+    <update id="updateRcptDoc" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.updateRcptDoc */
+        <![CDATA[
+        UPDATE TBBADDED111M
+           SET DOC_STA_CD      = '20'
+             , RCNT_ID         = SYSDATE
+             , RCPT_DH         = SYSDATE
+             , FNL_USR_ID      = #{usrId}
+             , FNL_DEAL_DPT_CD = #{dptCd}
+             , FNL_MNU_ID      = #{mnuId}
+             , FNL_MDF_DH      = SYSDATE
+         WHERE 1=1
+           AND AUD_YR      = #{wrkYr}
+           AND AUD_NO      = #{wrkNo}
+           AND REF_ID      = #{legalReqSrno}
+           AND RPRT_CD    IN ('A10602100', 'A10602200')
+           AND SND_DPT_CD  = '160100' --법무부서 발신
+        ]]>
+    </update>
+
+    <!-- 감사제보(B10), 감사청구(C10)-->
+    <update id="updateRcptDocCSPDCP" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.updateRcptDocCSPDCP */
+        <![CDATA[
+        UPDATE TBCSPDCP111M
+           SET DOC_STA_CD      = '20'
+             , RCNT_ID         = SYSDATE
+             , RCPT_DH         = SYSDATE
+             , FNL_USR_ID      = #{usrId}
+             , FNL_DEAL_DPT_CD = #{dptCd}
+             , FNL_MNU_ID      = #{mnuId}
+             , FNL_MDF_DH      = SYSDATE
+         WHERE 1=1
+           AND ACP_YR      = #{wrkYr}
+           AND ACP_DVSN_CD = #{reqDvsnCd}
+           AND ACP_SRNO    = #{wrkNo}
+           AND REF_ID      = #{legalReqSrno}
+           AND RPRT_CD    IN ('B40100100', 'B40100200','C30100100', 'C30100200')
+           AND SND_DPT_CD  = '160100' --법무부서 발신
+        ]]>
+    </update>
+    
+    <!-- 심사청구(D10), 재심의청구(E10) -->
+    <update id="updateRcptDocBADFRE" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.updateRcptDocBADFRE */
+        <![CDATA[
+        UPDATE TBBADFRE111M
+           SET DOC_STA_CD      = '20'
+             , RCNT_ID         = SYSDATE
+             , RCPT_DH         = SYSDATE
+             , FNL_USR_ID      = #{usrId}
+             , FNL_DEAL_DPT_CD = #{dptCd}
+             , FNL_MNU_ID      = #{mnuId}
+             , FNL_MDF_DH      = SYSDATE
+         WHERE 1=1
+           AND ACP_YR      = #{wrkYr}
+           AND ACP_DVSN_CD = DECODE(#{wrkDvsnCd}, 'D10', '1', 'E10', '2', '')
+           AND ACP_SRNO    = #{wrkNo}
+           AND REF_ID      = #{legalReqSrno}
+           AND RPRT_CD    IN ('D10200500', 'D10200600', 'E10400300', 'E10400400')
+           AND SND_DPT_CD  = '160100' --법무부서 발신
+        ]]>
+    </update>
+    
+    <!-- 부패행위(F10) -->
+    <update id="updateRcptDocCORCOR" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.updateRcptDocCORCOR */
+        <![CDATA[
+        UPDATE TBCORCOR111M
+           SET DOC_STA_CD      = '20'
+             , RCNT_ID         = SYSDATE
+             , RCPT_DH         = SYSDATE
+             , FNL_USR_ID      = #{usrId}
+             , FNL_DEAL_DPT_CD = #{dptCd}
+             , FNL_MNU_ID      = #{mnuId}
+             , FNL_MDF_DH      = SYSDATE
+         WHERE 1=1
+           AND ACP_YR      = #{wrkYr}
+           AND ACP_DVSN_CD = #{reqDvsnCd}
+           AND ACP_SRNO    = #{wrkNo}
+           AND REF_ID      = #{legalReqSrno}
+           AND RPRT_CD    IN ('F40100100', 'F40100200')
+           AND SND_DPT_CD  = '160100' --법무부서 발신
+        ]]>
+    </update>
+
+    <!-- 청탁금지(G10) -->
+    <update id="updateRcptDocDCPDCP" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.updateRcptDocDCPDCP */
+        <![CDATA[
+        UPDATE TBDCPDCP111M
+           SET DOC_STA_CD      = '20'
+             , RCNT_ID         = SYSDATE
+             , RCPT_DH         = SYSDATE
+             , FNL_USR_ID      = #{usrId}
+             , FNL_DEAL_DPT_CD = #{dptCd}
+             , FNL_MNU_ID      = #{mnuId}
+             , FNL_MDF_DH      = SYSDATE
+         WHERE 1=1
+           AND ACP_YR      = #{wrkYr}
+           AND ACP_DVSN_CD = #{reqDvsnCd}
+           AND ACP_SRNO    = #{wrkNo}
+           AND REF_ID      = #{legalReqSrno}
+           AND RPRT_CD    IN ('G40100100', 'G40100200')
+           AND SND_DPT_CD  = '160100' --법무부서 발신
+        ]]>
+    </update>
+    
+    <!-- 실지감사(A10) -->
+    <insert id="insertLegalReqDetail" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.insertLegalReqDetail */
+        INSERT INTO TBBADDED126D (
+	        WRK_DVSN_CD
+	      , WRK_YR
+	      , WRK_NO
+	      , AUD_STEP_CD
+	      , LEGAL_REQ_DVSN_CD
+	      , LEGAL_REQ_SRNO
+	      , LEGAL_REQ_GRN_SRNO
+	      , INV_ACC_CNT
+	      , AUD_DT
+	      , ENF_DT
+	      , HND_ORG_CD
+	      , RLTN_ORG_CD
+	      , MNG_DPT_CD
+	      , SPV_BRDV_CD
+	      , FRT_USR_ID
+	      , FNL_USR_ID
+	      , FNL_DEAL_DPT_CD
+	      , FNL_MNU_ID
+	      , FRT_REGI_DH
+	      , FNL_MDF_DH
+        ) VALUES (
+            #{wrkDvsnCd}
+          , #{wrkYr}
+          , #{wrkNo}
+          , 'A1060'
+          , #{legalReqDvsnCd}
+          , #{legalReqSrno}
+          , #{legalReqSrno}
+          , 1
+          , (SELECT MIN(AUD_STR_DT)
+               FROM TBBADDED002M
+              WHERE 1=1
+                AND REL_AUD_YR = #{wrkYr}
+                AND REL_AUD_NO = #{wrkNo})
+          , (SELECT MIN(ENF_DT)
+               FROM TBBADEAR002D T1
+         INNER JOIN TBBADEAR001M T2 ON (T1.AUD_YR         = T2.AUD_YR
+                                    AND T1.AUD_NO         = T2.AUD_NO
+                                    AND T1.DSP_RQ_SNO     = T2.DSP_RQ_SNO) 
+         INNER JOIN TBBADDED146M T3 ON (T2.AUD_YR         = T3.AUD_YR
+                                    AND T2.AUD_NO         = T3.AUD_NO
+                                    AND T2.AUD_DSP_RQ_SNO = T3.DSP_RQ_SNO
+                                    AND T3.APVR_CD        = #{apvrCd}
+                                    AND T3.AFF_SNO        = #{affSno})
+              WHERE 1=1
+                AND T1.AUD_YR  = #{wrkYr}
+                AND T1.AUD_NO  = #{wrkNo})
+          , (SELECT MIN(HND_ORG_CD)
+               FROM TBBADDED146M
+              WHERE 1=1
+                AND AUD_YR     = #{wrkYr}
+                AND AUD_NO     = #{wrkNo}
+                AND APVR_CD    = #{apvrCd}
+                AND AFF_SNO    = #{affSno})
+          , (SELECT MIN(RLTN_ORG_CD)
+               FROM TBBADDED146M
+              WHERE 1=1
+                AND AUD_YR     = #{wrkYr}
+                AND AUD_NO     = #{wrkNo}
+                AND APVR_CD    = #{apvrCd}
+                AND AFF_SNO    = #{affSno})
+          , '180100'
+          , (SELECT SPV_BRDV_CD
+               FROM TBBADDED001M
+              WHERE 1=1
+                AND AUD_YR     = #{wrkYr}
+                AND AUD_NO     = #{wrkNo})
+          , #{usrId}
+          , #{usrId}
+          , #{dptCd}
+          , #{mnuId}
+          , SYSDATE
+          , SYSDATE
+        )
+    </insert>
+    
+    <!-- 법률자문 요청 목록 담당자 재배정 요청 -->
+    <update id="updateRet" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.updateRet */
+        <![CDATA[
+        UPDATE TBBADDED126M
+           SET REQ_STAT_CD     = '70'
+             , REQ_STAT_CHG_DH = SYSDATE
+             , FNL_USR_ID      = #{usrId}
+             , FNL_DEAL_DPT_CD = #{dptCd}
+             , FNL_MNU_ID      = #{mnuId}
+             , FNL_MDF_DH      = SYSDATE
+         WHERE 1=1
+           AND WRK_DVSN_CD    = #{wrkDvsnCd}
+           AND WRK_YR         = #{wrkYr}
+           AND WRK_NO         = #{wrkNo}
+           AND LEGAL_REQ_SRNO = #{legalReqSrno}
+        ]]>
+    </update>
+    
+    <!-- 실지감사(A10) -->
+    <delete id="deleteRcptDoc" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.deleteRcptDoc */
+        <![CDATA[
+        DELETE TBBADDED111M
+         WHERE 1=1
+           AND AUD_YR     = #{wrkYr}
+           AND AUD_NO     = #{wrkNo}
+           AND REF_ID     = #{legalReqSrno}
+           AND RPRT_CD   IN ('A10602100', 'A10602200')
+           AND SND_DPT_CD = '160100' --법무부서 발신
+        ]]>
+    </delete>
+
+    <!-- 감사제보(B10), 감사청구(C10) -->
+    <delete id="deleteRcptDocCSPDCP" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.deleteRcptDocCSPDCP */
+        <![CDATA[
+        DELETE TBCSPDCP111M
+         WHERE 1=1
+           AND ACP_YR      = #{wrkYr}
+           AND ACP_DVSN_CD = #{reqDvsnCd}
+           AND ACP_SRNO    = #{wrkNo}
+           AND REF_ID      = #{legalReqSrno}
+           AND RPRT_CD    IN ('B40100100', 'B40100200', 'C30100100', 'C30100200')
+           AND SND_DPT_CD  = '160100' --법무부서 발신
+        ]]>
+    </delete>
+    
+    <!-- 심사청구(D10), 재심의청구(E10) -->
+    <delete id="deleteRcptDocBADFRE" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.deleteRcptDocBADFRE */
+        <![CDATA[
+        DELETE TBBADFRE111M
+         WHERE 1=1
+           AND ACP_YR      = #{wrkYr}
+           AND ACP_DVSN_CD = DECODE(#{wrkDvsnCd}, 'D10', '1', 'E10', '2', '')
+           AND ACP_SRNO    = #{wrkNo}
+           AND REF_ID      = #{legalReqSrno}
+           AND RPRT_CD    IN ('D10200500', 'D10200600', 'E10400300', 'E10400400')
+           AND SND_DPT_CD  = '160100' --법무부서 발신
+        ]]>
+    </delete>
+    
+    <!-- 부패행위(F10) -->
+    <delete id="deleteRcptDocCORCOR" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.deleteRcptDocCORCOR */
+        <![CDATA[
+        DELETE TBCORCOR111M
+         WHERE 1=1
+           AND ACP_YR      = #{wrkYr}
+           AND ACP_DVSN_CD = #{reqDvsnCd}
+           AND ACP_SRNO    = #{wrkNo}
+           AND REF_ID      = #{legalReqSrno}
+           AND RPRT_CD    IN ('F40100100', 'F40100200')
+           AND SND_DPT_CD  = '160100' --법무부서 발신
+        ]]>
+    </delete>
+
+    <!-- 청탁금지(G10) -->
+    <delete id="deleteRcptDocDCPDCP" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.deleteRcptDocDCPDCP */
+        <![CDATA[
+        DELETE TBDCPDCP111M
+         WHERE 1=1
+           AND ACP_YR      = #{wrkYr}
+           AND ACP_DVSN_CD = #{reqDvsnCd}
+           AND ACP_SRNO    = #{wrkNo}
+           AND REF_ID      = #{legalReqSrno}
+           AND RPRT_CD    IN ('G40100100', 'G40100200')
+           AND SND_DPT_CD  = '160100' --법무부서 발신
+        ]]>
+    </delete>
+    
+    <!-- 법률자문 요청 목록 발신 -->
+    <update id="updateSnd" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.updateSnd */
+        <![CDATA[
+        UPDATE TBBADDED126M
+           SET REQ_STAT_CD     = '60'
+             , REQ_STAT_CHG_DH = SYSDATE
+             , FNL_USR_ID      = #{usrId}
+             , FNL_DEAL_DPT_CD = #{dptCd}
+             , FNL_MNU_ID      = #{mnuId}
+             , FNL_MDF_DH      = SYSDATE
+         WHERE 1=1
+           AND WRK_DVSN_CD    = #{wrkDvsnCd}
+           AND WRK_YR         = #{wrkYr}
+           AND WRK_NO         = #{wrkNo}
+           AND LEGAL_REQ_SRNO = #{legalReqSrno}
+        ]]>
+    </update>
+    
+    <!-- 실지감사(A10) -->
+    <insert id="insertCopyDoc" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.insertCopyDoc */
+        <![CDATA[
+        INSERT INTO TBBADDED103M (
+	        AUD_YR
+	      , AUD_NO
+	      , AUD_STEP_CD
+	      , DOC_ID
+	      , AUD_KND_CD
+	      , AUD_GRN_NO
+	      , RPRT_NM
+	      , LINK_URL
+	      , NECES_YN
+	      , APV_STA_CD
+	      , RPRT_CD
+	      , REF_ID
+	      , SYT_TRTM_DVSN_YN
+	      , AUD_DOC_KND_CD
+	      , CON_PGM_CD
+	      , APV_WAY_CD
+	      , DOC_WRT_ID
+	      , ONR_HNDL_NO
+	      , FRT_USR_ID
+	      , FNL_USR_ID
+	      , FNL_DEAL_DPT_CD
+	      , FNL_MNU_ID
+	      , FRT_REGI_DH
+	      , FNL_MDF_DH
+	      , EDT_AUTH
+	      , SECU_RPT_YN
+	      , TEMPLATE_DOC_ID
+        )
+        (SELECT T1.AUD_YR
+	          , T1.AUD_NO
+	          , T1.AUD_STEP_CD
+	          , #{cDocId}
+	          , T1.AUD_KND_CD
+	          , T1.AUD_GRN_NO
+	          , T1.RPRT_NM
+	          , REPLACE(REPLACE(T1.LINK_URL, 'edit=Y', 'edit=N'), 'docId=' || T1.DOC_ID, 'docId=' || #{cDocId})
+	          , T1.NECES_YN
+	          , '10'
+	          , 'A10602310'
+	          , T1.REF_ID
+	          , T1.SYT_TRTM_DVSN_YN
+	          , T1.AUD_DOC_KND_CD
+	          , T1.CON_PGM_CD
+	          , T1.APV_WAY_CD
+	          , T1.DOC_WRT_ID
+	          , T1.ONR_HNDL_NO
+	          , #{usrId}
+	          , #{usrId}
+	          , #{dptCd}
+	          , #{mnuId}
+	          , SYSDATE
+	          , SYSDATE
+	          , T1.EDT_AUTH
+	          , T1.SECU_RPT_YN
+	          , T1.TEMPLATE_DOC_ID
+           FROM TBBADDED103M T1
+          WHERE 1=1
+           AND T1.AUD_YR   = #{wrkYr}
+           AND T1.AUD_NO   = #{wrkNo}
+           AND T1.DOC_ID   = #{docId}
+           AND T1.RPRT_CD IN ('A10602300')
+        )
+        ]]>
+    </insert>
+
+    <!-- 감사제보(B10), 감사청구(C10), -->
+    <insert id="insertCopyDocCSPDCP" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.insertCopyDocCSPDCP */
+        <![CDATA[
+        INSERT INTO TBCSPDCP603M (
+            ACP_YR
+          , REQ_DVSN_CD
+          , CVPT_ACP_NO
+          , ACP_STEP_CD
+          , DOC_ID
+          , RPRT_NM
+          , LINK_URL
+          , NECES_YN
+          , APV_STA_CD
+          , RPRT_CD
+          , REF_ID
+          , CON_PGM_CD
+          , APV_WAY_CD
+          , DOC_WRT_ID
+          , FRT_USR_ID
+          , FNL_USR_ID
+          , FNL_DEAL_DPT_CD
+          , FNL_MNU_ID
+          , FRT_REGI_DH
+          , FNL_MDF_DH
+          , EDT_AUTH
+        )
+        (SELECT T1.ACP_YR
+              , T1.REQ_DVSN_CD
+              , T1.CVPT_ACP_NO
+              , T1.ACP_STEP_CD
+              , #{cDocId}
+              , T1.RPRT_NM
+              , REPLACE(REPLACE(T1.LINK_URL, 'edit=Y', 'edit=N'), 'docId=' || T1.DOC_ID, 'docId=' || #{cDocId})
+              , T1.NECES_YN
+              , '10'
+              , DECODE(T1.REQ_DVSN_CD, '1', 'B40100400', 'C30100400')
+              , T1.REF_ID
+              , T1.CON_PGM_CD
+              , T1.APV_WAY_CD
+              , T1.DOC_WRT_ID
+              , #{usrId}
+              , #{usrId}
+              , #{dptCd}
+              , #{mnuId}
+              , SYSDATE
+              , SYSDATE
+              , T1.EDT_AUTH
+           FROM TBCSPDCP603M T1
+          WHERE 1=1
+            AND T1.ACP_YR      = #{wrkYr}
+            AND T1.REQ_DVSN_CD = #{reqDvsnCd}
+            AND T1.CVPT_ACP_NO = #{wrkNo}
+            AND T1.DOC_ID      = #{docId}
+            AND T1.RPRT_CD    IN ('B40100300','C30100300')
+        )
+        ]]>
+    </insert>
+
+    <!-- 심사청구(D10), 재심의청구(E10) -->
+    <insert id="insertCopyDocBADFRE" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.insertCopyDocBADFRE */
+        <![CDATA[
+        INSERT INTO TBBADFRE103M (
+	        ACP_YR
+	      , ACP_DVSN_CD
+	      , ACP_SRNO
+	      , ACP_STEP_CD
+	      , DOC_ID
+	      , ACP_KND_CD
+	      , ACP_GRN_NO
+	      , RPRT_NM
+	      , LINK_URL
+	      , NECES_YN
+	      , APV_STA_CD
+	      , RPRT_CD
+	      , REF_ID
+	      , CON_PGM_CD
+	      , APV_WAY_CD
+	      , DOC_WRT_ID
+	      , FRT_USR_ID
+	      , FNL_USR_ID
+	      , FNL_DEAL_DPT_CD
+	      , FNL_MNU_ID
+	      , FRT_REGI_DH
+	      , FNL_MDF_DH
+	      , EDT_AUTH
+        )
+        (SELECT T1.ACP_YR
+	          , T1.ACP_DVSN_CD
+	          , T1.ACP_SRNO
+	          , T1.ACP_STEP_CD
+	          , #{cDocId}
+	          , T1.ACP_KND_CD
+	          , T1.ACP_GRN_NO
+	          , T1.RPRT_NM
+	          , REPLACE(REPLACE(T1.LINK_URL, 'edit=Y', 'edit=N'), 'docId=' || T1.DOC_ID, 'docId=' || #{cDocId})
+	          , T1.NECES_YN
+	          , '10'
+	          , DECODE(T1.ACP_DVSN_CD, '1', 'D10200800', 'E10400600')
+	          , T1.REF_ID
+	          , T1.CON_PGM_CD
+	          , T1.APV_WAY_CD
+	          , T1.DOC_WRT_ID
+	          , #{usrId}
+	          , #{usrId}
+	          , #{dptCd}
+	          , #{mnuId}
+	          , SYSDATE
+	          , SYSDATE
+	          , T1.EDT_AUTH
+           FROM TBBADFRE103M T1
+          WHERE 1=1
+            AND T1.ACP_YR      = #{wrkYr}
+            AND T1.ACP_DVSN_CD = DECODE(#{wrkDvsnCd}, 'D10', '1', '2')
+            AND T1.ACP_SRNO    = #{wrkNo}
+            AND T1.DOC_ID      = #{docId}
+            AND T1.RPRT_CD    IN ('D10200700', 'E10400500')
+        )
+        ]]>
+    </insert>
+
+    <!-- 부패행위(F10) -->
+    <insert id="insertCopyDocCORCOR" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.insertCopyDocCORCOR */
+        <![CDATA[
+        INSERT INTO TBCORCOR603M (
+            ACP_YR
+          , REQ_DVSN_CD
+          , CVPT_ACP_NO
+          , ACP_STEP_CD
+          , DOC_ID
+          , RPRT_NM
+          , LINK_URL
+          , NECES_YN
+          , APV_STA_CD
+          , RPRT_CD
+          , REF_ID
+          , CON_PGM_CD
+          , APV_WAY_CD
+          , DOC_WRT_ID
+          , FRT_USR_ID
+          , FNL_USR_ID
+          , FNL_DEAL_DPT_CD
+          , FNL_MNU_ID
+          , FRT_REGI_DH
+          , FNL_MDF_DH
+          , EDT_AUTH
+        )
+        (SELECT T1.ACP_YR
+              , T1.REQ_DVSN_CD
+              , T1.CVPT_ACP_NO
+              , T1.ACP_STEP_CD
+              , #{cDocId}
+              , T1.RPRT_NM
+              , REPLACE(REPLACE(T1.LINK_URL, 'edit=Y', 'edit=N'), 'docId=' || T1.DOC_ID, 'docId=' || #{cDocId})
+              , T1.NECES_YN
+              , '10'
+              , DECODE(T1.REQ_DVSN_CD, '5', 'F40100400')
+              , T1.REF_ID
+              , T1.CON_PGM_CD
+              , T1.APV_WAY_CD
+              , T1.DOC_WRT_ID
+              , #{usrId}
+              , #{usrId}
+              , #{dptCd}
+              , #{mnuId}
+              , SYSDATE
+              , SYSDATE
+              , T1.EDT_AUTH
+           FROM TBCORCOR603M T1
+          WHERE 1=1
+            AND T1.ACP_YR      = #{wrkYr}
+            AND T1.REQ_DVSN_CD = #{reqDvsnCd}
+            AND T1.CVPT_ACP_NO = #{wrkNo}
+            AND T1.DOC_ID      = #{docId}
+            AND T1.RPRT_CD    IN ('F40100300')
+        )
+        ]]>
+    </insert>
+
+    <!-- 청탁금지(G10) -->
+    <insert id="insertCopyDocDCPDCP" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.insertCopyDocDCPDCP */
+        <![CDATA[
+        INSERT INTO TBDCPDCP603M (
+            ACP_YR
+          , REQ_DVSN_CD
+          , CVPT_ACP_NO
+          , ACP_STEP_CD
+          , DOC_ID
+          , RPRT_NM
+          , LINK_URL
+          , NECES_YN
+          , APV_STA_CD
+          , RPRT_CD
+          , REF_ID
+          , CON_PGM_CD
+          , APV_WAY_CD
+          , DOC_WRT_ID
+          , FRT_USR_ID
+          , FNL_USR_ID
+          , FNL_DEAL_DPT_CD
+          , FNL_MNU_ID
+          , FRT_REGI_DH
+          , FNL_MDF_DH
+          , EDT_AUTH
+        )
+        (SELECT T1.ACP_YR
+              , T1.REQ_DVSN_CD
+              , T1.CVPT_ACP_NO
+              , T1.ACP_STEP_CD
+              , #{cDocId}
+              , T1.RPRT_NM
+              , REPLACE(REPLACE(T1.LINK_URL, 'edit=Y', 'edit=N'), 'docId=' || T1.DOC_ID, 'docId=' || #{cDocId})
+              , T1.NECES_YN
+              , '10'
+              , DECODE(T1.REQ_DVSN_CD, '6', 'G40100400')
+              , T1.REF_ID
+              , T1.CON_PGM_CD
+              , T1.APV_WAY_CD
+              , T1.DOC_WRT_ID
+              , #{usrId}
+              , #{usrId}
+              , #{dptCd}
+              , #{mnuId}
+              , SYSDATE
+              , SYSDATE
+              , T1.EDT_AUTH
+           FROM TBDCPDCP603M T1
+          WHERE 1=1
+            AND T1.ACP_YR      = #{wrkYr}
+            AND T1.REQ_DVSN_CD = #{reqDvsnCd}
+            AND T1.CVPT_ACP_NO = #{wrkNo}
+            AND T1.DOC_ID      = #{docId}
+            AND T1.RPRT_CD    IN ('G40100300')
+        )
+        ]]>
+    </insert>
+    
+    
+    <!-- 실지감사(A10) -->
+    <insert id="insertSendDoc" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.insertSendDoc */
+        <![CDATA[
+        INSERT INTO TBBADDED111M (
+	        AUD_YR
+	      , AUD_NO
+	      , AUD_STEP_CD
+	      , DOC_ID
+	      , SR_DOC_SNO
+	      , AUD_KND_CD
+	      , AUD_GRN_NO
+	      , RPRT_NM
+	      , RPRT_CD
+	      , LINK_URL
+	      , DOC_STA_CD
+	      , SND_DPT_CD
+	      , SNDR_ID
+	      , SND_DH
+	      , RCPT_DPT_CD
+	      , RCNT_ID
+	      , RCPT_DH
+	      , AUD_RPRT_DVSN_CD
+	      , DOC_KND_CD
+	      , REF_ID
+	      , REF_DY
+	      , SORT_SNO
+	      , FRT_USR_ID
+	      , FNL_USR_ID
+	      , FNL_DEAL_DPT_CD
+	      , FNL_MNU_ID
+	      , FRT_REGI_DH
+	      , FNL_MDF_DH
+	    )
+        (SELECT T1.AUD_YR
+              , T1.AUD_NO
+              , T1.AUD_STEP_CD
+              , T1.DOC_ID
+              , (SELECT NVL(MAX(SR_DOC_SNO), 0) + 1
+                   FROM TBBADDED111M T2
+                  WHERE 1=1
+                    AND T2.AUD_YR = T1.AUD_YR
+                    AND T2.AUD_NO = T1.AUD_NO
+                    AND T2.DOC_ID = T1.DOC_ID
+               )
+              , T1.AUD_KND_CD
+              , T1.AUD_GRN_NO
+              , T1.RPRT_NM
+              , T1.RPRT_CD
+              , T1.LINK_URL
+              , '20'
+              , '160000'
+              , #{usrId}
+              , SYSDATE
+              , #{rcptDptCd}
+              , ''
+              , SYSDATE
+              , T1.AUD_RPRT_DVSN_CD
+              , T1.DOC_KND_CD
+              , T1.REF_ID
+              , T1.REF_DY
+              , T1.SORT_SNO
+              , #{usrId}
+              , #{usrId}
+              , #{dptCd}
+              , #{mnuId}
+              , SYSDATE
+              , SYSDATE 
+           FROM TBBADDED103M T1
+          WHERE 1=1
+            AND T1.AUD_YR  = #{wrkYr}
+            AND T1.AUD_NO  = #{wrkNo}
+            AND T1.DOC_ID  = DECODE(#{rcptDptCd}, '160100', #{docId}, #{cDocId})
+            AND T1.RPRT_CD = DECODE(#{rcptDptCd}, '160100', 'A10602300', 'A10602310')
+        )
+        ]]>
+    </insert>
+
+    <!-- 감사제보(B10), 감사청구(C10) -->
+    <insert id="insertSendDocCSPDCP" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.insertSendDocCSPDCP */
+        <![CDATA[
+        INSERT INTO TBCSPDCP111M (
+            ACP_YR
+          , ACP_DVSN_CD
+          , ACP_SRNO
+          , ACP_STEP_CD
+          , DOC_ID
+          , SR_DOC_SNO
+          , RPRT_NM
+          , RPRT_CD
+          , LINK_URL
+          , DOC_STA_CD
+          , SND_DPT_CD
+          , SNDR_ID
+          , SND_DH
+          , RCPT_DPT_CD
+          , RCNT_ID
+          , RCPT_DH
+          , DOC_KND_CD
+          , REF_ID
+          , REF_DY
+          , SORT_SNO
+          , FRT_USR_ID
+          , FNL_USR_ID
+          , FNL_DEAL_DPT_CD
+          , FNL_MNU_ID
+          , FRT_REGI_DH
+          , FNL_MDF_DH
+        )
+        (SELECT ACP_YR
+              , REQ_DVSN_CD
+              , CVPT_ACP_NO
+              , ACP_STEP_CD
+              , DOC_ID
+              , (SELECT NVL(MAX(SR_DOC_SNO), 0) + 1
+                   FROM TBCSPDCP111M T2
+                  WHERE 1=1
+                    AND T2.ACP_YR      = T1.ACP_YR
+                    AND T2.ACP_DVSN_CD = T1.REQ_DVSN_CD
+                    AND T2.ACP_SRNO    = T1.CVPT_ACP_NO
+                    AND T2.DOC_ID      = T1.DOC_ID)
+              , RPRT_NM
+              , RPRT_CD
+              , LINK_URL
+              , '20'
+              , '160000'
+              , #{usrId}
+              , SYSDATE
+              , #{rcptDptCd}
+              , ''
+              , SYSDATE
+              , DOC_KND_CD
+              , REF_ID
+              , REF_DY
+              , SORT_SNO
+              , #{usrId}
+              , #{usrId}
+              , #{dptCd}
+              , #{mnuId}
+              , SYSDATE
+              , SYSDATE
+           FROM TBCSPDCP603M T1
+          WHERE 1=1
+            AND T1.ACP_YR      = #{wrkYr}
+            AND T1.REQ_DVSN_CD = #{reqDvsnCd}
+            AND T1.CVPT_ACP_NO = #{wrkNo}
+            AND T1.DOC_ID      = DECODE(#{rcptDptCd}, '160100', #{docId}, #{cDocId})
+        ]]>
+        <if test="wrkDvsnCd == 'B10'">
+           AND T1.RPRT_CD      = DECODE(#{rcptDptCd}, '160100', 'B40100300', 'B40100400')
+        </if>
+        <if test="wrkDvsnCd == 'C10'">
+           AND T1.RPRT_CD      = DECODE(#{rcptDptCd}, '160100', 'C30100300', 'C30100400')
+        </if>
+        )
+    </insert>    
+    
+    <!-- 심사청구(D10), 재심의청구(E10) -->
+    <insert id="insertSendDocBADFRE" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.insertSendDocBADFRE */
+        <![CDATA[
+        INSERT INTO TBBADFRE111M (
+	        ACP_YR
+	      , ACP_DVSN_CD
+	      , ACP_SRNO
+	      , ACP_STEP_CD
+	      , DOC_ID
+	      , SR_DOC_SNO
+	      , ACP_KND_CD
+	      , ACP_GRN_NO
+	      , RPRT_NM
+	      , RPRT_CD
+	      , LINK_URL
+	      , DOC_STA_CD
+	      , SND_DPT_CD
+	      , SNDR_ID
+	      , SND_DH
+	      , RCPT_DPT_CD
+	      , RCNT_ID
+	      , RCPT_DH
+	      , DOC_KND_CD
+	      , REF_ID
+	      , REF_DY
+	      , SORT_SNO
+	      , FRT_USR_ID
+	      , FNL_USR_ID
+	      , FNL_DEAL_DPT_CD
+	      , FNL_MNU_ID
+	      , FRT_REGI_DH
+	      , FNL_MDF_DH
+        )
+        (SELECT ACP_YR
+	          , ACP_DVSN_CD
+	          , ACP_SRNO
+	          , ACP_STEP_CD
+	          , DOC_ID
+	          , (SELECT NVL(MAX(SR_DOC_SNO), 0) + 1
+	               FROM TBBADFRE111M T2
+	              WHERE 1=1
+	                AND T2.ACP_YR      = T1.ACP_YR
+	                AND T2.ACP_DVSN_CD = T1.ACP_DVSN_CD
+	                AND T2.ACP_SRNO    = T1.ACP_SRNO
+	                AND T2.DOC_ID      = T1.DOC_ID)
+	          , ACP_KND_CD
+	          , ACP_GRN_NO
+	          , RPRT_NM
+	          , RPRT_CD
+	          , LINK_URL
+	          , '20'
+	          , '160000'
+	          , #{usrId}
+	          , SYSDATE
+	          , #{rcptDptCd}
+	          , ''
+	          , SYSDATE
+	          , DOC_KND_CD
+	          , REF_ID
+	          , REF_DY
+	          , SORT_SNO
+	          , #{usrId}
+	          , #{usrId}
+	          , #{dptCd}
+	          , #{mnuId}
+	          , SYSDATE
+	          , SYSDATE
+           FROM TBBADFRE103M T1
+          WHERE 1=1
+            AND T1.ACP_YR      = #{wrkYr}
+            AND T1.ACP_DVSN_CD = DECODE(#{wrkDvsnCd}, 'D10', '1', '2')
+            AND T1.ACP_SRNO    = #{wrkNo}
+            AND T1.DOC_ID      = DECODE(#{rcptDptCd}, '160100', #{docId}, #{cDocId})
+        ]]>
+        <if test="wrkDvsnCd == 'D10'">
+           AND T1.RPRT_CD      = DECODE(#{rcptDptCd}, '160100', 'D10200700', 'D10200800')
+        </if>
+        <if test="wrkDvsnCd == 'E10'">
+           AND T1.RPRT_CD      = DECODE(#{rcptDptCd}, '160100', 'E10400500', 'E10400600')
+        </if>
+        )
+    </insert>
+    
+    <!-- 부패행위(F10)-->
+    <insert id="insertSendDocCORCOR" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.insertSendDocCORCOR */
+        <![CDATA[
+        INSERT INTO TBCORCOR111M (
+            ACP_YR
+          , ACP_DVSN_CD
+          , ACP_SRNO
+          , ACP_STEP_CD
+          , DOC_ID
+          , SR_DOC_SNO
+          , RPRT_NM
+          , RPRT_CD
+          , LINK_URL
+          , DOC_STA_CD
+          , SND_DPT_CD
+          , SNDR_ID
+          , SND_DH
+          , RCPT_DPT_CD
+          , RCNT_ID
+          , RCPT_DH
+          , DOC_KND_CD
+          , REF_ID
+          , REF_DY
+          , SORT_SNO
+          , FRT_USR_ID
+          , FNL_USR_ID
+          , FNL_DEAL_DPT_CD
+          , FNL_MNU_ID
+          , FRT_REGI_DH
+          , FNL_MDF_DH
+        )
+        (SELECT ACP_YR
+              , REQ_DVSN_CD
+              , CVPT_ACP_NO
+              , ACP_STEP_CD
+              , DOC_ID
+              , (SELECT NVL(MAX(SR_DOC_SNO), 0) + 1
+                   FROM TBCORCOR111M T2
+                  WHERE 1=1
+                    AND T2.ACP_YR      = T1.ACP_YR
+                    AND T2.ACP_DVSN_CD = T1.REQ_DVSN_CD
+                    AND T2.ACP_SRNO    = T1.CVPT_ACP_NO
+                    AND T2.DOC_ID      = T1.DOC_ID)
+              , RPRT_NM
+              , RPRT_CD
+              , LINK_URL
+              , '20'
+              , '160000'
+              , #{usrId}
+              , SYSDATE
+              , #{rcptDptCd}
+              , ''
+              , SYSDATE
+              , DOC_KND_CD
+              , REF_ID
+              , REF_DY
+              , SORT_SNO
+              , #{usrId}
+              , #{usrId}
+              , #{dptCd}
+              , #{mnuId}
+              , SYSDATE
+              , SYSDATE
+           FROM TBCORCOR603M T1
+          WHERE 1=1
+            AND T1.ACP_YR      = #{wrkYr}
+            AND T1.REQ_DVSN_CD = #{reqDvsnCd}
+            AND T1.CVPT_ACP_NO = #{wrkNo}
+            AND T1.DOC_ID      = DECODE(#{rcptDptCd}, '160100', #{docId}, #{cDocId})
+        ]]>
+           AND T1.RPRT_CD      = DECODE(#{rcptDptCd}, '160100', 'F40100300', 'F40100400')
+        )
+    </insert>
+
+    <!-- 청탁금지(G10)-->
+    <insert id="insertSendDocDCPDCP" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.insertSendDocDCPDCP */
+        <![CDATA[
+        INSERT INTO TBDCPDCP111M (
+            ACP_YR
+          , ACP_DVSN_CD
+          , ACP_SRNO
+          , ACP_STEP_CD
+          , DOC_ID
+          , SR_DOC_SNO
+          , RPRT_NM
+          , RPRT_CD
+          , LINK_URL
+          , DOC_STA_CD
+          , SND_DPT_CD
+          , SNDR_ID
+          , SND_DH
+          , RCPT_DPT_CD
+          , RCNT_ID
+          , RCPT_DH
+          , DOC_KND_CD
+          , REF_ID
+          , REF_DY
+          , SORT_SNO
+          , FRT_USR_ID
+          , FNL_USR_ID
+          , FNL_DEAL_DPT_CD
+          , FNL_MNU_ID
+          , FRT_REGI_DH
+          , FNL_MDF_DH
+        )
+        (SELECT ACP_YR
+              , REQ_DVSN_CD
+              , CVPT_ACP_NO
+              , ACP_STEP_CD
+              , DOC_ID
+              , (SELECT NVL(MAX(SR_DOC_SNO), 0) + 1
+                   FROM TBDCPDCP111M T2
+                  WHERE 1=1
+                    AND T2.ACP_YR      = T1.ACP_YR
+                    AND T2.ACP_DVSN_CD = T1.REQ_DVSN_CD
+                    AND T2.ACP_SRNO    = T1.CVPT_ACP_NO
+                    AND T2.DOC_ID      = T1.DOC_ID)
+              , RPRT_NM
+              , RPRT_CD
+              , LINK_URL
+              , '20'
+              , '160000'
+              , #{usrId}
+              , SYSDATE
+              , #{rcptDptCd}
+              , ''
+              , SYSDATE
+              , DOC_KND_CD
+              , REF_ID
+              , REF_DY
+              , SORT_SNO
+              , #{usrId}
+              , #{usrId}
+              , #{dptCd}
+              , #{mnuId}
+              , SYSDATE
+              , SYSDATE
+           FROM TBDCPDCP603M T1
+          WHERE 1=1
+            AND T1.ACP_YR      = #{wrkYr}
+            AND T1.REQ_DVSN_CD = #{reqDvsnCd}
+            AND T1.CVPT_ACP_NO = #{wrkNo}
+            AND T1.DOC_ID      = DECODE(#{rcptDptCd}, '160100', #{docId}, #{cDocId})
+        ]]>
+           AND T1.RPRT_CD      = DECODE(#{rcptDptCd}, '160100', 'G40100300', 'G40100400')
+        )
+    </insert>
+    
+    <insert id="insertSendMessage" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.insertSendMessage */
+        INSERT INTO TBDCMACM026L (
+	        MSG_SNO
+	      , TSK_CAT_CD
+	      , FUNC_CAT_CD
+	      , SEND_ID
+	      , MSG_TP_YN   
+	      , MSG_TXT_2
+	      , RCNT_CNT
+	      , RCNT_HIS
+	      , MSG_REGI_DH   
+	      , FRT_USR_ID
+	      , FNL_USR_ID
+	      , FNL_DEAL_DPT_CD
+	      , FNL_MNU_ID
+	      , FRT_REGI_DH
+	      , FNL_MDF_DH
+        )
+        (SELECT (SELECT NVL(MAX(MSG_SNO), '0')
+                   FROM TBDCMACM026L
+                  WHERE 1=1) + ROWNUM
+ 	          , 'CM'
+	          , 'CM'
+	          , 'SYSTEM'
+	          , '0'
+	          , '법률자문관Ⅰ 이 ' || '[' || #{audYrNo}
+        <if test="titleNm != null and titleNm != ''">
+	            || ', ' || #{titleNm}
+        </if> 
+	            || ']' || ' 법률자문요청에 대한 법률자문 의견서를 회신하였습니다.'
+	          , 1
+	          , CNB
+	          , SYSDATE 
+	          , #{usrId}
+	          , #{usrId}
+	          , #{dptCd}
+	          , #{mnuId}
+	          , SYSDATE
+	          , SYSDATE
+           FROM TBDCMACM001M
+          WHERE 1=1
+            AND CNB IN ('9339', F_USR_INFO_BY_ID(#{docWrtId}, '1'))
+        )
+    </insert>
+    
+    <!-- 법률자문의견서작성 문서양식ID 조회 -->
+    <select id="selectDocId" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectDocId */
+        <![CDATA[
+        SELECT MAX(DOC_ID) AS DOC_ID
+          FROM TBFDMADM002M
+         WHERE 1=1
+           AND AUD_DOC_CD = #{audDocCd}
+        ]]>
+    </select>
+    
+    <!-- 실지감사(A10) 보완요청내용 조회 -->
+    <select id="selectRlaReqInfo" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectRlaReqInfo */
+        SELECT (SELECT T5.AUD_SBJ_NM
+                  FROM TBBADDED001M T5
+                 WHERE 1=1
+                   AND T5.AUD_NO = B.AUD_NO
+                   AND T5.AUD_YR = B.AUD_YR)                    AS TITLE_NM
+             , F_MNG_KND_AUDYRNO(B.AUD_YR, B.AUD_NO, B.AUD_KND_CD, '-')
+                                                                AS AUD_YR_NO
+             , F_USR_INFO_BY_ID(B.DOC_WRT_ID, '2')              AS DOC_WRT_NM
+             , B.DOC_WRT_ID
+             , F_DPT_INFO((SELECT T1.DPT_CD
+                             FROM TBDCMACM001M T1
+                            WHERE 1=1
+                              AND T1.USR_ID = B.DOC_WRT_ID), 1) AS DPT_NM
+             , C.SUPPLM_REQ
+             , C.RPRT_NM
+          FROM TBBADDED126M A
+    INNER JOIN TBBADDED103M B ON (A.WRK_YR                  = B.AUD_YR
+                              AND A.WRK_NO                  = B.AUD_NO
+                              AND TO_CHAR(A.LEGAL_REQ_SRNO) = B.REF_ID
+                              AND B.DOC_ID                  = #{docId})
+    INNER JOIN TBBADDED111M C ON (B.AUD_YR                  = C.AUD_YR
+                              AND B.AUD_NO                  = C.AUD_NO
+                              AND B.DOC_ID                  = C.DOC_ID
+                              AND B.REF_ID                  = C.REF_ID
+                              AND C.SR_DOC_SNO              = #{srDocSno})
+         WHERE 1=1
+           AND A.WRK_DVSN_CD       = #{wrkDvsnCd}
+           AND A.WRK_YR            = #{wrkYr}
+           AND A.WRK_NO            = #{wrkNo}
+           AND A.LEGAL_REQ_DVSN_CD = #{legalReqDvsnCd}
+           AND A.LEGAL_REQ_SRNO    = #{legalReqSrno}
+    </select>
+
+    <!-- 감사제보(B10), 감사청구(C10) 보완요청내용 조회 -->
+    <select id="selectRlaReqInfoCSPDCP" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectRlaReqInfoCSPDCP */
+        SELECT D.TIT_NM          AS TITLE_NM
+             , B.ACP_YR || '-' || DECODE(B.REQ_DVSN_CD, '1', F_CODE_NM('1000949', D.RM_ACP_KND_CD) , '2', '국민', '3', '공익', '4', '국회') || '-' || LTRIM(D.RM_CVPT_ACP_NO, '0')
+                                                                AS AUD_YR_NO
+             , F_USR_INFO_BY_ID(B.DOC_WRT_ID, '2')              AS DOC_WRT_NM
+             , B.DOC_WRT_ID
+             , F_DPT_INFO((SELECT T1.DPT_CD
+                             FROM TBDCMACM001M T1
+                            WHERE 1=1
+                              AND T1.USR_ID = B.DOC_WRT_ID), 1) AS DPT_NM
+             , C.SUPPLM_REQ
+             , C.RPRT_NM
+             , A.WRK_DVSN_CD 
+          FROM TBBADDED126M A
+    INNER JOIN TBCSPDCP101M D ON (A.WRK_YR            = D.ACP_YR
+                              AND A.WRK_DVSN_CD               = DECODE(D.REQ_DVSN_CD, '1', 'B10', '2', 'C10', '3', 'C10', '4', 'C10')
+                              AND A.AUD_STEP_CD 				= DECODE(D.REQ_DVSN_CD,'1','B3011','2','C2012', '3', 'C2013', '4', 'C2010')
+                              AND A.WRK_NO                      = D.CVPT_ACP_NO
+    )
+    INNER JOIN TBCSPDCP603M B ON (A.WRK_YR                  = B.ACP_YR
+                              AND A.WRK_NO                  = B.CVPT_ACP_NO
+                              AND A.WRK_DVSN_CD             = DECODE(B.REQ_DVSN_CD, '1', 'B10', '2', 'C10', '3', 'C10', '4', 'C10') 
+                              AND TO_CHAR(A.LEGAL_REQ_SRNO) = B.REF_ID
+                              AND B.RPRT_CD                IN ('B40100100', 'B40100200', 'C30100100', 'C30100200')
+                              AND B.DOC_ID                  = #{docId})
+    INNER JOIN TBCSPDCP111M C ON (B.ACP_YR                  = C.ACP_YR
+                              AND B.CVPT_ACP_NO             = C.ACP_SRNO
+                              AND B.DOC_ID                  = C.DOC_ID
+                              AND B.REF_ID                  = C.REF_ID
+                              AND C.SR_DOC_SNO              = #{srDocSno})
+         WHERE 1=1
+           AND A.WRK_DVSN_CD       = #{wrkDvsnCd}
+           AND A.WRK_YR            = #{wrkYr}
+           AND A.WRK_NO            = #{wrkNo}
+           AND A.AUD_STEP_CD            = #{audStepCd}
+           AND A.LEGAL_REQ_DVSN_CD = #{legalReqDvsnCd}
+           AND A.LEGAL_REQ_SRNO    = #{legalReqSrno}
+    </select>
+
+    <!-- 심사청구(D10), 재심의청구(E10) 보완요청내용 조회 -->
+    <select id="selectRlaReqInfoBADFRE" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectRlaReqInfoBADFRE */
+        SELECT (SELECT T5.TIT_NM
+                  FROM TBBADFRE012M T5
+                 WHERE 1=1
+                   AND T5.ACP_YR      = B.ACP_YR
+                   AND T5.ACP_DVSN_CD = B.ACP_DVSN_CD
+                   AND T5.ACP_SRNO    = B.ACP_SRNO)             AS TITLE_NM
+             , B.ACP_YR || '-' || DECODE(B.ACP_DVSN_CD, '1', '심사', '2', '재심', '3', '재심판정') || '-' || B.ACP_SRNO
+                                                                AS AUD_YR_NO
+             , F_USR_INFO_BY_ID(B.DOC_WRT_ID, '2')              AS DOC_WRT_NM
+             , B.DOC_WRT_ID
+             , F_DPT_INFO((SELECT T1.DPT_CD
+                             FROM TBDCMACM001M T1
+                            WHERE 1=1
+                              AND T1.USR_ID = B.DOC_WRT_ID), 1) AS DPT_NM
+             , C.SUPPLM_REQ
+             , C.RPRT_NM
+             , WRK_DVSN_CD
+          FROM TBBADDED126M A
+    INNER JOIN TBBADFRE103M B ON (A.WRK_YR                  = B.ACP_YR
+                              AND A.WRK_NO                  = B.ACP_SRNO
+                              AND A.WRK_DVSN_CD             = DECODE(B.ACP_DVSN_CD, '1', 'D10', '2', 'E10') 
+                              AND TO_CHAR(A.LEGAL_REQ_SRNO) = B.REF_ID
+                              AND B.RPRT_CD                IN ('D10200600', 'E10400400', 'D10200500', 'E10400300')
+                              AND B.DOC_ID                  = #{docId})
+    INNER JOIN TBBADFRE111M C ON (B.ACP_YR                  = C.ACP_YR
+ 	                          AND B.ACP_SRNO                = C.ACP_SRNO
+	                          AND B.DOC_ID                  = C.DOC_ID
+	                          AND B.REF_ID                  = C.REF_ID
+	                          AND C.SR_DOC_SNO              = #{srDocSno})
+         WHERE 1=1
+           AND A.WRK_DVSN_CD       = #{wrkDvsnCd}
+           AND A.WRK_YR            = #{wrkYr}
+           AND A.WRK_NO            = #{wrkNo}
+           AND A.LEGAL_REQ_DVSN_CD = #{legalReqDvsnCd}
+           AND A.LEGAL_REQ_SRNO    = #{legalReqSrno}
+    </select>
+    
+    <!-- 부패행위(F10) 보완요청내용 조회 -->
+    <select id="selectRlaReqInfoCORCOR" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectRlaReqInfoCORCOR */
+        SELECT D.TIT_NM          AS TITLE_NM
+             , B.ACP_YR || '-' || '부감' || '-' || SUBSTRING(B.CVPT_ACP_NO, 3, 3)
+                                                                AS AUD_YR_NO
+             , F_USR_INFO_BY_ID(B.DOC_WRT_ID, '2')              AS DOC_WRT_NM
+             , B.DOC_WRT_ID
+             , F_DPT_INFO((SELECT T1.DPT_CD
+                             FROM TBDCMACM001M T1
+                            WHERE 1=1
+                              AND T1.USR_ID = B.DOC_WRT_ID), 1) AS DPT_NM
+             , C.SUPPLM_REQ
+             , C.RPRT_NM
+             , A.WRK_DVSN_CD 
+          FROM TBBADDED126M A
+    INNER JOIN TBCORCOR101M D ON (A.WRK_YR                  = D.ACP_YR
+                              AND A.WRK_DVSN_CD             = DECODE(D.REQ_DVSN_CD, '5', 'F10', '')
+                              AND A.WRK_NO                  = D.CVPT_ACP_NO
+    )
+    INNER JOIN TBCORCOR603M B ON (A.WRK_YR                  = B.ACP_YR
+                              AND A.WRK_NO                  = B.CVPT_ACP_NO
+                              AND A.WRK_DVSN_CD             = DECODE(D.REQ_DVSN_CD, '5', 'F10', '')
+                              AND TO_CHAR(A.LEGAL_REQ_SRNO) = B.REF_ID
+                              AND B.RPRT_CD                IN ('F40100100', 'F40100200')
+                              AND B.DOC_ID                  = #{docId})
+    INNER JOIN TBCORCOR111M C ON (B.ACP_YR                  = C.ACP_YR
+                              AND B.CVPT_ACP_NO             = C.ACP_SRNO
+                              AND B.DOC_ID                  = C.DOC_ID
+                              AND B.REF_ID                  = C.REF_ID
+                              AND C.SR_DOC_SNO              = #{srDocSno})
+         WHERE 1=1
+           AND A.WRK_DVSN_CD       = #{wrkDvsnCd}
+           AND A.WRK_YR            = #{wrkYr}
+           AND A.WRK_NO            = #{wrkNo}
+           AND A.LEGAL_REQ_DVSN_CD = #{legalReqDvsnCd}
+           AND A.LEGAL_REQ_SRNO    = #{legalReqSrno}
+    </select>
+
+    <!-- 청탁금지(G10) 보완요청내용 조회 -->
+    <select id="selectRlaReqInfoDCPDCP" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectRlaReqInfoDCPDCP */
+        SELECT D.TIT_NM          AS TITLE_NM
+             , B.ACP_YR || '-' || '청금' || '-' || SUBSTRING(B.CVPT_ACP_NO, 3, 3)
+                                                                AS AUD_YR_NO
+             , F_USR_INFO_BY_ID(B.DOC_WRT_ID, '2')              AS DOC_WRT_NM
+             , B.DOC_WRT_ID
+             , F_DPT_INFO((SELECT T1.DPT_CD
+                             FROM TBDCMACM001M T1
+                            WHERE 1=1
+                              AND T1.USR_ID = B.DOC_WRT_ID), 1) AS DPT_NM
+             , C.SUPPLM_REQ
+             , C.RPRT_NM
+             , A.WRK_DVSN_CD 
+          FROM TBBADDED126M A
+    INNER JOIN TBDCPDCP101M D ON (A.WRK_YR                  = D.ACP_YR
+                              AND A.WRK_DVSN_CD             = DECODE(D.REQ_DVSN_CD, '6', 'G10', '')
+                              AND A.WRK_NO                  = D.CVPT_ACP_NO
+    )
+    INNER JOIN TBDCPDCP603M B ON (A.WRK_YR                  = B.ACP_YR
+                              AND A.WRK_NO                  = B.CVPT_ACP_NO
+                              AND A.WRK_DVSN_CD             = DECODE(D.REQ_DVSN_CD, '6', 'G10', '')
+                              AND TO_CHAR(A.LEGAL_REQ_SRNO) = B.REF_ID
+                              AND B.RPRT_CD                IN ('G40100100', 'G40100200')
+                              AND B.DOC_ID                  = #{docId})
+    INNER JOIN TBDCPDCP111M C ON (B.ACP_YR                  = C.ACP_YR
+                              AND B.CVPT_ACP_NO             = C.ACP_SRNO
+                              AND B.DOC_ID                  = C.DOC_ID
+                              AND B.REF_ID                  = C.REF_ID
+                              AND C.SR_DOC_SNO              = #{srDocSno})
+         WHERE 1=1
+           AND A.WRK_DVSN_CD       = #{wrkDvsnCd}
+           AND A.WRK_YR            = #{wrkYr}
+           AND A.WRK_NO            = #{wrkNo}
+           AND A.LEGAL_REQ_DVSN_CD = #{legalReqDvsnCd}
+           AND A.LEGAL_REQ_SRNO    = #{legalReqSrno}
+    </select>
+    
+    <!-- 실지감사(A10) 보완요청 내용 저장 -->
+    <update id="updateSupplment" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.updateSupplment */
+        <![CDATA[
+        UPDATE TBBADDED111M           
+           SET SUPPLM_REQ      = #{supplmReq}
+        ]]>
+        <if test="saveFlag != null  and saveFlag != 'S'.toString()">
+             , DOC_STA_CD      = '51'
+        </if>
+        <![CDATA[
+             , FNL_USR_ID      = #{usrId}
+             , FNL_DEAL_DPT_CD = #{dptCd}
+             , FNL_MNU_ID      = #{mnuId}
+             , FNL_MDF_DH      = SYSDATE
+         WHERE 1=1
+           AND AUD_YR     = #{wrkYr}
+           AND AUD_NO     = #{wrkNo}
+           AND DOC_ID     = #{docId}
+           AND REF_ID     = #{legalReqSrno}
+           AND SR_DOC_SNO = #{srDocSno}
+        ]]>
+    </update>
+
+    <!-- 감사제보(B10), 감사청구(C10) 보완요청 내용 저장 -->
+    <update id="updateSupplmentCSPDCP" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.updateSupplmentCSPDCP */
+        <![CDATA[
+        UPDATE TBCSPDCP111M           
+           SET SUPPLM_REQ      = #{supplmReq}
+        ]]>
+        <if test="saveFlag != null  and saveFlag != 'S'.toString()">
+             , DOC_STA_CD      = '51'
+        </if>
+        <![CDATA[
+             , FNL_USR_ID      = #{usrId}
+             , FNL_DEAL_DPT_CD = #{dptCd}
+             , FNL_MNU_ID      = #{mnuId}
+             , FNL_MDF_DH      = SYSDATE
+         WHERE 1=1
+           AND ACP_YR      = #{wrkYr}
+           AND ACP_SRNO    = #{wrkNo}
+           AND DOC_ID      = #{docId}
+           AND ACP_DVSN_CD = #{reqDvsnCd} 
+           AND REF_ID      = #{legalReqSrno}
+           AND SR_DOC_SNO  = #{srDocSno}
+        ]]>
+    </update>
+    
+    <!-- 심사청구(D10), 재심의청구(E10) 보완요청 내용 저장 -->
+    <update id="updateSupplmentBADFRE" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.updateSupplmentBADFRE */
+        <![CDATA[
+        UPDATE TBBADFRE111M           
+           SET SUPPLM_REQ      = #{supplmReq}
+        ]]>
+        <if test="saveFlag != null  and saveFlag != 'S'.toString()">
+             , DOC_STA_CD      = '51'
+        </if>
+        <![CDATA[
+             , FNL_USR_ID      = #{usrId}
+             , FNL_DEAL_DPT_CD = #{dptCd}
+             , FNL_MNU_ID      = #{mnuId}
+             , FNL_MDF_DH      = SYSDATE
+         WHERE 1=1
+           AND ACP_YR      = #{wrkYr}
+           AND ACP_SRNO    = #{wrkNo}
+           AND DOC_ID      = #{docId}
+           AND ACP_DVSN_CD = DECODE(#{wrkDvsnCd}, 'D10' ,'1','E10' ,'2') 
+           AND REF_ID      = #{legalReqSrno}
+           AND SR_DOC_SNO  = #{srDocSno}
+        ]]>
+    </update>
+
+    <!-- 부패행위(F10) 보완요청 내용 저장 -->
+    <update id="updateSupplmentCORCOR" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.updateSupplmentCORCOR */
+        <![CDATA[
+        UPDATE TBCORCOR111M           
+           SET SUPPLM_REQ      = #{supplmReq}
+        ]]>
+        <if test="saveFlag != null  and saveFlag != 'S'.toString()">
+             , DOC_STA_CD      = '51'
+        </if>
+        <![CDATA[
+             , FNL_USR_ID      = #{usrId}
+             , FNL_DEAL_DPT_CD = #{dptCd}
+             , FNL_MNU_ID      = #{mnuId}
+             , FNL_MDF_DH      = SYSDATE
+         WHERE 1=1
+           AND ACP_YR      = #{wrkYr}
+           AND ACP_SRNO    = #{wrkNo}
+           AND DOC_ID      = #{docId}
+           AND ACP_DVSN_CD = #{reqDvsnCd} 
+           AND REF_ID      = #{legalReqSrno}
+           AND SR_DOC_SNO  = #{srDocSno}
+        ]]>
+    </update>
+
+    <!-- 청탁금지(G10) 보완요청 내용 저장 -->
+    <update id="updateSupplmentDCPDCP" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.updateSupplmentDCPDCP */
+        <![CDATA[
+        UPDATE TBDCPDCP111M           
+           SET SUPPLM_REQ      = #{supplmReq}
+        ]]>
+        <if test="saveFlag != null  and saveFlag != 'S'.toString()">
+             , DOC_STA_CD      = '51'
+        </if>
+        <![CDATA[
+             , FNL_USR_ID      = #{usrId}
+             , FNL_DEAL_DPT_CD = #{dptCd}
+             , FNL_MNU_ID      = #{mnuId}
+             , FNL_MDF_DH      = SYSDATE
+         WHERE 1=1
+           AND ACP_YR      = #{wrkYr}
+           AND ACP_SRNO    = #{wrkNo}
+           AND DOC_ID      = #{docId}
+           AND ACP_DVSN_CD = #{reqDvsnCd} 
+           AND REF_ID      = #{legalReqSrno}
+           AND SR_DOC_SNO  = #{srDocSno}
+        ]]>
+    </update>
+    
+    <insert id="insertSendMessageSupplment" parameterType="paramMap">
+        <![CDATA[
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.insertSendMessageSupplment */
+        INSERT INTO TBDCMACM026L (
+	        MSG_SNO
+	      , TSK_CAT_CD
+	      , FUNC_CAT_CD
+	      , SEND_ID
+	      , MSG_TP_YN
+	      , MSG_TXT_2
+	      , RCNT_CNT
+	      , RCNT_HIS
+	      , MSG_REGI_DH
+	      , FRT_USR_ID
+	      , FNL_USR_ID
+	      , FNL_DEAL_DPT_CD
+	      , FNL_MNU_ID
+	      , FRT_REGI_DH
+	      , FNL_MDF_DH
+        )
+        (SELECT (SELECT NVL(MAX(MSG_SNO), '0')
+                   FROM TBDCMACM026L
+                  WHERE 1=1) + ROWNUM
+              , 'CM'
+              , 'CM'
+              , 'SYSTEM'
+              , '0'
+              , '법률자문관Ⅰ 이 ' || '[' || #{audYrNo} || ']'
+        ]]>
+        <if test="titleNm != null and titleNm != ''">
+                || ', ' || #{titleNm}||' '
+        </if> 
+                || #{audDvsnNm} ||'의 '
+        <if test="rprtNm != null and rprtNm != ''">
+                || #{rprtNm}
+        </if> 
+        <![CDATA[
+                || ' 문서에 대해 보완요청 하였습니다.' || CHR(13) || CHR(10) || '보완내용 : ' || #{supplmReq}
+            , 1
+            , CNB
+            , SYSDATE 
+            , #{usrId}
+            , #{usrId}
+            , #{dptCd}
+            , #{mnuId}
+            , SYSDATE
+            , SYSDATE
+         FROM TBDCMACM001M
+        WHERE 1=1
+          AND CNB IN ('9339', F_USR_INFO_BY_ID(#{docWrtId}, '1'))
+        )
+        ]]>
+    </insert>
+    
+    <!-- 실지감사(A10)-->
+    <update id="updateRalDocAuth" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.updateRalDocAuth */
+        <![CDATA[
+        UPDATE TBBADDED103M
+           SET EDT_AUTH        = 'Y'
+             , FNL_USR_ID      = #{usrId}
+             , FNL_DEAL_DPT_CD = #{dptCd}
+             , FNL_MNU_ID      = #{mnuId}
+             , FNL_MDF_DH      = SYSDATE
+         WHERE 1=1
+           AND AUD_YR = #{wrkYr}
+           AND AUD_NO = #{wrkNo}
+           AND DOC_ID = #{docId}
+        ]]>
+    </update>
+
+    <!-- 감사제보(B10), 감사청구(C10)-->
+    <update id="updateRalDocAuthCSPDCP" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.updateRalDocAuthCSPDCP */
+        <![CDATA[
+        UPDATE TBCSPDCP603M
+           SET EDT_AUTH        = 'Y'
+             , FNL_USR_ID      = #{usrId}
+             , FNL_DEAL_DPT_CD = #{dptCd}
+             , FNL_MNU_ID      = #{mnuId}
+             , FNL_MDF_DH      = SYSDATE
+         WHERE 1=1
+           AND ACP_YR      = #{wrkYr}
+           AND CVPT_ACP_NO = #{wrkNo}
+           AND DOC_ID      = #{docId}
+           AND REQ_DVSN_CD = #{reqDvsnCd}
+        ]]>
+    </update>
+    
+    <!-- 심사청구(D10), 재심의청구(E10) -->
+    <update id="updateRalDocAuthBADFRE" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.updateRalDocAuthBADFRE */
+        <![CDATA[
+        UPDATE TBBADFRE103M
+           SET EDT_AUTH        = 'Y'
+             , FNL_USR_ID      = #{usrId}
+             , FNL_DEAL_DPT_CD = #{dptCd}
+             , FNL_MNU_ID      = #{mnuId}
+             , FNL_MDF_DH      = SYSDATE
+         WHERE 1=1
+           AND ACP_YR      = #{wrkYr}
+           AND ACP_SRNO    = #{wrkNo}
+           AND DOC_ID      = #{docId}
+           AND ACP_DVSN_CD = DECODE(#{wrkDvsnCd}, 'D10', '1', 'E10', '2')
+        ]]>
+    </update>
+    
+    <!-- 부패행위(F10)-->
+    <update id="updateRalDocAuthCORCOR" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.updateRalDocAuthCORCOR */
+        <![CDATA[
+        UPDATE TBCORCOR603M
+           SET EDT_AUTH        = 'Y'
+             , FNL_USR_ID      = #{usrId}
+             , FNL_DEAL_DPT_CD = #{dptCd}
+             , FNL_MNU_ID      = #{mnuId}
+             , FNL_MDF_DH      = SYSDATE
+         WHERE 1=1
+           AND ACP_YR      = #{wrkYr}
+           AND CVPT_ACP_NO = #{wrkNo}
+           AND DOC_ID      = #{docId}
+           AND REQ_DVSN_CD = #{reqDvsnCd}
+        ]]>
+    </update>
+
+    <!-- 청탁금지(G10)-->
+    <update id="updateRalDocAuthDCPDCP" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.updateRalDocAuthDCPDCP */
+        <![CDATA[
+        UPDATE TBDCPDCP603M
+           SET EDT_AUTH        = 'Y'
+             , FNL_USR_ID      = #{usrId}
+             , FNL_DEAL_DPT_CD = #{dptCd}
+             , FNL_MNU_ID      = #{mnuId}
+             , FNL_MDF_DH      = SYSDATE
+         WHERE 1=1
+           AND ACP_YR      = #{wrkYr}
+           AND CVPT_ACP_NO = #{wrkNo}
+           AND DOC_ID      = #{docId}
+           AND REQ_DVSN_CD = #{reqDvsnCd}
+        ]]>
+    </update>
+    
+    <!-- 보완요청 목록 조회 -->
+    <!-- 실지감사(A10) -->
+    <select id="selectSupplmReqList" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectSupplmReqList */
+        <![CDATA[
+        SELECT DECODE(T3.AFF_CD, NULL, '', F_MNG_KND_AUDYRNO(A.WRK_YR, A.WRK_NO, '', '-') || '-' || T3.AFF_CD)
+                                                                                         AS AFF_NO
+             , T3.TITLE_NM
+             , B.RPRT_NM
+             , B.SUPPLM_REQ
+             , A.WRK_DVSN_CD
+             , A.WRK_YR
+             , A.WRK_NO
+             , A.LEGAL_REQ_SRNO
+             , B.RPRT_CD
+             , B.DOC_ID
+             , B.DOC_STA_CD
+             , A.AFF_SNO
+             , A.APVR_CD
+             , A.AUD_STEP_CD
+             , A.LEGAL_DPT_CD
+             , DECODE(A.LEGAL_DPT_CD, '160000', '법률자문관I', '160100', '법률자문관II') AS LEGAL_DPT_NM
+             , B.DOC_STA_CD
+          FROM TBBADDED126M A
+         INNER JOIN TBBADDED111M B ON (A.WRK_YR                  = B.AUD_YR
+ 	                               AND A.WRK_NO                  = B.AUD_NO
+	                               AND TO_CHAR(A.LEGAL_REQ_SRNO) = B.REF_ID)
+    LEFT OUTER JOIN (SELECT ST1.AUD_YR
+                          , ST1.AUD_NO
+                          , ST1.AFF_SNO
+                          , ST1.AFF_CD
+                          , ST1.TITLE_NM
+                          , ST1.RPRT_FILD_ID
+                       FROM TBBADDED145M ST1
+                      WHERE 1=1
+                        AND ST1.APVR_CD IN (SELECT NVL(MAX(APVR_CD), '0013600')
+                                              FROM (SELECT RANK() OVER (PARTITION BY H.DOC_ID ORDER BY DECODE(H.APVR_CD, 'A1070', 1, '0010600', 2, '0055700', 3, '0055600', 4, '0045900', 5, '0015800', 6, '0035100', 7, '0058100', 8, '0013600', 9, 99) ASC) AS RN
+                                                         , H.APVR_CD
+                                                         , H.DOC_ID
+                                                         , H.AUD_YR
+                                                         , H.AUD_NO
+                                                      FROM TBBADDED145M H
+                                                     WHERE 1=1
+                                                       AND H.APVR_CD  <>  '0010200'
+                                                     GROUP BY H.DOC_ID
+                                                            , H.APVR_CD
+                                                            , H.AUD_YR
+                                                            , H.AUD_NO)   
+                                             WHERE 1=1
+                                               AND RN         = 1 
+                                               AND ST1.DOC_ID = DOC_ID
+                                               AND ST1.AUD_YR = AUD_YR
+                                               AND ST1.AUD_NO = AUD_NO)
+                    ) T3 ON (A.WRK_YR  = T3.AUD_YR
+                         AND A.WRK_NO  = T3.AUD_NO
+                         AND A.AFF_SNO = T3.AFF_SNO)
+         WHERE 1=1
+           AND A.WRK_YR         = #{wrkYr}
+           AND A.WRK_NO         = #{wrkNo}
+           AND A.LEGAL_REQ_SRNO = #{legalReqSrno}
+           AND B.SND_DPT_CD     = '160100'
+           AND B.DOC_STA_CD     = '51'
+           AND B.SUPPLM_REQ    IS NOT NULL
+        ]]>
+    </select>
+
+    <!-- 보완요청 목록 조회 -->
+    <!-- 감사제보(B10), 감사청구(C10) -->
+    <select id="selectSupplmReqListCSPDCP" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectSupplmReqListCSPDCP */
+        <![CDATA[
+        SELECT T2.ACP_YR || '-' || DECODE(T2.REQ_DVSN_CD, '1',  F_CODE_NM('1000949', T2.RM_ACP_KND_CD) , '2', '국민', '3', '공익', '4', '국회') || '-' || LTRIM(T2.RM_CVPT_ACP_NO, '0')
+                                                                                         AS AFF_NO
+             , T2.TIT_NM                                                                 AS TITLE_NM
+             , B.RPRT_NM
+             , B.SUPPLM_REQ
+             , A.WRK_DVSN_CD
+             , A.WRK_YR
+             , A.WRK_NO
+             , A.LEGAL_REQ_SRNO
+             , B.RPRT_CD
+             , B.DOC_ID
+             , B.DOC_STA_CD
+             , A.AFF_SNO
+             , A.APVR_CD
+             , A.AUD_STEP_CD
+             , A.LEGAL_DPT_CD
+             , DECODE(A.LEGAL_DPT_CD, '160000', '법률자문관I', '160100', '법률자문관II') AS LEGAL_DPT_NM
+             , B.DOC_STA_CD
+          FROM TBBADDED126M A
+    INNER JOIN TBCSPDCP111M B ON (A.WRK_YR                  = B.ACP_YR
+                              AND A.WRK_NO                  = B.ACP_SRNO
+                              AND TO_CHAR(A.LEGAL_REQ_SRNO) = B.REF_ID
+                              AND A.WRK_DVSN_CD             = DECODE(B.ACP_DVSN_CD, '1', 'B10', '2', 'C10', '3', 'C10', '4', 'C10'))
+   INNER JOIN TBCSPDCP101M T2 ON (A.WRK_YR                  = T2.ACP_YR
+                              AND A.WRK_NO                  = T2.CVPT_ACP_NO 
+                              AND A.WRK_DVSN_CD             = DECODE(T2.REQ_DVSN_CD, '1', 'B10', '2', 'C10', '3', 'C10', '4', 'C10')
+                              AND A.AUD_STEP_CD 				= DECODE(T2.REQ_DVSN_CD,'1','B3011','2','C2012', '3', 'C2013', '4', 'C2010'))
+         WHERE 1=1
+           AND A.WRK_YR         = #{wrkYr}
+           AND A.WRK_NO         = #{wrkNo}
+           AND A.WRK_DVSN_CD    = #{wrkDvsnCd}
+           AND A.LEGAL_REQ_SRNO = #{legalReqSrno}
+           AND B.SND_DPT_CD     = '160100'
+           AND B.DOC_STA_CD     = '51'
+           AND B.SUPPLM_REQ    IS NOT NULL
+        ]]>
+    </select>
+    
+    <!-- 보완요청 목록 조회 -->
+    <!-- 심사청구(D10), 재심의청구(E10) -->
+    <select id="selectSupplmReqListBADFRE" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectSupplmReqListBADFRE */
+        <![CDATA[
+        SELECT T2.ACP_YR || '-' || DECODE(T2.ACP_DVSN_CD, '1', '심사', '2', '재심', '3', '재심판정') || '-' || DECODE(T2.ORG_ACP_SRNO, null, T2.ACP_SRNO, T2.ORG_ACP_SRNO)
+                                                                                         AS AFF_NO
+             , T2.TIT_NM                                                                 AS TITLE_NM
+             , B.RPRT_NM
+             , B.SUPPLM_REQ
+             , A.WRK_DVSN_CD
+             , A.WRK_YR
+             , A.WRK_NO
+             , A.LEGAL_REQ_SRNO
+             , B.RPRT_CD
+             , B.DOC_ID
+             , B.DOC_STA_CD
+             , A.AFF_SNO
+             , A.APVR_CD
+             , A.AUD_STEP_CD
+             , A.LEGAL_DPT_CD
+             , DECODE(A.LEGAL_DPT_CD, '160000', '법률자문관I', '160100', '법률자문관II') AS LEGAL_DPT_NM
+             , B.DOC_STA_CD
+          FROM TBBADDED126M A
+    INNER JOIN TBBADFRE111M B ON (A.WRK_YR                  = B.ACP_YR
+                              AND A.WRK_NO                  = B.ACP_SRNO
+                              AND TO_CHAR(A.LEGAL_REQ_SRNO) = B.REF_ID
+                              AND A.WRK_DVSN_CD             = DECODE(B.ACP_DVSN_CD, '1', 'D10', '2', 'E10', 'A10'))
+   INNER JOIN TBBADFRE012M T2 ON (A.WRK_YR                  = T2.ACP_YR
+                              AND A.WRK_NO                  = T2.ACP_SRNO
+                              AND A.WRK_DVSN_CD             = DECODE(T2.ACP_DVSN_CD, '1', 'D10', '2', 'E10', 'A10'))
+         WHERE 1=1
+           AND A.WRK_YR         = #{wrkYr}
+           AND A.WRK_NO         = #{wrkNo}
+           AND A.WRK_DVSN_CD    = #{wrkDvsnCd}
+           AND A.LEGAL_REQ_SRNO = #{legalReqSrno}
+           AND B.SND_DPT_CD     = '160100'
+           AND B.DOC_STA_CD     = '51'
+           AND B.SUPPLM_REQ    IS NOT NULL
+        ]]>
+    </select>
+
+    <!-- 보완요청 목록 조회 -->
+    <!-- 부패행위(F10) -->
+    <select id="selectSupplmReqListCORCOR" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectSupplmReqListCORCOR */
+        <![CDATA[
+        SELECT T2.ACP_YR || '-' || '부감' || '-' || LTRIM(T2.RM_CVPT_ACP_NO, '0')
+                                                                                         AS AFF_NO
+             , T2.TIT_NM                                                                 AS TITLE_NM
+             , B.RPRT_NM
+             , B.SUPPLM_REQ
+             , A.WRK_DVSN_CD
+             , A.WRK_YR
+             , A.WRK_NO
+             , A.LEGAL_REQ_SRNO
+             , B.RPRT_CD
+             , B.DOC_ID
+             , B.DOC_STA_CD
+             , A.AFF_SNO
+             , A.APVR_CD
+             , A.AUD_STEP_CD
+             , A.LEGAL_DPT_CD
+             , DECODE(A.LEGAL_DPT_CD, '160000', '법률자문관I', '160100', '법률자문관II') AS LEGAL_DPT_NM
+             , B.DOC_STA_CD
+          FROM TBBADDED126M A
+    INNER JOIN TBCORCOR111M B ON A.WRK_YR                  = B.ACP_YR
+                              AND A.WRK_NO                  = B.ACP_SRNO
+                              AND TO_CHAR(A.LEGAL_REQ_SRNO) = B.REF_ID
+                              AND A.WRK_DVSN_CD             = 'F10'
+   INNER JOIN TBCORCOR101M T2 ON A.WRK_YR                  = T2.ACP_YR
+                              AND A.WRK_NO                  = T2.CVPT_ACP_NO 
+                              AND A.WRK_DVSN_CD             = 'F10'
+         WHERE 1=1
+           AND A.WRK_YR         = #{wrkYr}
+           AND A.WRK_NO         = #{wrkNo}
+           AND A.WRK_DVSN_CD    = #{wrkDvsnCd}
+           AND A.LEGAL_REQ_SRNO = #{legalReqSrno}
+           AND B.SND_DPT_CD     = '160100'
+           AND B.DOC_STA_CD     = '51'
+           AND B.SUPPLM_REQ    IS NOT NULL
+        ]]>
+    </select>
+
+    <select id="selectSupplmReqListDCPDCP" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.rla.dao.AEPRLA002EMapper.selectSupplmReqListDCPDCP */
+        <![CDATA[
+        SELECT T2.ACP_YR || '-' || '청금' || '-' || LTRIM(T2.RM_CVPT_ACP_NO, '0')
+                                                                                         AS AFF_NO
+             , T2.TIT_NM                                                                 AS TITLE_NM
+             , B.RPRT_NM
+             , B.SUPPLM_REQ
+             , A.WRK_DVSN_CD
+             , A.WRK_YR
+             , A.WRK_NO
+             , A.LEGAL_REQ_SRNO
+             , B.RPRT_CD
+             , B.DOC_ID
+             , B.DOC_STA_CD
+             , A.AFF_SNO
+             , A.APVR_CD
+             , A.AUD_STEP_CD
+             , A.LEGAL_DPT_CD
+             , DECODE(A.LEGAL_DPT_CD, '160000', '법률자문관I', '160100', '법률자문관II') AS LEGAL_DPT_NM
+             , B.DOC_STA_CD
+          FROM TBBADDED126M A
+    INNER JOIN TBDCPDCP111M B ON (A.WRK_YR                  = B.ACP_YR
+                              AND A.WRK_NO                  = B.ACP_SRNO
+                              AND TO_CHAR(A.LEGAL_REQ_SRNO) = B.REF_ID
+                              AND A.WRK_DVSN_CD             = 'G10'
+   INNER JOIN TBDCPDCP101M T2 ON (A.WRK_YR                  = T2.ACP_YR
+                              AND A.WRK_NO                  = T2.CVPT_ACP_NO 
+                              AND A.WRK_DVSN_CD             = 'G10'
+         WHERE 1=1
+           AND A.WRK_YR         = #{wrkYr}
+           AND A.WRK_NO         = #{wrkNo}
+           AND A.WRK_DVSN_CD    = #{wrkDvsnCd}
+           AND A.LEGAL_REQ_SRNO = #{legalReqSrno}
+           AND B.SND_DPT_CD     = '160100'
+           AND B.DOC_STA_CD     = '51'
+           AND B.SUPPLM_REQ    IS NOT NULL
+        ]]>
+    </select>
+    
+    
+</mapper> 

@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/cis/202">
+	<select id="CSPCIS202QSysDateSelect" resultClass="resultMap">
+	 	<![CDATA[
+	 	SELECT TO_CHAR(SYSDATE, 'YYYYMMDD') AS ENDDT,
+	    	   TO_CHAR(TRUNC(ADD_MONTHS(SYSDATE, -12), 'dd'), 'YYYYMMDD') AS STARTDT
+	  	FROM DUAL
+	 	]]>
+ 	</select>
+
+ 	<select id="CSPCIS202selectChrgList" resultClass="resultMap">
+	 	<![CDATA[
+	 		SELECT 
+			    CNB AS USR_CNB,
+			    DECODE(PST_CD||'_'||DPT_CD,'0010300_100000','감찰관','0035400_100100','감찰담당관',F_CODE_NM('1000173',RANK_CD) ||' '|| USR_NAM) AS USR_NM 
+			FROM UBCREOWN.TBDCMACM001M 
+			WHERE 1=1
+				AND USR_DVSN_CD ='1'
+				AND (DPT_CD = '100100' OR PST_CD||'_'||DPT_CD = '0010300_100000')
+			ORDER BY OCP_CD,nvl(INN_RANK_CD, '50') ASC ,RANK_SRT_SEQ_NM,CRNT_RANK_APM_DT,SRT_KY_NO,CRNT_DPT_APM_DT,EIN
+	 	]]>
+ 	</select>
+
+	<resultMap class="java.util.HashMap" id="CSPCIS202QSelectMainMap">
+			<result property="SNO" column="SNO" jdbcType="INTEGER" javaType="java.lang.Integer" />
+			<result property="CNSL_APL_NO" column="CNSL_APL_NO" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="CNSL_DVSN_CD" column="CNSL_DVSN_CD" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="ANO_YN" column="ANO_YN" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="FTF_APL_YN" column="FTF_APL_YN" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="CNSL_CHRG_CNB" column="CNSL_CHRG_CNB" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="CNSL_TITLE" column="CNSL_TITLE" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="CNSL_APL_DH" column="CNSL_APL_DH" jdbcType="timestamp" javaType="java.lang.String" />
+			<result property="CNSL_APL_USR" column="CNSL_APL_USR" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="SMT_YN" column="SMT_YN" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="WRT_DVSN" column="WRT_DVSN" jdbcType="VARCHAR2" javaType="java.lang.String" />
+	</resultMap>
+	<select id="CSPCIS202QSelectMain" parameterClass="paramMap" resultMap="CSPCIS202QSelectMainMap">
+		<![CDATA[
+			SELECT * FROM(
+			    SELECT 
+			        ROW_NUMBER() OVER(ORDER BY TO_NUMBER(SUBSTR(CNSL_APL_NO,1,4)) DESC, TO_NUMBER(SUBSTR(CNSL_APL_NO, INSTR(CNSL_APL_NO,'-')+1)) DESC) AS SNO
+			        , A.CNSL_APL_NO AS CNSL_APL_NO
+			        , F_CODE_NM('1001018',A.CNSL_DVSN_CD) AS CNSL_DVSN_CD
+			        , A.ANO_YN AS ANO_YN
+			        , DECODE(A.FTF_APL_YN,'Y','신청','N','불필요') AS FTF_APL_YN
+			        , (SELECT DECODE(PST_CD||'_'||DPT_CD,'0010300_100000','감찰관','0035400_100100','감찰담당관',F_USR_INFO(CNSL_CHRG_CNB,'2')) FROM TBDCMACM001M 
+						WHERE CNB = A.CNSL_CHRG_CNB) AS CNSL_CHRG_CNB
+			        , A.CNSL_TITLE
+			        , TO_CHAR(A.CNSL_APL_DH,'YYYY-MM-DD') AS CNSL_APL_DH
+			        , DECODE(A.ANO_YN,'Y','익명',
+			        	'N',F_DPT_INFO(F_USR_INFO(DGUARD.DECRYPT('TB_ENC','ECN',A.CNSL_APL_USR),'5'),'1')||' '||F_USR_INFO(DGUARD.DECRYPT('TB_ENC','ECN',A.CNSL_APL_USR), '2')) AS CNSL_APL_USR
+					, A.SMT_YN AS SMT_YN
+					, CASE WHEN DGUARD.DECRYPT('TB_ENC','ECN',A.CNSL_APL_USR) = #S_CNB#
+							THEN 'Y'
+							ELSE 'N' END
+						AS WRT_DVSN
+			    FROM UBCREOWN.TBCSPCIS202M A
+			    WHERE 1=1
+				AND ((CNSL_CHRG_CNB IN(#S_CNB#) AND SMT_YN='Y') OR DGUARD.DECRYPT('TB_ENC','ECN',CNSL_APL_USR)= #S_CNB#)
+		]]>
+			<dynamic>
+				<isNotEmpty property="ACP_DH_START">
+					<isNotEmpty property="ACP_DH_END">
+						AND ((TO_CHAR(CNSL_APL_DH,'YYYYMMDD') BETWEEN #ACP_DH_START# AND #ACP_DH_END#)
+						 	 OR CNSL_APL_DH IS NULL)
+					</isNotEmpty>
+				</isNotEmpty>
+				<isNotEmpty property="FTF_APL_YN">
+					AND FTF_APL_YN = #FTF_APL_YN#
+				</isNotEmpty>
+				<isNotEmpty property="CNSL_DVSN_CD">
+				    AND CNSL_DVSN_CD = #CNSL_DVSN_CD#
+				</isNotEmpty>
+				<isNotEmpty property="CNSL_CHRG_CNB">
+					AND CNSL_CHRG_CNB = #CNSL_CHRG_CNB#
+				</isNotEmpty>
+				<isNotEmpty property="CNSL_TITLE">
+					AND CNSL_TITLE LIKE '%' || #CNSL_TITLE# ||'%'
+				</isNotEmpty>
+				
+			</dynamic>
+		<![CDATA[
+			    ORDER BY SNO
+			) WHERE 1=1
+			ORDER BY SNO
+		]]>
+	</select>
+	
+	<resultMap class="java.util.HashMap" id="CSPCIS202ESelectMainMap">
+			<result property="CNSL_APL_NO" column="CNSL_APL_NO" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="CNSL_DVSN_CD" column="CNSL_DVSN_CD" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="CNSL_DVSN_NM" column="CNSL_DVSN_NM" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="ANO_YN" column="ANO_YN" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="FTF_APL_YN" column="FTF_APL_YN" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="FTF_APL_YN_NM" column="FTF_APL_YN_NM" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="CNSL_CHRG_CNB" column="CNSL_CHRG_CNB" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="CNSL_CHRG_NM" column="CNSL_CHRG_NM" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="CNSL_TITLE" column="CNSL_TITLE" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="CNSL_TXT" column="CNSL_TXT" jdbcType="CLOB" javaType="java.lang.String" />
+			<result property="ACT_SGGS" column="ACT_SGGS" jdbcType="VARCHAR2" javaType="java.lang.String" />
+			<result property="CNSL_APL_DH" column="CNSL_APL_DH" jdbcType="timestamp" javaType="java.lang.String" />
+			<result property="CNSL_APL_USR_NM" column="CNSL_APL_USR_NM" jdbcType="VARCHAR2" javaType="java.lang.String" />
+	</resultMap>
+	<select id="CSPCIS202ESelectMain" parameterClass="paramMap" resultMap="CSPCIS202ESelectMainMap">
+		<![CDATA[
+			    SELECT 
+			          CNSL_APL_NO AS CNSL_APL_NO 
+			        , CNSL_DVSN_CD 
+			        , F_CODE_NM('1001018',CNSL_DVSN_CD) AS CNSL_DVSN_NM
+			        , ANO_YN AS ANO_YN 
+			        , FTF_APL_YN AS FTF_APL_YN 
+			        , CNSL_CHRG_CNB AS CNSL_CHRG_CNB 
+			        , DECODE((SELECT PST_CD||'_'||DPT_CD FROM TBDCMACM001M WHERE CNB=CNSL_CHRG_CNB),'0010300_100000','감찰관','0035400_100100','감찰담당관'
+			        , F_DPT_INFO(F_USR_INFO(CNSL_CHRG_CNB,'5'),'1') || ' ' || F_USR_INFO(CNSL_CHRG_CNB, '2')) AS CNSL_CHRG_NM
+			        , CNSL_TITLE 
+			        , CNSL_TXT 
+			        , ACT_SGGS 
+			        , TO_CHAR(CNSL_APL_DH,'YYYY-MM-DD') AS CNSL_APL_DH 
+			        , CASE WHEN ANO_YN = 'Y' THEN '익명' 
+						ELSE F_DPT_INFO(F_USR_INFO(DGUARD.DECRYPT('TB_ENC','ECN',CNSL_APL_USR),'5'),'1') || ' ' || F_USR_INFO(DGUARD.DECRYPT('TB_ENC','ECN',CNSL_APL_USR), '2') || '(' || DGUARD.DECRYPT('TB_ENC','ECN',CNSL_APL_USR) || ')'
+					  END AS CNSL_APL_USR_NM 
+					, DECODE(FTF_APL_YN,'Y','신청','N','불필요') AS FTF_APL_YN_NM 
+			    FROM UBCREOWN.TBCSPCIS202M 
+			    WHERE 1=1
+				AND CNSL_APL_NO = #CNSL_APL_NO#
+		]]>
+	</select>
+	
+	<select id="CSPCIS202ESelectNextKey" parameterClass="paramMap" resultClass="resultMap">
+		SELECT TO_CHAR(SYSDATE,'YYYY')||'-'||NVL(MAX(TO_NUMBER(SUBSTR(CNSL_APL_NO, INSTR(CNSL_APL_NO,'-')+1)))+1,1) AS CNSL_APL_NO
+		  FROM UBCREOWN.TBCSPCIS202M 
+		 WHERE SUBSTR(CNSL_APL_NO,1,4) = TO_CHAR(SYSDATE,'YYYY')
+	</select>
+	
+	<insert id="CSPCIS202Einsert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT
+			    INTO UBCREOWN.TBCSPCIS202M ( CNSL_APL_NO
+			                , CNSL_DVSN_CD
+			                , ANO_YN
+			                , FTF_APL_YN
+			                , CNSL_CHRG_CNB
+			                , CNSL_TITLE
+			                , CNSL_TXT
+			                , ACT_SGGS
+			                , CNSL_APL_USR
+			                , SMT_YN)
+			    VALUES (     #CNSL_APL_NO#
+			               , #CNSL_DVSN_CD#
+			               , #ANO_YN#
+			               , #FTF_APL_YN#
+			               , #CNSL_CHRG_CNB#
+			               , #CNSL_TITLE#
+			               , #CNSL_TXT#
+			               , #ACT_SGGS#
+			               , #S_CNB#
+			               , 'N'
+               )
+		]]>
+	</insert>
+	
+	<update id="CSPCIS202Eupdate" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE UBCREOWN.TBCSPCIS202M
+				SET 
+					 CNSL_DVSN_CD = #CNSL_DVSN_CD#
+					,CNSL_CHRG_CNB = #CNSL_CHRG_CNB#
+					,ANO_YN = #ANO_YN#
+					,FTF_APL_YN = #FTF_APL_YN#
+					,CNSL_TITLE = #CNSL_TITLE#
+					,CNSL_TXT = #CNSL_TXT#
+					,ACT_SGGS = #ACT_SGGS#
+			WHERE CNSL_APL_NO = #CNSL_APL_NO# 
+		]]>
+	</update>
+	<update id="CSPCIS202Esubmit" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE UBCREOWN.TBCSPCIS202M SET 
+				   SMT_YN = 'Y'
+		         , CNSL_APL_DH = SYSDATE		
+			 WHERE CNSL_APL_NO = #CNSL_APL_NO# 
+		]]>
+	</update>
+	
+	<update id="CSPCIS202EsubmitCancel" parameterClass="paramMap">
+		<![CDATA[
+			UPDATE UBCREOWN.TBCSPCIS202M SET 
+				   SMT_YN = 'N'
+		         , CNSL_APL_DH = ''
+		         , CNSL_CHRG_CNB = ''
+			 WHERE CNSL_APL_NO = #CNSL_APL_NO# 
+		]]>
+	</update>
+	
+	<delete id="CSPCIS202Edelete" parameterClass="paramMap">
+		<![CDATA[
+			DELETE UBCREOWN.TBCSPCIS202M
+ 			WHERE CNSL_APL_NO = #CNSL_APL_NO#
+		]]>
+	</delete>
+	
+</sqlMap> 

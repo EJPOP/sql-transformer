@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/cmr/029">
+
+	<!-- 법령모니터링관리(주무) 조회한다. -->
+	<select id="BADCMR029Emainselect" parameterClass="paramMap" resultClass="resultMap"> <include refid = "include.pageSelct"/>
+		<![CDATA[   
+			SELECT LAW_YE || '-' || LAW_MNT_SNO AS LAW_YE_SNO /*NO*/
+			     , CASE WHEN #strDtKind# = '01' THEN DECODE(MTRL_OGN_DT, NULL, NULL, SUBSTR(MTRL_OGN_DT, 1, 4) || '.' || SUBSTR(MTRL_OGN_DT, 5, 2) || '.' || SUBSTR(MTRL_OGN_DT, 7, 2))                     /*발생일자-자료발생일*/
+			            WHEN #strDtKind# = '032' THEN DECODE(COPT_DIV_ACP_DT, NULL, NULL, SUBSTR(COPT_DIV_ACP_DT, 1, 4) || '.' || SUBSTR(COPT_DIV_ACP_DT, 5, 2) || '.' || SUBSTR(COPT_DIV_ACP_DT, 7, 2))    /*접수일-소관과접수일*/
+			            WHEN #strDtKind# = '04' THEN DECODE(OPIN_SMT_DT, NULL, NULL, SUBSTR(OPIN_SMT_DT, 1, 4) || '.' || SUBSTR(OPIN_SMT_DT, 5, 2) || '.' || SUBSTR(OPIN_SMT_DT, 7, 2))                     /*의견제출일자-의견제출일*/
+			            WHEN #strDtKind# = '10' THEN DECODE(CBT_CFR_BILL_DT, NULL, NULL, SUBSTR(CBT_CFR_BILL_DT, 1, 4) || '.' || SUBSTR(CBT_CFR_BILL_DT, 5, 2) || '.' || SUBSTR(CBT_CFR_BILL_DT, 7, 2))     /*사후개시일자-국무회의상정일*/
+			            WHEN #strDtKind# = '11' THEN DECODE(EXPOT_HNDL_HNDL_OPIN_RPL_DT, NULL, NULL, SUBSTR(EXPOT_HNDL_HNDL_OPIN_RPL_DT, 1, 4) || '.' || SUBSTR(EXPOT_HNDL_HNDL_OPIN_RPL_DT, 5, 2) || '.' || SUBSTR(EXPOT_HNDL_HNDL_OPIN_RPL_DT, 7, 2)) /*사후처리의견회신일-사후처리 처리의견 회신일*/
+			            WHEN #strDtKind# = '12' THEN DECODE(CPLT_DT, NULL, NULL, SUBSTR(CPLT_DT, 1, 4) || '.' || SUBSTR(CPLT_DT, 5, 2) || '.' || SUBSTR(CPLT_DT, 7, 2))                                     /*완결일자-완결일*/
+			            ELSE '' END                                                          AS DT_KIND             /*발생일자*/
+			      , F_CODE_NM('1000253', MTRL_CAT_CD)                                        AS MTRL_CAT_NM         /*자료구분*/
+			      , F_DPT_INFO(NVL(CHGD_DPT_CD, BLE_DIV_DPT_CD),'1')                         AS DPT_NM              /*소관과*/
+			      , NVL2(CHGD_DPT_CD, 1, 2)                                                  AS DPT_NM_COLOR        /*담당과부서코드가 있으면 검정색 없으면 빨간색 */
+			      , (SELECT ORG_NM FROM TBDCMACM015M WHERE ORG_CD = TBBADCMR011M.COPT_GD_CD) AS COPT_GD_NM          /*소관기관*/
+			      , CASE WHEN LAW_KND_CD IS NOT NULL THEN '('|| F_CODE_NM('1000254',LAW_KND_CD) || ')' || MNT_TIT_NM               
+			             ELSE MNT_TIT_NM END                                                 AS MNT_TIT_NM          /*모니터링 사항*/
+			      , F_CODE_NM('1000256', AUD_MNT_HNDL_STA_CD)                                AS AUD_MNT_HNDL_STA_NM /*처리상태*/
+			      , AUD_MNT_HNDL_STA_CD                                                      AS AUD_MNT_HNDL_STA_CD /*처리상태코드*/
+			      , NVL2(TRIM(REL_EPS_MNG_LAW_YE), 'O', 'X')                                 AS REL_EPS_MNG_LAW_YE  /*중점*/
+			      , DECODE(NVL(HNDL_OPIN_YO, 'N'), 'Y', 'O', 'X')                            AS HNDL_OPIN_YO        /*의견*/
+			      , NVL2(TRIM(HNDL_OPIN_RPL_DT), 'O', '')                                    AS HNDL_OPIN_RPL_YN    /*회신*/
+			      , LAW_YE
+			      , LAW_MNT_SNO
+			      , MTRL_CAT_CD
+			      , CHGD_DPT_CD /*담당과부서코드*/
+			 FROM TBBADCMR011M 
+		    WHERE 1 = 1
+		]]>
+		    AND (CASE WHEN #strDptCd# IN ('160100','160000') THEN #strDptCd#
+		              WHEN SUBSTR(#strDptCd#,4,3) = '100'   THEN BLE_DIV_DPT_CD
+		              ELSE CHGD_DPT_CD END) = #strDptCd#
+		
+		<dynamic prepend="AND">
+			<isNotEmpty property="strAudMntHndStaCd">
+				AUD_MNT_HNDL_STA_CD IN
+					<iterate property="strAudMntHndStaCd" open="(" close=")" conjunction=",">
+						#strAudMntHndStaCd[]#
+					</iterate>
+			</isNotEmpty>
+			<isEmpty property="strAudMntHndStaCd">
+				NVL(AUD_MNT_HNDL_STA_CD, 'N') = 'N'
+			</isEmpty>
+		</dynamic>
+		<isNotEmpty property="strHndlOpinYo">
+			AND HNDL_OPIN_YO = #strHndlOpinYo#  /*의견구분*/ 
+		</isNotEmpty>
+		<isNotEmpty property="strHndlOpinRplDt">
+			AND NVL2(TRIM(HNDL_OPIN_RPL_DT), 'Y', 'N') = #strHndlOpinRplDt# /*회신여부*/
+		</isNotEmpty>
+		<isNotEmpty property="strReEpsMngLawYn">
+			AND NVL2(TRIM(REL_EPS_MNG_LAW_YE), 'Y', 'N') = #strReEpsMngLawYn#  /*중점관리법령 대상여부*/
+		</isNotEmpty>
+		<isNotEmpty property="strExpotHndlRfcYnCd">
+			AND EXPOT_HNDL_RFC_YN_CD = #strExpotHndlRfcYnCd# /*사후처리구분 - 조회조건(의견반영여부) */
+		</isNotEmpty>
+		
+		<!-- 일자 범위마다 조건 컬럼들이 달라진다. 시작 -->
+		<isEqual property="strDtKind" compareValue="01">
+			<isNotEmpty property="strFromDt">
+				AND MTRL_OGN_DT <![CDATA[ >= ]]> #strFromDt# /*자료발생일*/
+			</isNotEmpty> 
+			<isNotEmpty property="strToDT">
+				AND MTRL_OGN_DT <![CDATA[ <= ]]> #strToDT#
+			</isNotEmpty> 
+		</isEqual>
+		<isEqual property="strDtKind" compareValue="032">
+			<isNotEmpty property="strFromDt">
+				AND COPT_DIV_ACP_DT <![CDATA[ >= ]]> #strFromDt#  /*주관과 접수일*/
+			</isNotEmpty> 
+			<isNotEmpty property="strToDT">
+				AND COPT_DIV_ACP_DT <![CDATA[ <= ]]> #strToDT#
+			</isNotEmpty> 
+		</isEqual>
+		<isEqual property="strDtKind" compareValue="04">
+			<isNotEmpty property="strFromDt">
+				AND OPIN_SMT_DT <![CDATA[ >= ]]> #strFromDt# /*의견접수일*/
+			</isNotEmpty> 
+			<isNotEmpty property="strToDT">
+				AND OPIN_SMT_DT <![CDATA[ <= ]]> #strToDT#
+			</isNotEmpty> 
+		</isEqual>
+		<isEqual property="strDtKind" compareValue="10">
+			<isNotEmpty property="strFromDt">
+				AND CBT_CFR_BILL_DT <![CDATA[ >= ]]> #strFromDt# /*국무회의상정일*/
+			</isNotEmpty> 
+			<isNotEmpty property="strToDT">
+				AND CBT_CFR_BILL_DT <![CDATA[ <= ]]> #strToDT#
+			</isNotEmpty> 
+		</isEqual>
+		<isEqual property="strDtKind" compareValue="11">
+			<isNotEmpty property="strFromDt">
+				AND EXPOT_HNDL_HNDL_OPIN_RPL_DT <![CDATA[ >= ]]> #strFromDt# 
+			</isNotEmpty> 
+			<isNotEmpty property="strToDT">
+				AND EXPOT_HNDL_HNDL_OPIN_RPL_DT <![CDATA[ <= ]]> #strToDT#
+			</isNotEmpty> 
+		</isEqual>
+		<isEqual property="strDtKind" compareValue="12">
+			<isNotEmpty property="strFromDt">
+				AND CPLT_DT <![CDATA[ >= ]]> #strFromDt#
+			</isNotEmpty> 
+			<isNotEmpty property="strToDT">
+				AND CPLT_DT <![CDATA[ <= ]]> #strToDT#
+			</isNotEmpty> 
+		</isEqual>
+		<!-- 일자 범위마다 조건 컬럼들이 달라진다. 끝 -->
+		<!-- <isNotEmpty property="strDptCd">
+			 /* AND CHGD_DPT_CD = #strDptCd# 소관과 */
+		</isNotEmpty> -->
+		<isNotEmpty property="strCoptGdCd">
+			AND COPT_GD_CD = #strCoptGdCd#  /*소관기관*/
+		</isNotEmpty>
+		<isNotEmpty property="strLawNm">
+			AND (  UPPER(TRIM(LAW_KND_CD)) LIKE '%' || UPPER(TRIM(#strLawNm#)) ||'%' OR UPPER(TRIM(MNT_TIT_NM))  like '%' || UPPER(TRIM(#strLawNm#)) ||'%'  
+			    OR UPPER(TRIM(MNT_TXT))    LIKE '%' || UPPER(TRIM(#strLawNm#)) ||'%' OR UPPER(TRIM(CBT_CFR_TXT)) like '%' || UPPER(TRIM(#strLawNm#)) ||'%'   
+			    OR UPPER(TRIM(BLE_DIV_HNDL_OPIN_TXT))  LIKE '%' || UPPER(TRIM(#strLawNm#)) ||'%'  OR  UPPER(TRIM(COPT_DIV_HNDL_OPIN_TXT))  LIKE '%' || UPPER(TRIM(#strLawNm#)) ||'%'   
+			    OR UPPER(TRIM(BLE_DIV_EXPOT_HNDL_TXT)) LIKE '%' || UPPER(TRIM(#strLawNm#)) ||'%'  OR  UPPER(TRIM(COPT_DIV_EXPOT_HNDL_TXT)) LIKE '%' || UPPER(TRIM(#strLawNm#)) ||'%'  )  /*법령명(검색어)*/ 
+		</isNotEmpty>
+		<isNotEmpty property="strAtCpltYn">
+			AND NVL(AT_CPLT_YN, 'N') = #strAtCpltYn# /*자동완결여부*/
+		</isNotEmpty>
+		<include refid = "include.pageOrder"/>   
+	</select>
+	
+	<!-- 목록 삭제 -->
+	<delete id="BADCMR029Emaindelete" parameterClass="paramMap">
+		<![CDATA[
+			DELETE FROM TBBADCMR011M
+			 WHERE LAW_YE      = #LAW_YE#
+			   AND LAW_MNT_SNO = #LAW_MNT_SNO#		
+		]]>
+	</delete>
+	
+	
+	
+	
+		<select id="badcmr029ExcelSelect" parameterClass="paramMap" resultClass="resultMap"> 
+		<![CDATA[   
+			SELECT LAW_YE || '-' || LAW_MNT_SNO AS LAW_YE_SNO /*NO*/
+			     , CASE WHEN #strDtKind# = '01' THEN DECODE(MTRL_OGN_DT, NULL, NULL, SUBSTR(MTRL_OGN_DT, 1, 4) || '.' || SUBSTR(MTRL_OGN_DT, 5, 2) || '.' || SUBSTR(MTRL_OGN_DT, 7, 2))                     /*발생일자-자료발생일*/
+			            WHEN #strDtKind# = '032' THEN DECODE(COPT_DIV_ACP_DT, NULL, NULL, SUBSTR(COPT_DIV_ACP_DT, 1, 4) || '.' || SUBSTR(COPT_DIV_ACP_DT, 5, 2) || '.' || SUBSTR(COPT_DIV_ACP_DT, 7, 2))    /*접수일-소관과접수일*/
+			            WHEN #strDtKind# = '04' THEN DECODE(OPIN_SMT_DT, NULL, NULL, SUBSTR(OPIN_SMT_DT, 1, 4) || '.' || SUBSTR(OPIN_SMT_DT, 5, 2) || '.' || SUBSTR(OPIN_SMT_DT, 7, 2))                     /*의견제출일자-의견제출일*/
+			            WHEN #strDtKind# = '10' THEN DECODE(CBT_CFR_BILL_DT, NULL, NULL, SUBSTR(CBT_CFR_BILL_DT, 1, 4) || '.' || SUBSTR(CBT_CFR_BILL_DT, 5, 2) || '.' || SUBSTR(CBT_CFR_BILL_DT, 7, 2))     /*사후개시일자-국무회의상정일*/
+			            WHEN #strDtKind# = '11' THEN DECODE(EXPOT_HNDL_HNDL_OPIN_RPL_DT, NULL, NULL, SUBSTR(EXPOT_HNDL_HNDL_OPIN_RPL_DT, 1, 4) || '.' || SUBSTR(EXPOT_HNDL_HNDL_OPIN_RPL_DT, 5, 2) || '.' || SUBSTR(EXPOT_HNDL_HNDL_OPIN_RPL_DT, 7, 2)) /*사후처리의견회신일-사후처리 처리의견 회신일*/
+			            WHEN #strDtKind# = '12' THEN DECODE(CPLT_DT, NULL, NULL, SUBSTR(CPLT_DT, 1, 4) || '.' || SUBSTR(CPLT_DT, 5, 2) || '.' || SUBSTR(CPLT_DT, 7, 2))                                     /*완결일자-완결일*/
+			            ELSE '' END                                                          AS DT_KIND             /*발생일자*/
+			      , F_CODE_NM('1000253', MTRL_CAT_CD)                                        AS MTRL_CAT_NM         /*자료구분*/
+			      , F_DPT_INFO(NVL(CHGD_DPT_CD, BLE_DIV_DPT_CD),'1')                         AS DPT_NM              /*소관과*/
+			      , NVL2(CHGD_DPT_CD, 1, 2)                                                  AS DPT_NM_COLOR        /*담당과부서코드가 있으면 검정색 없으면 빨간색 */
+			      , (SELECT ORG_NM FROM TBDCMACM015M WHERE ORG_CD = TBBADCMR011M.COPT_GD_CD) AS COPT_GD_NM          /*소관기관*/
+			      , CASE WHEN LAW_KND_CD IS NOT NULL THEN '('|| F_CODE_NM('1000254',LAW_KND_CD) || ')' || MNT_TIT_NM               
+			             ELSE MNT_TIT_NM END                                                 AS MNT_TIT_NM          /*모니터링 사항*/
+			      , F_CODE_NM('1000256', AUD_MNT_HNDL_STA_CD)                                AS AUD_MNT_HNDL_STA_NM /*처리상태*/
+			      , AUD_MNT_HNDL_STA_CD                                                      AS AUD_MNT_HNDL_STA_CD /*처리상태코드*/
+			      , NVL2(TRIM(REL_EPS_MNG_LAW_YE), 'O', 'X')                                 AS REL_EPS_MNG_LAW_YE  /*중점*/
+			      , DECODE(NVL(HNDL_OPIN_YO, 'N'), 'Y', 'O', 'X')                            AS HNDL_OPIN_YO        /*의견*/
+			      , NVL2(TRIM(HNDL_OPIN_RPL_DT), 'O', '')                                    AS HNDL_OPIN_RPL_YN    /*회신*/
+			      , LAW_YE
+			      , LAW_MNT_SNO
+			      , MTRL_CAT_CD
+			      , CHGD_DPT_CD /*담당과부서코드*/
+			 FROM TBBADCMR011M 
+		    WHERE 1 = 1
+		]]>
+		      AND (CASE WHEN #strDptCd# IN ('160100','160000') THEN #strDptCd#
+		                WHEN SUBSTR(#strDptCd#,4,3) = '100'   THEN BLE_DIV_DPT_CD
+		                ELSE CHGD_DPT_CD END) = #strDptCd#
+		
+		<dynamic prepend="AND">
+			<isNotEmpty property="strAudMntHndStaCd">
+				AUD_MNT_HNDL_STA_CD IN
+					<iterate property="strAudMntHndStaCd" open="(" close=")" conjunction=",">
+						#strAudMntHndStaCd[]#
+					</iterate>
+			</isNotEmpty>
+			<isEmpty property="strAudMntHndStaCd">
+				NVL(AUD_MNT_HNDL_STA_CD, 'N') = 'N'
+			</isEmpty>
+		</dynamic>
+		<isNotEmpty property="strHndlOpinYo">
+			AND HNDL_OPIN_YO = #strHndlOpinYo#  /*의견구분*/ 
+		</isNotEmpty>
+		<isNotEmpty property="strHndlOpinRplDt">
+			AND NVL2(TRIM(HNDL_OPIN_RPL_DT), 'Y', 'N') = #strHndlOpinRplDt# /*회신여부*/
+		</isNotEmpty>
+		<isNotEmpty property="strReEpsMngLawYn">
+			AND NVL2(TRIM(REL_EPS_MNG_LAW_YE), 'Y', 'N') = #strReEpsMngLawYn#  /*중점관리법령 대상여부*/
+		</isNotEmpty>
+		<isNotEmpty property="strExpotHndlRfcYnCd">
+			AND EXPOT_HNDL_RFC_YN_CD = #strExpotHndlRfcYnCd# /*사후처리구분 - 조회조건(의견반영여부) */
+		</isNotEmpty>
+		
+		<!-- 일자 범위마다 조건 컬럼들이 달라진다. 시작 -->
+		<isEqual property="strDtKind" compareValue="01">
+			<isNotEmpty property="strFromDt">
+				AND MTRL_OGN_DT <![CDATA[ >= ]]> #strFromDt# /*자료발생일*/
+			</isNotEmpty> 
+			<isNotEmpty property="strToDT">
+				AND MTRL_OGN_DT <![CDATA[ <= ]]> #strToDT#
+			</isNotEmpty> 
+		</isEqual>
+		<isEqual property="strDtKind" compareValue="032">
+			<isNotEmpty property="strFromDt">
+				AND COPT_DIV_ACP_DT <![CDATA[ >= ]]> #strFromDt#  /*주관과 접수일*/
+			</isNotEmpty> 
+			<isNotEmpty property="strToDT">
+				AND COPT_DIV_ACP_DT <![CDATA[ <= ]]> #strToDT#
+			</isNotEmpty> 
+		</isEqual>
+		<isEqual property="strDtKind" compareValue="04">
+			<isNotEmpty property="strFromDt">
+				AND OPIN_SMT_DT <![CDATA[ >= ]]> #strFromDt# /*의견접수일*/
+			</isNotEmpty> 
+			<isNotEmpty property="strToDT">
+				AND OPIN_SMT_DT <![CDATA[ <= ]]> #strToDT#
+			</isNotEmpty> 
+		</isEqual>
+		<isEqual property="strDtKind" compareValue="10">
+			<isNotEmpty property="strFromDt">
+				AND CBT_CFR_BILL_DT <![CDATA[ >= ]]> #strFromDt# /*국무회의상정일*/
+			</isNotEmpty> 
+			<isNotEmpty property="strToDT">
+				AND CBT_CFR_BILL_DT <![CDATA[ <= ]]> #strToDT#
+			</isNotEmpty> 
+		</isEqual>
+		<isEqual property="strDtKind" compareValue="11">
+			<isNotEmpty property="strFromDt">
+				AND EXPOT_HNDL_HNDL_OPIN_RPL_DT <![CDATA[ >= ]]> #strFromDt# 
+			</isNotEmpty> 
+			<isNotEmpty property="strToDT">
+				AND EXPOT_HNDL_HNDL_OPIN_RPL_DT <![CDATA[ <= ]]> #strToDT#
+			</isNotEmpty> 
+		</isEqual>
+		<isEqual property="strDtKind" compareValue="12">
+			<isNotEmpty property="strFromDt">
+				AND CPLT_DT <![CDATA[ >= ]]> #strFromDt#
+			</isNotEmpty> 
+			<isNotEmpty property="strToDT">
+				AND CPLT_DT <![CDATA[ <= ]]> #strToDT#
+			</isNotEmpty> 
+		</isEqual>
+		<!-- 일자 범위마다 조건 컬럼들이 달라진다. 끝 -->
+		<!-- <isNotEmpty property="strDptCd"> -->
+			/* AND CHGD_DPT_CD = #strDptCd# 소관과*/
+		<!-- </isNotEmpty> -->
+		<isNotEmpty property="strCoptGdCd">
+			AND COPT_GD_CD = #strCoptGdCd#  /*소관기관*/
+		</isNotEmpty>
+		<isNotEmpty property="strLawNm">
+			AND (  UPPER(TRIM(LAW_KND_CD)) LIKE '%' || UPPER(TRIM(#strLawNm#)) ||'%' OR UPPER(TRIM(MNT_TIT_NM))  like '%' || UPPER(TRIM(#strLawNm#)) ||'%'  
+			    OR UPPER(TRIM(MNT_TXT))    LIKE '%' || UPPER(TRIM(#strLawNm#)) ||'%' OR UPPER(TRIM(CBT_CFR_TXT)) like '%' || UPPER(TRIM(#strLawNm#)) ||'%'   
+			    OR UPPER(TRIM(BLE_DIV_HNDL_OPIN_TXT))  LIKE '%' || UPPER(TRIM(#strLawNm#)) ||'%'  OR  UPPER(TRIM(COPT_DIV_HNDL_OPIN_TXT))  LIKE '%' || UPPER(TRIM(#strLawNm#)) ||'%'   
+			    OR UPPER(TRIM(BLE_DIV_EXPOT_HNDL_TXT)) LIKE '%' || UPPER(TRIM(#strLawNm#)) ||'%'  OR  UPPER(TRIM(COPT_DIV_EXPOT_HNDL_TXT)) LIKE '%' || UPPER(TRIM(#strLawNm#)) ||'%'  )  /*법령명(검색어)*/ 
+		</isNotEmpty>
+		<isNotEmpty property="strAtCpltYn">
+			AND NVL(AT_CPLT_YN, 'N') = #strAtCpltYn# /*자동완결여부*/
+		</isNotEmpty>
+		
+			ORDER BY LAW_YE DESC, LAW_MNT_SNO DESC
+	</select>
+        
+</sqlMap> 

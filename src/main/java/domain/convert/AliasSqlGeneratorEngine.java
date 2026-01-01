@@ -1,0 +1,116 @@
+package domain.convert;
+
+import domain.convert.AliasSqlGenerator.Mode;
+
+import java.util.Collections;
+
+import java.util.Map;
+
+import domain.mapping.ColumnMappingRegistry;
+
+import domain.model.ConversionContext;
+
+import domain.model.ConversionWarning;
+
+import domain.model.ConversionWarningSink;
+
+import domain.model.WarningCode;
+
+/**
+ * Internal implementation of {@link AliasSqlGenerator}.
+ *
+ * <p>Split points (SRP):
+ * <ul>
+ *   <li>{@link SqlSegmentTransformer}: finds each SELECT statement and rewrites only SELECT-body</li>
+ *   <li>{@link BareColumnClauseConverter}: TOBE mode fallback for bare columns in WHERE/ON/GROUP/ORDER/SET</li>
+ *   <li>{@link TableIdConverter}: TOBE mode table-id replacement (ASIS table -> TOBE table)</li>
+ *   <li>{@link SqlPostProcessor}: keyword glue fix + optional prettifier</li>
+ * </ul>
+ */
+final class AliasSqlGeneratorEngine {
+
+    private final ColumnMappingRegistry registry;
+    private final SelectLineTransformer transformer;
+
+    private final SqlSegmentTransformer segmentTransformer;
+    private final BareColumnClauseConverter bareColumnClauseConverter;
+    private final TableIdConverter tableIdConverter;
+    private final SqlPostProcessor postProcessor;
+
+    AliasSqlGeneratorEngine(ColumnMappingRegistry registry) {
+        this.registry = registry;
+        this.transformer = new SelectLineTransformer(registry);
+
+        this.segmentTransformer = new SqlSegmentTransformer(transformer);
+        this.bareColumnClauseConverter = new BareColumnClauseConverter(registry);
+        this.tableIdConverter = new TableIdConverter(registry);
+        this.postProcessor = new SqlPostProcessor();
+    }
+
+    String generate(String sqlText, Mode mode) {
+        return generate(sqlText, mode, null, ConversionWarningSink.none());
+    }
+
+    String generate(String sqlText, Mode mode, ConversionContext ctx, ConversionWarningSink sink) {
+        if (sqlText == null) return "";
+
+        warnUnsupportedSyntax(sqlText, ctx, sink);
+
+        // Resolve aliases on original SQL (used for param rename inference).
+        Map<String, String> aliasTableMap0 = FromJoinAliasResolver.resolve(sqlText);
+
+        Map<String, String> paramRenameMap =
+                (mode == Mode.TOBE)
+                        ? transformer.buildParamRenameMap(sqlText, aliasTableMap0)
+                        : Collections.emptyMap();
+
+        // 1) Transform all SELECT blocks (format + alias/comment rule).
+        String out = segmentTransformer.transformAllSelectSegments(sqlText, mode, paramRenameMap, ctx, sink);
+
+        if (mode == Mode.TOBE) {
+            // 2) Convert the whole SQL (WHERE/ON/HAVING/GROUP/ORDER + DML areas included).
+            Map<String, String> aliasTableMap = FromJoinAliasResolver.resolve(out);
+            out = transformer.convertSqlFragmentToTobe(out, aliasTableMap, paramRenameMap);
+
+            // 3) annotate INSERT/UPDATE column positions with /* tobeName */.
+            out = transformer.annotateDml(out, aliasTableMap);
+
+            // 3.5) WHERE/ON/... bare columns fallback
+            out = bareColumnClauseConverter.convertBareColumnsInClausesToTobe(out, ctx, sink);
+
+            // 4) TOBE only: table id conversion
+            out = tableIdConverter.convertTableIdsToTobe(out, ctx, sink);
+        }
+
+        return postProcessor.process(out);
+    }
+
+    private static void warnUnsupportedSyntax(String sqlText, ConversionContext ctx, ConversionWarningSink sink) {
+        if (sink == null || sqlText == null || sqlText.isEmpty()) return;
+        String u = sqlText.toUpperCase();
+
+        // Keep it conservative: only warn on known risky patterns.
+        String[] patterns = {
+                "CONNECT BY",
+                "START WITH",
+                "MODEL ",
+                "PIVOT",
+                "UNPIVOT",
+                "MATCH_RECOGNIZE",
+                "WITH RECURSIVE"
+        };
+
+        for (String p : patterns) {
+            if (u.contains(p)) {
+                sink.warn(new ConversionWarning(
+                        WarningCode.UNSUPPORTED_SYNTAX_DETECTED,
+                        ctx == null ? "" : ctx.getServiceClass(),
+                        ctx == null ? "" : ctx.getNamespace(),
+                        ctx == null ? "" : ctx.getSqlId(),
+                        "unsupported/risky syntax detected",
+                        p
+                ));
+            }
+        }
+    }
+}

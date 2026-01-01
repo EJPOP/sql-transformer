@@ -1,0 +1,715 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.asb.dao.AEPASB023PMapper">
+    <select id="selectChfAlcList" parameterType="paramMap"
+        resultType="egovMap">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB023PMapper.selectChfAlcList */
+        <![CDATA[
+        SELECT 
+            TO_CHAR(T1.ALC_DH,'YYYY"-"MM"-"DD" "HH24:MI') AS ALC_DH
+            , F_USR_INFO(T1.ALC_USR_CNB, '2') AS ALC_USR_NM
+            , F_USR_INFO(T1.CHF_CMTR_CNB, '2') AS CHF_CMTR_NM
+            , F_USR_INFO(T1.CHF_CMTR1_CNB, '2') AS CHF_CMTR1_NM
+            , F_USR_INFO(T1.CHF_CMTR2_CNB, '2') AS CHF_CMTR2_NM
+            , F_USR_INFO(T1.CHF_CMTR3_CNB, '2') AS CHF_CMTR3_NM
+            , F_USR_INFO(T1.CHF_CMTR4_CNB, '2') AS CHF_CMTR4_NM
+            , F_USR_INFO(T1.CHF_CMTR5_CNB, '2') AS CHF_CMTR5_NM
+            , T1.ALC_RMK
+            , T1.AUD_YR
+            , T1.AUD_NO
+            , T1.CHF_CMTR_CNB
+            , T1.CHF_CMTR1_CNB
+            , T1.CHF_CMTR2_CNB
+            , T1.CHF_CMTR3_CNB
+            , T1.CHF_CMTR4_CNB
+            , T1.CHF_CMTR5_CNB
+          FROM TBBADDED116L T1
+         WHERE T1.AUD_YR = #{audYr}
+           AND T1.AUD_NO = #{audNo}
+           AND T1.TASK_DVSN_CD = #{taskDvsnCd}
+           ]]>
+           <if test="taskDvsnCd eq '9'.toString()">
+           AND T1.DOC_ID = NVL(#{docId},(SELECT DOC_ID
+                                                              FROM (SELECT SST1.DOC_ID 
+                                                                          FROM TBBADDED103M SST1 
+                                                                         WHERE SST1.AUD_YR = #{audYr} AND SST1.AUD_NO = #{audNo} 
+                                                                           AND SST1.RPRT_CD = 'A10600200' AND NVL(SST1.FNL_BAI_RPRT_YN,'N') = 'N' 
+                                                                           AND EXISTS (SELECT 'O' FROM TBBADDED116L WHERE AUD_YR = SST1.AUD_YR AND AUD_NO = SST1.AUD_NO AND TASK_DVSN_CD = '9')
+                                                                           ORDER BY SST1.AUD_RPRT_DVSN_CD) 
+                                                             WHERE ROWNUM = 1))
+           </if>
+           <if test="taskDvsnCd eq '1'.toString() or taskDvsnCd eq '2'.toString()">
+           AND T1.DOC_ID = NVL(#{docId}, (SELECT ST1.DOC_ID 
+                                           FROM TBBADFRE103M ST1 
+                                           WHERE ST1.ACP_YR = #{audYr} 
+                                           AND ST1.ACP_DVSN_CD = #{taskDvsnCd} 
+                                           AND ST1.ACP_SRNO = #{audNo} 
+                                           AND ST1.RPRT_CD IN ('D10200200','E10400200')))
+           </if>
+         ORDER BY T1.SRNO DESC
+    </select>
+    
+    <select id="selectChfSbcnCnt" parameterType="paramMap"
+        resultType="egovMap">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB023PMapper.selectChfSbcnCnt */
+         SELECT T1.CNB
+                , F_USR_INFO(T1.CNB,'2') AS CMTR_NM
+                , T2.REGI_DVSN_ALC_SITU
+          FROM TBDCMACM001M T1
+               INNER JOIN TBBADDED116M T2
+               ON (T1.CNB = T2.CMTR_CNB)
+         WHERE T1.DPT_CD = '510000'
+           AND T1.PST_CD = '0010600'
+           AND NVL(T2.REGI_DVSN_ALC_SITU,' ') NOT LIKE '%'||REGEXP_REPLACE(#{regiNo},'[0-9]')||'%'
+           AND NVL(T2.REGI_DVSN_EXMP_SITU,' ') NOT LIKE '%'||REGEXP_REPLACE(#{regiNo},'[0-9]')||'%' 
+           AND NVL(T2.CHF_BZT_YN,'N') = 'N'
+    </select>
+    
+    <select id="selectCmtrNo" parameterType="paramMap"
+        resultType="egovMap">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB023PMapper.selectCmtrNo */
+         SELECT CMTR_NO
+           FROM TBDCMACM001M T1
+                LEFT OUTER JOIN TBBADDED116M T2
+                ON (T1.CNB = T2.CMTR_CNB)
+          WHERE T1.DPT_CD = '510000'
+            AND T1.PST_CD = '0010600'
+            AND T1.CNB = #{cmtrCnb}
+          ORDER BY T1.RAL_BLT_DIV_CD 
+    </select>
+
+    <select id="selectRegiDvsn" parameterType="paramMap"
+        resultType="egovMap">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB023PMapper.selectRegiDvsn */
+        <![CDATA[
+        SELECT 
+            T1.REGI_DVSN
+            , DECODE((SELECT COUNT(1)
+                        FROM (SELECT SUBSTR((SELECT REGI_DVSN_EXMP_SITU FROM TBBADDED116M WHERE CMTR_CNB = #{cmtrCnb}),LEVEL,1) REGI_DVSN, LEVEL
+                                FROM DUAL
+                             CONNECT BY LEVEL <= LENGTH((SELECT REGI_DVSN_EXMP_SITU FROM TBBADDED116M WHERE CMTR_CNB = #{cmtrCnb}))) ST1
+                       WHERE ST1.REGI_DVSN = T1.REGI_DVSN) , 1, '배제','-') AS EXMP_YN
+          FROM (
+                SELECT DISTINCT REGEXP_REPLACE(REGI_NO,'[0-9]') AS REGI_DVSN
+                  FROM TBBADDED112D
+                 WHERE REGI_NO IS NOT NULL 
+                UNION 
+                SELECT DISTINCT REGEXP_REPLACE(REGI_NO,'[0-9]') AS REGI_DVSN
+                  FROM TBBADFRE112M
+                 WHERE REGI_NO IS NOT NULL
+                UNION
+                SELECT DISTINCT REGI_DVSN 
+                FROM (
+                      SELECT SUBSTR((SELECT REGI_DVSN_EXMP_SITU FROM TBBADDED116M WHERE CMTR_CNB = #{cmtrCnb}),LEVEL,1) REGI_DVSN, LEVEL
+                        FROM DUAL
+                     CONNECT BY LEVEL <= LENGTH((SELECT REGI_DVSN_EXMP_SITU FROM TBBADDED116M WHERE CMTR_CNB = #{cmtrCnb}))
+                     )
+               ) T1
+           ]]>
+    </select>
+        
+        
+    <update id="updateRegiDvsnAlcSitu" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB023PMapper.updateRegiDvsnAlcSitu */
+        <![CDATA[
+        DECLARE 
+            V_REGI_CMTR_CNT NUMBER(2);  /*배정 주심위원 수(배제 주심위원 제외)*/
+            V_TOT_CMTR_CNT NUMBER(2);   /*전체 주심위원 수(배제 주심위원 제외)*/
+            V_CMTR_ALC_CNT NUMBER(2);   /*주심위원 배정 건수*/
+            V_AFT_DUP_YN VARCHAR(1); /*변경 후 주심위원 중복여부*/
+            
+            V_BEF_REGI_NO VARCHAR(30); /*전 등재구분*/
+            V_BEF_CMTR_NO   NUMBER(2);  /*전 주심위원 번호*/
+            V_BEF_CMTR_CNB   VARCHAR(20);  /*전 주심위원 전산번호*/
+            V_BEF_CMTR_ALC_SITU VARCHAR(100); /*전 주심위원 배정현황*/
+            V_BEF_DUP_YN VARCHAR(1); /*전주심위원 중복여부*/
+            V_BEF_REGI_DVSN VARCHAR(10);
+            
+            V_DUP_REGI_NO_CNT NUMBER(2); /* 중복등재번호건수 */
+                BEGIN
+                    /*주심위원 선정 이전일 경우 실행하지 않음*/
+                    IF #{chfCmtrCnb} = NULL OR NVL(LENGTH(#{chfCmtrCnb}),0) = 0 THEN
+                        RETURN;
+                    END IF;
+                   
+                    /* 주심위원 배정 건수 */
+                    SELECT COUNT(1) INTO V_CMTR_ALC_CNT
+                      FROM TBBADDED116L
+                     WHERE AUD_YR = #{audYr}
+                       AND AUD_NO = #{audNo}
+                       AND TASK_DVSN_CD = #{taskDvsnCd}
+                       AND DOC_ID = #{docId}
+                        ;
+                    
+                    /* 배정내역이 있을 경우(주심위원,등재구분 변경 시) 마지막 배정자의 등재구분배정현황에서 변경전 등재구분 삭제 */
+                    IF V_CMTR_ALC_CNT > 0 THEN
+                         /* 변경전 정보 추출 */
+                        SELECT
+                            T1.CHF_CMTR_CNB  
+                            , T2.REGI_NO 
+                            , T3.CMTR_NO
+                            , T3.REGI_DVSN_ALC_SITU
+                            , REGEXP_REPLACE(T2.REGI_NO,'[0-9]')
+                            INTO V_BEF_CMTR_CNB, V_BEF_REGI_NO, V_BEF_CMTR_NO, V_BEF_CMTR_ALC_SITU, V_BEF_REGI_DVSN
+                          FROM TBBADDED116L T1
+                               ]]>
+                               <if test="taskDvsnCd eq '9'.toString()">
+                               /*실지감사*/
+                               INNER JOIN TBBADDED112D T2
+                               ON (T1.AUD_YR = T2.AUD_YR AND T1.AUD_NO = T2.AUD_NO AND T1.DOC_ID = T2.DOC_ID)
+                               </if>
+                               <if test="taskDvsnCd neq '9'.toString()">
+                               /*심사 재심*/
+                               INNER JOIN TBBADFRE112D T2
+                               ON (T1.AUD_YR = T2.ACP_YR AND T1.TASK_DVSN_CD = T2.ACP_DVSN_CD AND T1.AUD_NO = TO_CHAR(T2.ACP_SRNO) AND T1.DOC_ID = T2.DOC_ID)
+                               </if>
+                               <![CDATA[
+                               INNER JOIN TBBADDED116M T3
+                               ON (T1.CHF_CMTR_CNB = T3.CMTR_CNB)
+                         WHERE T1.AUD_YR = #{audYr}
+                           AND T1.AUD_NO = #{audNo}
+                           AND T1.TASK_DVSN_CD = #{taskDvsnCd}
+                           ]]>
+                           AND T1.DOC_ID = #{docId}
+                           <![CDATA[
+                           AND T1.SRNO = (SELECT MAX(SRNO) 
+                                            FROM TBBADDED116L
+                                           WHERE AUD_YR = T1.AUD_YR
+                                             AND AUD_NO = T1.AUD_NO
+                                             AND TASK_DVSN_CD = T1.TASK_DVSN_CD
+                                             ]]>
+                                             AND DOC_ID = T1.DOC_ID
+                                             <![CDATA[
+                                             );
+                                             
+                       /* 변경전 등재번호, 주심위원 중복여부 추출 */
+                       SELECT DECODE(COUNT(1),0,'N','Y') INTO V_BEF_DUP_YN
+                                  FROM TBBADDED116L T1
+                                  ]]>
+                                  <if test="taskDvsnCd eq '9'.toString()">
+                                       INNER JOIN TBBADDED112D T2
+                                       ON (T1.AUD_YR = T2.AUD_YR
+                                           AND T1.AUD_NO = T2.AUD_NO
+                                           AND T1.DOC_ID = T2.DOC_ID)
+                                  </if>
+                                  <if test="taskDvsnCd neq '9'.toString()">
+                                       INNER JOIN TBBADFRE112D T2
+                                       ON (T1.AUD_YR = T2.ACP_YR
+                                           AND T1.TASK_DVSN_CD = T2.ACP_DVSN_CD
+                                           AND T1.AUD_NO = TO_CHAR(T2.ACP_SRNO)
+                                           AND T1.DOC_ID = T2.DOC_ID)
+                                  </if>
+                                  <![CDATA[
+                                       INNER JOIN TBBADDED116M T3
+                                       ON (T1.CHF_CMTR_CNB = T3.CMTR_CNB)
+                                 WHERE T1.AUD_YR = #{audYr}
+                                   AND T1.AUD_NO = #{audNo}
+                                   AND T1.SRNO = (SELECT MAX(SRNO) 
+                                                    FROM TBBADDED116L
+                                                   WHERE AUD_YR = T1.AUD_YR
+                                                     AND AUD_NO = T1.AUD_NO
+                                                     AND DOC_ID = T1.DOC_ID)
+                                   AND T2.DOC_ID != #{docId}
+                                   AND T2.REGI_NO = V_BEF_REGI_NO
+                                   AND T1.CHF_CMTR_CNB = V_BEF_CMTR_CNB;
+                                   
+                        /* 중복된 등재구분이 없을경우 */
+                        IF V_BEF_DUP_YN = 'N' THEN
+                            /* 전 주심위원 배정현황에 전 등재구분이 존재할 경우 없애준다. (변경되므로) */
+                            IF INSTR(V_BEF_CMTR_ALC_SITU, V_BEF_REGI_DVSN) > 0 THEN
+                                UPDATE TBBADDED116M T1
+                                SET T1.REGI_DVSN_ALC_SITU = REPLACE(SUBSTR(T1.REGI_DVSN_ALC_SITU,0,INSTR(T1.REGI_DVSN_ALC_SITU,V_BEF_REGI_DVSN)),V_BEF_REGI_DVSN)||SUBSTR(T1.REGI_DVSN_ALC_SITU,INSTR(T1.REGI_DVSN_ALC_SITU,V_BEF_REGI_DVSN)+1)
+                                WHERE T1.CMTR_NO = V_BEF_CMTR_NO;
+                            ELSE
+                            /* 전 주심위원 배정현황에 전 등재구분이 존재하지 않을 경우 다른 주심위원 배정현황을 살린다 (해당 구분 100%배정으로 지워진 경우이기 때문) */
+                                UPDATE TBBADDED116M T1
+                                SET T1.REGI_DVSN_ALC_SITU = T1.REGI_DVSN_ALC_SITU||V_BEF_REGI_DVSN
+                                WHERE T1.CMTR_NO <> V_BEF_CMTR_NO
+                                AND NVL(T1.REGI_DVSN_ALC_SITU,' ') NOT LIKE V_BEF_REGI_DVSN;
+                            END IF;
+                        END IF;
+                    END IF; 
+                    
+                    
+                    /* 변경후 등재번호, 주심위원 중복여부 추출 */
+                   SELECT DECODE(COUNT(1),0,'N','Y') INTO V_AFT_DUP_YN
+                              FROM TBBADDED116L T1
+                              ]]>
+                              <if test="taskDvsnCd eq '9'.toString()">
+                                   INNER JOIN TBBADDED112D T2
+                                   ON (T1.AUD_YR = T2.AUD_YR
+                                       AND T1.AUD_NO = T2.AUD_NO
+                                       AND T1.DOC_ID = T2.DOC_ID)
+                              </if>
+                              <if test="taskDvsnCd neq '9'.toString()">
+                                   INNER JOIN TBBADFRE112D T2
+                                       ON (T1.AUD_YR = T2.ACP_YR
+                                           AND T1.TASK_DVSN_CD = T2.ACP_DVSN_CD
+                                           AND T1.AUD_NO = TO_CHAR(T2.ACP_SRNO)
+                                           AND T1.DOC_ID = T2.DOC_ID)
+                              </if>
+                              <![CDATA[
+                                   INNER JOIN TBBADDED116M T3
+                                   ON (T1.CHF_CMTR_CNB = T3.CMTR_CNB)
+                             WHERE T1.AUD_YR = #{audYr}
+                               AND T1.AUD_NO = #{audNo}
+                               AND T1.SRNO = (SELECT MAX(SRNO) 
+                                                FROM TBBADDED116L
+                                               WHERE AUD_YR = T1.AUD_YR
+                                                 AND AUD_NO = T1.AUD_NO
+                                                 AND DOC_ID = T1.DOC_ID)
+                               AND T2.DOC_ID != #{docId}
+                               AND T2.REGI_NO = #{regiNo}
+                               AND T1.CHF_CMTR_CNB = #{chfCmtrCnb};
+                    
+                    /* 변경 후 중복이 없을경우 */
+                    IF V_AFT_DUP_YN = 'N' THEN
+                        /* 대표주심위원 등재구분배정현황 UPDATE */
+                        UPDATE TBBADDED116M
+                        SET 
+                            REGI_DVSN_ALC_SITU  = REGI_DVSN_ALC_SITU||REGEXP_REPLACE(#{regiNo},'[0-9]')
+                        WHERE 
+                                CMTR_CNB = #{chfCmtrCnb};
+                    END IF;
+                            
+                    /* 배정 주심위원 수(배제 주심위원 제외)*/
+                     SELECT COUNT(1) INTO V_REGI_CMTR_CNT 
+                      FROM TBDCMACM001M T1
+                           INNER JOIN TBBADDED116M T2
+                           ON (T1.CNB = T2.CMTR_CNB)
+                     WHERE T1.DPT_CD = '510000'
+                       AND T1.PST_CD = '0010600'
+                       AND NVL(T2.REGI_DVSN_ALC_SITU,' ') LIKE '%'||REGEXP_REPLACE(#{regiNo},'[0-9]')||'%'
+                       AND NVL(T2.REGI_DVSN_ALC_SITU,' ') NOT LIKE '%'||REGEXP_REPLACE(#{regiNo},'[0-9]')||'%';
+                       
+                    /* 전체 주심위원 수 (배제 주심위원 제외)*/
+                    SELECT COUNT(1) INTO V_TOT_CMTR_CNT 
+                      FROM TBDCMACM001M T1
+                           INNER JOIN TBBADDED116M T2
+                           ON (T1.CNB = T2.CMTR_CNB)
+                     WHERE T1.DPT_CD = '510000'
+                       AND T1.PST_CD = '0010600'
+                       AND NVL(T2.REGI_DVSN_ALC_SITU,' ') NOT LIKE '%'||REGEXP_REPLACE(#{regiNo},'[0-9]')||'%';
+                    
+                    /* 전체 배정 시 등재구분을 없애준다 */
+                    IF V_REGI_CMTR_CNT >= V_TOT_CMTR_CNT THEN
+                        UPDATE TBBADDED116M
+                            SET REGI_DVSN_ALC_SITU = REPLACE(SUBSTR(REGI_DVSN_ALC_SITU,0,INSTR(REGI_DVSN_ALC_SITU,REGEXP_REPLACE(#{regiNo},'[0-9]'))),REGEXP_REPLACE(#{regiNo},'[0-9]'))
+                                                                        ||SUBSTR(REGI_DVSN_ALC_SITU,INSTR(REGI_DVSN_ALC_SITU,REGEXP_REPLACE(#{regiNo},'[0-9]'))+1);
+                    END IF;
+               END;
+          ]]>
+    </update>
+    
+    <insert id="insertChfAlcData">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB023PMapper.insertChfAlcData */
+    <![CDATA[
+        INSERT INTO TBBADDED116L(
+            AUD_YR
+            ,AUD_NO
+            ,SRNO
+            ,TASK_DVSN_CD
+            ,CHF_CMTR_CNB
+            ,CHF_CMTR1_CNB
+            ,CHF_CMTR2_CNB
+            ,CHF_CMTR3_CNB
+            ,CHF_CMTR4_CNB
+            ,CHF_CMTR5_CNB
+            ,ALC_RMK
+            ,ALC_USR_CNB
+            ,ALC_DH
+            ,FRT_USR_ID
+            ,FNL_USR_ID
+            ,FNL_DEAL_DPT_CD
+            ,FNL_MNU_ID
+            ,FRT_REGI_DH
+            ,FNL_MDF_DH
+            ,DOC_ID
+            ,MAIN_AUD_RPRT_YN)
+         VALUES 
+            (#{audYr}
+            , #{audNo}
+            , (SELECT NVL(MAX(NVL(SRNO,0)),0)+1 
+                  FROM TBBADDED116L 
+                 WHERE AUD_YR = #{audYr} 
+                     AND AUD_NO = #{audNo}
+                     AND TASK_DVSN_CD = #{taskDvsnCd})
+            , #{taskDvsnCd}
+            , #{chfCmtrCnb}
+            , #{chfCmtr1Cnb}
+            , #{chfCmtr2Cnb}
+            , #{chfCmtr3Cnb}
+            , #{chfCmtr4Cnb}
+            , #{chfCmtr5Cnb}
+            , #{alcRmk}
+            , #{cnb}
+            , SYSDATE
+            , #{usrId}
+            , #{usrId}
+            , #{dptCd}
+            , 'AEPASB023P'
+            , SYSDATE
+            , SYSDATE
+            , #{docId}
+            , DECODE(#{taskDvsnCd}, '9', (SELECT DECODE(AUD_RPRT_DVSN_CD, '10','Y','N') 
+                                                                FROM TBBADDED103M 
+                                                              WHERE AUD_YR = #{audYr} 
+                                                                AND AUD_NO = #{audNo} 
+                                                                AND DOC_ID = #{docId})
+                                                          , '')
+            )
+        ]]>
+    </insert>
+
+    <insert id="sendAlcMsg">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB023PMapper.sendAlcMsg */
+    <![CDATA[
+    DECLARE
+        BEGIN
+            INSERT INTO
+    			TBDCMACM026L
+    			(
+    			  MSG_SNO
+    			, TSK_CAT_CD
+    			, FUNC_CAT_CD
+    			, SEND_ID
+    	        , MSG_TP_YN	  
+    	        , MSG_TXT_2
+    	        , RCNT_CNT
+    	        , RCNT_HIS
+    	        , MSG_REGI_DH	
+    			, FRT_USR_ID
+    			, FNL_USR_ID
+    			, FNL_DEAL_DPT_CD
+    			, FNL_MNU_ID
+    			, FRT_REGI_DH
+    			, FNL_MDF_DH	
+    			)
+    			VALUES
+    			(
+    			  (SELECT NVL(MAX(MSG_SNO),'0')+1 AS MSG_SNO FROM TBDCMACM026L)
+    			, 'CM'
+    			, 'CM'
+    			, 'SYSTEM'
+    	        , '0'
+    	        , (SELECT 
+                    '감사사항 : ('||F_MNG_KND_AUDYRNO(T1.AUD_YR, T1.AUD_NO, T1.AUD_KND_CD, '-')||') '||AUD_SBJ_NM
+                    ||DECODE(#{docId},'','',CHR(13)||CHR(10)||'감사보고서 : '||(SELECT ST1.RPRT_NM FROM TBBADDED103M ST1 WHERE ST1.DOC_ID = #{docId}))
+                    ||CHR(13)||CHR(10)||'주심위원('||F_USR_INFO(#{chfCmtrCnb},'2')||') 이 배정되었습니다.'
+                  FROM TBBADDED001M T1
+                 WHERE T1.AUD_YR = #{audYr}
+                   AND T1.AUD_NO = #{audNo})
+    	        , (SELECT COUNT(1)
+                   FROM TBBADDED031L T1
+                  WHERE T1.AUD_YR = #{audYr}
+                    AND T1.AUD_NO = #{audNo}
+                    AND T1.AUDTOR_DVSN_CD IN ('1','2'))
+    	        , (SELECT AGGR_CONCAT(CNB,'') -- 주관자, 보조자
+                    FROM TBBADDED031L T1
+                   WHERE T1.AUD_YR = #{audYr}
+                     AND T1.AUD_NO = #{audNo}
+                     AND T1.AUDTOR_DVSN_CD IN ('1','2'))
+    	        , SYSDATE 
+    			, #{usrId}
+    			, #{usrId}
+    			, #{dptCd}
+    			, 'AEPASB023P'
+    			, SYSDATE
+    			, SYSDATE	
+    			);
+                
+                INSERT INTO
+                TBDCMACM026L
+                (
+                  MSG_SNO
+                , TSK_CAT_CD
+                , FUNC_CAT_CD
+                , SEND_ID
+                , MSG_TP_YN   
+                , MSG_TXT_2
+                , RCNT_CNT
+                , RCNT_HIS
+                , MSG_REGI_DH   
+                , FRT_USR_ID
+                , FNL_USR_ID
+                , FNL_DEAL_DPT_CD
+                , FNL_MNU_ID
+                , FRT_REGI_DH
+                , FNL_MDF_DH    
+                )
+                VALUES
+                (
+                  (SELECT NVL(MAX(MSG_SNO),'0')+1 AS MSG_SNO FROM TBDCMACM026L)
+                , 'CM'
+                , 'CM'
+                , 'SYSTEM'
+                , '0'
+                , (SELECT 
+                    '감사사항 : ('||F_MNG_KND_AUDYRNO(T1.AUD_YR, T1.AUD_NO, T1.AUD_KND_CD, '-')||') '||AUD_SBJ_NM
+                    ||DECODE(#{docId},'','',CHR(13)||CHR(10)||'감사보고서 : '||(SELECT ST1.RPRT_NM FROM TBBADDED103M ST1 WHERE ST1.DOC_ID = #{docId}))
+                    ||CHR(13)||CHR(10)||'주심위원('||F_USR_INFO(#{chfCmtrCnb},'2')||') 이 배정되었습니다.'
+                  FROM TBBADDED001M T1
+                 WHERE T1.AUD_YR = #{audYr}
+                   AND T1.AUD_NO = #{audNo})
+                , 2
+                , '9325'||'9342'
+                , SYSDATE 
+                , #{usrId}
+                , #{usrId}
+                , #{dptCd}
+                , 'AEPASB023P'
+                , SYSDATE
+                , SYSDATE   
+                );
+            END;
+            
+        ]]>
+    </insert>
+    
+    <update id="updateSbmtDvsnNo" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB023PMapper.updateSbmtDvsnNo */
+        <![CDATA[
+        UPDATE TBBADDED112M
+        SET 
+            CHF_CMTR_ID  = #{chfCmtrCnb}
+            , SBMT_DVSN_NO = (SELECT MAX(SBMT_DVSN_NO)
+                                              FROM TBBADDED116M
+                                             WHERE CMTR_CNB = #{chfCmtrCnb})
+        WHERE 
+                AUD_YR = #{audYr}
+        AND AUD_NO = #{audNo}
+        ]]>
+    </update>
+    
+    <update id="updateFreSbmtDvsnNo" parameterType="paramMap">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB023PMapper.updateFreSbmtDvsnNo */
+        <![CDATA[
+        UPDATE TBBADFRE112M
+        SET 
+            CHF_CMTR_ID  = #{chfCmtrCnb}
+            , SBMT_DVSN_NO = (SELECT MAX(SBMT_DVSN_NO)
+                                              FROM TBBADDED116M
+                                             WHERE CMTR_CNB = #{chfCmtrCnb})
+        WHERE 
+                ACP_YR = #{audYr}
+        AND ACP_DVSN_CD = #{acpDvsnCd}
+        AND ACP_SRNO = #{audNo}
+        ]]>
+    </update>
+    
+    <insert id="sendAlcMsgBADFRE">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB023PMapper.sendAlcMsgBADFRE */
+    <![CDATA[
+    DECLARE
+        BEGIN
+            INSERT INTO
+    			TBDCMACM026L
+    			(
+    			  MSG_SNO
+    			, TSK_CAT_CD
+    			, FUNC_CAT_CD
+    			, SEND_ID
+    	        , MSG_TP_YN	  
+    	        , MSG_TXT_2
+    	        , RCNT_CNT
+    	        , RCNT_HIS
+    	        , MSG_REGI_DH	
+    			, FRT_USR_ID
+    			, FNL_USR_ID
+    			, FNL_DEAL_DPT_CD
+    			, FNL_MNU_ID
+    			, FRT_REGI_DH
+    			, FNL_MDF_DH	
+    			)
+    			VALUES
+    			(
+    			  (SELECT NVL(MAX(MSG_SNO),'0')+1 AS MSG_SNO FROM TBDCMACM026L)
+    			, 'CM'
+    			, 'CM'
+    			, 'SYSTEM'
+    	        , '0'
+    	        , (SELECT 
+                    '('|| T1.ACP_YR || '-' || DECODE(T1.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || DECODE(T1.ORG_ACP_SRNO, null, T1.ACP_SRNO, T1.ORG_ACP_SRNO) ||') '||T1.TIT_NM
+                     ||CHR(13)||CHR(10)||'주심위원('||F_USR_INFO(#{chfCmtrCnb},'2')||') 이 배정되었습니다.'
+                  FROM TBBADFRE012M T1
+                 WHERE T1.ACP_YR = #{audYr}
+                   AND T1.ACP_DVSN_CD = #{acpDvsnCd}
+                   AND T1.ACP_SRNO = #{audNo})
+    	        , 1
+    	        , (SELECT 
+                     T1.HNDL_CHGR_CD
+                   FROM TBBADFRE012M T1
+                   WHERE T1.ACP_YR = #{audYr}
+                   AND T1.ACP_DVSN_CD = #{acpDvsnCd}
+                   AND T1.ACP_SRNO = #{audNo})
+    	        , SYSDATE 
+    			, #{usrId}
+    			, #{usrId}
+    			, #{dptCd}
+    			, 'AEPASB023P'
+    			, SYSDATE
+    			, SYSDATE	
+    			);
+            INSERT INTO
+    			TBDCMACM026L
+    			(
+    			  MSG_SNO
+    			, TSK_CAT_CD
+    			, FUNC_CAT_CD
+    			, SEND_ID
+    	        , MSG_TP_YN	  
+    	        , MSG_TXT_2
+    	        , RCNT_CNT
+    	        , RCNT_HIS
+    	        , MSG_REGI_DH	
+    			, FRT_USR_ID
+    			, FNL_USR_ID
+    			, FNL_DEAL_DPT_CD
+    			, FNL_MNU_ID
+    			, FRT_REGI_DH
+    			, FNL_MDF_DH	
+    			)
+    			VALUES
+    			(
+    			  (SELECT NVL(MAX(MSG_SNO),'0')+1 AS MSG_SNO FROM TBDCMACM026L)
+    			, 'CM'
+    			, 'CM'
+    			, 'SYSTEM'
+    	        , '0'
+    	        , (SELECT 
+                    '('|| T1.ACP_YR || '-' || DECODE(T1.ACP_DVSN_CD,'1','심사','2','재심','3','재심판정') || '-' || DECODE(T1.ORG_ACP_SRNO, null, T1.ACP_SRNO, T1.ORG_ACP_SRNO) ||') '||T1.TIT_NM
+                     ||CHR(13)||CHR(10)||'주심위원('||F_USR_INFO(#{chfCmtrCnb},'2')||') 이 배정되었습니다.'
+                  FROM TBBADFRE012M T1
+                 WHERE T1.ACP_YR = #{audYr}
+                   AND T1.ACP_DVSN_CD = #{acpDvsnCd}
+                   AND T1.ACP_SRNO = #{audNo})
+    	        , 2
+    	        , '9325'||'9342'
+    	        , SYSDATE 
+    			, #{usrId}
+    			, #{usrId}
+    			, #{dptCd}
+    			, 'AEPASB023P'
+    			, SYSDATE
+    			, SYSDATE	
+    			);
+        END;
+                
+        ]]>
+    </insert>
+    
+    <insert id="insertSendDoc" parameterType="paramMap">
+    /* kr.go.bai.eip.aep.asb.dao.AEPASB023PMapper.insertSendDoc */
+            INSERT INTO TBBADDED111M (
+                   AUD_YR
+                  ,AUD_NO
+                  ,AUD_STEP_CD
+                  ,DOC_ID
+                  ,SR_DOC_SNO
+                  ,AUD_KND_CD
+                  ,AUD_GRN_NO
+                  ,RPRT_NM
+                  ,RPRT_CD
+                  ,LINK_URL
+                  ,DOC_STA_CD
+                  ,SND_DPT_CD
+                  ,SNDR_ID
+                  ,SND_DH
+                  ,RCPT_DPT_CD
+                  ,RCNT_ID
+                  ,RCPT_DH
+                  ,AUD_RPRT_DVSN_CD
+                  ,DOC_KND_CD
+                  ,REF_ID
+                  ,REF_DY
+                  ,SORT_SNO
+                  ,FRT_USR_ID
+                  ,FNL_USR_ID
+                  ,FNL_DEAL_DPT_CD
+                  ,FNL_MNU_ID
+                  ,FRT_REGI_DH
+                  ,FNL_MDF_DH 
+         )
+         SELECT    B.AUD_YR
+                  ,B.AUD_NO
+                  ,B.AUD_STEP_CD
+                  ,B.DOC_ID
+                  ,(
+                    SELECT NVL(MAX(SR_DOC_SNO), 0) + 1
+                      FROM TBBADDED111M T2
+                     WHERE T2.AUD_YR = B.AUD_YR
+                       AND T2.AUD_NO = B.AUD_NO
+                       AND T2.DOC_ID = B.DOC_ID
+                   )
+                  ,B.AUD_KND_CD
+                  ,B.AUD_GRN_NO
+                  ,B.RPRT_NM
+                  ,B.RPRT_CD
+                  ,B.LINK_URL
+                  ,'20'
+                  ,#{dptCd}
+                  ,#{usrId}
+                  ,SYSDATE
+                  ,C.DPT_CD
+                  ,''
+                  ,SYSDATE
+                  ,B.AUD_RPRT_DVSN_CD
+                  ,B.DOC_KND_CD
+                  ,B.REF_ID
+                  ,B.REF_DY
+                  ,B.SORT_SNO
+                  ,#{usrId}
+                  ,#{usrId}
+                  ,#{dptCd}
+                  ,'AEPASB023P'
+                  ,SYSDATE
+                  ,SYSDATE 
+			  FROM TBCSPKDE103M_VIEW A
+			 INNER JOIN 
+			       TBBADDED103M B
+			    ON B.AUD_YR = A.AUD_YR
+			   AND B.AUD_NO = A.AUD_NO
+			   AND B.RPRT_CD = 'A10600900'
+			   AND ((B.REF_ID = A.SRNO || A.MFEX_DVSN_CD) OR
+			         (B.REF_DY = A.SRNO || A.MFEX_DVSN_CD) OR 
+			         ((B.REF_ID IN (SELECT AA.RPRT_LINK_SEQ
+						   	         FROM TBCSPKDE106M AA
+						            WHERE AA.AUD_YR = A.AUD_YR
+							          AND AA.AUD_NO = A.AUD_NO
+							          AND AA.SRNO = A.SRNO )) AND
+				     (B.REF_DY IN (SELECT AA.AFF_SNO
+						   	         FROM TBCSPKDE106M AA
+						            WHERE AA.AUD_YR = A.AUD_YR
+							          AND AA.AUD_NO = A.AUD_NO
+							          AND AA.SRNO = A.SRNO ))))
+			 INNER JOIN
+			       (SELECT AA.DPT_CD
+			             , AA.DPT_NM 
+			          FROM TBDCMACM002M AA
+			         WHERE AA.DPT_CD IN ('510000')) C
+			    ON (1=1)
+			 LEFT OUTER JOIN 
+			      TBBADDED111M D 
+			   ON D.AUD_YR = A.AUD_YR 
+			  AND D.AUD_NO = A.AUD_NO 
+			  AND D.RCPT_DPT_CD = C.DPT_CD 
+			  AND NVL(D.REF_ID, '99999') = NVL(B.REF_ID, '99999') 
+			  AND NVL(D.REF_DY, '99999') = NVL(B.REF_DY, '99999')
+			 INNER JOIN 
+			      TBBADDED116L E 
+			   ON E.AUD_YR = A.AUD_YR 
+			  AND E.AUD_NO = A.AUD_NO 
+			  AND E.TASK_DVSN_CD = '9'
+			  AND E.CHF_CMTR_CNB = #{chfCmtrCnb}
+			  AND E.SRNO = (SELECT MAX(SRNO) 
+			                  FROM TBBADDED116L 
+			                 WHERE AUD_YR = A.AUD_YR 
+			                   AND AUD_NO = A.AUD_NO 
+			                   AND TASK_DVSN_CD = '9')
+			 WHERE A.AUD_YR = #{audYr}
+			   AND A.AUD_NO = #{audNo}
+			   AND D.DOC_ID IS NULL
+			   AND E.CHF_CMTR_CNB IS NOT NULL
+    </insert>
+</mapper> 

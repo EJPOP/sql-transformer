@@ -1,0 +1,930 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.go.bai.eip.aep.frs.dao.AEPFRS003EMapper">
+    
+    <!-- 포렌식 요청 목록 조회 -->
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap" >
+        <![CDATA[
+        /* kr.go.bai.eip.aep.frs.dao.AEPFRS003EMapper.selectMainList */
+        SELECT T1.AUD_YR           /* 감사년도 */
+              ,T1.AUD_NO           /* 감사번호 */
+              ,F_MNG_KND_AUDYRNO(T1.AUD_YR, T1.AUD_NO, '', '-') AS AUD_YR_NO /* 분류번호 */
+              ,T2.AUD_SBJ_NM       /* 감사사항명 */
+              ,T2.AUD_KND_CD       /* 감사종류 */
+              ,T1.FRS_REQ_SRNO     /* 포렌식 요청 일련번호 */
+              ,T1.AUD_STEP_CD      /* 감사단계코드 */
+              ,T1.FRS_REQ_DVSN_CD  /* 포렌식 요청 구분 코드 */
+              ,F_CODE_NM('1000798',FRS_REQ_DVSN_CD) AS FRS_REQ_DVSN_NM  /* 포렌식 요청 구분명 */
+              ,T1.REQ_DPT_CD       /* 요청부서코드 */
+              ,(SELECT E.DPT_NM
+			          FROM TBDCMACM002M E
+			         WHERE E.DPT_CD = T1.REQ_DPT_CD) AS REQ_DPT_NM      /* 요청부서명 */
+              ,T1.REQ_DH           /* 요청일시 */
+              ,TO_CHAR(T1.REQ_DH,'yyyy-MM-dd') AS REQ_DT /* 요청일자 */
+			  ,(SELECT TO_CHAR(FNL_APV_DH,'yyyy-MM-dd') FROM TBBADDED103M A,TBDCMACM022L B
+				   WHERE A.AUD_YR = T1.AUD_YR
+				     AND A.AUD_NO = T1.AUD_NO
+				     AND A.RPRT_CD = 'A10610100'
+				     AND A.REF_ID = T1.FRS_REQ_SRNO
+                     AND A.APV_RQS_ID = B.APV_DOC_NO
+                     AND B.APV_STA_CD = '3'
+               ) AS REQ_DT2 /* 요청결재일자 */
+              ,T1.REQ_CNB          /* 요청자전산번호 */
+              ,(SELECT E.USR_NAM
+			          FROM TBDCMACM001M E
+			         WHERE E.CNB = T1.REQ_CNB) AS USR_NAM /* 요청자명 */
+              ,T1.REQ_STAT_CD      /* 요청상태코드 */
+              ,F_CODE_NM('1000994',T1.REQ_STAT_CD) AS REQ_STAT_NM /* 요청상태명 */
+              ,(SELECT RPRT_NM
+                  FROM TBBADDED103M A
+				 WHERE A.AUD_YR = T1.AUD_YR
+				   AND A.AUD_NO = T1.AUD_NO
+				   AND A.RPRT_CD = 'A10610100'
+				   AND A.REF_ID = T1.FRS_REQ_SRNO ) AS RPRT_NM /* 포렌식 요청 계획서명 */
+              ,(SELECT F_CODE_NM('1000773',A.APV_STA_CD) 
+                  FROM TBBADDED103M A
+				 WHERE A.AUD_YR = T1.AUD_YR
+				   AND A.AUD_NO = T1.AUD_NO
+				   AND A.RPRT_CD = 'A10610100'
+				   AND A.REF_ID = T1.FRS_REQ_SRNO ) AS REQ_DOC_APV_STA_NM /* 요청서 작성,결재상태 */
+              ,T1.ORG_CD	       /* 대상기관코드 */
+              ,F_ORG_INFO(T1.ORG_CD, '1') AS ORG_NM /* 대상기관명 */
+              ,T1.FRS_DPT_RCP_YN   /* 포렌식 법무부서 접수여부 */
+              ,DECODE(T1.FRS_SYS_RCP_YN,'N','미접수','Y',(DECODE(T1.HNDL_RPT_OM_YN,'Y','완료','N','접수'))) AS RCP_NM
+              ,T1.FRS_DPT_RCP_DH   /* 포렌식 법무부서 접수일시 */
+              ,T1.REV_OPT_RCV_YN   /* 검토의견서 수신여부 */
+              ,T1.REV_OPT_RCV_DH   /* 검토의견서 수신일시 */
+              ,T1.REV_OPT_OM_YN    /* 검토의견서 발신여부 */
+              ,T1.REV_OPT_OM_DH    /* 검토의견서 발신일시 */
+              ,(SELECT F_CODE_NM('1000773',A.APV_STA_CD) 
+                  FROM TBBADDED103M A
+				 WHERE A.AUD_YR = T1.AUD_YR
+				   AND A.AUD_NO = T1.AUD_NO
+				   AND A.RPRT_CD = 'A10610210'
+				   AND A.REF_ID = T1.FRS_REQ_SRNO ) AS REV_DOC_APV_STA_NM /* 의견서 작성,결재상태 */ 
+              ,TO_CHAR(T1.HNDL_DH,'YYYY-MM-DD') AS HNDL_DH /* 처리일시 */
+              ,F_USR_INFO(T1.HNDL_PEN_CNB, '2') AS HNDL_PEN_NM /* 처리자명 */
+              ,T1.HNDL_PEN_CNB     /* 처리자전산번호 */
+              ,T1.HNDL_DPT_CD      /* 처리부서코드 */
+              ,T1.HNDL_RPT_RCV_YN  /* 처리보고서 수신여부 */
+              ,T1.HNDL_RPT_RCV_DH  /* 처리보고서 수신일시 */
+              ,T1.HNDL_RPT_OM_YN   /* 처리보고서 발신여부 */
+              ,T1.FRS_SYS_RCP_YN   /* 포렌식 시스템운영과 접수여부 */
+              ,T1.FRS_SYS_RCP_DH   /* 포렌식 시스템운영과 접수일시 */
+              ,(SELECT F_CODE_NM('1000773',A.APV_STA_CD) 
+                  FROM TBBADDED103M A
+				 WHERE A.AUD_YR = T1.AUD_YR
+				   AND A.AUD_NO = T1.AUD_NO
+				   AND A.RPRT_CD = 'A10610300'
+				   AND A.REF_ID = T1.FRS_REQ_SRNO ) AS HNDL_DOC_APV_STA_NM /* 처리서 작성,결재상태 */ 
+              ,(SELECT COUNT(*)
+                  FROM TBBADDED103M A
+				 WHERE A.AUD_YR = T1.AUD_YR
+				   AND A.AUD_NO = T1.AUD_NO
+				   AND A.RPRT_CD = 'A10610300'
+				   AND A.REF_ID = T1.FRS_REQ_SRNO ) AS HNDL_DOC_CNT /* 처리서 갯수 */ 
+			  ,(SELECT MAX(DOC_ID) FROM TBAEPFRS101L 
+			     WHERE AUD_YR = T1.AUD_YR AND AUD_NO = T1.AUD_NO AND FRS_REQ_SRNO = T1.FRS_REQ_SRNO AND FILE_DVSN = 'IM') AS DOC_ID				   
+			  ,(SELECT MAX(DOC_ID) FROM TBAEPFRS101L 
+			     WHERE AUD_YR = T1.AUD_YR AND AUD_NO = T1.AUD_NO AND FRS_REQ_SRNO = T1.FRS_REQ_SRNO AND FILE_DVSN = 'AG') AS DOC_ID2	
+         FROM
+        ]]>
+               TBAEPFRS101M T1, TBBADDED001M T2 
+        WHERE  
+               T1.AUD_YR = T2.AUD_YR
+          AND  T1.AUD_NO = T2.AUD_NO
+          AND  (SELECT A.APV_STA_CD
+                  FROM TBBADDED103M A
+				 WHERE A.AUD_YR = T1.AUD_YR
+				   AND A.AUD_NO = T1.AUD_NO
+				   AND A.RPRT_CD = 'A10610100'
+				   AND A.REF_ID = T1.FRS_REQ_SRNO ) = '30'
+        <if test="schAudYr != null and schAudYr != ''">
+          AND  T1.AUD_YR = #{schAudYr}
+        </if>
+        <if test="schAudYrNoKndCd != null and schAudYrNoKndCd != ''">
+          AND  T2.AUD_KND_CD = #{schAudYrNoKndCd}
+        </if>
+        <if test="schAudGrnNo != null and schAudGrnNo != ''">
+          AND  T2.AUD_GRN_NO = #{schAudGrnNo}
+        </if>
+        <if test="schAudSbjNm != null and schAudSbjNm != ''">
+          AND  T2.AUD_SBJ_NM LIKE '%'||#{schAudSbjNm}||'%'
+        </if>
+        ORDER BY T1.REQ_DH DESC
+        
+    </select>
+    
+    <!-- 수신문서 목록 조회 -->
+<!--     <select id="selectRprtRcptList" parameterType="paramMap" resultType="egovMap">
+    	/* kr.go.bai.eip.aep.frs.dao.AEPFRS003EMapper.selectRprtRcptList */
+        <![CDATA[
+        SELECT RPRT_NM
+             , DOC_ID
+             , F_DPT_INFO(SND_DPT_CD, 1) AS SND_DPT_NM
+             , TO_CHAR(SND_DH, 'YYYY-MM-DD') AS SND_DT
+             , '시스템운영과' AS RCPT_DPT_NM
+             , TO_CHAR(RCPT_DH, 'YYYY-MM-DD') AS RCPT_DT
+             , SR_DOC_SNO
+             , SUPPLM_REQ
+             , DOC_STA_CD
+             , F_OPEN_EDIT(LINK_URL) AS DOC_TYPE
+             , AUD_YR
+             , AUD_NO
+             , F_MNG_KND_AUDYRNO(AUD_YR, AUD_NO, '', '-') AS AUD_YR_NO /* 분류번호 */
+             , AUD_STEP_CD
+          FROM TBBADDED111M
+         WHERE 1=1
+           AND AUD_YR   = #{audYr}
+           AND AUD_NO   = #{audNo}
+           AND REF_ID   = #{frsReqSrno}
+           AND RPRT_CD  = 'A10610100'
+        
+        UNION ALL
+        
+        SELECT RPRT_NM
+             , DOC_ID
+             , F_DPT_INFO(SND_DPT_CD, 1) AS SND_DPT_NM
+             , TO_CHAR(SND_DH, 'YYYY-MM-DD') AS SND_DT
+             , '시스템운영과' AS RCPT_DPT_NM
+             , TO_CHAR(RCPT_DH, 'YYYY-MM-DD') AS RCPT_DT
+             , SR_DOC_SNO
+             , SUPPLM_REQ
+             , DOC_STA_CD
+             , F_OPEN_EDIT(LINK_URL) AS DOC_TYPE
+             , AUD_YR
+             , AUD_NO
+             , F_MNG_KND_AUDYRNO(AUD_YR, AUD_NO, '', '-') AS AUD_YR_NO /* 분류번호 */
+             , AUD_STEP_CD
+          FROM TBBADDED111M
+         WHERE 1=1
+           AND AUD_YR      = #{audYr}
+           AND AUD_NO      = #{audNo}
+           AND REF_ID      = #{frsReqSrno}
+           AND RPRT_CD     = 'A10610210'
+
+        ]]>
+    </select>     -->
+    
+    <!-- 포렌식 요청 접수 -->
+    <update id="updateAcp" parameterType="paramMap">
+    /* kr.go.bai.eip.aep.frs.dao.AEPFRS003EMapper.updateAcp */
+        <![CDATA[
+        UPDATE TBAEPFRS101M
+           SET REQ_STAT_CD      = '70'
+             , FRS_SYS_RCP_YN   = 'Y'
+             , FRS_SYS_RCP_DH   = SYSDATE
+             , FNL_USR_ID       = #{usrId}
+             , FNL_DEAL_DPT_CD  = #{dptCd}
+             , FNL_MNU_ID       = #{fnlMnuId}
+             , FNL_MDF_DH       = SYSDATE
+         WHERE 1=1
+           AND AUD_YR         = #{audYr}
+           AND AUD_NO         = #{audNo}
+           AND FRS_REQ_SRNO   = #{frsReqSrno}
+        ]]>
+    </update>
+    
+    <update id="updateRcptDoc" parameterType="paramMap">
+    /* kr.go.bai.eip.aep.frs.dao.AEPFRS003EMapper.updateRcptDoc */
+        <![CDATA[
+        UPDATE TBBADDED111M
+           SET DOC_STA_CD      = '30'
+             , RCNT_ID         = #{usrId}
+             , RCPT_DH         = SYSDATE
+             , FNL_USR_ID      = #{usrId}
+             , FNL_DEAL_DPT_CD = #{dptCd}
+             , FNL_MNU_ID      = #{fnlMnuId}
+             , FNL_MDF_DH      = SYSDATE
+         WHERE 1=1
+           AND AUD_YR      = #{audYr}
+           AND AUD_NO      = #{audNo}
+           AND REF_ID      = #{frsReqSrno}
+           AND RPRT_CD     = 'A10610210'
+        ]]>
+    </update>
+    
+    <!-- 수신문서 목록 조회 -->
+    <select id="selectRprtRcptList" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.frs.dao.AEPFRS003EMapper.selectDocList */
+        <![CDATA[
+        SELECT G1.RPRT_NM
+             , G1.RPRT_NM AS V_RPRT_NM
+             , G1.APV_STA_CD
+             , G1.APV_STA_NM
+             , G1.DOC_ID
+             , G1.APV_RQS_ID
+             , MAX(G1.APV_INFO_1) AS APV_INFO_1
+             , MAX(G1.APV_INFO_2) AS APV_INFO_2
+             , MAX(G1.APV_INFO_3) AS APV_INFO_3
+             , MAX(G1.APV_INFO_4) AS APV_INFO_4
+             , MAX(G1.APV_INFO_5) AS APV_INFO_5
+             , MAX(G1.APV_INFO_6) AS APV_INFO_6
+             , MAX(G1.APV_INFO_7) AS APV_INFO_7
+             , (SELECT DECODE(COUNT(1), 0, 'N', 'Y')
+                  FROM TBBADDED111M T3
+                 WHERE 1=1
+                   AND T3.AUD_YR  = G1.AUD_YR
+                   AND T3.AUD_NO  = G1.AUD_NO
+                   AND T3.RPRT_CD = G1.RPRT_CD
+                   AND T3.DOC_ID  = G1.DOC_ID)
+                                    AS SEND_YN
+             , G1.RPRT_CD
+             , G1.DOC_TYPE
+          FROM (SELECT AUD_YR
+	                 , AUD_NO
+	                 , RPRT_CD
+	                 , RPRT_NM
+	                 , APV_STA_CD
+	                 , APV_STA_NM
+	                 , DOC_ID
+	                 , APV_RQS_ID
+	                 , DOC_TYPE
+	                 , DECODE(ROW_ID, 1, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_1
+	                 , DECODE(ROW_ID, 2, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_2
+	                 , DECODE(ROW_ID, 3, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_3
+	                 , DECODE(ROW_ID, 4, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_4
+	                 , DECODE(ROW_ID, 5, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_5
+	                 , DECODE(ROW_ID, 6, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_6
+	                 , DECODE(ROW_ID, 7, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_7
+                  FROM (SELECT AUD_YR
+		                     , AUD_NO
+		                     , RPRT_CD
+		                     , RPRT_NM
+		                     , APV_STA_CD
+		                     , APV_STA_NM
+		                     , DOC_ID
+		                     , APV_RQS_ID
+		                     , PST_NM
+		                     , APVR_NM
+		                     , APV_DH
+		                     , DOC_TYPE
+		                     , ROW_NUMBER() OVER(PARTITION BY DOC_ID ORDER BY APV_SNO) AS ROW_ID 
+                          FROM (SELECT T1.AUD_YR
+			                         , T1.AUD_NO
+			                         , T1.RPRT_CD
+			                         , T1.RPRT_NM
+			                         , T1.APV_STA_CD
+			                         , F_CODE_NM('1000773', T1.APV_STA_CD) AS APV_STA_NM
+			                         , T1.DOC_ID
+			                         , T2.APV_SNO
+			                         , T1.APV_RQS_ID
+			                         , CASE WHEN APVR_PST_CD IS NULL
+			                                THEN (SELECT MAX(ONR_PST_NM)
+			                                        FROM TBDCMACM001M
+			                                       WHERE 1=1
+			                                         AND CNB = APVR_CNB)
+			                                ELSE F_CODE_NM('1000176', T2.APVR_PST_CD)
+			                            END                                AS PST_NM
+			                         , F_USR_INFO(T2.APVR_CNB, '2')        AS APVR_NM
+			                         , CASE WHEN SUBSTR(T2.APVR_STA_CD, 0, 1) = '2'
+			                                THEN TO_CHAR(T2.APV_DH, 'YYYY-MM-DD')
+			                                ELSE ''
+			                            END                                AS APV_DH
+			                         , F_OPEN_EDIT(T1.LINK_URL)            AS DOC_TYPE
+                                  FROM TBBADDED103M T1
+                       LEFT OUTER JOIN TBDCMACM023L T2 ON (T1.APV_RQS_ID   = T2.APV_DOC_NO
+                                                       AND T2.APV_SNO     <> '1'
+                                                       AND T2.APVR_KND_CD <> '4')
+                                 WHERE 1=1
+                                   AND T1.AUD_YR   = #{audYr}
+			                       AND T1.AUD_NO   = #{audNo}
+			                       AND RPRT_CD IN  ('A10610100','A10610210')
+			                       AND T1.REF_ID   = #{frsReqSrno}
+			                   )
+                       )
+                 WHERE 1=1
+               ) AS G1
+         WHERE 1=1
+         GROUP BY G1.AUD_YR
+                , G1.AUD_NO
+                , G1.RPRT_CD
+                , G1.RPRT_NM
+                , G1.APV_STA_CD
+                , G1.APV_STA_NM
+                , G1.DOC_ID
+                , G1.APV_RQS_ID 
+                , G1.DOC_TYPE
+        ]]>
+    </select>            
+    
+    <!-- 디지털 자료 처리문서 목록 조회 -->
+    <select id="selectDocList" parameterType="paramMap" resultType="egovMap">
+        /* kr.go.bai.eip.aep.frs.dao.AEPFRS003EMapper.selectDocList */
+        <![CDATA[
+        SELECT G1.RPRT_NM
+             , G1.RPRT_NM AS V_RPRT_NM
+             , G1.APV_STA_CD
+             , G1.APV_STA_NM
+             , G1.DOC_ID
+             , G1.APV_RQS_ID
+             , MAX(G1.APV_INFO_1) AS APV_INFO_1
+             , MAX(G1.APV_INFO_2) AS APV_INFO_2
+             , MAX(G1.APV_INFO_3) AS APV_INFO_3
+             , MAX(G1.APV_INFO_4) AS APV_INFO_4
+             , MAX(G1.APV_INFO_5) AS APV_INFO_5
+             , MAX(G1.APV_INFO_6) AS APV_INFO_6
+             , MAX(G1.APV_INFO_7) AS APV_INFO_7
+             , (SELECT DECODE(COUNT(1), 0, 'N', 'Y')
+                  FROM TBBADDED111M T3
+                 WHERE 1=1
+                   AND T3.AUD_YR  = G1.AUD_YR
+                   AND T3.AUD_NO  = G1.AUD_NO
+                   AND T3.RPRT_CD = G1.RPRT_CD
+                   AND T3.DOC_ID  = G1.DOC_ID)
+                                    AS SEND_YN
+             , G1.RPRT_CD
+             , G1.DOC_TYPE
+          FROM (SELECT AUD_YR
+	                 , AUD_NO
+	                 , RPRT_CD
+	                 , RPRT_NM
+	                 , APV_STA_CD
+	                 , APV_STA_NM
+	                 , DOC_ID
+	                 , APV_RQS_ID
+	                 , DOC_TYPE
+	                 , DECODE(ROW_ID, 1, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_1
+	                 , DECODE(ROW_ID, 2, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_2
+	                 , DECODE(ROW_ID, 3, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_3
+	                 , DECODE(ROW_ID, 4, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_4
+	                 , DECODE(ROW_ID, 5, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_5
+	                 , DECODE(ROW_ID, 6, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_6
+	                 , DECODE(ROW_ID, 7, DECODE(APVR_NM, NULL, '', APV_DH || '/' || PST_NM || '/' || APVR_NM), '') AS APV_INFO_7
+                  FROM (SELECT AUD_YR
+		                     , AUD_NO
+		                     , RPRT_CD
+		                     , RPRT_NM
+		                     , APV_STA_CD
+		                     , APV_STA_NM
+		                     , DOC_ID
+		                     , APV_RQS_ID
+		                     , PST_NM
+		                     , APVR_NM
+		                     , APV_DH
+		                     , DOC_TYPE
+		                     , ROW_NUMBER() OVER(PARTITION BY DOC_ID ORDER BY APV_SNO) AS ROW_ID 
+                          FROM (SELECT T1.AUD_YR
+			                         , T1.AUD_NO
+			                         , T1.RPRT_CD
+			                         , T1.RPRT_NM
+			                         , T1.APV_STA_CD
+			                         , F_CODE_NM('1000773', T1.APV_STA_CD) AS APV_STA_NM
+			                         , T1.DOC_ID
+			                         , T2.APV_SNO
+			                         , T1.APV_RQS_ID
+			                         , CASE WHEN APVR_PST_CD IS NULL
+			                                THEN (SELECT MAX(ONR_PST_NM)
+			                                        FROM TBDCMACM001M
+			                                       WHERE 1=1
+			                                         AND CNB = APVR_CNB)
+			                                ELSE F_CODE_NM('1000176', T2.APVR_PST_CD)
+			                            END                                AS PST_NM
+			                         , F_USR_INFO(T2.APVR_CNB, '2')        AS APVR_NM
+			                         , CASE WHEN SUBSTR(T2.APVR_STA_CD, 0, 1) = '2'
+			                                THEN TO_CHAR(T2.APV_DH, 'YYYY-MM-DD')
+			                                ELSE ''
+			                            END                                AS APV_DH
+			                         , F_OPEN_EDIT(T1.LINK_URL)            AS DOC_TYPE
+                                  FROM TBBADDED103M T1
+                       LEFT OUTER JOIN TBDCMACM023L T2 ON (T1.APV_RQS_ID   = T2.APV_DOC_NO
+                                                       AND T2.APV_SNO     <> '1'
+                                                       AND T2.APVR_KND_CD <> '4')
+                                 WHERE 1=1
+                                   AND T1.AUD_YR   = #{audYr}
+			                       AND T1.AUD_NO   = #{audNo}
+			                       AND T1.RPRT_CD = 'A10610300'
+			                       AND T1.REF_ID   = #{frsReqSrno}
+			                   )
+                       )
+                 WHERE 1=1
+               ) AS G1
+         WHERE 1=1
+         GROUP BY G1.AUD_YR
+                , G1.AUD_NO
+                , G1.RPRT_CD
+                , G1.RPRT_NM
+                , G1.APV_STA_CD
+                , G1.APV_STA_NM
+                , G1.DOC_ID
+                , G1.APV_RQS_ID 
+                , G1.DOC_TYPE
+        ]]>
+    </select>        
+    
+    <!-- 포렌식 자료매체 합계 목록 조회 -->
+	<select id="selectMdmTotList" parameterType="paramMap" resultType="egovMap">
+	/* kr.go.bai.eip.aep.frs.dao.AEPFRS003EMapper.selectMdmTotList */
+        <![CDATA[
+        	SELECT nvl(count(FRS_TG_TOT),0) AS FRS_TG_TOT
+        	      ,nvl(sum(USR_TYPE_TOT1),0) AS USR_TYPE_TOT1
+        	      ,nvl(sum(USR_TYPE_TOT2),0) AS USR_TYPE_TOT2
+        	      ,nvl(sum(FRS_TYPE_TOT1),0) AS FRS_TYPE_TOT1
+        	      ,nvl(sum(FRS_TYPE_TOT2),0) AS FRS_TYPE_TOT2
+        	      ,nvl(sum(FRS_TYPE_TOT3),0) AS FRS_TYPE_TOT3
+        	      ,nvl(sum(FRS_TYPE_TOT4),0) AS FRS_TYPE_TOT4
+        	      ,nvl(sum(FRS_TYPE_TOT5),0) AS FRS_TYPE_TOT5
+        	      ,nvl(sum(FRS_TYPE_TOT6),0) AS FRS_TYPE_TOT6
+        	      ,nvl(sum(FRS_TYPE_TOT7),0) AS FRS_TYPE_TOT7
+        	      ,nvl(sum(FRS_TYPE_TOT8),0) AS FRS_TYPE_TOT8
+        	      ,nvl(sum(FRS_TYPE_TOT9),0) AS FRS_TYPE_TOT9
+        	      ,nvl(sum(FRS_TYPE_TOT10),0) AS FRS_TYPE_TOT10
+        	      ,nvl(sum(FRS_TYPE_TOT11),0) AS FRS_TYPE_TOT11
+        	      ,nvl(sum(FRS_TYPE_TOT12),0) AS FRS_TYPE_TOT12
+        	  FROM (
+		        	SELECT T1.FRS_TG||T1.AUD_YR||T1.AUD_NO||T1.FRS_REQ_SRNO||T1.FRS_TG_SRNO  AS FRS_TG_TOT /* 인원   */
+		        		  ,count(CASE WHEN T2.USR_TYPE = '01' THEN '1'
+                                      ELSE '' 
+                                  END ) AS USR_TYPE_TOT1 /* 공용  */
+                          ,count(CASE WHEN T2.USR_TYPE = '02' THEN '1'
+                                      ELSE ''
+                                  END ) AS USR_TYPE_TOT2 /* 개인  */
+                          ,count(CASE WHEN T2.FRS_TYPE_CD = '01' THEN '1'
+                                      ELSE ''   
+                                  END ) AS FRS_TYPE_TOT1 /* 데스크톱   */
+                          ,count(CASE WHEN T2.FRS_TYPE_CD = '02' THEN '1'
+                                      ELSE ''   
+                                  END ) AS FRS_TYPE_TOT2 /* 노트북   */
+                          ,count(CASE WHEN T2.FRS_TYPE_CD = '03' THEN '1'
+                                      ELSE ''   
+                                  END ) AS FRS_TYPE_TOT3 /* 하드디스크   */
+                          ,count(CASE WHEN T2.FRS_TYPE_CD = '05' THEN '1'
+                                      ELSE ''   
+                                  END ) AS FRS_TYPE_TOT4 /* USB   */
+                          ,count(CASE WHEN T2.FRS_TYPE_CD = '04' THEN '1'
+                                      ELSE ''   
+                                  END ) AS FRS_TYPE_TOT5 /* 외장하드디스크   */
+                          ,count(CASE WHEN T2.FRS_TYPE_CD = '15' THEN '1'
+                                      ELSE ''   
+                                  END ) AS FRS_TYPE_TOT6 /* 메모리카드 */
+                          ,count(CASE WHEN T2.FRS_TYPE_CD = '08' THEN '1'
+                                      ELSE ''   
+                                  END ) AS FRS_TYPE_TOT7 /* 이메일 */
+                          ,count(CASE WHEN T2.FRS_TYPE_CD = '16' THEN '1'
+                                      ELSE ''   
+                                  END ) AS FRS_TYPE_TOT8 /* 메신저 */ 
+                          ,count(CASE WHEN T2.FRS_TYPE_CD = '11' THEN '1'
+                                      ELSE ''   
+                                  END ) AS FRS_TYPE_TOT9 /* 웹하드 */
+                          ,count(CASE WHEN T2.FRS_TYPE_CD = '13' THEN '1'
+                                      ELSE ''   
+                                  END ) AS FRS_TYPE_TOT10 /* 클라우드 */
+                          ,count(CASE WHEN T2.FRS_TYPE_CD = '10' THEN '1'
+                                      ELSE ''   
+                                  END ) AS FRS_TYPE_TOT11 /* 모바일 */ 
+                          ,count(CASE WHEN T2.FRS_TYPE_CD = '14' THEN '1'
+                                      ELSE ''   
+                                  END ) AS FRS_TYPE_TOT12 /* 태블릿 */  
+		        	  FROM TBAEPFRS102M T1
+		        		  ,TBAEPFRS102D T2
+		        	 WHERE 1=1
+		        	   AND T1.AUD_YR = T2.AUD_YR(+)
+		        	   AND T1.AUD_NO = T2.AUD_NO(+)
+		        	   AND T1.FRS_REQ_SRNO = T2.FRS_REQ_SRNO(+)
+		        	   AND T1.FRS_TG_SRNO = T2.FRS_TG_SRNO(+)
+		        	   AND T1.AUD_YR = #{audYr}
+		        	   AND T1.AUD_NO = #{audNo}
+		        	   AND T1.FRS_REQ_SRNO = #{frsReqSrno}
+		          GROUP BY T1.FRS_TG||T1.AUD_YR||T1.AUD_NO||T1.FRS_REQ_SRNO||T1.FRS_TG_SRNO 
+	             )
+		]]>
+	</select> 
+	
+    <!-- 포렌식 자료매체 목록 조회 -->
+	<select id="selectMdmList" parameterType="paramMap" resultType="egovMap">
+	/* kr.go.bai.eip.aep.frs.dao.AEPFRS003EMapper.selectMdmList */
+        <![CDATA[
+        	SELECT ROWNUM AS NUM    /* 순번 */
+        		  ,T1.AUD_YR        /* 감사년도 */
+        		  ,T1.AUD_NO        /* 감사번호 */
+        		  ,T1.FRS_REQ_SRNO  /* 포렌식 요청 일련번호 */
+        		  ,T1.FRS_TG_SRNO   /* 매체 일련번호 */
+        		  ,TO_CHAR(TO_DATE(T1.FRS_CLC_DT),'yyyy-mm-dd') AS FRS_CLC_DT /* 수집일자 */
+        		  ,T1.FRS_TG        /* 대상   */
+        		  ,T1.ORG_NM        /* 소속기관  */
+        		  ,T1.DPT_NM        /* 소속부서  */
+        	  FROM TBAEPFRS102M T1
+        	 WHERE 1=1
+        	   AND T1.AUD_YR = #{audYr}
+        	   AND T1.AUD_NO = #{audNo}
+        	   AND T1.FRS_REQ_SRNO = #{frsReqSrno}
+          ORDER BY FRS_TG_SRNO
+		]]>
+	</select>       	
+    
+    <!-- 포렌식 자료매체 상세 목록 조회 -->
+	<select id="selectMdmDtlList" parameterType="paramMap" resultType="egovMap">
+	/* kr.go.bai.eip.aep.frs.dao.AEPFRS003EMapper.selectMdmDtlList */
+        <![CDATA[
+        	SELECT ROWNUM AS NUM    /* 순번 */
+        		  ,T1.AUD_YR        /* 감사년도 */
+        		  ,T1.AUD_NO        /* 감사번호 */
+        		  ,T1.FRS_REQ_SRNO  /* 포렌식 요청 일련번호 */
+        		  ,T1.FRS_TG_SRNO   /* 대상일련번호 */
+        		  ,T2.SRNO          /* 매체일련번호 */
+        		  ,TO_CHAR(TO_DATE(T2.FRS_DT),'yyyy-mm-dd') AS FRS_DT /* 일자 */
+        		  ,T2.FRS_TYPE_CD   /* 매체구분코드 */
+        		  ,T2.USR_TYPE      /* 구분  */
+        		  ,T2.MDM_ETP       /* 제조사  */
+        		  ,T2.MDM_SRNO      /* 일련번호,시리얼  */
+        		  ,T2.MDM_MD        /* 모델  */
+        		  ,T2.MDM_CPT       /* 용량  */
+        		  ,T2.USR_TNB       /* 계정정보  */
+        		  ,T2.USR_ACCT      /* 전화번호  */
+        		  ,T2.USIM          /* 유심  */
+        		  ,T2.EXTL_DRIV     /* 외부메모리  */
+        		  ,T2.RMK_TXT       /* 비고  */
+        	  FROM TBAEPFRS102M T1
+        		  ,TBAEPFRS102D T2
+        	 WHERE 1=1
+        	   AND T1.AUD_YR = T2.AUD_YR
+        	   AND T1.AUD_NO = T2.AUD_NO
+        	   AND T1.FRS_REQ_SRNO = T2.FRS_REQ_SRNO
+        	   AND T1.FRS_TG_SRNO = T2.FRS_TG_SRNO
+        	   AND T1.AUD_YR = #{audYr}
+        	   AND T1.AUD_NO = #{audNo}
+        	   AND T1.FRS_REQ_SRNO = #{frsReqSrno}
+        	   AND T2.FRS_TG_SRNO = #{frsTgSrno}
+          ORDER BY T2.SRNO
+		]]>
+	</select> 
+	
+	<!-- 포렌식 자료매체 저장 -->
+	<insert id="insertMdmList" parameterType="paramMap">
+	/* kr.go.bai.eip.aep.frs.dao.AEPFRS003EMapper.insertMdmList */
+		<![CDATA[
+			INSERT INTO	TBAEPFRS102M
+					(	 AUD_YR
+						,AUD_NO
+						,FRS_REQ_SRNO
+						,FRS_TG_SRNO
+						,FRS_CLC_DT
+						,FRS_TG
+						,ORG_NM
+						,DPT_NM
+						,FRT_USR_ID
+	        			,FNL_USR_ID
+	        			,FNL_DEAL_DPT_CD
+	        			,FNL_MNU_ID
+	        			,FRT_REGI_DH
+	        			,FNL_MDF_DH
+					)
+		     VALUES
+		            (	 #{audYr}
+					    ,#{audNo}
+						,#{frsReqSrno}
+						,( SELECT NVL(MAX(FRS_TG_SRNO),0)+1
+							 FROM TBAEPFRS102M
+							WHERE AUD_YR = #{audYr}
+							  AND AUD_NO = #{audNo}
+							  AND FRS_REQ_SRNO = #{frsReqSrno}
+							)
+						,REPLACE(#{frsClcDt},'-','')
+						,#{frsTg}
+						,#{orgNm}
+						,#{dptNm}
+						,#{usrId}
+						,#{usrId}
+						,#{dptCd}
+						,#{fnlMnuId}
+						,SYSDATE
+						,SYSDATE
+					)
+		]]>
+	</insert>	
+	
+	<!-- 포렌식 자료매체 상세 저장 -->
+	<insert id="insertMdmDtlList" parameterType="paramMap">
+	/* kr.go.bai.eip.aep.frs.dao.AEPFRS003EMapper.insertMdmDtlList */
+		<![CDATA[
+			INSERT INTO	TBAEPFRS102D
+					(	 AUD_YR
+						,AUD_NO
+						,FRS_REQ_SRNO
+						,FRS_TG_SRNO
+						,SRNO
+						,FRS_DT
+						,FRS_TYPE_CD
+						,USR_TYPE
+						,MDM_ETP
+						,MDM_SRNO
+						,MDM_MD
+						,MDM_CPT
+						,USR_TNB
+						,USR_ACCT
+						,USIM
+						,EXTL_DRIV
+						,RMK_TXT
+						,FRT_USR_ID
+	        			,FNL_USR_ID
+	        			,FNL_DEAL_DPT_CD
+	        			,FNL_MNU_ID
+	        			,FRT_REGI_DH
+	        			,FNL_MDF_DH
+					)
+		     VALUES
+		            (	 #{audYr}
+					    ,#{audNo}
+						,#{frsReqSrno}
+						,#{frsTgSrno}
+						,( SELECT NVL(MAX(SRNO),0)+1
+							 FROM TBAEPFRS102D
+							WHERE AUD_YR = #{audYr}
+							  AND AUD_NO = #{audNo}
+							  AND FRS_REQ_SRNO = #{frsReqSrno}
+							  AND FRS_TG_SRNO = #{frsTgSrno}
+							)
+						,REPLACE(#{frsDt},'-','')
+						,#{frsTypeCd}
+						,#{usrType}
+						,#{mdmEtp}
+						,#{mdmSrno}
+						,#{mdmMd}
+						,#{mdmCpt}
+						,#{usrTnb}
+						,#{usrAcct}
+						,#{usim}
+						,#{extlDriv}
+						,#{rmkTxt}
+						,#{usrId}
+						,#{usrId}
+						,#{dptCd}
+						,#{fnlMnuId}
+						,SYSDATE
+						,SYSDATE
+					)
+		]]>
+	</insert>
+	
+	<!-- 포렌식 자료매체 수정 -->
+	<update id="updateMdmList" parameterType="paramMap">
+	/* kr.go.bai.eip.aep.frs.dao.AEPFRS003EMapper.updateMdmList */
+		<![CDATA[
+			UPDATE	 TBAEPFRS102M
+			   SET	 FRS_TG = #{frsTg}
+			    	,FRS_CLC_DT = REPLACE(#{frsClcDt},'-','')
+			    	,ORG_NM = #{orgNm}
+					,DPT_NM = #{dptNm}
+					,FNL_USR_ID = #{usrId}
+					,FNL_DEAL_DPT_CD = #{dptCd}
+					,FNL_MNU_ID = #{fnlMnuId}
+					,FNL_MDF_DH = SYSDATE
+			WHERE	 AUD_YR = #{audYr}
+			  AND	 AUD_NO = #{audNo}
+			  AND	 FRS_REQ_SRNO = #{frsReqSrno}
+			  AND	 FRS_TG_SRNO = #{frsTgSrno}
+		]]>
+	</update>		
+	
+	<!-- 포렌식 자료매체 상세 수정 -->
+	<update id="updateMdmDtlList" parameterType="paramMap">
+	/* kr.go.bai.eip.aep.frs.dao.AEPFRS003EMapper.updateMdmDtlList */
+		<![CDATA[
+			UPDATE	 TBAEPFRS102D
+			   SET	 FRS_TYPE_CD = #{frsTypeCd}
+					,FRS_DT = REPLACE(#{frsDt},'-','')
+					,USR_TYPE = #{usrType}
+					,MDM_ETP = #{mdmEtp}
+					,MDM_SRNO = #{mdmSrno}
+					,MDM_MD = #{mdmMd}
+					,MDM_CPT = #{mdmCpt}
+					,USR_TNB = #{usrTnb}
+					,USR_ACCT = #{usrAcct}
+					,USIM = #{usim}
+					,EXTL_DRIV = #{extlDriv}
+					,RMK_TXT = #{rmkTxt}
+					,FNL_USR_ID = #{usrId}
+					,FNL_DEAL_DPT_CD = #{dptCd}
+					,FNL_MNU_ID = #{fnlMnuId}
+					,FNL_MDF_DH = SYSDATE
+			WHERE	 AUD_YR = #{audYr}
+			  AND	 AUD_NO = #{audNo}
+			  AND	 FRS_REQ_SRNO = #{frsReqSrno}
+			  AND	 FRS_TG_SRNO = #{frsTgSrno}
+			  AND	 SRNO = #{srno}
+		]]>
+	</update>
+	
+	<!-- 포렌식 자료매체 삭제 -->
+	<delete id="deleteMdmList" parameterType="paramMap">
+	/* kr.go.bai.eip.aep.frs.dao.AEPFRS003EMapper.deleteMdmList */
+		<![CDATA[
+			DELETE
+			FROM	TBAEPFRS102M
+			WHERE	AUD_YR = #{audYr}
+			  AND	AUD_NO = #{audNo}
+			  AND	FRS_REQ_SRNO = #{frsReqSrno}
+			  AND	FRS_TG_SRNO = #{frsTgSrno}
+		]]>
+	</delete>	
+	
+	<!-- 포렌식 자료매체 상세 삭제 -->
+	<delete id="deleteMdmDtlList" parameterType="paramMap">
+	/* kr.go.bai.eip.aep.frs.dao.AEPFRS003EMapper.deleteMdmDtlList */
+		<![CDATA[
+			DELETE
+			FROM	TBAEPFRS102D
+			WHERE	AUD_YR = #{audYr}
+			  AND	AUD_NO = #{audNo}
+			  AND	FRS_REQ_SRNO = #{frsReqSrno}
+			  AND	FRS_TG_SRNO = #{frsTgSrno}
+			  AND	SRNO = #{srno}
+		]]>
+	</delete>
+	
+	<!-- 포렌식 자료매체 상세 요청건 전체 삭제 -->
+	<delete id="deleteMdmDtlAllList" parameterType="paramMap">
+	/* kr.go.bai.eip.aep.frs.dao.AEPFRS003EMapper.deleteMdmDtlAllList */
+		<![CDATA[
+			DELETE
+			FROM	TBAEPFRS102D
+			WHERE	AUD_YR = #{audYr}
+			  AND	AUD_NO = #{audNo}
+			  AND	FRS_REQ_SRNO = #{frsReqSrno}
+			  AND	FRS_TG_SRNO = #{frsTgSrno}
+		]]>
+	</delete>		
+	
+	<insert id="insertFile" parameterType="paramMap">
+	/* kr.go.bai.eip.aep.frs.dao.AEPFRS003EMapper.insertFile */
+		<![CDATA[
+		INSERT INTO TBAEPFRS101L (
+                   AUD_YR
+                  ,AUD_NO
+                  ,FRS_REQ_SRNO
+                  ,SRNO
+                  ,FILE_SEQ
+                  ,DOC_ID
+                  ,FILE_DVSN
+                  ,FILE_ID
+                  ,FILE_NAME
+                  ,FILE_SIZE
+                  ,FRT_USR_ID
+                  ,FNL_USR_ID
+                  ,FNL_DEAL_DPT_CD
+                  ,FNL_MNU_ID
+                  ,FRT_REGI_DH
+                  ,FNL_MDF_DH )
+           (SELECT distinct T1.AUD_YR
+                  ,T1.AUD_NO
+                  ,T1.FRS_REQ_SRNO
+                  ,(
+                    SELECT NVL(MAX(SRNO), 0) + 1
+                      FROM TBAEPFRS101L T2
+                     WHERE T2.AUD_YR = T1.AUD_YR
+                       AND T2.AUD_NO = T1.AUD_NO
+                       AND T2.FRS_REQ_SRNO = T1.FRS_REQ_SRNO
+                       AND T2.FILE_DVSN = #{fileDvsn}
+                   )
+                  ,(
+                    SELECT NVL(MAX(FILE_SEQ), 0) + 1
+                      FROM TBAEPFRS101L T2
+                     WHERE T2.AUD_YR = T1.AUD_YR
+                       AND T2.AUD_NO = T1.AUD_NO
+                       AND T2.FRS_REQ_SRNO = T1.FRS_REQ_SRNO
+                       AND T2.FILE_DVSN = #{fileDvsn}
+                   )
+                  ,#{docId}
+                  ,#{fileDvsn}
+                  ,#{fileId}
+                  ,#{fileNm}
+                  ,#{fileSize}
+                  ,#{usrId}
+		          ,#{usrId}
+		          ,#{dptCd}
+		          ,#{fnlMnuId}
+                  ,SYSDATE
+                  ,SYSDATE 
+              FROM TBAEPFRS101M T1
+                  ,TBAEPFRS101L T2
+             WHERE T1.AUD_YR = T2.AUD_YR(+)
+               AND T1.AUD_NO = T2.AUD_NO(+)
+               AND T1.FRS_REQ_SRNO = T2.FRS_REQ_SRNO(+)
+               AND T1.AUD_YR = #{audYr}
+               AND T1.AUD_NO = #{audNo}
+               AND T1.FRS_REQ_SRNO = #{frsReqSrno}
+               AND 1 > (SELECT count(*) FROM TBAEPFRS101L WHERE DOC_ID = #{docId} AND FILE_ID = #{fileId} AND FILE_DVSN = #{fileDvsn})
+             )		
+		]]>
+	</insert>
+	
+	<update id="updateScss" parameterType="paramMap">
+	/* kr.go.bai.eip.aep.frs.dao.AEPFRS003EMapper.updateScss */
+		<![CDATA[
+			UPDATE	 TBAEPFRS101M
+			   SET	 REQ_STAT_CD = '90'
+			   		,HNDL_RPT_OM_YN = 'Y'
+			   		,HNDL_PEN_CNB = #{cnb}
+			   		,HNDL_DPT_CD = #{dptCd}
+			   		,HNDL_DH = SYSDATE
+					,FNL_USR_ID = #{usrId}
+					,FNL_DEAL_DPT_CD = #{dptCd}
+					,FNL_MNU_ID = #{fnlMnuId}
+					,FNL_MDF_DH = SYSDATE
+			WHERE	 AUD_YR = #{audYr}
+			  AND	 AUD_NO = #{audNo}
+			  AND	 FRS_REQ_SRNO = #{frsReqSrno}
+		]]>
+	</update>
+	
+    <update id="updateRcptDocScss" parameterType="paramMap">
+    /* kr.go.bai.eip.aep.frs.dao.AEPFRS003EMapper.updateRcptDocScss */
+        <![CDATA[
+        UPDATE TBBADDED111M
+           SET DOC_STA_CD      = '30'
+             , FNL_USR_ID      = #{usrId}
+             , FNL_DEAL_DPT_CD = #{dptCd}
+             , FNL_MNU_ID      = #{fnlMnuId}
+             , FNL_MDF_DH      = SYSDATE
+         WHERE 1=1
+           AND AUD_YR      = #{audYr}
+           AND AUD_NO      = #{audNo}
+           AND REF_ID      = #{frsReqSrno}
+           AND RPRT_CD     = 'A10610210'
+        ]]>
+    </update>	
+    
+    <insert id="insertRcptDocScss" parameterType="paramMap">
+    /* kr.go.bai.eip.aep.frs.dao.AEPFRS003EMapper.insertRcptDocScss */
+		INSERT INTO TBBADDED111M (
+                   AUD_YR
+                  ,AUD_NO
+                  ,AUD_STEP_CD
+                  ,DOC_ID
+                  ,SR_DOC_SNO
+                  ,AUD_KND_CD
+                  ,AUD_GRN_NO
+                  ,RPRT_NM
+                  ,RPRT_CD
+                  ,LINK_URL
+                  ,SND_DPT_CD
+                  ,SNDR_ID
+                  ,SND_DH
+                  ,RCPT_DPT_CD
+                  ,AUD_RPRT_DVSN_CD
+                  ,DOC_KND_CD
+                  ,REF_ID
+                  ,REF_DY
+                  ,SORT_SNO
+                  ,DOC_STA_CD
+                  ,FRT_USR_ID
+                  ,FNL_USR_ID
+                  ,FNL_DEAL_DPT_CD
+                  ,FNL_MNU_ID
+                  ,FRT_REGI_DH
+                  ,FNL_MDF_DH )
+           (SELECT AUD_YR
+                  ,AUD_NO
+                  ,AUD_STEP_CD
+                  ,DOC_ID
+                  ,(
+                    SELECT NVL(MAX(SR_DOC_SNO), 0) + 1
+                      FROM TBBADDED111M T2
+                     WHERE T2.AUD_YR = T1.AUD_YR
+                       AND T2.AUD_NO = T1.AUD_NO
+                       AND T2.DOC_ID = T1.DOC_ID
+                   )
+                  ,AUD_KND_CD
+                  ,AUD_GRN_NO
+                  ,RPRT_NM
+                  ,RPRT_CD
+                  ,LINK_URL
+                  ,(SELECT DPT_CD FROM TBDCMACM001M WHERE USR_ID = T1.DOC_WRT_ID)
+                  ,DOC_WRT_ID
+                  ,SYSDATE
+                  ,(SELECT REQ_DPT_CD FROM TBAEPFRS101M WHERE AUD_YR = #{audYr} AND AUD_NO = #{audNo} AND FRS_REQ_SRNO = #{frsReqSrno})
+                  ,AUD_RPRT_DVSN_CD
+                  ,DOC_KND_CD
+                  ,REF_ID
+                  ,REF_DY
+                  ,SORT_SNO
+                  ,'30'
+                  ,#{usrId}
+		          ,#{usrId}
+		          ,#{dptCd}
+		          ,#{fnlMnuId}
+                  ,SYSDATE
+                  ,SYSDATE 
+              FROM TBBADDED103M T1
+             WHERE T1.AUD_YR = #{audYr}
+               AND T1.AUD_NO = #{audNo}
+               AND T1.REF_ID = #{frsReqSrno}
+               AND T1.RPRT_CD = 'A10610300'
+             )
+	</insert>	
+	
+	<delete id="deleteFrsFile" parameterType="paramMap">
+	/* kr.go.bai.eip.aep.frs.dao.AEPFRS003EMapper.deleteFrsFile */
+		<![CDATA[
+		   DELETE
+			 FROM TBAEPFRS101L
+			WHERE AUD_YR = #{audYr}
+			  AND AUD_NO = #{audNo}
+			  AND FRS_REQ_SRNO = #{frsReqSrno}
+			  AND FILE_DVSN = #{fileDvsn}
+			  AND DOC_ID = #{docId}
+			  AND FILE_ID = #{fileId}
+		]]>
+	</delete>    		
+   
+</mapper>

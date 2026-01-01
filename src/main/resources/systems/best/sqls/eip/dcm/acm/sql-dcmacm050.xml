@@ -1,0 +1,545 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.dcm.acm.dao.DCMACM050EMapper">
+
+    <select id="selectMainList" parameterType="paramMap" resultType="egovMap">
+    /*kr.go.bai.eip.dcm.acm.dao.DCMACM050EMapper.selectMainList*/
+        <include refid="include.pageSelct" />
+            <![CDATA[    
+        SELECT T1.ACP_YR_NO
+                 ,T1.TIT_NM
+                 ,T1.HNDL_DPT_CD
+                 ,T1.HNDL_DPT_NM
+                 ,T1.HNDL_CHGR_NM 
+                 ,T1.HNDL_CHGR_ID
+                 ,T1.ACP_STEP_NM
+                 ,T1.RPRT_CD
+                 ,T1.RPRT_NM
+                 ,T1.APV_STA_NM
+                 ,T1.DOC_WRT_NM
+                 ,T1.REGI_DH
+                 ,T1.EDT_AUTH_NM
+                 ,T1.EDT_AUTH
+                 ,T1.ACP_YR  /*접수년도*/
+				 ,T1.RM_CVPT_ACP_NO AS CVPT_ACP_NO
+				 ,T1.CVPT_ACP_NO AS CVPT_ACP_NO1
+				, T1.ACP_STEP_CD /* 단계코드*/				
+				, T1.DOC_ID	    /* 문서ID*/ 
+				, T1.APV_STA_CD	
+				, T1.APV_RQS_ID
+				, T1.REQ_DVSN_CD 
+				, T1.CURR_APV_USR_NM
+				, T1.FNL_APV_USR_NM	
+				, T1.CMT_DGE
+				, T1.CVPT_HNDL_STA_CD
+				, T1.DOC_TYPE
+				, T1.REQ_YN
+           FROM( 
+           	SELECT( CASE 	WHEN  A.REQ_DVSN_CD = '1'           THEN A.ACP_YR||'-'|| F_CODE_NM('1000949', E.RM_ACP_KND_CD ) ||'-'||E.RM_CVPT_ACP_NO  
+            			     	WHEN  A.REQ_DVSN_CD IN ('2','3')    THEN A.ACP_YR || '-' || F_CODE_NM('1000740',A.REQ_DVSN_CD)||'-'||substring(E.RM_CVPT_ACP_NO, 3, 3) 
+                			 	WHEN  A.REQ_DVSN_CD = '7' 		    THEN A.ACP_YR  ||'-'||'심사' || '-' || A.CVPT_ACP_NO  
+            			     	ELSE  A.ACP_YR ||'-'||'자문' || '-' || A.CVPT_ACP_NO 
+            			     	END)  AS ACP_YR_NO	
+   				    ,( CASE  	WHEN  A.REQ_DVSN_CD IN('1','2','3') THEN E.TIT_NM
+   				 		     	WHEN  A.REQ_DVSN_CD = '7' THEN '심사위원회'  
+            					WHEN  A.REQ_DVSN_CD = '8' THEN '자문위원회' 								
+   				   				END)  AS TIT_NM 
+   				  , (CASE WHEN A.REQ_DVSN_CD IN('2','3')     THEN C.HNDL_DPT_CD   
+				 		 WHEN A.REQ_DVSN_CD ='1'            THEN D.HNDL_DPT_CD 
+						 ELSE (SELECT F.DPT_CD FROM TBDCMACM001M F WHERE A.DOC_WRT_ID = F.USR_ID)
+					     END) AS HNDL_DPT_CD
+   				 , (CASE WHEN A.REQ_DVSN_CD IN('2','3')     THEN F_DPT_INFO(C.HNDL_DPT_CD, 1)   
+				 		 WHEN A.REQ_DVSN_CD ='1'            THEN F_DPT_INFO(D.HNDL_DPT_CD, 1) 
+						 ELSE (SELECT F_DPT_INFO(F.DPT_CD,1) FROM TBDCMACM001M F WHERE A.DOC_WRT_ID = F.USR_ID)
+					     END) AS HNDL_DPT_NM
+     			 , (CASE WHEN A.REQ_DVSN_CD IN('2','3')     THEN C.HNDL_CHGR_ID 
+   				 		 WHEN A.REQ_DVSN_CD ='1'            THEN D.HNDL_CHGR_ID
+   				 	     ELSE A.DOC_WRT_ID
+   				 	END) AS HNDL_CHGR_ID			   								 					   
+   				 , (CASE WHEN A.REQ_DVSN_CD IN('2','3')     THEN F_USR_INFO_BY_ID(C.HNDL_CHGR_ID, 2) 
+   				 		 WHEN A.REQ_DVSN_CD ='1'            THEN F_USR_INFO_BY_ID(D.HNDL_CHGR_ID, 2)
+   				 	      ELSE  F_USR_INFO_BY_ID(A.DOC_WRT_ID,2)  
+   				 	       END) AS HNDL_CHGR_NM
+   				 , F_CODE_NM('1000361', E.CVPT_HNDL_STA_CD) AS ACP_STEP_NM	
+  				 , A.RPRT_CD 
+  				 , A.RPRT_NM 
+  				 , F_CODE_NM('1000773', A.APV_STA_CD) AS APV_STA_NM
+			  	 , F_USR_INFO_BY_ID(DOC_WRT_ID,'2') AS DOC_WRT_NM  																	
+				 , TO_CHAR(A.FRT_REGI_DH,'YYYY"-"MM"-"DD" "HH24:MI') AS REGI_DH 
+			    ,(CASE WHEN SYSTIMESTAMP >= TO_DATE(T4.EDT_END_DT || T4.EDT_END_DH,'YYYYMMDDHH24MI') THEN 'N'   /*현재날짜가 종료일+1보다 클떄 */
+			             ELSE NVL(A.EDT_AUTH,'N')
+			             END ) AS EDT_AUTH
+			    ,(CASE WHEN SYSTIMESTAMP >= TO_DATE(T4.EDT_END_DT || T4.EDT_END_DH,'YYYYMMDDHH24MI') THEN '편집불가'  /*현재날짜가 종료일+1보다 클때 편집불가 */
+				         WHEN A.APV_STA_CD = '10' THEN '편집가능'                                                                      /* 결재상태 : 작성중 '편집가능' */
+				         WHEN A.APV_STA_CD != '10' AND A.EDT_AUTH IS NULL THEN '편집불가'                                    /* 결재상태 : 작성중 이 아니고 EDT_AUTH가 NULL이면  '편집불가' */
+				         ELSE DECODE(A.EDT_AUTH,'N','편집불가','편집가능')
+				         END) AS EDT_AUTH_NM      
+				 , A.ACP_YR 
+				 , E.RM_CVPT_ACP_NO 
+				 , A.CVPT_ACP_NO 
+				, A.ACP_STEP_CD 				
+				, A.DOC_ID	     
+				, A.APV_STA_CD	
+				, A.APV_RQS_ID		
+				, A.REQ_DVSN_CD 
+				, CURR_APV.APVR_NM AS CURR_APV_USR_NM
+				, FNL_APV.APVR_NM AS FNL_APV_USR_NM	
+				, B.CMT_DGE			
+				, E.CVPT_HNDL_STA_CD
+				, F_OPEN_EDIT(A.LINK_URL) AS DOC_TYPE
+				, DECODE(F.COFM_YN,'R','Y','N') AS REQ_YN
+        	   FROM TBCSPDCP603M A        
+         LEFT OUTER JOIN TBCSPEAR010M B	  
+    			ON(A.ACP_YR = B.CMT_OEN_YE AND A.REQ_DVSN_CD = DECODE(B.CMT_DVSN_CD,'1',7,'2',8) AND A.CVPT_ACP_NO = B.CMT_DGE)	    
+		 LEFT OUTER JOIN (
+		  			    SELECT  M.APV_DOC_NO, M.APV_DVSN_CD, M.APVR_PST_CD 
+		  			          , DECODE(M.APVR_PST_CD, '','','(' || F_CODE_NM('1000176', M.APVR_PST_CD) || ')') || ' ' || F_USR_INFO(M.APVR_CNB,2) AS APVR_NM 
+		  			    FROM    TBDCMACM023L M
+]]>
+		  			   WHERE    1=1
+					<if test ="reqDvsnCd == 1">		  			    
+		  			      AND   M.APV_DVSN_CD = 'requestAudit1'   
+		  			   </if>   
+		  			 <if test ="reqDvsnCd == 2 or reqDvsnCd == 3 or reqDvsnCd == 7 or reqDvsnCd == 8">		  			    
+		  			      AND   M.APV_DVSN_CD = 'requestAudit2'   
+		  			 </if> 
+<![CDATA[  
+		  			      AND   SUBSTR(M.APVR_STA_CD,1,1) = '1'
+		  			      AND   M.APVR_KND_CD <> '6'
+		  			      GROUP BY M.APV_DOC_NO, M.APV_DVSN_CD, M.APVR_PST_CD, M.APVR_CNB) CURR_APV	   	  
+		  		 ON(A.APV_RQS_ID = CURR_APV.APV_DOC_NO)		
+		 LEFT OUTER JOIN (
+		  		 	   SELECT	M.APV_DOC_NO, M.APV_DVSN_CD, M.APVR_PST_CD
+		  		 	   		   ,DECODE(M.APVR_PST_CD, '','','(' || F_CODE_NM('1000176', M.APVR_PST_CD) || ')') || ' ' || F_USR_INFO(M.APVR_CNB,2) AS APVR_NM	
+		  		 	   FROM TBDCMACM023L M
+		  		 	   	   ,(
+				 			SELECT APV_DOC_NO, APV_DVSN_CD, MAX(APVR_SEQ) AS MAX_APVR_SEQ
+				 			FROM TBDCMACM023L
+				  			GROUP BY APV_DOC_NO, APV_DVSN_CD
+				 			 ) SUB	
+				 	   WHERE M.APV_DOC_NO = SUB.APV_DOC_NO
+				 	   AND M.APV_DVSN_CD = SUB.APV_DVSN_CD
+				 	   AND M.APVR_SEQ = SUB.MAX_APVR_SEQ
+]]>
+				 	  <if test ="reqDvsnCd == 1">		  			    
+		  			      AND   M.APV_DVSN_CD = 'requestAudit1'   
+		  			  </if>   
+		  			  <if test ="reqDvsnCd == 2 or reqDvsnCd == 3 or reqDvsnCd == 7 or reqDvsnCd == 8">		  			    
+		  			      AND   M.APV_DVSN_CD = 'requestAudit2'   
+		  			  </if>
+<![CDATA[  		  			    
+				 	   ) FNL_APV   	
+				  ON (A.APV_RQS_ID = FNL_APV.APV_DOC_NO)	   	   
+          LEFT OUTER JOIN TBCSPEAR001M C 
+                  ON (A.ACP_YR = C.ACP_YR AND A.REQ_DVSN_CD = C.REQ_DVSN_CD AND A.CVPT_ACP_NO = C.CVPT_ACP_NO)
+          LEFT OUTER JOIN TBCSPDCP201M D  
+                  ON (A.ACP_YR = D.ACP_YR AND A.REQ_DVSN_CD = D.REQ_DVSN_CD AND A.CVPT_ACP_NO = D.CVPT_ACP_NO)
+          LEFT OUTER JOIN TBCSPDCP101M E  
+                  ON  (A.ACP_YR = E.ACP_YR AND A.REQ_DVSN_CD = E.REQ_DVSN_CD AND A.CVPT_ACP_NO = E.CVPT_ACP_NO)
+          LEFT OUTER JOIN TBDCMACM018M T4
+			 	   ON(A.ACP_YR = T4.AUD_YR AND A.CVPT_ACP_NO  = T4.AUD_NO  AND A.ACP_STEP_CD = T4.AUD_STEP_CD  AND A.REQ_DVSN_CD  = T4.REQ_DVSN_CD AND A.DOC_ID = T4.DOC_ID  )
+           LEFT OUTER JOIN 
+					(SELECT *
+                       FROM TBDCMACM066M AA
+                      WHERE AA.REQ_SEQ = (SELECT MAX(BB.REQ_SEQ)
+		                                            FROM TBDCMACM066M BB
+		                                           WHERE BB.AUD_YR = AA.AUD_YR
+		                                             AND BB.AUD_NO = AA.AUD_NO
+		                                             AND BB.AUD_STEP_CD = AA.AUD_STEP_CD
+		                                             AND BB.DOC_ID = AA.DOC_ID )) F
+			 	   ON (A.ACP_YR = F.AUD_YR
+			 	    AND A.CVPT_ACP_NO  = F.AUD_NO 
+			 	    AND A.ACP_STEP_CD = F.AUD_STEP_CD 
+			 	    AND A.REQ_DVSN_CD  = F.REQ_DVSN_CD  
+			 	    AND A.DOC_ID = F.DOC_ID)   	    	
+			 	    
+             WHERE 1=1
+             	AND  A.APV_WAY_CD = '10'
+ ]]>           	
+             <if test="schCurrApvr != null and schCurrApvr != '' ">
+				<choose>
+					<when test="schCurrApvr eq '1'.toString()">
+						AND CURR_APV.APVR_PST_CD = '0013600'									
+					</when>
+					<when test="schCurrApvr eq '2'.toString()">
+						AND CURR_APV.APVR_PST_CD IN ('0015800','0035100','0058100')				
+					</when>
+					<when test="schCurrApvr eq '3'.toString()">
+						AND CURR_APV.APVR_PST_CD IN ('0055600','0045900')						
+					</when>
+					<when test="schCurrApvr eq '4'.toString()">
+						AND CURR_APV.APVR_PST_CD = '0055700'									
+					</when>
+					<when test="schCurrApvr eq '5'.toString()">
+						AND CURR_APV.APVR_PST_CD = '0010600'										
+					</when>
+					<when test="schCurrApvr eq '6'.toString()">
+						AND CURR_APV.APVR_PST_CD = '0067400'									
+					</when>
+				</choose>
+			</if>
+			<if test="schFnlApvr != null and schFnlApvr != '' ">
+				<choose>
+					<when test="schFnlApvr eq '1'.toString()">
+						AND FNL_APV.APVR_PST_CD = '0013600'						/*최종결재자가 과장 단계*/				
+					</when>
+					<when test="schFnlApvr eq '2'.toString()">
+						AND FNL_APV.APVR_PST_CD IN ('0015800','0035100','0058100')	/*최종결재자가 국장 단계*/				
+					</when>
+					<when test="schFnlApvr eq '3'.toString()">
+						AND FNL_APV.APVR_PST_CD IN ('0055600','0045900')			/*최종결재자가 차장 단계*/				
+					</when>
+					<when test="schFnlApvr eq '4'.toString()">
+						AND FNL_APV.APVR_PST_CD = '0055700'							/*최종결재자가 총장 단계*/				
+					</when>
+					<when test="schFnlApvr eq '5'.toString()">
+						AND FNL_APV.APVR_PST_CD = '0010600'						/*최종결재자가 위원 단계*/				
+					</when>
+					<when test="schFnlApvr eq '6'.toString()">
+						AND FNL_APV.APVR_PST_CD = '0067400'						/*최종결재자가 원장 단계*/				
+					</when>
+				</choose>
+			</if>
+ <![CDATA[ 
+) T1
+WHERE 1=1 
+AND T1.ACP_YR = #{schAcpYr}
+]]>   
+			<if test="reqDvsnCd != null and reqDvsnCd !='' and reqDvsnCd != 0">
+				AND  T1.REQ_DVSN_CD = #{reqDvsnCd} 
+			</if>
+			<if test='cvptAcpNo != null and cvptAcpNo != ""'>
+				<if test="reqDvsnCd == 1 or reqDvsnCd == 2 or reqDvsnCd ==3">
+				AND T1.RM_CVPT_ACP_NO = #{cvptAcpNo}
+				</if>
+				<if test="reqDvsnCd == 7 or reqDvsnCd == 8">
+				AND T1.CMT_DGE = #{cvptAcpNo}
+				</if>
+			</if>	
+			<if test="hndlDptCd != null and hndlDptCd != ''">
+				AND T1.HNDL_DPT_CD LIKE '%'||#{hndlDptCd}||'%'
+			</if>
+			 <if test="hndlDptNm != null and hndlDptNm != ''">
+				AND T1.HNDL_DPT_NM LIKE '%'||#{hndlDptNm}||'%'
+			</if>
+ 			<if test="titNm != null and titNm != ''">
+ 			    AND T1.TIT_NM LIKE '%'||#{titNm}||'%'
+ 			</if>
+ 			<if test="hndlChgrNm != null and hndlChgrNm != ''">
+ 				AND T1.HNDL_CHGR_NM LIKE '%'||#{hndlChgrNm}||'%'
+ 			</if>
+			<if test="schPrssStepCd != null and schPrssStepCd != ''  and schPrssStepCd neq  'A1095'.toString()">  
+				 AND T1.ACP_STEP_CD = #{schPrssStepCd}
+			</if>
+            <if test="schPrssStepCd eq  'A1095'.toString()">  
+                 AND SUBSTR(T1.RPRT_CD,0,5) = #{schPrssStepCd}
+            </if>
+			<if test="schRprtNm != null and schRprtNm != '' "> 
+				 AND T1.RPRT_NM LIKE '%'||#{schRprtNm}||'%'   
+			</if>
+			<if test="schRprtCd != null and schRprtCd != '' "> 
+				 AND T1.RPRT_CD = #{schRprtCd}              
+			</if>
+			<if test="schApvStaCd != null and schApvStaCd != '' "> 
+				 AND T1.APV_STA_CD = #{schApvStaCd}           
+			</if>
+			<if test="cvptHndlStaCd != null and cvptHndlStaCd != '' ">
+			     AND T1.CVPT_HNDL_STA_CD = #{cvptHndlStaCd}
+			</if>
+			<if test="schEdtAuth != null and schEdtAuth != '' "> 
+				 AND NVL(T1.EDT_AUTH,'N') = #{schEdtAuth}
+			</if>
+			 ORDER BY T1.ACP_YR_NO, T1.RM_CVPT_ACP_NO, T1.CMT_DGE DESC,  T1.ACP_STEP_CD, T1.RPRT_CD
+		<include refid="include.pageOrder" />
+    </select>
+    
+   	<update id="saveModifyEdtAuth">
+        /* kr.go.bai.eip.dcm.acm.dao.DCMACM014EMapper.saveModifyEdtAuth */
+       UPDATE TBCSPDCP603M
+       SET EDT_AUTH =  #{edtAuth}
+           , FNL_USR_ID = #{usrId}
+           , FNL_DEAL_DPT_CD = #{dptCd}
+           , FNL_MNU_ID = #{menuNo}
+           , FNL_MDF_DH = SYSDATE
+       WHERE ACP_YR = #{acpYr}
+          AND CVPT_ACP_NO= #{acpNo}
+          AND DOC_ID = #{docId}
+    </update>
+	
+     <update id="deleteDocRqsId" parameterType="paramMap">
+         /* kr.go.bai.eip.dcm.acm.dao.DCMACM007EMapper.deleteDocRqsId*/
+       DECLARE
+         BEGIN
+           UPDATE TBCSPDCP603M
+           SET APV_RQS_ID = ''
+           WHERE
+                  ACP_YR = #{acpYr}
+           AND REQ_DVSN_CD = #{reqDvsnCd}
+           AND DOC_ID = #{docId}
+            ;
+            DELETE 
+              FROM PTL_ORDER_NOTI
+              WHERE seq in (SELECT SEQ
+                          FROM PTL_ORDER_LIST
+                         WHERE DOC_No  = #{apvRqsId}) 
+            ;
+            DELETE
+              FROM PTL_ORDER_RECEIVE_LIST
+             WHERE seq in (SELECT SEQ
+                          FROM PTL_ORDER_LIST
+                         WHERE DOC_No  = #{apvRqsId})
+            ;
+            DELETE
+              from PTL_ORDER_LIST
+             where seq in (SELECT SEQ
+                          FROM PTL_ORDER_LIST
+                         WHERE DOC_No  = #{apvRqsId})
+            ;
+            delete
+              FROM TBCSPDCP609M A
+             WHERE A.APV_RQS_ID = #{apvRqsId}
+            ;
+            delete
+              from TBDCMACM023H
+             where apv_doc_no = #{apvRqsId}
+             <if test="reqDvsnCd == '1'">
+             and apv_dvsn_cd = 'requestAudit1'
+             </if>
+             <if test="reqDvsnCd == '2' or reqDvsnCd == '3' or reqDvsnCd == '7' or reqDvsnCd == '8'">
+             and apv_dvsn_cd = 'requestAudit2'
+             </if>
+             ; 
+            delete
+              from TBDCMACM022H
+             where apv_doc_no = #{apvRqsId}
+             <if test="reqDvsnCd == '1'">
+             and apv_dvsn_cd = 'requestAudit1'
+             </if>
+             <if test="reqDvsnCd == '2' or reqDvsnCd == '3' or reqDvsnCd == '7' or reqDvsnCd == '8'">
+             and apv_dvsn_cd = 'requestAudit2'
+             </if>
+             ;
+            delete
+              from TBDCMACM023L
+             where apv_doc_no = #{apvRqsId}
+             ;
+            delete
+              from TBDCMACM022L
+             where apv_doc_no = #{apvRqsId}
+             ;
+         END;
+    </update>  
+
+	<select id="selectExcelExport" parameterType="paramMap" resultType="egovMap">
+		/* kr.go.bai.eip.dcm.acm.dao.DCMACM050EMapper.selectExcelExport*/
+		<![CDATA[  
+		        SELECT	
+		          ROWNUM 
+		         ,T1.ACP_YR_NO AS ACP_YR_NO
+                 ,T1.TIT_NM AS TIT_NM 
+                 ,T1.HNDL_DPT_NM AS HNDL_DPT_NM
+                 ,T1.HNDL_CHGR_NM AS HNDL_CHGR_NM 
+                 ,T1.ACP_STEP_NM AS ACP_STEP_NM
+                 ,T1.RPRT_NM AS RPRT_NM 
+                 ,T1.APV_STA_NM AS APV_STA_NM
+                 ,T1.DOC_WRT_NM AS DOC_WRT_NM
+                 ,T1.REGI_DH AS REGI_DH
+				, T1.CURR_APV_USR_NM AS CURR_APV_USR_NM
+				, T1.FNL_APV_USR_NM	AS FNL_APV_USR_NM
+                 ,T1.EDT_AUTH_NM AS EDT_AUTH_NM
+           FROM( 
+           	SELECT( CASE 	WHEN  A.REQ_DVSN_CD = '1'           THEN A.ACP_YR || '-' || F_CODE_NM('1000740',A.REQ_DVSN_CD)||'-'||DECODE(E.RM_CVPT_ACP_NO, null, A.CVPT_ACP_NO, E.RM_CVPT_ACP_NO) 
+            			     	WHEN  A.REQ_DVSN_CD IN ('2','3')    THEN A.ACP_YR || '-' || F_CODE_NM('1000740',A.REQ_DVSN_CD)||'-'||substring(E.RM_CVPT_ACP_NO, 3, 3) 
+                			 	WHEN  A.REQ_DVSN_CD = '7' 		    THEN A.ACP_YR  ||'-'||'심사' || '-' || A.CVPT_ACP_NO  
+            			     	ELSE  A.ACP_YR ||'-'||'자문' || '-' || A.CVPT_ACP_NO 
+            			     	END)  AS ACP_YR_NO	
+   				    ,( CASE  	WHEN  A.REQ_DVSN_CD IN('1','2','3') THEN E.TIT_NM
+   				 		     	WHEN  A.REQ_DVSN_CD = '7' THEN '심사위원회'  
+            					WHEN  A.REQ_DVSN_CD = '8' THEN '자문위원회' 								
+   				   				END)  AS TIT_NM 
+   				  , (CASE WHEN A.REQ_DVSN_CD IN('2','3')     THEN C.HNDL_DPT_CD   
+				 		 WHEN A.REQ_DVSN_CD ='1'            THEN D.HNDL_DPT_CD 
+						 ELSE (SELECT F.DPT_CD FROM TBDCMACM001M F WHERE A.DOC_WRT_ID = F.USR_ID)
+					     END) AS HNDL_DPT_CD
+   				 , (CASE WHEN A.REQ_DVSN_CD IN('2','3')     THEN F_DPT_INFO(C.HNDL_DPT_CD, 1)   
+				 		 WHEN A.REQ_DVSN_CD ='1'            THEN F_DPT_INFO(D.HNDL_DPT_CD, 1) 
+						 ELSE (SELECT F_DPT_INFO(F.DPT_CD,1) FROM TBDCMACM001M F WHERE A.DOC_WRT_ID = F.USR_ID)
+					     END) AS HNDL_DPT_NM
+     			 , (CASE WHEN A.REQ_DVSN_CD IN('2','3')     THEN C.HNDL_CHGR_ID 
+   				 		 WHEN A.REQ_DVSN_CD ='1'            THEN D.HNDL_CHGR_ID
+   				 	     ELSE A.DOC_WRT_ID
+   				 	END) AS HNDL_CHGR_ID			   								 					   
+   				 , (CASE WHEN A.REQ_DVSN_CD IN('2','3')     THEN F_USR_INFO_BY_ID(C.HNDL_CHGR_ID, 2) 
+   				 		 WHEN A.REQ_DVSN_CD ='1'            THEN F_USR_INFO_BY_ID(D.HNDL_CHGR_ID, 2)
+   				 	      ELSE  F_USR_INFO_BY_ID(A.DOC_WRT_ID,2)  
+   				 	       END) AS HNDL_CHGR_NM
+   				 , F_CODE_NM('1000361', E.CVPT_HNDL_STA_CD) AS ACP_STEP_NM	
+  				 , A.RPRT_CD 
+  				 , A.RPRT_NM 
+  				 , F_CODE_NM('1000773', A.APV_STA_CD) AS APV_STA_NM
+			  	 , F_USR_INFO_BY_ID(DOC_WRT_ID,'2') AS DOC_WRT_NM  																	
+				 , TO_CHAR(A.FRT_REGI_DH,'YYYY"-"MM"-"DD" "HH24:MI') AS REGI_DH 
+				 , DECODE(NVL(EDT_AUTH,'N'),'N','편집불가','편집가능') AS EDT_AUTH_NM	
+				 , NVL(EDT_AUTH,'N') AS EDT_AUTH 		
+				 , A.ACP_YR 
+				 , E.RM_CVPT_ACP_NO 
+				, A.ACP_STEP_CD 				
+				, A.DOC_ID	     
+				, A.APV_STA_CD	
+				, A.APV_RQS_ID		
+				, A.REQ_DVSN_CD 
+				, CURR_APV.APVR_NM AS CURR_APV_USR_NM
+				, FNL_APV.APVR_NM AS FNL_APV_USR_NM	
+				, B.CMT_DGE			
+				, E.CVPT_HNDL_STA_CD
+				, F_OPEN_EDIT(A.LINK_URL) AS DOC_TYPE
+        	   FROM TBCSPDCP603M A        
+         LEFT OUTER JOIN TBCSPEAR010M B	  
+    			ON(A.ACP_YR = B.CMT_OEN_YE AND A.REQ_DVSN_CD = DECODE(B.CMT_DVSN_CD,'1',7,'2',8) AND A.CVPT_ACP_NO = B.CMT_DGE)	    
+		 LEFT OUTER JOIN (
+		  			    SELECT  M.APV_DOC_NO, M.APV_DVSN_CD, M.APVR_PST_CD 
+		  			          , DECODE(M.APVR_PST_CD, '','','(' || F_CODE_NM('1000176', M.APVR_PST_CD) || ')') || ' ' || F_USR_INFO(M.APVR_CNB,2) AS APVR_NM 
+		  			    FROM    TBDCMACM023L M
+]]>
+		  			   WHERE    1=1
+					<if test ="reqDvsnCd == 1">		  			    
+		  			      AND   M.APV_DVSN_CD = 'requestAudit1'   
+		  			   </if>   
+		  			 <if test ="reqDvsnCd == 2 or reqDvsnCd == 3 or reqDvsnCd == 7 or reqDvsnCd == 8">		  			    
+		  			      AND   M.APV_DVSN_CD = 'requestAudit2'   
+		  			 </if> 
+<![CDATA[  
+		  			      AND   SUBSTR(M.APVR_STA_CD,1,1) = '1'
+		  			      AND   M.APVR_KND_CD <> '6'
+		  			      GROUP BY M.APV_DOC_NO, M.APV_DVSN_CD, M.APVR_PST_CD, M.APVR_CNB) CURR_APV	   	  
+		  		 ON(A.APV_RQS_ID = CURR_APV.APV_DOC_NO)		
+		 LEFT OUTER JOIN (
+		  		 	   SELECT	M.APV_DOC_NO, M.APV_DVSN_CD, M.APVR_PST_CD
+		  		 	   		   ,DECODE(M.APVR_PST_CD, '','','(' || F_CODE_NM('1000176', M.APVR_PST_CD) || ')') || ' ' || F_USR_INFO(M.APVR_CNB,2) AS APVR_NM	
+		  		 	   FROM TBDCMACM023L M
+		  		 	   	   ,(
+				 			SELECT APV_DOC_NO, APV_DVSN_CD, MAX(APVR_SEQ) AS MAX_APVR_SEQ
+				 			FROM TBDCMACM023L
+				  			GROUP BY APV_DOC_NO, APV_DVSN_CD
+				 			 ) SUB	
+				 	   WHERE M.APV_DOC_NO = SUB.APV_DOC_NO
+				 	   AND M.APV_DVSN_CD = SUB.APV_DVSN_CD
+				 	   AND M.APVR_SEQ = SUB.MAX_APVR_SEQ
+]]>
+				 	  <if test ="reqDvsnCd == 1">		  			    
+		  			      AND   M.APV_DVSN_CD = 'requestAudit1'   
+		  			  </if>   
+		  			  <if test ="reqDvsnCd == 2 or reqDvsnCd == 3 or reqDvsnCd == 7 or reqDvsnCd == 8">		  			    
+		  			      AND   M.APV_DVSN_CD = 'requestAudit2'   
+		  			  </if>
+<![CDATA[  		  			    
+				 	   ) FNL_APV   	
+				  ON (A.APV_RQS_ID = FNL_APV.APV_DOC_NO)	   	   
+          LEFT OUTER JOIN TBCSPEAR001M C 
+                  ON (A.ACP_YR = C.ACP_YR AND A.REQ_DVSN_CD = C.REQ_DVSN_CD AND A.CVPT_ACP_NO = C.CVPT_ACP_NO)
+          LEFT OUTER JOIN TBCSPDCP201M D  
+                  ON (A.ACP_YR = D.ACP_YR AND A.REQ_DVSN_CD = D.REQ_DVSN_CD AND A.CVPT_ACP_NO = D.CVPT_ACP_NO)
+          LEFT OUTER JOIN TBCSPDCP101M E  
+                  ON  (A.ACP_YR = E.ACP_YR AND A.REQ_DVSN_CD = E.REQ_DVSN_CD AND A.CVPT_ACP_NO = E.CVPT_ACP_NO)   
+             WHERE 1=1
+             	AND  A.APV_WAY_CD = '10'
+ ]]>           	
+             <if test="schCurrApvr != null and schCurrApvr != '' ">
+				<choose>
+					<when test="schCurrApvr eq '1'.toString()">
+						AND CURR_APV.APVR_PST_CD = '0013600'									
+					</when>
+					<when test="schCurrApvr eq '2'.toString()">
+						AND CURR_APV.APVR_PST_CD IN ('0015800','0035100','0058100')				
+					</when>
+					<when test="schCurrApvr eq '3'.toString()">
+						AND CURR_APV.APVR_PST_CD IN ('0055600','0045900')						
+					</when>
+					<when test="schCurrApvr eq '4'.toString()">
+						AND CURR_APV.APVR_PST_CD = '0055700'									
+					</when>
+					<when test="schCurrApvr eq '5'.toString()">
+						AND CURR_APV.APVR_PST_CD = '0010600'										
+					</when>
+					<when test="schCurrApvr eq '6'.toString()">
+						AND CURR_APV.APVR_PST_CD = '0067400'									
+					</when>
+				</choose>
+			</if>
+			<if test="schFnlApvr != null and schFnlApvr != '' ">
+				<choose>
+					<when test="schFnlApvr eq '1'.toString()">
+						AND FNL_APV.APVR_PST_CD = '0013600'						/*최종결재자가 과장 단계*/				
+					</when>
+					<when test="schFnlApvr eq '2'.toString()">
+						AND FNL_APV.APVR_PST_CD IN ('0015800','0035100','0058100')	/*최종결재자가 국장 단계*/				
+					</when>
+					<when test="schFnlApvr eq '3'.toString()">
+						AND FNL_APV.APVR_PST_CD IN ('0055600','0045900')			/*최종결재자가 차장 단계*/				
+					</when>
+					<when test="schFnlApvr eq '4'.toString()">
+						AND FNL_APV.APVR_PST_CD = '0055700'							/*최종결재자가 총장 단계*/				
+					</when>
+					<when test="schFnlApvr eq '5'.toString()">
+						AND FNL_APV.APVR_PST_CD = '0010600'						/*최종결재자가 위원 단계*/				
+					</when>
+					<when test="schFnlApvr eq '6'.toString()">
+						AND FNL_APV.APVR_PST_CD = '0067400'						/*최종결재자가 원장 단계*/				
+					</when>
+				</choose>
+			</if>
+ <![CDATA[ 
+) T1
+WHERE 1=1 
+AND T1.ACP_YR = #{schAcpYr}
+]]>   
+			<if test="reqDvsnCd != null and reqDvsnCd !='' and reqDvsnCd != 0">
+				AND  T1.REQ_DVSN_CD = #{reqDvsnCd} 
+			</if>
+			<if test='cvptAcpNo != null and cvptAcpNo != ""'>
+				<if test="reqDvsnCd == 1 or reqDvsnCd == 2 or reqDvsnCd ==3">
+				AND T1.RM_CVPT_ACP_NO = #{cvptAcpNo}
+				</if>
+				<if test="reqDvsnCd == 7 or reqDvsnCd == 8">
+				AND T1.CMT_DGE = #{cvptAcpNo}
+				</if>
+			</if>	
+			<if test="hndlDptCd != null and hndlDptCd != ''">
+				AND T1.HNDL_DPT_CD LIKE '%'||#{hndlDptCd}||'%'
+			</if>
+			 <if test="hndlDptNm != null and hndlDptNm != ''">
+				AND T1.HNDL_DPT_NM LIKE '%'||#{hndlDptNm}||'%'
+			</if>
+ 			<if test="titNm != null and titNm != ''">
+ 			    AND T1.TIT_NM LIKE '%'||#{titNm}||'%'
+ 			</if>
+ 			<if test="hndlChgrNm != null and hndlChgrNm != ''">
+ 				AND T1.HNDL_CHGR_NM LIKE '%'||#{hndlChgrNm}||'%'
+ 			</if>
+			<if test="schPrssStepCd != null and schPrssStepCd != ''  and schPrssStepCd neq  'A1095'.toString()">  
+				 AND T1.ACP_STEP_CD = #{schPrssStepCd}
+			</if>
+            <if test="schPrssStepCd eq  'A1095'.toString()">  
+                 AND SUBSTR(T1.RPRT_CD,0,5) = #{schPrssStepCd}
+            </if>
+			<if test="schRprtNm != null and schRprtNm != '' "> 
+				 AND T1.RPRT_NM LIKE '%'||#{schRprtNm}||'%'   
+			</if>
+			<if test="schRprtCd != null and schRprtCd != '' "> 
+				 AND T1.RPRT_CD = #{schRprtCd}              
+			</if>
+			<if test="schApvStaCd != null and schApvStaCd != '' "> 
+				 AND T1.APV_STA_CD = #{schApvStaCd}           
+			</if>
+			<if test="cvptHndlStaCd != null and cvptHndlStaCd != '' ">
+			     AND T1.CVPT_HNDL_STA_CD = #{cvptHndlStaCd}
+			</if>
+			<if test="schEdtAuth != null and schEdtAuth != '' "> 
+				 AND NVL(T1.EDT_AUTH,'N') = #{schEdtAuth}
+			</if>
+			 ORDER BY T1.ACP_YR_NO, T1.RM_CVPT_ACP_NO, T1.CMT_DGE DESC,  T1.ACP_STEP_CD, T1.RPRT_CD
+	</select>
+	
+
+</mapper> 

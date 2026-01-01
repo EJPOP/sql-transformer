@@ -1,0 +1,446 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="DCMIAM004Mapper">
+	<resultMap id="resourceMap" type="egovMap">
+		<result property="resourceId" column="RSRC_ID" />
+		<result property="totCnt" column="TOT_CNT" />
+		<result property="resourceDesc" column="RSRC_DES" />
+		<result property="resourceName" column="RSRC_NM" />
+		<result property="codeName" column="CMM_CD_NM" />
+		<result property="targetSystemName" column="TG_SYS_NM" />
+		<result property="resourceId2" column="UPPR_RSRC_ID" />
+		<result property="upperResourceDesc" column="UPPER_RESOURCE_DESC" />
+		<result property="resourcePattern" column="RSRC_PTN" />
+		<result property="operations" column="OPER" />
+	</resultMap>
+
+	<resultMap id="resourceMap2" type="egovMap">
+		<result property="resourceId" column="RSRC_ID" />
+		<result property="targetSystemId" column="TG_SYS_ID" />
+		<result property="resourceName" column="RSRC_NM" />
+		<result property="resourcePattern" column="RSRC_PTN" />
+		<result property="resourceDesc" column="RSRC_DES" />
+		<result property="codeId" column="RSRC_TP" />
+		<result property="resourceId2" column="UPPR_RSRC_ID" />
+		<result property="targetSystemId2" column="UPPR_TG_SYS_ID" />
+		<result property="dptAuthCd" column="DPT_AUTH_CD" />
+		<result property="menuOrder" column="MNU_SEQ" />
+		<result property="codeName" column="CODE_NAME" />
+		<result property="oper" column="OPER" />
+	</resultMap>
+
+	<select id="selectResourceList" resultMap="resourceMap">
+		SELECT T.*
+		  FROM (
+				SELECT ROWNUM AS ROWNO, T1.* ,COUNT(*) OVER() AS TOT_CNT
+				  FROM (
+						SELECT CR.RSRC_ID
+							 , CR.RSRC_DES
+							 , CR.RSRC_NM
+							 , CC.CMM_CD_NM
+							 , TS.TG_SYS_NM
+							 , CR.UPPR_RSRC_ID
+							 , (SELECT CRE.RSRC_DES
+								  FROM TBDCMIAM001M CRE
+								 WHERE CRE.RSRC_ID = CR.UPPR_RSRC_ID
+							   ) AS UPPER_RESOURCE_DESC
+							 , CR.RSRC_PTN
+							 , RO.OPER
+						  FROM TBDCMIAM003M RI
+							 , TBDCMIAM002D RO
+							 , TBDCMIAM001M CR
+							 , TBDCMIAM006D CC
+							 , TBDCMIAM011M TS
+						 WHERE 1=1
+						   AND RI.ROLE_ID          = RO.REF_ID
+						   AND RO.RSRC_ID     	   = CR.RSRC_ID
+						   AND CR.RSRC_TP          = CC.CMM_CD_ID
+						   AND CR.TG_SYS_ID 	   = TS.TG_SYS_ID
+						   AND RI.ROLE_ID          = #{selected_role_id}
+						   AND RO.OPER             LIKE '%READ%'
+						) T1
+				 WHERE 1=1
+					<if test='searchVal != "" and searchVal != null '>
+						AND (
+							   (T1.RSRC_DES LIKE '%' || #{searchVal} || '%')
+							OR (T1.CMM_CD_NM LIKE '%' || #{searchVal} || '%')
+							OR (T1.UPPER_RESOURCE_DESC LIKE '%' || #{searchVal} || '%')
+							OR (T1.RSRC_PTN LIKE '%' || #{searchVal} || '%')
+						)
+					</if>
+			   )T
+	     WHERE ROWNO BETWEEN (((#{currPage}- 1) * #{pageSize}) + 1) AND (#{currPage} * #{pageSize})
+    </select>
+
+	<select id="selectResourceInfoTreeSource" resultType="HashMap">
+		SELECT TBDCMIAM001M.RSRC_ID AS "id",
+		  TBDCMIAM001M.RSRC_DES AS "text",
+		  TBDCMIAM001M.RSRC_NM AS "name",
+		  DECODE(TBDCMIAM001M.UPPR_RSRC_ID, null, '#', TBDCMIAM001M.UPPR_RSRC_ID) AS "parent",
+		  DECODE(TBDCMIAM001M.MNU_SEQ, null, '9999', TBDCMIAM001M.MNU_SEQ) AS "orderNum",
+		  (
+		    SELECT CMM_CD_NM
+		    FROM TBDCMIAM006D
+		    WHERE CMM_CD_ID = TBDCMIAM001M.RSRC_TP) AS "type"
+		FROM TBDCMIAM001M
+		ORDER BY TBDCMIAM001M.MNU_SEQ ASC,
+		TBDCMIAM001M.RSRC_NM ASC
+	</select>
+	
+	<select id="selectTargetSystemName" resultType="egovMap">
+        SELECT TBDCMIAM011M.TG_SYS_ID AS ID,
+		  TBDCMIAM011M.TG_SYS_NM AS NAME
+		FROM TBDCMIAM011M
+    </select>
+
+    
+    <update id="updateResourceInfo">
+		UPDATE TBDCMIAM001M
+		SET 
+		  TG_SYS_ID = #{newTargetSystem},
+		  RSRC_NM = #{newResourceNm},
+		  RSRC_PTN = #{newResourcePattern},
+		  RSRC_DES = #{newResourceDesc},
+		  RSRC_TP = #{newResourceType},
+		  UPPR_RSRC_ID = #{parentResourceId}
+		WHERE (TBDCMIAM001M.RSRC_ID = #{resourceId})
+	</update>
+  	
+   <select id="selectOperationList" resultType="egovMap">
+        SELECT B.*
+        FROM (
+          SELECT ROWNUM ROWNO, A.*, COUNT(*) OVER() AS TOT_CNT
+          FROM (
+                SELECT TBDCMIAM002D.RSRC_ID AS RESOURCE_ID,
+	   			  TBDCMIAM002D.OPER AS OPERATIONS,
+				  (SELECT ROLE_DES FROM TBDCMIAM003M WHERE ROLE_ID = TBDCMIAM002D.REF_ID UNION SELECT USR_NAM FROM EAMUSER_VIEW WHERE USR_ID = TBDCMIAM002D.REF_ID) AS ROLE_NAME,
+	   			  TBDCMIAM002D.REF_ID AS SID_VALUE,
+	   			  TBDCMIAM002D.REF_TP AS SID_TYPE,
+	   			  TBDCMIAM001M.RSRC_NM AS RESOURCE_NAME
+				FROM TBDCMIAM002D, TBDCMIAM001M
+				<trim prefix="WHERE" prefixOverrides="AND |OR ">
+		 			(TBDCMIAM002D.RSRC_ID = TBDCMIAM001M.RSRC_ID AND TBDCMIAM002D.RSRC_ID=#{resourceId})
+					<if test="searchSelector !='' and searchSelector != null and searchSelector =='sidType' ">
+						AND TBDCMIAM002D.REF_TP like '%'||#{searchSelectedValue}||'%'
+					</if>
+					<if test="searchSelector !='' and searchSelector != null and searchSelector =='sidValue' ">
+						AND TBDCMIAM002D.REF_ID like '%'||#{searchSelectedValue}||'%'
+					</if>
+				</trim>
+				  order by SID_TYPE, ROLE_NAME
+           ) A
+        )B
+	   WHERE ROWNO BETWEEN (((#{currPage}- 1) * #{pageSize}) + 1) AND (#{currPage} * #{pageSize})
+</select>
+    
+
+    <select id="getRoleListAll" resultType="egovMap">
+        SELECT TBDCMIAM003M.ROLE_ID AS ROLE_ID,
+		  TBDCMIAM003M.ROLE_NM AS ROLE_NM,
+		  TBDCMIAM003M.ROLE_DES AS ROLE_DESC
+		FROM TBDCMIAM003M
+		ORDER BY TBDCMIAM003M.ROLE_PRR_RNK ASC, TBDCMIAM003M.ROLE_DES ASC
+    </select>
+    
+    <select id="selectResourceDetailInfoWithResourceId" resultType="egovMap">
+        SELECT TBDCMIAM001M.RSRC_ID AS RESOURCE_ID,
+		  TBDCMIAM001M.TG_SYS_ID AS TARGET_SYSTEM_ID,
+		  TBDCMIAM001M.RSRC_NM AS RESOURCE_NAME,
+		  TBDCMIAM001M.RSRC_PTN AS RESOURCE_PATTERN,
+		  TBDCMIAM001M.RSRC_DES AS RESOURCE_DESC,
+		  TBDCMIAM001M.RSRC_TP AS CODE_ID,
+		  TBDCMIAM001M.UPPR_RSRC_ID AS RESOURCE_ID2,
+		  TBDCMIAM001M.UPPR_TG_SYS_ID AS TARGET_SYSTEM_ID2,
+		  TBDCMIAM001M.MNU_SEQ AS MENU_ORDER
+		FROM TBDCMIAM001M
+		WHERE (TBDCMIAM001M.RSRC_ID = #{resourceId})
+    </select>
+    
+    <select id="countResourceWithOperation" resultType="int">
+       SELECT COUNT(*)
+       FROM TBDCMIAM002D
+       WHERE REF_ID = #{sIdValue} AND RSRC_ID = #{operationResourceId}
+    </select>
+    
+    
+    <update id="insertOperation">
+		INSERT
+		INTO TBDCMIAM002D (REF_ID, RSRC_ID, TG_SYS_ID, REF_TP, OPER)
+		VALUES (#{sIdValue},
+		      #{operationResourceId},
+		      #{targetSystemId},
+		      #{sIdType},
+		      #{operations})
+	</update>
+
+	<select id="selectMenuInfoTreeSource" resultType="HashMap">
+		SELECT TBDCMIAM001M.RSRC_ID AS "id",
+		  TBDCMIAM001M.RSRC_DES AS "text",
+		  DECODE(TBDCMIAM001M.UPPR_RSRC_ID, NULL, '#', TBDCMIAM001M.UPPR_RSRC_ID) AS "parent",
+		  DECODE(TBDCMIAM001M.MNU_SEQ, NULL, '9999', TBDCMIAM001M.MNU_SEQ) AS "orderNum"
+		FROM TBDCMIAM001M
+		WHERE RSRC_TP = (
+		    SELECT CMM_CD_ID
+		    FROM TBDCMIAM006D
+		    WHERE CMM_CD_NM='MENU')
+		 ORDER BY TBDCMIAM001M.MNU_SEQ ASC,
+		TBDCMIAM001M.RSRC_NM ASC
+	</select>
+	
+	
+	<select id="selectDivAuth" resultType="egovMap">
+        SELECT TBDCMIAM006D.CMM_CD_ID AS ID,
+		  TBDCMIAM006D.CMM_CD_NM AS NAME
+		FROM TBDCMIAM006D,
+		  TBDCMIAM005M
+		WHERE (TBDCMIAM006D.CD_GRP_ID = TBDCMIAM005M.CD_GRP_ID)
+		  AND (TBDCMIAM005M.CD_GRP_NM = 'DIV_AUTH')
+    </select>
+
+
+	<update id="insertMenuInfo">
+		INSERT
+		INTO TBDCMIAM001M (RSRC_ID, TG_SYS_ID, RSRC_NM, RSRC_PTN, RSRC_DES, RSRC_TP, UPPR_RSRC_ID, UPPR_TG_SYS_ID, MNU_SEQ)
+		VALUES (
+				#{resourceId},
+				#{targetSystemListModal},
+				#{menuNmModal},
+				#{menuPatternModal},
+				#{menuDescModal},
+				(SELECT TBDCMIAM006D.CMM_CD_ID
+					FROM TBDCMIAM006D
+					WHERE TBDCMIAM006D.CMM_CD_NM = #{newResourceTypeModal}),
+				#{parentMenuIdModal},
+				(SELECT TBDCMIAM011M.UPPR_TG_SYS_ID
+				  FROM TBDCMIAM011M
+				 WHERE TBDCMIAM011M.TG_SYS_ID = #{targetSystemListModal}),
+				 #{menuOrderModal}
+		      )
+	</update>
+	
+	<update id="updateMenuInfo">
+		UPDATE TBDCMIAM001M
+		SET 
+		  TG_SYS_ID = #{targetSystemList},
+		  RSRC_NM = #{menuNm},
+		  RSRC_PTN = #{menuPattern},
+		  RSRC_DES = #{menuDesc},
+		  RSRC_TP = (SELECT TBDCMIAM006D.CMM_CD_ID
+					FROM TBDCMIAM006D
+					WHERE TBDCMIAM006D.CMM_CD_NM = #{newResourceType}),
+		  MNU_SEQ = #{menuOrder}
+		WHERE (TBDCMIAM001M.RSRC_ID = #{newResourceId})
+	</update>
+	
+	<update id="insertPreButtonResource">
+		INSERT
+		INTO TBDCMIAM001M (RSRC_ID, TG_SYS_ID, RSRC_NM, RSRC_PTN, RSRC_DES, RSRC_TP, UPPR_RSRC_ID, UPPR_TG_SYS_ID, DPT_AUTH_CD)
+		VALUES (#{resourceId},
+		      #{targetSystemId},
+		      #{resourceName},
+		      null,
+		      #{resourceDesc},
+		      #{codeId},
+		      #{parentsResourceId},
+		      #{targetSystemId2},
+		      null)
+	</update>
+ 
+  	<select id="selectResourceInfo" resultMap="resourceMap2">
+  		SELECT 
+			TBDCMIAM001M.*,
+			(SELECT TBDCMIAM006D.CMM_CD_NM FROM TBDCMIAM006D WHERE TBDCMIAM006D.CMM_CD_ID = TBDCMIAM001M.RSRC_TP) AS CODE_NAME,
+			(SELECT OPER FROM TBDCMIAM002D WHERE RSRC_ID = TBDCMIAM001M.RSRC_ID AND REF_ID = #{roleId}) AS OPER
+		FROM TBDCMIAM001M
+ 		where RSRC_ID = #{resId}
+    </select>
+ 
+	<select id="selectSubResourceInfo" resultMap="resourceMap2">
+		SELECT 
+			TBDCMIAM001M.*,
+			(SELECT TBDCMIAM006D.CMM_CD_NM FROM TBDCMIAM006D WHERE TBDCMIAM006D.CMM_CD_ID = TBDCMIAM001M.RSRC_TP) AS CODE_NAME,
+			(SELECT OPER FROM TBDCMIAM002D WHERE RSRC_ID = TBDCMIAM001M.RSRC_ID AND REF_ID = #{roleId}) AS OPER
+		FROM TBDCMIAM001M
+		where UPPR_RSRC_ID = #{resId}
+    </select>
+    
+    <select id="selectResourceInfoCount" resultType="int">
+		SELECT
+       		count(*)
+	    FROM
+	        TBDCMIAM002D
+	    WHERE
+	        REF_ID = #{roleId}
+	    AND
+	        RSRC_ID = #{resId}
+    </select>
+    
+    <update id="updateResourceOperaionInfo">
+		UPDATE TBDCMIAM002D
+		SET 
+		  OPER = #{operation}
+		WHERE 
+		  REF_ID = #{roleId}
+		AND
+		  RSRC_ID = #{resId}
+	</update>
+	
+	 <update id="insertResourceOpertaionInfo">
+		INSERT INTO TBDCMIAM002D
+			(REF_ID, RSRC_ID, TG_SYS_ID, REF_TP, OPER)
+		VALUES
+			(#{roleId}, #{resId}, #{targetSystemId}, #{sidType}, #{operation})
+	</update>
+	
+	<select id="selectSubResourceOperationInfo" resultType="egovMap">
+		SELECT 
+			RSRC_ID AS "resId"
+		FROM TBDCMIAM001M
+		where UPPR_RSRC_ID = #{resId}
+    </select>
+
+
+    <select id="selectResourceOperationinfo" resultType="HashMap">
+    	SELECT 
+    		REF_ID AS "sIdValue",
+    		REF_TP AS "sIdType",
+    		OPER AS "operations"
+    	FROM
+    		TBDCMIAM002D
+    	WHERE
+    		RSRC_ID = #{parentsResourceId}
+    </select>
+    
+    
+    <select id="selectAllSubResourceId" resultType="string">
+    	SELECT RSRC_ID
+		FROM TBDCMIAM001M START WITH UPPR_RSRC_ID = #{resourceId} CONNECT BY PRIOR RSRC_ID = UPPR_RSRC_ID
+		ORDER BY RSRC_ID DESC
+	</select>
+    
+    <delete id="deleteResourceAndOperation">
+    	DELETE FROM TBDCMIAM002D WHERE RSRC_ID = #{resourceId}
+    </delete>
+    
+    <delete id="deleteResourceAndOperationWithRole">
+    	DELETE FROM TBDCMIAM002D WHERE RSRC_ID = #{resourceId} AND REF_ID = #{roleId}
+    </delete>
+    
+    <delete id="deleteResourceAndSubWithResourceId">
+    	DELETE FROM TBDCMIAM001M WHERE RSRC_ID = #{resourceId}
+    </delete>
+    
+    <select id="selectRoleName" resultType="string">
+    	SELECT ROLE_NM
+		FROM TBDCMIAM003M
+		WHERE ROLE_ID = #{roleId}
+	</select>
+    
+    <select id="countMenuName" resultType="int">
+        SELECT COUNT(*)
+		FROM TBDCMIAM001M
+		WHERE RSRC_TP = (
+		    SELECT CMM_CD_ID
+		    FROM TBDCMIAM006D
+		    WHERE CMM_CD_NM='MENU')
+		  AND TBDCMIAM001M.RSRC_NM = #{menuName}
+    </select>
+
+	<update id="insertUserResourceMapping">
+		INSERT
+		INTO TBDCMIAM002D (REF_ID, RSRC_ID, TG_SYS_ID, REF_TP)
+		VALUES (#{userId},
+		      #{resourceId},
+		      #{targetSystem},
+		      'USER')
+	</update>
+
+    <select id="selectSubResourceListByParentsResouceId" resultType="egovMap">
+  		SELECT TBDCMIAM001M.RSRC_ID,
+		  TBDCMIAM001M.MNU_SEQ
+		FROM TBDCMIAM001M
+		where UPPR_RSRC_ID = #{resourceId}
+		order by TBDCMIAM001M.MNU_SEQ ASC
+    </select>
+    
+    
+    <update id="updateResourceId2ByResourceId">
+		UPDATE TBDCMIAM001M
+		SET UPPR_RSRC_ID = #{RESOURCE_ID2}
+		WHERE (TBDCMIAM001M.RSRC_ID = #{RESOURCE_ID})
+	</update>
+	
+	<update id="updateMenuOrder">
+		UPDATE TBDCMIAM001M
+		SET MNU_SEQ = #{menuOrder}
+		WHERE (TBDCMIAM001M.RSRC_ID = #{resourceId})
+	</update>
+	
+	
+	<select id="selectParentResourceInfo" resultType="egovMap">
+	SELECT UPPR_RSRC_ID AS RESOURCE_ID2,
+	(SELECT OPER
+	FROM TBDCMIAM002D
+	WHERE RSRC_ID = CR.UPPR_RSRC_ID
+	AND REF_ID = #{sIdValue}
+	) AS OPERATIONS
+	FROM TBDCMIAM001M CR
+	WHERE CR.RSRC_ID = #{operationResourceId}
+    </select>
+    
+    <select id="selectedResourceRoleOperationInfoByResourceId" resultType="egovMap">
+		SELECT REF_ID AS SID_VALUE,
+		  REF_TP AS SID_TYPE,
+		  OPER AS OPERATIONS,
+		  TG_SYS_ID AS TARGET_SYSTEM_ID
+		FROM TBDCMIAM002D
+		WHERE REF_ID = #{selectedId}
+    </select>
+    
+    <select id="selectResouceId2ByResourceId" resultType="string">
+		SELECT UPPR_RSRC_ID
+		FROM TBDCMIAM001M
+		WHERE RSRC_ID = #{resourceId}
+    </select>
+    
+    <select id="selectOperationInfoByResourceId" resultType="egovMap">
+		SELECT TBDCMIAM002D.REF_ID AS SID_VALUE,
+		  TBDCMIAM002D.OPER AS OPERATIONS
+		FROM TBDCMIAM002D
+		WHERE (TBDCMIAM002D.REF_ID = #{vid_name})
+		  AND (TBDCMIAM002D.RSRC_ID = #{resource_id})
+    </select>
+    
+    <update id="parentsOperationUpdate">
+		UPDATE TBDCMIAM002D
+		SET OPER = #{operation}
+		WHERE (TBDCMIAM002D.REF_ID = #{vid_name})
+		  AND (TBDCMIAM002D.RSRC_ID = #{resouce_id})
+    </update>
+    
+    <update id="insertParentsOperation">
+    	INSERT
+		INTO TBDCMIAM002D (OPER, REF_ID, RSRC_ID, TG_SYS_ID, REF_TP)
+		VALUES (#{OPERATIONS},
+		      #{sidValue},
+		      #{resource_id},
+		      #{targetSystemId},
+		      #{sidType})
+    </update>
+
+	<select id="selectResourceTypeCode" resultType="egovMap">
+
+        SELECT TBDCMIAM006D.CMM_CD_ID AS ID,
+
+		  TBDCMIAM006D.CMM_CD_NM AS NAME
+
+		FROM TBDCMIAM006D,
+
+		  TBDCMIAM005M
+
+		WHERE (TBDCMIAM006D.CD_GRP_ID = TBDCMIAM005M.CD_GRP_ID)
+
+		  AND (TBDCMIAM005M.CD_GRP_NM = 'RESO_TYPE')
+
+    </select>
+</mapper>

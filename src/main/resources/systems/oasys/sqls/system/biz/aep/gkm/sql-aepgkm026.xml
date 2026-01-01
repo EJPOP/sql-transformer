@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="aep/gkm/026">
+	<select id="AEPGKM026Eyearlistselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT DISTINCT EVL_YR FROM TBAEPGKM011M
+	</select>
+	
+	<select id="AEPGKM026Emainselect" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	EVL_YR,
+				EVL_DVSN_CD,
+				EVL_STR_DT,
+				EVL_END_DT,
+				EVL_ACTV_STR_DT,
+				EVL_ACTV_END_DT,
+				(
+					SELECT	(COUNT(CNB) + (SELECT COUNT(CNB) FROM TBAEPGKM005L)) || '명'
+					FROM	TBAEPGKM013L AS B
+					WHERE	1=1
+					AND		A.EVL_YR = B.EVL_YR
+					AND		A.EVL_DVSN_CD = B.EVL_DVSN_CD
+				) AS EVL_USR_CNT
+		FROM	TBAEPGKM011M AS A
+		WHERE	1=1
+		<isNotEmpty property="EVL_YR" prepend="AND">
+				EVL_YR = #EVL_YR#
+		</isNotEmpty>
+		<isNotEmpty property="EVL_DVSN_CD" prepend="AND">
+				EVL_DVSN_CD = #EVL_DVSN_CD#
+		</isNotEmpty>
+		ORDER BY EVL_YR DESC, EVL_DVSN_CD
+	</select>
+	
+	<select id="AEPGKM026Emaincountselect" parameterClass="java.util.Map" resultClass="java.lang.Integer">
+		SELECT	COUNT(EVL_YR)
+		FROM	TBAEPGKM011M
+		WHERE	1=1
+		AND		EVL_YR = #EVL_YR#
+		AND		EVL_DVSN_CD = #EVL_DVSN_CD#
+	</select>
+	
+	<delete id="AEPGKM026Emaindelete" parameterClass="java.util.Map">
+		DELETE FROM TBAEPGKM011M
+		WHERE	EVL_YR = #EVL_YR#
+		AND		EVL_DVSN_CD = #EVL_DVSN_CD#
+	</delete>
+	
+	<update id="AEPGKM026Emainupdate" parameterClass="java.util.Map">
+		UPDATE	TBAEPGKM011M
+		SET		EVL_STR_DT = #EVL_STR_DT#,
+				EVL_END_DT = #EVL_END_DT#,
+				EVL_ACTV_STR_DT = #EVL_ACTV_STR_DT#,
+				EVL_ACTV_END_DT = #EVL_ACTV_END_DT#,
+				FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#,
+				FNL_USR_ID = #FNL_USR_ID#,
+				FNL_MNU_ID = #FNL_MNU_ID#,
+				FNL_MDF_DH = SYSDATE
+		WHERE	EVL_YR = #EVL_YR#
+		AND		EVL_DVSN_CD = #EVL_DVSN_CD#
+	</update>
+	
+	<insert id="AEPGKM026Emaininsert" parameterClass="java.util.Map">
+		INSERT INTO TBAEPGKM011M
+		(
+		EVL_YR	/* 평가년도 */
+		,EVL_DVSN_CD	/* 평가구분코드 */
+		,EVL_STR_DT	/* 평가시작일 */
+		,EVL_END_DT	/* 평가종료일 */
+		,EVL_ACTV_STR_DT	/* 평가활동시작일 */
+		,EVL_ACTV_END_DT	/* 평가활동종료일 */
+		,DTM_YN	/* 확정여부 */
+		,FRT_USR_ID	/* 최초사용자ID */
+		,FNL_USR_ID	/* 최종사용자ID */
+		,FNL_DEAL_DPT_CD	/* 최종거래부서코드 */
+		,FNL_MNU_ID	/* 최종메뉴ID */
+		,FRT_REGI_DH	/* 최초등록일시 */
+		,FNL_MDF_DH	/* 최종수정일시 */
+		)
+		VALUES 
+		(
+		#EVL_YR#
+		,#EVL_DVSN_CD#
+		,#EVL_STR_DT#
+		,#EVL_END_DT#
+		,#EVL_ACTV_STR_DT#
+		,#EVL_ACTV_END_DT#
+		,''
+		,#FRT_USR_ID#
+		,#FNL_USR_ID#
+		,#FNL_DEAL_DPT_CD#
+		,#FNL_MNU_ID#
+		,SYSDATE
+		,SYSDATE  
+		)
+	</insert>
+	
+	<select id="AEPGKM026Esub1select" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	A.SC_GRN_TG_CD,<!-- 점수부여대상코드 -->
+				KLD_ACTV_NM,<!-- 지식활동명 -->
+				A.SET_DVSN_CD,<!-- 점수부여대상설정코드 -->
+				A.EVL_CHGR_DVSN_CD, <!-- 평가담당자구분코드 -->
+				A.EVL_SC_DVSN_CD,<!-- 평가점수항목코드 -->
+				F_CODE_NM('1000588', EVL_SC_DVSN_CD) AS EVL_SC_DVSN_NM,<!-- 평가점수항목명 -->
+				F_CODE_NM('1000356', SET_DVSN_CD) AS SET_DVSN_NM,<!-- 점수부여대상설정명 -->
+				F_CODE_NM('1000589', EVL_CHGR_DVSN_CD) AS EVL_CHGR_DVSN_NM,<!-- 평가담당자구분명 (대상자) -->
+				BSC_SC,<!-- 기본점수 -->
+				CASE
+					WHEN SET_DVSN_CD = 'C'
+					THEN MIN_SC || '~' || MAX_SC
+					ELSE '-'
+				END AS EVL_SC,<!-- 평가단평가점수 -->
+				ADD_SC,<!-- 가산점수 -->
+				CASE
+					WHEN EVL_CHGR_DVSN_CD = '2' 
+					THEN TO_CHAR(BSC_SC)
+					
+					WHEN SET_DVSN_CD = 'B' 
+					THEN (MIN_SC + BSC_SC) || '~' || (TO_NUMBER(MAX_SC) + TO_NUMBER(BSC_SC) + TO_NUMBER(ADD_SC)) 
+					
+					ELSE (MIN_SC + BSC_SC) 
+						 || '~' || (TO_NUMBER(MAX_SC) + TO_NUMBER(BSC_SC)) || ' \n' ||
+						 || '(' || (TO_NUMBER(MIN_SC) + TO_NUMBER(BSC_SC))
+						 || '~' || (TO_NUMBER(MAX_SC) + TO_NUMBER(BSC_SC) + TO_NUMBER(ADD_SC))
+						 || ')'
+				END AS SUM_SC,<!-- 평가단평가점수+가산점수+기본점수 -->
+				RFC_BND_SC,<!-- 반영한도점수 -->
+				USE_YN<!-- 사용여부 -->
+		FROM	TBAEPGKM006M AS A,
+				TBAEPGKM012L AS B
+		WHERE	1=1
+		AND		A.SC_GRN_TG_CD = B.SC_GRN_TG_CD
+		<isNotEmpty property="EVL_YR" prepend="AND">
+				EVL_YR = #EVL_YR#
+		</isNotEmpty>
+		<isNotEmpty property="EVL_DVSN_CD" prepend="AND">
+				EVL_DVSN_CD = #EVL_DVSN_CD#
+		</isNotEmpty>
+	</select>
+	
+	<delete id="AEPGKM026Esub1delete" parameterClass="java.util.Map">
+DELETE FROM TBAEPGKM012L
+		WHERE	EVL_YR = #EVL_YR#
+		AND		EVL_DVSN_CD = #EVL_DVSN_CD#
+</delete>
+	
+	<insert id="AEPGKM026Esub1insert" parameterClass="java.util.Map">
+		DECLARE
+			BEGIN
+			FOR CS IN (
+				SELECT	SC_GRN_TG_CD AS CD
+				FROM	TBAEPGKM006M
+				WHERE	USE_YN = 'Y'
+			)
+			LOOP
+				INSERT INTO TBAEPGKM012L
+				(
+				SC_GRN_TG_CD	/* 점수부여대상코드 */
+				,EVL_YR	/* 평가년도 */
+				,EVL_DVSN_CD	/* 평가구분코드 */
+				,FRT_USR_ID	/* 최초사용자ID */
+				,FNL_USR_ID	/* 최종사용자ID */
+				,FNL_DEAL_DPT_CD	/* 최종거래부서코드 */
+				,FNL_MNU_ID	/* 최종메뉴ID */
+				,FRT_REGI_DH	/* 최초등록일시 */
+				,FNL_MDF_DH	/* 최종수정일시 */
+				)
+				VALUES 
+				(
+				CS.CD
+				,#EVL_YR#
+				,#EVL_DVSN_CD#
+				,#FRT_USR_ID#
+				,#FNL_USR_ID#
+				,#FNL_DEAL_DPT_CD#
+				,#FNL_MNU_ID#
+				,SYSDATE
+				,SYSDATE
+				);
+			END LOOP;
+		END;
+	</insert>
+	
+	<select id="AEPGKM026Esub2select" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT	EVL_YR,
+				EVL_DVSN_CD,
+				KLD_CHR_CAT_CD,
+				F_CODE_NM('1000354', KLD_CHR_CAT_CD) AS KLD_CHR_CAT_NM,
+				F_DPT_INFO(F_USR_INFO(CNB, '5'), '1') AS DPT_NM,
+				F_CODE_NM('1000173', F_USR_INFO(CNB, '3')) AS RANK_NM,
+				F_CODE_NM('1000176', F_USR_INFO(CNB, '4')) AS PST_NM,
+				CNB,
+				F_USR_INFO(CNB, '2') AS USR_NAM
+		FROM	(
+				SELECT	EVL_YR,
+						EVL_DVSN_CD,
+						KLD_CHR_CAT_CD,
+						CNB
+				FROM	TBAEPGKM013L
+				WHERE	1=1
+				<isNotEmpty property="EVL_YR" prepend="AND">
+						EVL_YR = #EVL_YR#
+				</isNotEmpty>
+				<isNotEmpty property="EVL_DVSN_CD" prepend="AND">
+						EVL_DVSN_CD = #EVL_DVSN_CD#
+				</isNotEmpty>
+				UNION
+				SELECT	'' AS EVL_YR,
+						'' AS EVL_DVSN_CD,
+						KLD_CHR_CAT_CD,
+						CNB
+				FROM	TBAEPGKM005L
+				)
+		;
+	</select>
+	
+	<select id="AEPGKM026Esub2countselect" parameterClass="java.util.Map" resultClass="java.lang.Integer">
+		SELECT	COUNT(CNB)
+		FROM	(
+				SELECT	CNB,
+						KLD_CHR_CAT_CD
+				FROM	TBAEPGKM013L
+				UNION
+				SELECT	CNB,
+						KLD_CHR_CAT_CD
+				FROM	TBAEPGKM005L
+				)
+		WHERE	1=1
+		AND		KLD_CHR_CAT_CD = #KLD_CHR_CAT_CD#
+		AND		CNB = #CNB#
+	</select>
+	
+	<insert id="AEPGKM026Esub2insert" parameterClass="java.util.Map">
+		INSERT INTO TBAEPGKM013L
+		(
+		EVL_YR	/* 평가년도 */
+		,EVL_DVSN_CD	/* 평가구분코드 */
+		,KLD_CHR_CAT_CD	/* 지식담당분류코드 */
+		,CNB	/* 전산번호 */
+		,FRT_USR_ID	/* 최초사용자ID */
+		,FNL_USR_ID	/* 최종사용자ID */
+		,FNL_DEAL_DPT_CD	/* 최종거래부서코드 */
+		,FNL_MNU_ID	/* 최종메뉴ID */
+		,FRT_REGI_DH	/* 최초등록일시 */
+		,FNL_MDF_DH	/* 최종수정일시 */
+		)
+		VALUES 
+		(
+		#EVL_YR#,
+		#EVL_DVSN_CD#,
+		#KLD_CHR_CAT_CD#,
+		#CNB#,
+		#FRT_USR_ID#,
+		#FNL_USR_ID#,
+		#FNL_DEAL_DPT_CD#,
+		#FNL_MNU_ID#,
+		SYSDATE,
+		SYSDATE
+		)
+	</insert>
+	
+	<delete id="AEPGKM026Esub2delete" parameterClass="java.util.Map">
+		DELETE FROM TBAEPGKM013L
+		WHERE	1=1
+		AND		CNB = #CNB#
+		AND		EVL_YR = #EVL_YR#
+		AND		EVL_DVSN_CD = #EVL_DVSN_CD#
+		AND		KLD_CHR_CAT_CD = #KLD_CHR_CAT_CD#
+	</delete>
+</sqlMap>
+

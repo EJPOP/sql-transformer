@@ -1,0 +1,360 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd" >
+<sqlMap namespace="csp/nbk/511">
+	
+	<select id="CSPNBK511QDvdYrSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT	/* CSPNBK511QDvdYrSelect */
+				D1.DVD_YR
+		FROM	TBCSPNBK401M D1
+		WHERE	D1.DVD_HNDL_STA_CD IN ( 0, 1 )
+	]]>
+		<isEqual property="ordDescYn" compareValue="Y">
+		ORDER BY DVD_YR DESC
+		</isEqual>
+		<isEmpty property="ordDescYn">
+		ORDER BY DVD_YR
+		</isEmpty>
+	</select>
+	
+	<select id="CSPNBK511MouiListSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT	/* CSPNBK211MouiListSelect */
+				D1.MOUI_NO
+				, D1.CNB
+				, D2.USR_NAM
+				, D1.MOUI_DVSN_CD
+				, DECODE( D1.MOUI_DVSN_CD, '0', D2.USR_NAM, D1.OGNZ_NM ) AS MOUI_NM
+				, SUBSTR(D2.EIN, 1, 6) || '-*******' AS EIN
+				, D2.RANK_CD
+				, F_CODE_NM ( '1000173', D2.RANK_CD ) AS RANK_CD_NM
+				, D3.DPT_NM
+				, D1.EX_DVD_RTS_TG_YN
+				, D1.SAL_SEI_YN
+				, D1.SCS_YN
+				, D1.RMK
+		FROM	TBCSPNBK001M D1
+				, TBDCMACM001M D2
+				, TBDCMACM002M D3
+		WHERE	D1.CNB = D2.CNB
+		AND		D2.DPT_CD = D3.DPT_CD
+		AND     (D1.SCS_YN = 'N' OR (D1.SCS_YN = 'Y' AND SUBSTR(D1.SCS_DT,1,4) = #dvdYr#+1)) AND  JOI_DT <> #dvdYr#+1
+		ORDER BY MOUI_NO
+	]]>
+	</select>
+	
+	<select id="CSPNBK511QDvdRtsListSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT	/* CSPNBK511QDvdRtsListSelect */
+				D3.DVD_YR
+				, D3.ELT_CRFW_PRF_M
+				, D3.THTM_UN_DSP_PRF_SP
+				, D3.THTM_PIA_DVD_M
+				, D3.THTM_DVD_TG_PRF_M
+				, D3.TOT_ACM
+				, D4.TOT_DVD_AM
+				, D3.THTM_DVD_TG_PRF_M - D4.TOT_DVD_AM AS BAL_AM
+				, D3.WTDW_DVD_RTS
+				, D3.NWD_DVD_RTS
+				, D3.EX_DVD_RTS
+				, D3.DVD_HNDL_STA_CD
+				, D3.DVD_HNDL_STA_CD_NM
+		FROM	(
+					SELECT	D1.DVD_YR
+							, D1.ELT_CRFW_PRF_M
+							, D1.THTM_UN_DSP_PRF_SP
+							, D1.THTM_PIA_DVD_M
+							, D1.THTM_DVD_TG_PRF_M
+							, NVL(D1.WTDW_ACM, 0 ) + NVL(D1.NWD_ACM, 0 ) + NVL(D1.EX_ACM, 0 ) AS TOT_ACM
+							, D1.WTDW_DVD_RTS
+							, D1.NWD_DVD_RTS
+							, D1.EX_DVD_RTS
+							, D1.DVD_HNDL_STA_CD
+							, F_CODE_NM( '1000159' , D1.DVD_HNDL_STA_CD) AS DVD_HNDL_STA_CD_NM
+					FROM	TBCSPNBK401M D1
+	]]>
+			<dynamic prepend="WHERE">
+				<isNotEmpty property="beginDvdYr">
+					<isNotEmpty property="endDvdYr" prepend="AND">
+							D1.DVD_YR BETWEEN #beginDvdYr# AND #endDvdYr#
+					</isNotEmpty>
+				</isNotEmpty>
+				<isNotEmpty property="dvdYr">
+							D1.DVD_YR = #dvdYr#
+				</isNotEmpty>
+			</dynamic>
+	<![CDATA[
+				) D3
+				, (
+					SELECT	D2.DVD_YR
+							, SUM(D2.DVD_AM) AS TOT_DVD_AM
+					FROM	TBCSPNBK402M D2
+	]]>
+			<dynamic prepend="WHERE">
+				<isNotEmpty property="dvdYr" prepend="AND">
+							D2.DVD_YR = #dvdYr#
+				</isNotEmpty>
+			</dynamic>
+	<![CDATA[
+					GROUP BY D2.DVD_YR
+				) D4
+		WHERE	D3.DVD_YR = D4.DVD_YR
+		ORDER BY D3.DVD_YR DESC
+	]]>
+	</select>
+	
+	<select id="CSPNBK511DvdHndlStaCdSelectByMax" resultClass="String">
+	<![CDATA[
+		SELECT DVD_HNDL_STA_CD
+		FROM   TBCSPNBK401M
+		WHERE  DVD_YR = (SELECT MAX(DVD_YR) FROM TBCSPNBK401M)
+	]]>
+	</select>
+	
+	<select id="CSPNBK511NewDvdYrSelect" resultClass="String">
+	<![CDATA[
+		SELECT	/* CSPNBK511NewDvdYrSelect */ NVL( TO_NUMBER(MAX(DVD_YR))+1, TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYY')) AS DVD_YR
+		FROM	TBCSPNBK401M D1
+		WHERE	D1.DVD_HNDL_STA_CD = '1'
+	]]>
+	</select>
+	
+	<insert id="CSPNBK511QDvdAcmInsert" parameterClass="paramMap">
+	<![CDATA[
+		INSERT INTO /* CSPNBK511QDvdAcmInsert */ TBCSPNBK402M
+		(
+			DVD_YR
+			, MOUI_NO
+			, OPT_MOUI_NO
+			, PET_DH
+			, WTDW_ACM
+			, NWD_ACM
+			, EX_ACM
+			, FRT_USR_ID
+			, FNL_USR_ID
+			, FNL_DEAL_DPT_CD
+			, FNL_MNU_ID
+			, FRT_REGI_DH
+			, FNL_MDF_DH
+		)
+		SELECT	#dvdYr# AS DVD_YR
+				, D7.MOUI_NO
+				, #optMouiNo# AS OPT_MOUI_NO
+				, SYSDATE
+				, SUM(
+					CASE
+						WHEN ( SELECT	EX_DVD_RTS_TG_YN FROM TBCSPNBK001M WHERE MOUI_NO = D7.MOUI_NO ) != 'Y'
+							AND (TO_NUMBER( (SELECT SET_TXT FROM TBCSPNBK003M WHERE OP_MTRL_MNG_CD = '1') ) < D7.DEAL_AF_LEDG_BL )
+						THEN (D7.DEAL_AF_LEDG_BL - TO_NUMBER( (SELECT SET_TXT FROM TBCSPNBK003M WHERE OP_MTRL_MNG_CD = '1')) ) * ( TO_DATE(D7.END_DT, 'YYYYMMDD') - TO_DATE(D7.STA_DT, 'YYYYMMDD') )
+						ELSE 0
+					END
+				) AS WTDW_ACM
+				, SUM(
+					CASE
+						WHEN ( SELECT	EX_DVD_RTS_TG_YN FROM TBCSPNBK001M WHERE MOUI_NO = D7.MOUI_NO ) != 'Y'
+						THEN
+							CASE
+								WHEN TO_NUMBER( (SELECT SET_TXT FROM TBCSPNBK003M WHERE OP_MTRL_MNG_CD = '1') ) < D7.DEAL_AF_LEDG_BL
+								THEN TO_NUMBER( (SELECT SET_TXT FROM TBCSPNBK003M WHERE OP_MTRL_MNG_CD = '1')) * ( TO_DATE(D7.END_DT, 'YYYYMMDD') - TO_DATE(D7.STA_DT, 'YYYYMMDD') )
+								ELSE D7.DEAL_AF_LEDG_BL * ( TO_DATE(D7.END_DT, 'YYYYMMDD') - TO_DATE(D7.STA_DT, 'YYYYMMDD') )
+							END
+						ELSE 0
+					END
+				) AS NWD_ACM
+				, SUM(
+					CASE 
+						WHEN ( SELECT	EX_DVD_RTS_TG_YN FROM TBCSPNBK001M WHERE MOUI_NO = D7.MOUI_NO ) = 'Y'
+						THEN D7.DEAL_AF_LEDG_BL * ( TO_DATE(D7.END_DT, 'YYYYMMDD') - TO_DATE(D7.STA_DT, 'YYYYMMDD') )
+						ELSE 0
+					END
+				) AS EXC_ACM
+				, #usrId# AS FRT_USR_ID
+				, #usrId# AS FNL_USR_ID
+				, #dptCd# AS FNL_DEAL_DPT_CD
+				, #mnuId# AS FNL_MNU_ID
+				, SYSDATE AS FRT_REGI_DH
+				, SYSDATE AS FNL_MDF_DH
+		FROM	(
+					SELECT	D4.MOUI_NO
+							, D4.INV_DEAL_DT
+							, D4.INV_DEAL_SLN
+							, D4.DEAL_AF_LEDG_BL
+							, (
+								CASE
+									WHEN D4.INV_DEAL_DT <= #dvdYr# || '0101'
+									THEN #dvdYr# || '0101'
+									ELSE D4.INV_DEAL_DT
+								END
+							) AS STA_DT
+							, NVL( (
+								SELECT	MIN(INV_DEAL_DT)
+								FROM	(
+											SELECT	D1.MOUI_NO
+													, D1.INV_DEAL_DT
+											FROM	TBCSPNBK102L D1
+											WHERE	D1.CNL_YN = 'N'
+											AND		D1.INV_DEAL_DT BETWEEN ( SELECT NVL(MAX(D2.INV_DEAL_DT),#dvdYr# || '0101') FROM TBCSPNBK102L D2 WHERE D2.MOUI_NO = #mouiNo# AND D2.INV_DEAL_DT <= #dvdYr# || '0101') 
+																		AND ( SELECT MAX(D3.INV_DEAL_DT) FROM TBCSPNBK102L D3 WHERE D3.MOUI_NO = #mouiNo# AND D3.INV_DEAL_DT <= #dvdYr# || '1231')
+											AND		D1.MOUI_NO = #mouiNo#
+										) D6
+								WHERE	D6.INV_DEAL_DT > D4.INV_DEAL_DT
+							), TO_CHAR(TO_DATE(#dvdYr# || '1231', 'YYYYMMDD') + 1, 'YYYYMMDD' )) AS END_DT
+					FROM	(
+								SELECT	D1.MOUI_NO
+										, D1.INV_DEAL_DT
+										, D1.INV_DEAL_SLN
+										, (
+											CASE
+												WHEN D1.DEAL_AF_LEDG_BL > TO_NUMBER( (SELECT SET_TXT FROM TBCSPNBK003M WHERE OP_MTRL_MNG_CD = '0') )
+												THEN TO_NUMBER( (SELECT SET_TXT FROM TBCSPNBK003M WHERE OP_MTRL_MNG_CD = '0') )
+												ELSE D1.DEAL_AF_LEDG_BL
+											END
+										) AS DEAL_AF_LEDG_BL
+								FROM	TBCSPNBK102L D1
+								WHERE	D1.CNL_YN = 'N'
+								AND		D1.INV_DEAL_DT BETWEEN ( SELECT NVL(MAX(D2.INV_DEAL_DT),#dvdYr# || '0101') FROM TBCSPNBK102L D2 WHERE D2.MOUI_NO = #mouiNo# AND D2.INV_DEAL_DT <= #dvdYr#|| '0101') 
+															AND ( SELECT MAX(D3.INV_DEAL_DT) FROM TBCSPNBK102L D3 WHERE D3.MOUI_NO = #mouiNo# AND D3.INV_DEAL_DT <= #dvdYr# || '1231')
+								AND		D1.MOUI_NO = #mouiNo#
+							) D4
+					WHERE	( D4.INV_DEAL_DT
+							, D4.INV_DEAL_SLN ) IN (
+														SELECT	D5.INV_DEAL_DT
+																, MAX(D5.INV_DEAL_SLN)
+														FROM	(
+																	SELECT	D1.MOUI_NO
+																			, D1.INV_DEAL_DT
+																			, D1.INV_DEAL_SLN
+																	FROM	TBCSPNBK102L D1
+																	WHERE	D1.CNL_YN = 'N'
+																	AND		D1.INV_DEAL_DT BETWEEN ( SELECT NVL(MAX(D2.INV_DEAL_DT),#dvdYr# || '0101') FROM TBCSPNBK102L D2 WHERE D2.MOUI_NO = #mouiNo# AND D2.INV_DEAL_DT <= #dvdYr# || '0101') 
+																								AND ( SELECT MAX(D3.INV_DEAL_DT) FROM TBCSPNBK102L D3 WHERE D3.MOUI_NO = #mouiNo# AND D3.INV_DEAL_DT <= #dvdYr# || '1231')
+																	AND		D1.MOUI_NO = #mouiNo#
+																) D5
+														GROUP BY D5.INV_DEAL_DT
+													)
+				) D7
+		GROUP BY MOUI_NO
+	]]>
+	</insert>
+	
+	<delete id="CSPNBK511DvdAcmSumZeroDelete" parameterClass="paramMap">
+	<![CDATA[
+		DELETE	FROM /* CSPNBK511DvdAcmSumZeroDelete */ TBCSPNBK402M D1
+		WHERE	D1.DVD_YR = #dvdYr#
+		AND		D1.MOUI_NO IN (
+								SELECT 	D2.MOUI_NO
+								FROM	TBCSPNBK402M D2
+								WHERE	D2.DVD_YR = #dvdYr#
+								AND		( D2.WTDW_ACM + D2.NWD_ACM + D2.EX_ACM ) = 0
+							)
+	]]>
+	</delete>
+	
+	<insert id="CSPNBK511QDvdMsInsert" parameterClass="paramMap">
+	<![CDATA[
+		INSERT INTO /* CSPNBK511QDvdMsInsert */ TBCSPNBK401M
+		(
+			DVD_YR
+			, OPT_MOUI_NO
+			, PET_DH
+			, ELT_CRFW_PRF_M
+			, THTM_UN_DSP_PRF_SP
+			, THTM_PIA_DVD_M
+			, THTM_DVD_TG_PRF_M
+			, WTDW_ACM
+			, WTDW_DVD_RTS
+			, NWD_ACM
+			, NWD_DVD_RTS
+			, EX_ACM
+			, EX_DVD_RTS
+			, DVD_HNDL_STA_CD
+			, DVD_RTS_CHG_YN
+			, FRT_USR_ID
+			, FNL_USR_ID
+			, FNL_DEAL_DPT_CD
+			, FNL_MNU_ID
+			, FRT_REGI_DH
+			, FNL_MDF_DH
+		)
+		SELECT	D4.DVD_YR
+				, #optMouiNo# AS OPT_MOUI_NO
+				, SYSDATE AS PET_DH
+				, D4.ELT_CRFW_PRF_M
+				, D4.THTM_UN_DSP_PRF_SP
+				, D4.THTM_PIA_DVD_M
+				, D4.THTM_DVD_TG_PRF_M
+				, D5.WTDW_ACM
+				, FLOOR( D4.THTM_DVD_TG_PRF_M * 365 / D5.SUM_ACM * 100 * 10000 ) / 10000 AS WTDW_DVD_RTS
+				, D5.NWD_ACM
+				, FLOOR( D4.THTM_DVD_TG_PRF_M * 365 / D5.SUM_ACM * 100 * 10000 ) / 10000 AS NWD_DVD_RTS
+				, D5.EX_ACM
+				, FLOOR( D4.THTM_DVD_TG_PRF_M * 365 / D5.SUM_ACM * 100 * 10000 ) / 10000 AS EX_DVD_RTS
+				, '0' AS DVD_HNDL_STA_CD
+				, 'N' AS DVD_RTS_CHG_YN
+				, #usrId# AS FRT_USR_ID
+				, #usrId# AS FNL_USR_ID
+				, #dptCd# AS FNL_DEAL_DPT_CD
+				, #mnuId# AS FNL_MNU_ID
+				, SYSDATE AS FRT_REGI_DH
+				, SYSDATE AS FNL_MDF_DH
+		FROM	(
+					SELECT	#dvdYr# AS DVD_YR
+							, D3.ELT_CRFW_PRF_M			/* 전기이월이익금 */ 
+							, D3.THTM_UN_DSP_PRF_SP		/* 당기미처분이익잉여금	*/
+							, D3.THTM_PIA_DVD_M			/* 당기선급배당금 */
+							, D3.THTM_UN_DSP_PRF_SP - D3.THTM_PIA_DVD_M + D3.ELT_CRFW_PRF_M AS THTM_DVD_TG_PRF_M /* 당기배당대상이익금 = 당기미처분이익잉여금 - 당기선급배당금 + 전기이월이익금 */
+					FROM	(
+								SELECT	NVL(SUM(DECODE( SUBSTR(D1.MNST_CLU_CD,1,1), '4', D1.AM, 0 )),0) AS P
+										, NVL(SUM(DECODE( SUBSTR(D1.MNST_CLU_CD,1,1), '5', D1.AM, 0 )),0) AS L
+										, NVL(SUM(DECODE( SUBSTR(D1.MNST_CLU_CD,1,1), '4', D1.AM, 0 )),0)
+										  - NVL(SUM(DECODE( SUBSTR(D1.MNST_CLU_CD,1,1), '5', D1.AM, 0 )),0) AS THTM_UN_DSP_PRF_SP	/* 당기미처분이익잉여금 = 수익 (4XXXXXX) - 비용 ( 5XXXXXX ) */
+										, NVL(SUM( ( CASE WHEN D1.MNST_CLU_CD = '351002' AND D1.TAX_SITM_CD = '0' THEN D1.AM ELSE 0 END ) ), 0) AS ELT_CRFW_PRF_M  /* 전기이월이익금 */ 
+										, NVL(SUM( ( CASE WHEN D1.MNST_CLU_CD = '115002' AND D1.TAX_SITM_CD = '0' THEN D1.AM ELSE 0 END ) ), 0) AS THTM_PIA_DVD_M /* 당기선급배당금 */
+								FROM	TBCSPNBK502M D1
+								WHERE	D1.DEAL_DT = (
+														SELECT 	MAX(D2.DEAL_DT)
+														FROM	TBCSPNBK502M D2 
+														WHERE	D2.DEAL_DT <= #dvdYr# || '1231'
+													)
+							) D3
+				) D4
+				, ( 
+					SELECT	D1.DVD_YR
+							, SUM(D1.WTDW_ACM) AS WTDW_ACM
+							, SUM(D1.NWD_ACM) AS NWD_ACM
+							, SUM(D1.EX_ACM) AS EX_ACM
+							, (SUM(D1.WTDW_ACM) + SUM(D1.NWD_ACM) + SUM(D1.EX_ACM)) AS SUM_ACM
+					FROM	TBCSPNBK402M D1
+					WHERE	D1.DVD_YR = #dvdYr#
+					GROUP BY DVD_YR
+				) D5
+		WHERE	D4.DVD_YR = D5.DVD_YR
+	]]>
+	</insert>
+	
+	<update id="CSPNBK511QDvdAmUpdate" parameterClass="paramMap">
+	<![CDATA[
+		UPDATE	/* CSPNBK511QDvdAmUpdate */ TBCSPNBK402M D1
+		SET		DVD_AM = ( ( WTDW_ACM /365 ) * (( SELECT WTDW_DVD_RTS FROM TBCSPNBK401M WHERE DVD_YR = D1.DVD_YR )/100)
+						+ ( NWD_ACM /365 ) * (( SELECT NWD_DVD_RTS FROM TBCSPNBK401M WHERE DVD_YR = D1.DVD_YR )/100)
+						+ ( EX_ACM /365 ) * (( SELECT EX_DVD_RTS FROM TBCSPNBK401M WHERE DVD_YR = D1.DVD_YR )/100)
+						)
+				, CSH_DVD_YN = (
+					CASE
+						WHEN ( ( WTDW_ACM /365 ) * (( SELECT WTDW_DVD_RTS FROM TBCSPNBK401M WHERE DVD_YR = D1.DVD_YR )/100)
+								+ ( NWD_ACM /365 ) * (( SELECT NWD_DVD_RTS FROM TBCSPNBK401M WHERE DVD_YR = D1.DVD_YR )/100)
+								+ ( EX_ACM /365 ) * (( SELECT EX_DVD_RTS FROM TBCSPNBK401M WHERE DVD_YR = D1.DVD_YR )/100)
+								+ ( SELECT INV_BL FROM TBCSPNBK101M WHERE MOUI_NO = D1.MOUI_NO )
+							) > TO_NUMBER( (SELECT SET_TXT FROM TBCSPNBK003M WHERE OP_MTRL_MNG_CD = '0') )
+						THEN 'Y'
+						ELSE 'N'
+					END
+				)
+				, FNL_USR_ID = #usrId#
+				, FNL_DEAL_DPT_CD = #dptCd#
+				, FNL_MNU_ID = #mnuId#
+				, FNL_MDF_DH = SYSDATE 
+		WHERE	D1.DVD_YR = #dvdYr#
+	]]>
+	</update>
+</sqlMap>

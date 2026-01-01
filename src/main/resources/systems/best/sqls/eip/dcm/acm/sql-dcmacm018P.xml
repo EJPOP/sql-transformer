@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.dcm.acm.dao.DCMACM018PMapper">
+
+   	
+	<!--  문서 기본편집권한 목록  -->
+	<select id="selectUserAuthList" parameterType="paramMap" resultType="egovMap">
+	/* kr.go.bai.eip.dcm.acm.dao.DCMACM018PMapper.selectUserAuthList */
+     SELECT AA.AUTH_CD
+          , AA.AUTH_CD_NM
+          , AA.CNB
+          , BB.DPT_CD
+          , F_DPT_INFO(BB.DPT_CD,'1') AS DPT_NM
+          , BB.RANK_CD
+          , F_CODE_NM('1000173',BB.RANK_CD) AS RANK_NM
+          , BB.USR_ID
+          , BB.USR_NAM
+          , AA.AUD_YR
+          , AA.AUD_NO
+          , AA.AUD_STEP_CD
+          , AA.DOC_ID
+          , AA.CNB AS EDT_CNB
+          , BB.RANK_CD AS EDT_RANK_CD
+          , BB.PST_CD AS EDT_PST_CD
+          , AA.AUTH_SEQ
+       FROM ( SELECT 0 AS AUTH_SEQ
+                   , A.AUD_YR
+	               , A.AUD_NO
+	               , A.AUD_STEP_CD
+	               , A.DOC_ID
+                   , B.AUTH_CD
+	               , B.AUTH_CD_NM
+	               , (CASE WHEN B.AUTH_CD = 'R01' THEN F_USR_INFO_BY_ID(A.DOC_WRT_ID,'1')
+	                                              ELSE C.CNB
+	                   END) AS CNB
+			    FROM TBBADDED103M A 			
+			   INNER JOIN 
+			         (SELECT AA.AUD_DOC_CD /* 문서그룹ID */
+			 	           , AA.AUTH_CD /* 권한코드 */
+				           , CC.CD_NM AS AUTH_CD_NM /* 코드명 */ 
+				        FROM TBDCMACM201M AA /* 감사문서기본편집권한관리 */
+				       INNER JOIN
+				             TBFDMADM001M BB
+				          ON BB.AUD_DOC_CD = AA.AUD_DOC_CD
+			           INNER JOIN    
+			                 ( SELECT CD
+			                        , CD_NM 
+			                     FROM TBDCMACM013C 
+			                    WHERE CMM_CD_DVSN_CD = '1000889' 
+			                      AND USE_YN = 'Y' 
+			                      AND CD != '000000000') CC /* 공통코드 */
+			              ON AA.AUTH_CD = CC.CD ) B
+			      ON A.RPRT_CD = B.AUD_DOC_CD
+			    LEFT OUTER JOIN
+			         (/* 주관자, 보조자, 주관자권한, 서무권한*/
+				  	  SELECT A.AUD_YR
+					       , A.AUD_NO
+					       , CASE WHEN A.AUDTOR_DVSN_CD = '1'        THEN 'R02' -- 주관자
+					              WHEN A.AUDTOR_DVSN_CD = '2'        THEN 'R03' -- 보조자
+					              WHEN A.AUDTOR_DVSN_CD = '3'        THEN 'R04' -- 주관자권한
+					              WHEN A.AUDTOR_DVSN_CD = '4'        THEN 'R05' -- 서무권한
+					          END AS AUTH_CD 
+					       , CNB  
+					    FROM TBBADDED031L A
+					   UNION ALL
+					   /* 감사단장 */
+					  SELECT A.AUD_YR
+					       , A.AUD_NO
+					       , 'R06' AS AUD_CD
+					       , A.AUD_TOT_DRTR_CNB AS CNB
+					    FROM TBBADDED001M A
+					   UNION ALL
+					    /* 부서장 */
+					  SELECT B.AUD_YR
+					       , B.AUD_NO
+					       , 'R07' AS AUD_CD
+					       , A.CNB
+					    FROM TBDCMACM001M A
+					   INNER JOIN 
+					         TBBADDED001M B
+					      ON B.MNG_DPT_CD = A.DPT_CD
+					   WHERE A.PST_CD = '0013600'
+					     AND A.RQS_STA_CD = '3'
+                        ) C	  
+			      ON C.AUD_YR = A.AUD_YR
+			     AND C.AUD_NO = A.AUD_NO
+			     AND C.AUTH_CD = B.AUTH_CD  
+ 			   WHERE A.AUD_YR = #{schChkAudYr}
+			     AND A.AUD_NO = #{schChkAudNo}
+			     AND A.AUD_STEP_CD = #{schChkStepCd}
+			     AND A.DOC_ID = #{schChkDocId} 
+			     AND (C.CNB IS NOT NULL OR (B.AUTH_CD = 'R01' AND A.DOC_WRT_ID IS NOT NULL))
+			     
+		UNION ALL
+	     
+	      SELECT A.AUTH_SEQ
+               , A.AUD_YR
+			   , A.AUD_NO
+			   , A.AUD_STEP_CD
+			   , A.DOC_ID
+			   , '' AS AUTH_CD
+	           , '추가권한' AS AUTH_CD_NM
+			   , A.EDT_CNB AS CNB		
+		    FROM TBDCMACM202M A
+		   WHERE A.AUD_YR = #{schChkAudYr}
+			 AND A.AUD_NO = #{schChkAudNo}
+			 AND A.AUD_STEP_CD = #{schChkStepCd}
+			 AND A.DOC_ID = #{schChkDocId}
+	 ) AA
+     LEFT OUTER JOIN
+          TBDCMACM001M BB
+       ON AA.CNB = BB.CNB
+	ORDER BY AA.AUTH_SEQ, AA.AUTH_CD, BB.DPT_CD, BB.RANK_CD
+	</select>
+	
+	<!--  문서 권한변경 목록  -->
+	<select id="selectUserAuthList2" parameterType="paramMap" resultType="egovMap">
+	/* kr.go.bai.eip.dcm.acm.dao.DCMACM018PMapper.selectUserAuthList2 */
+     SELECT AA.AUTH_SEQ
+          , AA.AUD_YR
+		  , AA.AUD_NO
+		  , AA.AUD_STEP_CD
+		  , AA.DOC_ID
+		  , AA.EDT_CNB
+		  , AA.EDT_PST_CD
+          , BB.DPT_CD
+          , F_DPT_INFO(BB.DPT_CD,'1') AS DPT_NM
+          , AA.EDT_RANK_CD
+          , F_CODE_NM('1000173',AA.EDT_RANK_CD) AS RANK_NM
+          , BB.USR_ID
+          , BB.USR_NAM
+       FROM ( SELECT A.AUTH_SEQ
+                   , A.AUD_YR
+				   , A.AUD_NO
+				   , A.AUD_STEP_CD
+				   , A.DOC_ID
+				   , A.EDT_CNB
+				   , A.EDT_RANK_CD
+				   , A.EDT_PST_CD
+			    FROM TBDCMACM202M A
+			   WHERE A.AUD_YR = #{schChkAudYr}
+			     AND A.AUD_NO = #{schChkAudNo}
+			     AND A.AUD_STEP_CD = #{schChkStepCd}
+			     AND A.DOC_ID = #{schChkDocId}) AA
+    INNER JOIN
+          TBDCMACM001M BB
+       ON AA.EDT_CNB = BB.CNB
+	ORDER BY
+	      AA.AUTH_SEQ
+	    , BB.USR_NAM 
+	    , BB.DPT_CD	   
+		, BB.RANK_CD			   
+			   
+	</select>
+	
+	 <select id="selectMgtAuthCnb" parameterType="paramMap" resultType="egovMap" >
+    /* kr.go.bai.eip.dcm.acm.dao.DCMACM018PMapper.selectMgtAuthCnb*/
+    <![CDATA[
+        SELECT CNB  /*주관자, 보조자 */
+          FROM TBBADDED031L T1
+         INNER JOIN 
+               TBBADDED103M T2
+            ON T1.AUD_YR = T2.AUD_YR 
+           AND T1.AUD_NO = T2.AUD_NO 
+         WHERE T2.AUD_YR = #{audYr}
+           AND T2.AUD_NO = #{audNo}
+           AND T2.AUD_STEP_CD = #{audStepCd}
+           AND T2.DOC_ID = #{docId}
+           AND T1.AUDTOR_DVSN_CD IN ('1','2')
+           
+         /* 문서작성자 추가 - 2022.01.28 yyh */         
+         UNION ALL
+         SELECT (SELECT CNB 
+                   FROM TBDCMACM001M
+                  WHERE USR_ID = A.DOC_WRT_ID) AS CNB
+           FROM TBBADDED103M A
+          WHERE A.AUD_YR = #{audYr}
+            AND A.AUD_NO = #{audNo}
+            AND A.AUD_STEP_CD = #{audStepCd}
+            AND A.DOC_ID =  #{docId}
+ 
+          /* 기안자 추가 - 2022.01.20 yyh */ 
+         UNION ALL          
+         SELECT B.SBM_CNB AS CNB
+           FROM TBBADDED103M A
+               ,TBDCMACM022L B
+          WHERE A.AUD_YR = #{audYr}
+            AND A.AUD_NO = #{audNo}
+            AND A.AUD_STEP_CD = #{audStepCd}
+            AND A.DOC_ID =  #{docId}
+            AND A.APV_RQS_ID = B.APV_DOC_NO 
+           ]]>
+    </select>
+	
+</mapper> 

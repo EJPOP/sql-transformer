@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd" >
+<sqlMap namespace="csp/nbk/231">
+	
+	<select id="CSPNBK231QAccListSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT	/* CSPNBK231QAccListSelect */
+				'0' AS MOUI_DVSN_CD
+				, '개인' AS MOUI_DVSN_CD_NM
+				, D4.MOUI_NO
+				, D4.ACC_KND
+				, D4.OAA_DT
+				, D4.BL
+				, '잔액증명서 출력' AS RPT_BTN
+				, '거래내역조회' AS DEAL_LIST_BTN
+		FROM	(
+					SELECT	NVL(MAX(D1.MOUI_NO), #mouiNo#) AS MOUI_NO
+							, '출자금' AS ACC_KND
+							, MAX(D1.INV_OAA_DT) AS OAA_DT
+							, NVL(MAX(D1.INV_BL), 0) AS BL
+							, 1 AS ORD
+					FROM	TBCSPNBK101M D1
+					WHERE	D1.MOUI_NO = #mouiNo#
+					
+					UNION ALL
+					
+					SELECT	NVL(MAX(D2.MOUI_NO), #mouiNo#) AS MOUI_NO
+							, '대출금' AS ACC_KND
+							, MAX(D2.LEND_OAA_DT) AS OAA_DT
+							, NVL(MAX(D2.LEND_BL), 0) AS BL
+							, 2 AS ORD
+					FROM	TBCSPNBK202M D2
+					WHERE	D2.LEND_KND_CD = '1'
+					AND		D2.MOUI_NO = #mouiNo#
+					
+					UNION ALL
+					
+					SELECT	NVL(MAX(D3.MOUI_NO), #mouiNo#) AS MOUI_NO
+							, '임차보증대출금' AS ACC_KND
+							, MAX(D3.LEND_OAA_DT) AS OAA_DT
+							, NVL(MAX(D3.LEND_BL), 0) AS BL
+							, 3 AS ORD
+					FROM	TBCSPNBK202M D3
+					WHERE	D3.LEND_KND_CD = '2'
+					AND		D3.MOUI_NO = #mouiNo#
+				) D4
+		ORDER BY ORD
+	]]>
+	</select>
+	
+	<select id="CSPNBK231QOrgAccListSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT	/* CSPNBK231QOrgAccListSelect */
+				D1.MOUI_DVSN_CD
+				, ( SELECT D3.CD_NM FROM TBDCMACM013C D3 WHERE D3.CMM_CD_DVSN_CD = '1000153' AND D3.CD = D1.MOUI_DVSN_CD ) AS MOUI_DVSN_CD_NM
+				, D1.MOUI_NO
+				, D1.OGNZ_NM || '(' || D1.MOUI_NO || ')' AS OGNZ_NM
+				, D2.INV_OAA_DT
+				, D2.INV_BL
+				, '잔액증명서 출력' AS RPT_BTN
+				, '거래내역조회' AS DEAL_LIST_BTN
+		FROM	TBCSPNBK001M D1
+				, TBCSPNBK101M D2
+		WHERE	D1.MOUI_NO = D2.MOUI_NO
+		AND		D1.CNB = ( SELECT CNB FROM TBCSPNBK001M WHERE MOUI_DVSN_CD = '0' AND MOUI_NO = #mouiNo# )
+		AND		D1.MOUI_DVSN_CD = '1'
+		AND		D1.SCS_YN = 'N'
+		ORDER BY OGNZ_NM
+	]]>
+	</select>
+	
+	<select id="CSPNBK231QOReportSelect1" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT  CASE A.MOUI_DVSN_CD WHEN '0' THEN C.USR_NAM ELSE A.OGNZ_NM END NAME,
+		        A.MOUI_NO,
+		        B.DEAL_AF_LEDG_BL,
+		        (SELECT SET_TXT FROM TBCSPNBK003M WHERE OP_MTRL_MNG_CD = '4') AS NM,
+		        #strDT# AS LEND_DEAL_DT
+		FROM    TBCSPNBK001M A
+		        , TBCSPNBK102L B
+		        , TBDCMACM001M C
+		WHERE   A.MOUI_NO = B.MOUI_NO
+		AND     A.CNB = C.CNB
+		AND     A.MOUI_NO = #MOUI_NO#
+		AND     B.INV_DEAL_DT= ( SELECT  MAX(INV_DEAL_DT)
+		                            FROM    TBCSPNBK102L 
+		                            WHERE   MOUI_NO = #MOUI_NO#
+		                            AND     INV_DEAL_DT <= #strDT# )
+		AND     B.INV_DEAL_SLN = (   SELECT  MAX(INV_DEAL_SLN)
+		                        FROM    TBCSPNBK102L
+		                        WHERE   MOUI_NO = #MOUI_NO#
+		                        AND     INV_DEAL_DT = ( SELECT  MAX(INV_DEAL_DT)
+		                                                            FROM    TBCSPNBK102L
+		                                                             WHERE   MOUI_NO = #MOUI_NO#
+		                                                            AND     INV_DEAL_DT <= #strDT# ) )
+	]]>
+	</select>
+	
+	<select id="CSPNBK231QOReportSelect2" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT  CASE A.MOUI_DVSN_CD WHEN '0' THEN C.USR_NAM ELSE A.OGNZ_NM END AS USR_NAME,
+		        A.MOUI_NO AS MOUI_NO,
+		        B.LEND_BL AS LEND_BL,
+		        CASE B.LEND_KND_CD WHEN '1' THEN '대출금' ELSE '임차보증대출금' END AS T_LEND_KIND,
+		        (SELECT SET_TXT FROM TBCSPNBK003M WHERE OP_MTRL_MNG_CD = '4') AS NM,
+		        #strDT# AS LEND_DEAL_DT
+		FROM    TBCSPNBK001M A, TBCSPNBK205L B, TBDCMACM001M C
+		WHERE   A.MOUI_NO = B.MOUI_NO
+		AND     A.CNB = C.CNB
+		AND		B.CNL_YN = 'N'
+		AND     A.MOUI_NO = #MOUI_NO#
+		AND     B.LEND_KND_CD = #LEND_KND_CD#
+		AND     B.LEND_DEAL_DT = ( SELECT  MAX(LEND_DEAL_DT)
+		                        		FROM    TBCSPNBK205L
+		                        		WHERE   MOUI_NO = #MOUI_NO#
+		                        		AND     LEND_KND_CD = #LEND_KND_CD#
+		                        		AND     LEND_DEAL_DT <= #strDT#  )
+		AND     B.LEND_DEAL_DT_SLN = (  SELECT  MAX(LEND_DEAL_DT_SLN)
+			                          FROM    TBCSPNBK205L
+			                          WHERE   LEND_KND_CD = #LEND_KND_CD#
+			                          AND     MOUI_NO = #MOUI_NO#
+			                          AND     LEND_DEAL_DT = ( SELECT MAX(LEND_DEAL_DT)
+		                                                  		FROM TBCSPNBK205L
+		                                                  		WHERE MOUI_NO = #MOUI_NO#
+		                                                  		AND LEND_KND_CD = #LEND_KND_CD#
+		                                                  		AND LEND_DEAL_DT <= #strDT# ) )
+	]]>
+	</select>
+</sqlMap>

@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="bad/ded/028">
+
+	<!--일반출장사항 조회-->
+	<select id="BADDED028EMainSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[       
+          SELECT * 
+            FROM (    
+                    
+			SELECT D1.BZT_YR								AS BZT_YR				/*출장년도*/
+			     , D1.BZT_SNO                           	AS BZT_SNO              /*출장순번*/
+                 , D1.SPRT_NO                               AS SPRT_NO              /*지원번호*/
+                 , D1.BZT_YR||'-'||D1.SPRT_NO               AS SPRT_NM				/*지원번호*/
+			     , D1.BZT_DVSN_CD                       	AS BZT_DVSN_CD          /*출장구분코드*/
+			     , D1.GEN_BZT_KND_CD                    	AS GEN_BZT_KND_CD       /*감사출장종류코드*/
+			     , F_CODE_NM('1000021',D1.GEN_BZT_KND_CD)   AS GEN_BZT_KND_NM   	/*감사출장종류명*/
+			     , D1.TIT_TXT                           	AS TIT_TXT              /*출장사항명*/
+			     , D1.BZT_BRDV_CD                       	AS BZT_BRDV_CD          /*출장국과코드*/
+			     , F_DPT_INFO(D1.BZT_BRDV_CD,'1')       	AS BZT_BRDV_NM          /*출장국과명*/
+			     , TO_CHAR(TO_DATE(D1.AUD_STR_DT),'YYYY-MM-DD')||'~'
+			     || TO_CHAR(TO_DATE(D1.AUD_END_DT),'YYYY-MM-DD') AS AUD_ST_END_DT  	/*실시기간*/
+			     , D1.AUD_STR_DT
+			     , D1.AUD_END_DT
+			     , D3.PCT_CNB_CNT							AS PCT_CNB_CNT			/*인원*/	
+			     , D3.EXP_CNT								AS EXP_CNT				/*전문가 인원*/
+                 , D4.CNT									AS AJT_CNT 				/*수령자*/
+                 , CASE WHEN D1.CALC_DTM_YN = 'Y' 
+                             THEN '확정'
+                        ELSE CASE WHEN D4.CALC_CNT>0 THEN 'Y' ELSE 'N' END 
+                    END                                     AS AJT_YN_N             /*계산여부 - (확정로직 추가 - 2016.09.27 yyh) */
+                 , CASE WHEN D1.AJT_DTM_YN = 'Y' 
+                             THEN '확정'
+                        ELSE CASE WHEN D4.ADJ_CNT>0 THEN 'Y' ELSE 'N' END
+                    END                                     AS AJT_YN_Y			    /*정산여부 - (확정로직 추가 - 2016.09.27 yyh) */                 
+                 , D1.LEAD_EXS_PMT_YN						AS LEAD_EXS_PMT_YN		/*지휘비지급여부*/	
+                 , D1.CALC_DTM_YN                           AS CALC_DTM_YN          /*계산확정여부 - 2016.07.28 yyh*/ 
+                 , D1.AJT_DTM_YN                            AS AJT_DTM_YN           /*정산확정여부 - 2016.07.28 yyh*/                 
+			  FROM TBBADDED002M D1
+			     ,(   
+			        SELECT BZT_YR
+                         , BZT_SNO 
+                         , COUNT(DISTINCT PCT_CNB) PCT_CNB_CNT
+                         , SUM( DECODE(STF_DVSN_CD,'3',1,0)) EXP_CNT 
+                      FROM TBBADDED005L
+                     WHERE 1=1
+                       AND BZT_YR =  #BZT_YR#
+                     GROUP BY BZT_YR, BZT_SNO                     
+                  ) D3
+                 , (
+                    SELECT BZT_YR
+                         , BZT_SNO
+                         , COUNT(DISTINCT PCT_CNB)		AS CNT
+                         , SUM(DECODE(CALC_YN,'N',1,0)) AS CALC_CNT
+                         , SUM(DECODE(CALC_YN,'Y',1,0)) AS ADJ_CNT 
+                      FROM TBBADDED011L
+                     WHERE 1=1
+                       AND BZT_YR =  #BZT_YR#
+                    GROUP BY BZT_YR, BZT_SNO   
+                   ) D4 
+			WHERE 1=1
+              AND D1.BZT_DVSN_CD = '2' /*일반출장*/
+              AND D1.BZT_YR     = D3.BZT_YR(+)
+              AND D1.BZT_SNO    = D3.BZT_SNO(+)
+              AND D1.BZT_YR     = D4.BZT_YR(+)
+              AND D1.BZT_SNO    = D4.BZT_SNO(+)  
+			  AND D1.BZT_BRDV_CD IN (SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#strCnb#, #dptAuth#, '', #strUpSpvBrdvCd#)))   /*직급이 원장일 경우 'ALL' 그외는 'DEPTLW'로 셋팅*/                      
+		]]>		       
+		<isNotEmpty property="strSpvBrdvCd">	 
+			  AND D1.BZT_BRDV_CD = #strSpvBrdvCd#		 /*출장국과코드*/
+		</isNotEmpty>   	       
+		<isNotEmpty property="BZT_BRDV_CD">	 
+			  AND D1.BZT_BRDV_CD = #BZT_BRDV_CD#		 /*출장국과코드*/
+		</isNotEmpty>   
+		<isNotEmpty property="SPRT_NO">
+			  AND D1.SPRT_NO = #SPRT_NO#				/*지원번호*/
+		</isNotEmpty>			
+		<isNotEmpty property="BZT_YR">
+			  AND D1.BZT_YR = #BZT_YR#					/*출장년도*/
+		</isNotEmpty>		
+		<isNotEmpty property="TIT_TXT">
+			 AND D1.TIT_TXT LIKE #TIT_TXT#||'%'			/*출장상황명*/
+		</isNotEmpty>
+		
+        <![CDATA[       
+			)
+			WHERE 1=1
+		]]>			
+		
+		<!-- 계산이면서 계산미확정건 - 2016.12.13 yyh  -->
+		<isEqual property="strCalcYn" compareValue="Y">
+			  AND (AJT_YN_N != 'N' AND CALC_DTM_YN = 'N')
+		</isEqual>
+		
+		<isEqual property="strCalcYn" compareValue="N">
+			  AND AJT_YN_N  = 'N'
+		</isEqual>
+		
+		<!-- 계산확정 조건 추가 - 2016.12.13 yyh -->
+		<isEqual property="strCalcYn" compareValue="O">
+		      AND CALC_DTM_YN = 'Y' 
+		</isEqual>			
+			
+		
+		<!-- 정산이면서 정산미확정건 - 2016.12.13 yyh  -->
+		<isEqual property="strBalYn" compareValue="Y">
+			  AND (AJT_YN_Y != 'N' AND AJT_DTM_YN = 'N')
+		</isEqual>
+		
+		<isEqual property="strBalYn" compareValue="N">
+			  AND AJT_YN_Y = 'N'
+		</isEqual>	
+		
+		<!-- 정산확정 조건 추가 - 2016.12.13 yyh -->
+		<isEqual property="strBalYn" compareValue="O">
+			  AND AJT_DTM_YN = 'Y'
+		</isEqual>			
+		
+
+        <![CDATA[       
+			 ORDER BY TO_NUMBER(SPRT_NO) DESC  
+        ]]>
+	</select>
+
+	<!-- 일반출장 지원번호 Max값 찾기 -->
+	<select id="BADDED025ESprtNoMaxSelect" parameterClass="paramMap"
+		resultClass="resultMap">
+        <![CDATA[     	
+			    SELECT TO_CHAR(NVL(MAX(TO_NUMBER(SPRT_NO)),0)+1) AS MAX_SPRT_NO
+				  FROM TBBADDED002M
+				 WHERE 1=1
+					AND BZT_YR = #BZT_YR#
+		]]>
+	</select>	
+	
+	
+</sqlMap> 
+

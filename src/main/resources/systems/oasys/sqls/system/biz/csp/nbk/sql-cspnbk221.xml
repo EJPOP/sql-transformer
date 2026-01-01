@@ -1,0 +1,522 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd" >
+<sqlMap namespace="csp/nbk/221">
+
+	<sql id="CSPNBK221EMouiListSelectWhere">
+	<![CDATA[
+		FROM	TBCSPNBK001M D1
+				, TBDCMACM001M D2
+				, TBDCMACM002M D3
+				, TBCSPNBK101M D4
+				, (
+					SELECT 	D7.LEND_KND_CD
+							, D7.MOUI_NO
+							, D7.LEND_BL
+					FROM	TBCSPNBK202M D7
+					WHERE	D7.LEND_KND_CD = '1'
+				) D5
+				, (
+					SELECT 	D8.LEND_KND_CD
+							, D8.MOUI_NO
+							, D8.LEND_BL
+					FROM	TBCSPNBK202M D8
+					WHERE	D8.LEND_KND_CD = '2'
+				) D6
+		WHERE	D1.CNB = D2.CNB
+		AND		D2.DPT_CD = D3.DPT_CD
+		AND		D1.MOUI_NO = D4.MOUI_NO(+)
+		AND		D1.MOUI_NO = D5.MOUI_NO(+)
+		AND		D1.MOUI_NO = D6.MOUI_NO(+)
+	]]>
+		<isNotEmpty property="mouiDvsnCd" prepend="AND">
+				D1.MOUI_DVSN_CD = #mouiDvsnCd#
+		</isNotEmpty>
+		<isNotEmpty property="mouiNo" prepend="AND">
+				D1.MOUI_NO = #mouiNo#
+		</isNotEmpty>
+		<isNotEmpty property="mouiNm" prepend="AND">
+				( D2.USR_NAM LIKE '%' || #mouiNm# || '%' OR D1.OGNZ_NM LIKE '%' || #mouiNm# || '%' )
+		</isNotEmpty>
+		<isNotEmpty property="scsYn" prepend="AND">
+				D1.SCS_YN = #scsYn#
+		</isNotEmpty>
+		<isNotEmpty property="salSeiYn" prepend="AND">
+				D1.SAL_SEI_YN = #salSeiYn#
+		</isNotEmpty>
+		<isNotEmpty property="beginInvBl">
+			<isNotEmpty property="endInvBl" prepend="AND">
+				D4.INV_BL BETWEEN #beginInvBl# AND #endInvBl#
+			</isNotEmpty>
+			<isEmpty property="endInvBl" prepend="AND">
+			<![CDATA[
+				D4.INV_BL >= #beginInvBl#
+			]]>
+			</isEmpty>
+		</isNotEmpty>
+		<isEmpty property="beginInvBl">
+			<isNotEmpty property="endInvBl" prepend="AND">
+			<![CDATA[
+				D4.INV_BL <= #endInvBl#
+			]]>
+			</isNotEmpty>
+		</isEmpty>
+		<!-- <isNotEmpty property="beginInvBl" prepend="AND">
+				D4.INV_BL BETWEEN #beginInvBl# AND #endInvBl#
+		</isNotEmpty> -->
+		<isNotEmpty property="beginLendBl">
+			<isNotEmpty property="endLendBl" prepend="AND">
+				D5.LEND_BL BETWEEN #beginLendBl# AND #endLendBl#
+			</isNotEmpty>
+			<isEmpty property="endLendBl" prepend="AND">
+			<![CDATA[
+				D5.LEND_BL >= #beginLendBl#
+			]]>
+			</isEmpty>
+		</isNotEmpty>
+		<isEmpty property="beginLendBl">
+			<isNotEmpty property="endLendBl" prepend="AND">
+			<![CDATA[
+				D5.LEND_BL <= #endLendBl#
+			]]>
+			</isNotEmpty>
+		</isEmpty>
+		<!-- <isNotEmpty property="beginLendBl" prepend="AND">
+				D5.LEND_BL BETWEEN #beginLendBl# AND #endLendBl#
+		</isNotEmpty> -->
+		<isNotEmpty property="exDvdRtsTgYn" prepend="AND">
+				D1.EX_DVD_RTS_TG_YN = #exDvdRtsTgYn#
+		</isNotEmpty>
+		<isEqual property="arrYn" compareValue="Y" prepend="AND">
+		<![CDATA[
+				EXISTS (
+					SELECT	'Y'
+					FROM	TBCSPNBK203D D9
+					WHERE	D9.MOUI_NO = D1.MOUI_NO
+					AND		D9.LEND_BL > 0
+					AND		D9.EXPR_DT < TO_CHAR(SYSDATE, 'YYYYMMDD')
+				)
+		]]>
+		</isEqual>
+		<isEqual property="arrYn" compareValue="N" prepend="AND">
+		<![CDATA[
+				EXISTS (
+					SELECT	'Y'
+					FROM	TBCSPNBK203D D9
+					WHERE	D9.MOUI_NO = D1.MOUI_NO
+					AND		D9.LEND_BL > 0
+					AND		D9.EXPR_DT >= TO_CHAR(SYSDATE, 'YYYYMMDD')
+				)
+		]]>
+		</isEqual>
+	<![CDATA[
+		ORDER BY MOUI_NO
+	]]>
+	</sql>
+	
+	<select id="CSPNBK221EMouiListSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT	/* CSPNBK221EMouiListSelect */
+				D1.MOUI_DVSN_CD
+				/*, F_CODE_NM( '', D1.MOUI_DVSN_CD) AS MOUI_DVSN_CD_NM*/
+				, DECODE( D1.MOUI_DVSN_CD, '0', '개인', '1', '단체' ) AS MOUI_DVSN_CD_NM
+				, D1.MOUI_NO
+				, DECODE( D1.MOUI_DVSN_CD, '0', D2.USR_NAM, D1.OGNZ_NM || '(' || D2.USR_NAM || ')' ) AS USR_NAM
+				, SUBSTR(D2.EIN, 1, 6) || '-*******' AS EIN
+				, D3.DPT_NM
+				, NVL(D4.INV_BL, 0) AS INV_BL
+				, NVL(D5.LEND_BL, 0) AS LEND_BL
+				, NVL(D6.LEND_BL, 0) AS GU_LEND_BL
+				, D1.SCS_YN
+				, D1.SAL_SEI_YN
+	]]>
+		<include refid="CSPNBK221EMouiListSelectWhere"/>
+	</select>
+	
+	<select id="CSPNBK221EMouiListReportSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT	/* CSPNBK221EMouiListReportSelect */
+				D1.MOUI_DVSN_CD
+				/*, F_CODE_NM( '', D1.MOUI_DVSN_CD) AS MOUI_DVSN_CD_NM*/
+				, DECODE( D1.MOUI_DVSN_CD, '0', '개인', '1', '단체' ) AS MOUI_DVSN_CD_NM
+				, D1.MOUI_NO
+				, DECODE( D1.MOUI_DVSN_CD, '0', D2.USR_NAM, D1.OGNZ_NM || '(' || D2.USR_NAM || ')' ) AS USR_NAM
+				, SUBSTR(D2.EIN, 1, 6) || '-*******' AS EIN
+				, D3.DPT_NM
+				, NVL(D4.INV_BL, 0) AS INV_BL
+				, NVL(D5.LEND_BL, 0) AS LEND_BL
+				, NVL(D6.LEND_BL, 0) AS GU_LEND_BL
+				, D1.SCS_YN
+				, D1.SAL_SEI_YN
+				, D1.CNB
+	]]>
+		<include refid="CSPNBK221EMouiListSelectWhere"/>
+	</select>
+
+
+	
+	<select id="CSPNBK221EMouiListCntSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT	/* CSPNBK221EMouiListCntSelect */
+				NVL(SUM(DECODE( D1.MOUI_DVSN_CD, '0', 1, 0 )), 0) AS MOUI_PERSON_CNT
+				, NVL(SUM(DECODE( D1.MOUI_DVSN_CD, '1', 1, 0 )), 0) AS MOUI_ORG_CNT
+				, MAX(D1.MOUI_NO) AS MOUI_NO
+	]]>
+		<include refid="CSPNBK221EMouiListSelectWhere"/>
+	</select>
+	
+	<select id="CSPNBK221EArrMouiListSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT	/* CSPNBK221EArrMouiListSelect */
+				D7.LEND_KND_CD
+				, D7.MOUI_NO
+				, D7.CNB
+				, D7.USR_NAM
+				, D7.LEND_AM
+				, D7.LEND_BL
+				, D7.DELAY_LEND_BL
+				, D7.FNL_RPM_DT
+				, D7.EMN_RPM_PRN
+				, D7.ARR_RPM_PRN_SUM_AM
+				, D7.CH_ARR_RPM_PRN_SUM_AM
+				, D7.TOT_RPM_PRN_SUM_AM
+		FROM	(
+					SELECT	D3.LEND_KND_CD
+							, D3.MOUI_NO
+							, D5.CNB
+							, D6.USR_NAM
+							, D3.LEND_AM
+							, D3.LEND_BL
+							, D3.DELAY_LEND_BL
+							, D4.FNL_RPM_DT
+							, D3.EMN_RPM_PRN
+							, D4.ARR_RPM_PRN_SUM_AM
+							, (
+								CASE
+									WHEN D4.ARR_RPM_PRN_SUM_AM >= D3.DELAY_LEND_BL
+									THEN D3.DELAY_LEND_BL
+									ELSE
+										CASE
+											WHEN D3.DELAY_LEND_BL < 20000000
+											THEN
+												CASE
+													WHEN D3.DELAY_LEND_BL >= 400000
+													THEN
+														CASE
+															WHEN D4.ARR_RPM_PRN_SUM_AM >= 400000
+															THEN D4.ARR_RPM_PRN_SUM_AM
+															ELSE 400000
+														END
+													ELSE D3.DELAY_LEND_BL
+												END
+											ELSE
+												CASE
+													WHEN D3.DELAY_LEND_BL < 30000000
+													THEN
+														CASE
+															WHEN D4.ARR_RPM_PRN_SUM_AM >= 500000
+															THEN D4.ARR_RPM_PRN_SUM_AM
+															ELSE 500000
+														END
+													ELSE
+														CASE
+															WHEN D4.ARR_RPM_PRN_SUM_AM >= 670000
+															THEN D4.ARR_RPM_PRN_SUM_AM
+															ELSE 670000
+														END
+												END
+										END
+								END
+							) AS CH_ARR_RPM_PRN_SUM_AM
+							, ( D3.EMN_RPM_PRN + D4.ARR_RPM_PRN_SUM_AM ) AS TOT_RPM_PRN_SUM_AM
+					FROM	(
+								SELECT	D1.LEND_KND_CD
+										, D1.MOUI_NO
+										, SUM(D1.LEND_AM) AS LEND_AM
+										, SUM(D1.LEND_BL) AS LEND_BL
+										, SUM(
+											CASE
+	]]>
+		<isEqual property="arrGubunDvsn" compareValue="A" prepend="WHEN">
+		<![CDATA[
+												     D1.LEND_BL > 0 AND D1.EXPR_DT < #arrDt#
+		]]>
+		</isEqual>
+		<isEqual property="arrGubunDvsn" compareValue="M" prepend="WHEN">
+		<![CDATA[
+												     D1.LEND_BL > 0 AND D1.EXPR_DT BETWEEN TO_CHAR( ADD_MONTHS( TO_DATE(#arrDt#, 'YYYYMMDD'), -1 ), 'YYYYMMDD') AND TO_CHAR( TO_DATE(#arrDt#, 'YYYYMMDD') - 1, 'YYYYMMDD' )
+		]]>
+		</isEqual>
+	<![CDATA[
+												THEN D1.LEND_BL
+												ELSE 0
+											END
+										) AS DELAY_LEND_BL
+										, SUM(
+											CASE
+												WHEN D1.LEND_BL > 0 AND D1.LEND_DT > '20080201'
+												THEN D1.EMN_RPM_PRN
+												ELSE 0
+											END
+										) AS EMN_RPM_PRN
+								FROM	TBCSPNBK203D D1
+								WHERE	D1.LEND_KND_CD = '1'
+								AND		D1.CNL_YN = 'N'
+	]]>
+		<isNotEmpty property="arrMouiNo" prepend="AND">
+										D1.MOUI_NO = #arrMouiNo#		
+		</isNotEmpty>
+	<![CDATA[
+								GROUP BY D1.LEND_KND_CD, D1.MOUI_NO
+							) D3
+							, (
+								SELECT	D2.MOUI_NO
+										, D2.FNL_RPM_DT
+										, NVL(D2.ARR_RPM_PRN_SUM_AM, 0) AS ARR_RPM_PRN_SUM_AM
+								FROM	TBCSPNBK202M D2
+								WHERE	D2.LEND_KND_CD = 1
+							) D4
+							, TBCSPNBK001M D5
+							, TBDCMACM001M D6
+					WHERE	D3.MOUI_NO = D4.MOUI_NO
+					AND		D3.MOUI_NO = D5.MOUI_NO
+					AND		D5.CNB = D6.CNB
+					AND		D3.DELAY_LEND_BL > 0
+				) D7
+	]]>
+		<dynamic prepend="WHERE">
+			<isEqual property="arrRpmPrnDvsn" compareValue="Y" prepend="AND">
+			<![CDATA[
+					D7.ARR_RPM_PRN_SUM_AM < D7.CH_ARR_RPM_PRN_SUM_AM
+			]]>
+			</isEqual>
+			<isEqual property="uplist" compareValue="Y" prepend="AND">
+			<![CDATA[
+					D7.ARR_RPM_PRN_SUM_AM != D7.CH_ARR_RPM_PRN_SUM_AM
+			]]>
+			</isEqual>
+			<isNotEmpty property="cnb" prepend="AND">
+					D7.CNB = #cnb#
+			</isNotEmpty>
+			<isNotEmpty property="arrMouiNm" prepend="AND">
+					D7.USR_NAM LIKE '%' || #arrMouiNm# || '%'
+			</isNotEmpty>
+		</dynamic>
+	<![CDATA[
+		ORDER BY MOUI_NO
+	]]>
+	</select>
+	
+	<update id="CSPNBK221EEmnRpmPrnPreUpdate" parameterClass="paramMap">
+	<![CDATA[
+		UPDATE	/* CSPNBK221EEmnRpmPrnPreUpdate */
+				TBCSPNBK203D D1
+		SET		EMN_RPM_PRN = (
+								CASE
+									WHEN ( D1.LEND_AM/60 - ROUND( D1.LEND_AM/60, -3 ) ) > 0
+									THEN
+										CASE
+											WHEN ROUND( D1.LEND_AM/60, -3 ) + 1000 >= D1.EMN_RPM_PRN
+											THEN ROUND( D1.LEND_AM/60,-3) + 1000
+											ELSE D1.EMN_RPM_PRN
+										END
+									ELSE
+										CASE
+											WHEN ROUND( D1.LEND_AM/60, -3 ) >= D1.EMN_RPM_PRN
+											THEN ROUND( D1.LEND_AM/60, -3 )
+											ELSE D1.EMN_RPM_PRN
+										END
+								END
+							)
+				, FNL_USR_ID = #FNL_USR_ID#
+				, FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+				, FNL_MNU_ID = #FNL_MNU_ID#
+				, FNL_MDF_DH = SYSDATE
+		WHERE	D1.LEND_KND_CD = '1'
+		AND		D1.LEND_DT BETWEEN '20080201' AND '20090818'
+		AND		D1.CNL_YN = 'N'
+	]]>
+	</update>
+	
+	<update id="CSPNBK221EEmnRpmPrnUpdate" parameterClass="paramMap">
+	<![CDATA[
+		UPDATE	/* CSPNBK221EEmnRpmPrnUpdate */
+				TBCSPNBK203D D1
+		SET		EMN_RPM_PRN = (
+								CASE
+									WHEN ( D1.LEND_AM/120 - ROUND( D1.LEND_AM/60, -3 ) ) > 0
+									THEN
+										CASE
+											WHEN ROUND( D1.LEND_AM/120, -3 ) + 1000 >= D1.EMN_RPM_PRN
+											THEN ROUND( D1.LEND_AM/120,-3) + 1000
+											ELSE D1.EMN_RPM_PRN
+										END
+									ELSE
+										CASE
+											WHEN ROUND( D1.LEND_AM/120, -3 ) >= D1.EMN_RPM_PRN
+											THEN ROUND( D1.LEND_AM/120, -3 )
+											ELSE D1.EMN_RPM_PRN
+										END
+								END
+							)
+				, FNL_USR_ID = #FNL_USR_ID#
+				, FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+				, FNL_MNU_ID = #FNL_MNU_ID#
+				, FNL_MDF_DH = SYSDATE
+		WHERE	D1.LEND_KND_CD = '1'
+		AND		D1.LEND_DT >= '20090819'
+		AND		D1.CNL_YN = 'N'
+	]]>
+	</update>
+	
+	<update id="CSPNBK221EArrRpmPrnSumAmUpdate" parameterClass="paramMap">
+	<![CDATA[
+		UPDATE	/* CSPNBK221EArrRpmPrnSumAmUpdate */ TBCSPNBK202M D1
+		SET		D1.ARR_RPM_PRN_SUM_AM = #CH_ARR_RPM_PRN_SUM_AM#
+				, D1.EMN_RPM_WAY_DVSN_CD = ( CASE WHEN #CH_ARR_RPM_PRN_SUM_AM# > 0 THEN '2' ELSE '0' END )
+				, FNL_USR_ID = #FNL_USR_ID#
+				, FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+				, FNL_MNU_ID = #FNL_MNU_ID#
+				, FNL_MDF_DH = SYSDATE
+		WHERE	D1.LEND_KND_CD = '1'
+		AND		D1.MOUI_NO = #MOUI_NO#
+	]]>
+	</update>
+	
+	<select id="CSPNBK221EGrtMouiListSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT	/* CSPNBK221EGrtMouiListSelect */
+				D1.GRT_MOUI_NO
+				, D3.USR_NAM AS GRT_USR_NAM
+				, SUBSTR(D3.EIN, 1, 6) || '-*******' AS GRT_EIN
+				, D4.DPT_NM AS GRT_DPT_NM
+				, D1.GRT_AM
+				, D1.LEND_BL
+				, D1.MOUI_NO
+				, D6.USR_NAM
+				, SUBSTR(D6.EIN, 1, 6) || '-*******' AS EIN
+				, D7.DPT_NM
+		FROM	TBCSPNBK203D D1
+				, TBCSPNBK001M D2
+				, TBDCMACM001M D3
+				, TBDCMACM002M D4
+				, TBCSPNBK001M D5
+				, TBDCMACM001M D6
+				, TBDCMACM002M D7
+		WHERE	D1.GRT_MOUI_NO = D2.MOUI_NO
+		AND		D2.CNB = D3.CNB
+		AND		D3.DPT_CD = D4.DPT_CD
+		AND		D1.MOUI_NO = D5.MOUI_NO
+		AND		D5.CNB = D6.CNB
+		AND		D6.DPT_CD = D7.DPT_CD	
+		AND		D1.LEND_KND_CD = #grtLendKndCd#
+		AND		D1.CNL_YN = 'N'
+		AND		D1.GRT_MOUI_NO IS NOT NULL
+	]]>
+		<isNotEmpty property="grtMouiNo" prepend="AND">
+				D1.GRT_MOUI_NO = #grtMouiNo#
+		</isNotEmpty>
+		<isNotEmpty property="grtMouiNm" prepend="AND">
+				D3.USR_NAM LIKE '%' || #grtMouiNm# || '%'
+		</isNotEmpty>
+		<isNotEmpty property="grtBeginAm">
+			<isNotEmpty property="grtEndAm" prepend="AND">
+				D1.GRT_AM BETWEEN #grtBeginAm# AND #grtEndAm#
+			</isNotEmpty>
+			<isEmpty property="grtEndAm" prepend="AND">
+			<![CDATA[
+				D1.GRT_AM >= #grtBeginAm#
+			]]>
+			</isEmpty>
+		</isNotEmpty>
+		<isEmpty property="grtBeginAm">
+			<isNotEmpty property="grtEndAm" prepend="AND">
+			<![CDATA[
+				D1.GRT_AM <= #grtEndAm#
+			]]>
+			</isNotEmpty>
+		</isEmpty>
+		<isNotEmpty property="piGrtMouiNo" prepend="AND">
+				D1.MOUI_NO = #piGrtMouiNo#
+		</isNotEmpty>
+		<isNotEmpty property="piGrtMouiNm" prepend="AND">
+				D6.USR_NAM LIKE '%' || #piGrtMouiNm# || '%'
+		</isNotEmpty>
+		<isNotEmpty property="lendBeginAm">
+			<isNotEmpty property="lendEndAm" prepend="AND">
+				D1.LEND_BL BETWEEN #lendBeginAm# AND #lendEndAm#
+			</isNotEmpty>
+			<isEmpty property="lendEndAm" prepend="AND">
+			<![CDATA[
+				D1.LEND_BL >= #lendBeginAm#
+			]]>
+			</isEmpty>
+		</isNotEmpty>
+		<isEmpty property="lendBeginAm">
+			<isNotEmpty property="lendEndAm" prepend="AND">
+			<![CDATA[
+				D1.LEND_BL <= #lendEndAm#
+			]]>
+			</isNotEmpty>
+		</isEmpty>
+	<![CDATA[
+		ORDER BY D1.GRT_MOUI_NO
+	]]>
+	</select>
+	
+	<select id="CSPNBK221EExprMouiListSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT	/* CSPNBK221EExprMouiListSelect */
+				D1.MOUI_NO
+				, SUM(D1.LEND_AM) AS LEND_AM
+				, MAX(D3.USR_NAM) AS USR_NAM
+				, SUM(D1.LEND_BL) AS LEND_BL
+				, SUM(D1.GRT_BL) AS GRT_BL
+				, MAX(D1.LEND_DT) AS LEND_DT
+				, MAX(D1.EXPR_DT) AS EXPR_DT
+				, MAX(D1.LEND_KND_CD) AS LEND_KND_CD
+		FROM	TBCSPNBK203D D1
+				, TBCSPNBK001M D2
+				, TBDCMACM001M D3
+		WHERE	D1.MOUI_NO = D2.MOUI_NO
+		AND		D2.CNB = D3.CNB
+		AND		D1.LEND_KND_CD = #exprLendKndCd#
+		AND		D1.CNL_YN = 'N'
+		AND		D1.LEND_BL > 0
+	]]>
+		<isEqual property="exprDtOpt" compareValue="1" prepend="AND">
+				D1.EXPR_DT BETWEEN #exprDt# AND TO_CHAR(TO_DATE(#exprDt#, 'YYYYMMDD')+15, 'YYYYMMDD')
+		</isEqual>
+		<isEqual property="exprDtOpt" compareValue="2" prepend="AND">
+				D1.EXPR_DT BETWEEN #exprDt# AND TO_CHAR(ADD_MONTHS(TO_DATE(#exprDt#, 'YYYYMMDD'),1), 'YYYYMMDD')
+		</isEqual>
+		<isNotEmpty property="exprMouiNo" prepend="AND">
+				D1.MOUI_NO = #exprMouiNo#
+		</isNotEmpty>
+		<isNotEmpty property="exprMouiNm" prepend="AND">
+				D3.USR_NAM LIKE '%' || #exprMouiNm# || '%'
+		</isNotEmpty>
+	<![CDATA[
+		GROUP BY D1.MOUI_NO
+		ORDER BY MOUI_NO
+	]]>
+	</select>
+	
+	<select id="CSPNBK221EExcelSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT	/* CSPNBK221EMouiListSelect */
+				  D1.MOUI_DVSN_CD
+				, DECODE( D1.MOUI_DVSN_CD, '0', '개인', '1', '단체' ) AS MOUI_DVSN_CD_NM
+				, D1.MOUI_NO
+				, DECODE( D1.MOUI_DVSN_CD, '0', D2.USR_NAM, D1.OGNZ_NM || '(' || D2.USR_NAM || ')' ) AS USR_NAM
+				, SUBSTR(D2.EIN, 1, 6) || '-*******' AS EIN
+				, D3.DPT_NM
+				, NVL(D4.INV_BL, 0) AS INV_BL
+				, NVL(D5.LEND_BL, 0) AS LEND_BL
+				, NVL(D6.LEND_BL, 0) AS GU_LEND_BL
+				, D1.SCS_YN
+				, D1.SAL_SEI_YN
+	]]>
+	<include refid="CSPNBK221EMouiListSelectWhere"/>
+	</select>	
+	
+</sqlMap>

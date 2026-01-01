@@ -1,0 +1,556 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd" >
+<sqlMap namespace="csp/nbk/711">
+	
+	<select id="CSPNBK711SystemClosingYnByDealDtSelect" parameterClass="paramMap" resultClass="String">
+	<![CDATA[
+		SELECT	/* CSPNBK711SystemClosingYnByDealDtSelect */
+				DISTINCT D1.CLSNG_YN AS CLSNG_YN
+		FROM	TBCSPNBK502M D1
+	]]>
+		<dynamic prepend="WHERE">
+			<isNotEmpty prepend="AND" property="dealDt">
+				D1.DEAL_DT = #dealDt#
+			</isNotEmpty>
+			<isEmpty prepend="AND" property="dealDt">
+				D1.DEAL_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			</isEmpty>
+		</dynamic>
+	</select>
+	
+	<update id="CSPNBK711DealClosingYnUpdate" parameterClass="paramMap">
+	<![CDATA[
+		UPDATE	/* CSPNBK711DealClosingYnUpdate */ TBCSPNBK502M D1
+		SET		D1.CLSNG_YN = #CLSNG_YN#
+				, D1.FNL_USR_ID = #USR_ID#
+				, D1.FNL_DEAL_DPT_CD = #DPT_CD#
+				, D1.FNL_MNU_ID = #MNU_ID#
+				, D1.FNL_MDF_DH = SYSDATE
+		WHERE	D1.DEAL_DT = #DEAL_DT#
+	]]>
+	</update>
+	
+	<select id="CSPNBK711QTodayBalanceAmSelect" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT	/* CSPNBK711QTodayBalanceAmSelect */
+				MAX(TODAY_BS_BL_TOT_AM) AS TODAY_BS_BL_TOT_AM
+				, MAX(TODAY_SMB_BL_TOT_AM) AS TODAY_SMB_BL_TOT_AM
+				, MAX(TODAY_BS_BL_TOT_AM) - MAX(TODAY_SMB_BL_TOT_AM) AS TODAY_BAL
+				, MAX(SYSTEM_CASH_AM) AS SYSTEM_CASH_AM
+		FROM	(
+					SELECT	NVL(SUM(CRDT_AGG_AM), 0 ) + NVL(SUM(DS_AGG_AM), 0 ) AS TODAY_BS_BL_TOT_AM
+							, NULL AS TODAY_SMB_BL_TOT_AM
+							, NULL AS TODAY_BAL
+							, NVL(SUM(AM), 0 ) AS SYSTEM_CASH_AM
+					FROM	TBCSPNBK502M D1
+					WHERE	D1.DEAL_DT = #closingDt#
+					AND		D1.MNST_CLU_CD = '110102'
+					
+					UNION ALL
+					
+					SELECT	NULL AS TODAY_BS_BL_TOT_AM
+							, NVL(SUM(AM), 0 ) AS TODAY_SMB_BL_TOT_AM
+							, NULL AS TODAY_BAL
+							, NULL AS SYSTEM_CASH_AM
+					FROM	TBCSPNBK301M D1
+					WHERE	D1.SMB_DEAL_DT = #closingDt#
+					AND		D1.CNL_YN = 'N'
+					AND		( D1.CRDT_MNST_CLU_CD = '110102' OR D1.DS_MNST_CLU_CD = '110102' )
+				)
+	]]>
+	</select>
+	
+	<select id="CSPNBK711QLastClosingDtSelect" resultClass="String">
+	<![CDATA[
+		SELECT	/* CSPNBK711QLastClosingDtSelect */
+				MAX(DEAL_DT) AS LAST_CLOSING_DT
+		FROM	TBCSPNBK502M D1
+		WHERE	D1.CLSNG_YN = 'Y'
+		AND		SUBSTR(D1.DEAL_DT, 5, 4) NOT IN ( '1301', '1302' ) 
+	]]>
+	</select>
+	
+	<select id="CSPNBK711QSelectReport1" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT 
+		(
+			SELECT  AM
+			FROM    TBCSPNBK502M
+			WHERE	DEAL_DT = #closingDt#
+			AND		MNST_CLU_CD = '310102'
+			AND     TAX_SITM_CD = '0'
+		) AS AM_1,
+		(
+			SELECT  SUM(INV_BL) AS INV_BL
+			FROM    TBCSPNBK101M
+		) AS INV_BL,
+		(
+			SELECT  AM
+			FROM    TBCSPNBK502M
+			WHERE	DEAL_DT = #closingDt#
+			AND	MNST_CLU_CD = '111102'
+			AND     TAX_SITM_CD = '0'
+		) AS AM_2,
+		(
+			SELECT  SUM(LEND_BL) AS LEND_BL
+			FROM    TBCSPNBK202M
+			WHERE   LEND_KND_CD = '1'
+		) AS LEND_BL,
+		(
+			SELECT  D1.AM
+			FROM    TBCSPNBK502M D1
+			WHERE	DEAL_DT = #closingDt#
+			AND     MNST_CLU_CD = '111502'
+			AND     TAX_SITM_CD = '0'
+		) AS AM_3,
+		
+		(
+			SELECT  SUM(LEND_BL) LEND_BL
+			FROM    TBCSPNBK202M
+			WHERE   LEND_KND_CD = '2' 
+		)AS LN_REM_AMOUNT 
+		FROM DUAL
+	]]>
+	</select>
+	
+	<select id="CSPNBK711QSelectReport2" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT  A.MNST_CLU_CD
+		        , A.ACCT_NM
+		        , B.AM
+		FROM    TBCSPNBK501M A
+		        , ( SELECT  MNST_CLU_CD
+		                    , SUM(AM) AS AM
+		            FROM    TBCSPNBK502M
+			   	    /*WHERE   DEAL_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')*/
+			   	    WHERE	DEAL_DT = #closingDt#
+		            GROUP BY MNST_CLU_CD ) B
+		WHERE   A.MNST_CLU_CD = B.MNST_CLU_CD
+		AND     A.TAX_SITM_CD = '0'
+		AND     SUBSTR(A.MNST_CLU_CD, LENGTH(A.MNST_CLU_CD),  1) != '0'
+		AND     B.AM <> 0 
+		AND     SUBSTR(A.MNST_CLU_CD, 0, 1) = '1'
+	]]>
+	</select>
+	
+	<select id="CSPNBK711QSelectReport3" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT  A.MNST_CLU_CD
+		        , A.ACCT_NM
+		        , B.AM
+		FROM    TBCSPNBK501M A
+		        , ( SELECT  MNST_CLU_CD
+		                    , SUM(AM) AS AM
+		            FROM    TBCSPNBK502M
+			    	/*WHERE   DEAL_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')*/
+			    	WHERE	DEAL_DT = #closingDt#
+		            GROUP BY MNST_CLU_CD ) B
+		WHERE   A.MNST_CLU_CD = B.MNST_CLU_CD
+		AND     A.TAX_SITM_CD = '0'
+		AND     SUBSTR(A.MNST_CLU_CD, LENGTH(A.MNST_CLU_CD), 1) != '0'
+		AND     B.AM <> 0
+		AND     ( SUBSTR(A.MNST_CLU_CD,0, 1) = '2' OR SUBSTR(A.MNST_CLU_CD,0, 1) = '3' )
+	]]>
+	</select>
+	
+	<select id="CSPNBK711QSelectReport4" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT  A.MNST_CLU_CD
+		        , A.ACCT_NM
+		        , B.AM
+		FROM    TBCSPNBK501M A
+		        , ( SELECT  MNST_CLU_CD
+		                    , SUM(AM) AM
+		            FROM     TBCSPNBK502M
+			    	/*WHERE    DEAL_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')*/ 
+			    	WHERE	DEAL_DT = #closingDt#
+		            GROUP BY MNST_CLU_CD ) B
+		WHERE   A.MNST_CLU_CD = B.MNST_CLU_CD
+		AND     A.TAX_SITM_CD = '0'
+		AND     SUBSTR(A.MNST_CLU_CD, LENGTH(A.MNST_CLU_CD), 1) != '0'
+		AND     B.AM <> 0
+		AND     SUBSTR(A.MNST_CLU_CD, 0, 1) = '5'
+	]]>
+	</select>
+	
+	<select id="CSPNBK711QSelectReport5" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT  A.MNST_CLU_CD
+		        , A.ACCT_NM
+		        , B.AM
+		FROM    TBCSPNBK501M A
+		        , ( SELECT  MNST_CLU_CD
+		                    , SUM(AM) AM
+		            FROM     TBCSPNBK502M
+			    	/*WHERE    DEAL_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')*/
+			    	WHERE	DEAL_DT = #closingDt#
+		            GROUP BY MNST_CLU_CD ) B
+		WHERE   A.MNST_CLU_CD = B.MNST_CLU_CD
+		AND     A.TAX_SITM_CD = '0'
+		AND    SUBSTR(A.MNST_CLU_CD, LENGTH(A.MNST_CLU_CD), 1) != '0'
+		AND     B.AM <> 0
+		AND     SUBSTR(A.MNST_CLU_CD, 0, 1) = '4'
+	]]>
+	</select>
+	
+	<select id="CSPNBK711QSelectReport6" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT  /* CSPNBK711QSelectReport6 합계잔액시산표 */
+				CASE SUBSTR(B.MNST_CLU_CD, 0, 1) 
+		          WHEN '1' 
+		          THEN B.AM 
+		          ELSE
+		            CASE SUBSTR(B.MNST_CLU_CD, 0, 1) 
+		              WHEN '5' 
+		              THEN B.AM 
+		              ELSE  0 
+		            END 
+		        END D_AM,
+		        B.YRLY_DS_AGG_AM YRLY_DS_AGG_AM,
+		        A.ACCT_NM BS_NAME,
+		        B.YRLY_CRDT_AGG_AM YRLY_CRDT_AGG_AM,
+		        CASE SUBSTR(B.MNST_CLU_CD, 0, 1) 
+		          WHEN '2' 
+		          THEN B.AM 
+		          ELSE
+		            CASE SUBSTR(B.MNST_CLU_CD, 0, 1) 
+		              WHEN '3' 
+		              THEN B.AM 
+		              ELSE
+		                CASE SUBSTR(B.MNST_CLU_CD, 0, 1)
+		                  WHEN '4' 
+		                  THEN B.AM 
+		                  ELSE 0
+		                END 
+		            END 
+		        END C_AM
+		FROM    TBCSPNBK501M A
+		        , ( SELECT  MNST_CLU_CD
+		                    , SUM(AM) AM
+		                    , SUM(YRLY_DS_AGG_AM) YRLY_DS_AGG_AM
+		                    , SUM(YRLY_CRDT_AGG_AM) YRLY_CRDT_AGG_AM
+		            FROM    TBCSPNBK502M
+		            WHERE	DEAL_DT = #closingDt#
+		            GROUP BY MNST_CLU_CD ) B
+		WHERE   A.MNST_CLU_CD = B.MNST_CLU_CD
+		AND     A.TAX_SITM_CD = '0'
+		AND     SUBSTR(A.MNST_CLU_CD, LENGTH(A.MNST_CLU_CD), 1) <> '0'
+		AND     ( B.AM <> 0
+		        OR B.YRLY_CRDT_AGG_AM <> 0
+		        OR B.YRLY_DS_AGG_AM <> 0 )
+		ORDER BY A.MNST_CLU_CD
+	]]>
+	</select>
+	
+	<select id="CSPNBK711QSelectReport7" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		WITH /* CSPNBK711QSelectReport7 현금전표 */
+		DATA AS (
+			SELECT  CASE DS_MNST_CLU_CD WHEN '110102' THEN 0 ELSE AM END AS CR_AMOUNT,
+					CASE DS_MNST_CLU_CD WHEN '110102' THEN 0 ELSE 1 END AS CR_CNT,
+					CASE DS_MNST_CLU_CD WHEN '110102' THEN CRDT_MNST_CLU_CD ELSE DS_MNST_CLU_CD END AS MNST_CLU_CD,
+					CASE CRDT_MNST_CLU_CD WHEN '110102' THEN 0 ELSE AM END AS DR_AMOUNT,
+					CASE CRDT_MNST_CLU_CD WHEN '110102' THEN 0 ELSE 1 END AS DR_CNT
+			FROM    TBCSPNBK301M
+			WHERE   SMB_DEAL_DT = #closingDt#
+			AND     CNL_YN = 'N' 
+		)
+		SELECT	'' AS NM1
+				, SUM(D1.AM) AS DR_AMOUNT
+				, NULL AS DR_CNT
+				, '000000' AS MNST_CLU_CD
+				, '전일현금' AS ACCT_NM
+				, NULL AS CR_AMOUNT
+				, NULL AS CR_CNT
+				, '' AS NM2
+				, 1 AS ORD
+		FROM	TBCSPNBK502M D1
+		WHERE	D1.DEAL_DT = (
+								SELECT	MAX(DEAL_DT)
+								FROM	TBCSPNBK502M
+								WHERE	DEAL_DT < #closingDt#
+								AND		SUBSTRING(DEAL_DT, 5, 2) != '13'	/* 연말정산용 데이터 제외 */
+								AND		MNST_CLU_CD = '110102'
+							)
+		AND		D1.MNST_CLU_CD = '110102'
+		
+		UNION ALL
+		
+		SELECT  '' AS NM1
+		        , SUM(A.DR_AMOUNT) AS DR_AMOUNT
+		        , SUM(A.DR_CNT) AS DR_CNT
+		        , A.MNST_CLU_CD
+		        , B.ACCT_NM
+		        , SUM(A.CR_AMOUNT) AS CR_AMOUNT
+		        , SUM(A.CR_CNT) AS CR_CNT
+		        , '' AS NM2
+		        , 2 AS ORD
+		FROM    ( 
+					SELECT  CR_AMOUNT,
+							CR_CNT,
+							MNST_CLU_CD,
+							DR_AMOUNT,
+							DR_CNT
+					FROM    DATA
+		        ) A
+		        , TBCSPNBK501M B
+		WHERE   A.MNST_CLU_CD = B.MNST_CLU_CD
+		AND		A.MNST_CLU_CD NOT IN ( '110702', '110402' ) /* 정기성예금, 단기예금 제외 */
+		GROUP BY A.MNST_CLU_CD, B.ACCT_NM
+		
+		UNION ALL
+		
+		SELECT  '해약' AS NM1
+		        , NVL(SUM(A.DR_AMOUNT), 0) AS DR_AMOUNT
+		        , NVL(SUM(A.DR_CNT), 0) AS DR_CNT
+		        , '110702' AS MNST_CLU_CD
+		        , '장기예금' AS ACCT_NM
+		        , NVL(SUM(A.CR_AMOUNT), 0) AS CR_AMOUNT
+		        , NVL(SUM(A.CR_CNT), 0) AS CR_CNT
+		        , '예탁' AS NM2
+		        , 3 AS ORD
+		FROM    ( 
+					SELECT  CR_AMOUNT,
+							CR_CNT,
+							MNST_CLU_CD,
+							DR_AMOUNT,
+							DR_CNT
+					FROM    DATA
+		        ) A
+		WHERE   A.MNST_CLU_CD = '110702'	/* 장기예금 */
+		
+		UNION ALL
+		
+		SELECT  '인출' AS NM1
+		        , SUM(A.DR_AMOUNT) AS DR_AMOUNT
+		        , SUM(A.DR_CNT) AS DR_CNT
+		        , A.MNST_CLU_CD
+		        , B.ACCT_NM
+		        , SUM(A.CR_AMOUNT) AS CR_AMOUNT
+		        , SUM(A.CR_CNT) AS CR_CNT
+		        , '예탁' AS NM2
+		        , 4 AS ORD
+		FROM    ( 
+					SELECT  CR_AMOUNT,
+							CR_CNT,
+							MNST_CLU_CD,
+							DR_AMOUNT,
+							DR_CNT
+					FROM    DATA
+		        ) A
+		        , TBCSPNBK501M B
+		WHERE   A.MNST_CLU_CD = B.MNST_CLU_CD
+		AND     A.MNST_CLU_CD = '110402' /* 단기예금 */
+		GROUP BY A.MNST_CLU_CD, B.ACCT_NM
+		
+		UNION ALL
+		
+		SELECT	'' AS NM1
+				, NULL AS DR_AMOUNT
+				, NULL AS DR_CNT
+				, '000000' AS MNST_CLU_CD
+				, '금일현금' AS ACCT_NM
+				, SUM(D1.AM) AS CR_AMOUNT
+				, NULL AS CR_CNT
+				, '' AS NM2
+				, 5 AS ORD
+		FROM	TBCSPNBK502M D1
+		WHERE	D1.DEAL_DT = #closingDt#
+		AND		D1.MNST_CLU_CD = '110102'
+		
+		ORDER BY ORD, MNST_CLU_CD
+	]]>
+	</select>
+	
+	<select id="CSPNBK711QSelectReport12" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		/*
+		 *  현금을 제외한 당일기표되었던 것에 대한 합계와 건수
+		 */
+		SELECT  /* CSPNBK711QSelectReport12 */
+				SUM(A.T1) AS DR_CASH
+		        , SUM(A.T2) AS DR_CNT
+		        , SUM(A.T1) AS DR_AMOUNT
+		        , B.ACCT_NM
+		        , SUM(A.T5) AS CR_CNT
+		        , SUM(A.T4) AS CR_AMOUNT
+		        , SUM(A.T4) AS CR_CASH
+		FROM    ( SELECT  CASE DS_MNST_CLU_CD WHEN '110102' THEN 0 ELSE AM END AS T1,
+		                  CASE DS_MNST_CLU_CD WHEN '110102' THEN 0 ELSE 1 END AS T2,
+		                  CASE DS_MNST_CLU_CD WHEN '110102' THEN CRDT_MNST_CLU_CD ELSE DS_MNST_CLU_CD END AS T3,
+		                  CASE DS_MNST_CLU_CD WHEN '110102' THEN CRDT_TAX_SITM_CD ELSE DS_TAX_SITM_CD END AS T6,
+		                  CASE CRDT_MNST_CLU_CD WHEN '110102' THEN 0 ELSE AM END AS T4,
+		                  CASE CRDT_MNST_CLU_CD WHEN '110102' THEN 0 ELSE 1 END AS T5
+		          FROM    TBCSPNBK301M
+		          WHERE   SMB_DEAL_DT = #closingDt#
+		          AND     CNL_YN = 'N' ) A
+		        , TBCSPNBK501M B
+		WHERE   A.T3 = B.MNST_CLU_CD
+		AND     A.T6 = B.TAX_SITM_CD
+		GROUP BY B.MNST_CLU_CD, B.TAX_SITM_CD, B.ACCT_NM
+		ORDER BY MNST_CLU_CD
+	]]>
+	</select>
+	
+	<select id="CSPNBK711QSelectReport13" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		SELECT	/* CSPNBK711QSelectReport13 */
+				SUM(D1.AM) AS YES_CASH
+		FROM	TBCSPNBK502M D1
+		WHERE	D1.DEAL_DT = (
+								SELECT	MAX(DEAL_DT)
+								FROM	TBCSPNBK502M
+								WHERE	DEAL_DT < #closingDt#
+								AND		SUBSTRING(DEAL_DT, 5, 2) != '13'	/* 연말정산용 데이터 제외 */
+								AND		MNST_CLU_CD = '110102'
+							)
+		AND		D1.MNST_CLU_CD = '110102'
+	]]>
+	</select>
+	
+	<select id="CSPNBK711QSelectReport14" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		/*
+		 *  당일현금 : 당일 BS의 현금계정
+		 */
+		SELECT  SUM(AM) AS TO_CASH
+		FROM    TBCSPNBK502M
+		WHERE   MNST_CLU_CD = '110102'
+		AND		DEAL_DT = #closingDt#
+	]]>
+	</select>
+	
+	<select id="CSPNBK711QSelectReport15" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		/*
+		 *  출자금일일거래명세서
+		 */
+		SELECT  A.MOUI_NO AS MOUI_NO,
+		        CASE A.MOUI_DVSN_CD WHEN '0' THEN B.USR_NAM ELSE A.OGNZ_NM END NAME,
+		        D.DEAL_BK_LEDG_BL AS BF_AMOUNT,
+		        C.DR_AMOUNT AS DR_AMOUNT,
+		        C.CR_AMOUNT AS CR_AMOUNT,
+		        E.DEAL_AF_LEDG_BL AS AF_AMOUNT
+		FROM    TBCSPNBK001M A,
+		        TBDCMACM001M B,
+		        ( SELECT  MOUI_NO MOUI_NO,
+		                  SUM(CASE DEPTS_PMT_DVSN_CD WHEN 'C' THEN INV_AM ELSE 0 END) CR_AMOUNT,
+		                  SUM(CASE DEPTS_PMT_DVSN_CD WHEN 'C' THEN 0 ELSE INV_AM END) DR_AMOUNT,
+		                  MAX(INV_DEAL_SLN) MAX_INV_SEQ,
+		                  MIN(INV_DEAL_SLN) MIN_INV_SEQ
+		          FROM    TBCSPNBK102L
+		          WHERE   INV_DEAL_DT = #closingDt#
+		          AND     CNL_YN = 'N'
+		          GROUP BY MOUI_NO ) C,
+		        TBCSPNBK102L D,
+		        TBCSPNBK102L E
+		WHERE   A.MOUI_NO = C.MOUI_NO
+		AND     A.CNB (+)= B.CNB
+		AND     D.MOUI_NO = A.MOUI_NO
+		AND     D.INV_DEAL_DT = #closingDt#
+		AND     D.INV_DEAL_SLN = C.MIN_INV_SEQ
+		AND     E.MOUI_NO = A.MOUI_NO
+		AND     E.INV_DEAL_DT = #closingDt#
+		AND     E.INV_DEAL_SLN = C.MAX_INV_SEQ
+		ORDER BY MOUI_NO
+	]]>
+	</select>
+	
+	<select id="CSPNBK711QSelectReport16" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		/*
+		 * 대출금검산장
+		 *	V_LEND_KND_CD 
+		 *	1 : 일반대출
+		 *	2 : 임차보증대출
+		 */
+
+		SELECT  A.MOUI_NO,
+		        CASE B.MOUI_DVSN_CD WHEN '0' THEN NVL(C.USR_NAM,'') ELSE NVL(B.OGNZ_NM,'') END AS USR_NAME,
+		        CASE A.DEPTS_PMT_DVSN_CD WHEN 'D' THEN A.DEAL_PRN ELSE 0 END AS DR_DEAL_PRN,
+		        CASE A.DEPTS_PMT_DVSN_CD WHEN 'C' THEN A.DEAL_PRN ELSE 0 END AS CR_DEAL_PRN,
+		        NVL(A.INT_AM, 0) AS INT_AM
+		FROM    TBCSPNBK205L A
+		        , TBCSPNBK001M B
+		        , TBDCMACM001M C
+		WHERE   A.MOUI_NO = B.MOUI_NO
+		AND     A.CNL_YN = 'N'
+		AND     B.CNB (+)= C.CNB
+		AND     A.LEND_DEAL_DT = #closingDt#
+		AND     A.LEND_KND_CD = '1'
+		ORDER BY A.MOUI_NO
+	]]>
+	</select>
+	
+	<select id="CSPNBK711QSelectReport17" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		/*
+		 * 대출금검산장 합계
+		 *  : 지급건수, 지급액, 입금건수, 입금액, 수입이자건수, 수입이자
+		 *	V_LEND_KND_CD 
+		 *	1 : 일반대출
+		 *	2 : 임차보증대출
+		 */
+		
+		SELECT  SUM(CASE DEPTS_PMT_DVSN_CD WHEN 'D' THEN 1 ELSE 0 END) AS DR_CNT,
+		        SUM(CASE DEPTS_PMT_DVSN_CD WHEN 'D' THEN DEAL_PRN ELSE 0 END) AS DR_DEAL_PRN,
+		        SUM(CASE DEPTS_PMT_DVSN_CD WHEN 'C' THEN 1 ELSE 0 END) AS CR_CNT,
+		        SUM(CASE DEPTS_PMT_DVSN_CD WHEN 'C' THEN DEAL_PRN ELSE 0 END) AS CR_DEAL_PRN,
+		        SUM(CASE INT_AM WHEN 0 THEN 0 ELSE 1 END) AS INT_CNT,
+		        SUM(CASE INT_AM WHEN 0 THEN 0 ELSE INT_AM END) AS INT_AM
+		FROM    TBCSPNBK205L
+		WHERE   CNL_YN = 'N'
+		AND     LEND_DEAL_DT = #closingDt#
+		AND     LEND_KND_CD = '1'
+	]]>
+	</select>
+	
+	<select id="CSPNBK711QSelectReport18" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		/*
+		 * 대출금검산장
+		 *	V_LEND_KND_CD 
+		 *	1 : 일반대출
+		 *	2 : 임차보증대출
+		 */
+
+		SELECT  A.MOUI_NO,
+		        CASE B.MOUI_DVSN_CD WHEN '0' THEN NVL(C.USR_NAM,'') ELSE NVL(B.OGNZ_NM,'') END AS USR_NAME,
+		        CASE A.DEPTS_PMT_DVSN_CD WHEN 'D' THEN A.DEAL_PRN ELSE 0 END AS DR_DEAL_PRN,
+		        CASE A.DEPTS_PMT_DVSN_CD WHEN 'C' THEN A.DEAL_PRN ELSE 0 END AS CR_DEAL_PRN,
+		        NVL(A.INT_AM, 0) AS INT_AM
+		FROM    TBCSPNBK205L A
+		        , TBCSPNBK001M B
+		        , TBDCMACM001M C
+		WHERE   A.MOUI_NO = B.MOUI_NO
+		AND     A.CNL_YN = 'N'
+		AND     B.CNB (+)= C.CNB
+		AND     A.LEND_DEAL_DT = #closingDt#
+		AND     A.LEND_KND_CD = '2'
+		ORDER BY A.MOUI_NO
+	]]>
+	</select>
+	
+	<select id="CSPNBK711QSelectReport19" parameterClass="paramMap" resultClass="resultMap">
+	<![CDATA[
+		/*
+		 * 대출금검산장 합계
+		 *  : 지급건수, 지급액, 입금건수, 입금액, 수입이자건수, 수입이자
+		 *	V_LEND_KND_CD 
+		 *	1 : 일반대출
+		 *	2 : 임차보증대출
+		 */
+		
+		SELECT  SUM(CASE DEPTS_PMT_DVSN_CD WHEN 'D' THEN 1 ELSE 0 END) AS DR_CNT,
+		        SUM(CASE DEPTS_PMT_DVSN_CD WHEN 'D' THEN DEAL_PRN ELSE 0 END) AS DR_DEAL_PRN,
+		        SUM(CASE DEPTS_PMT_DVSN_CD WHEN 'C' THEN 1 ELSE 0 END) AS CR_CNT,
+		        SUM(CASE DEPTS_PMT_DVSN_CD WHEN 'C' THEN DEAL_PRN ELSE 0 END) AS CR_DEAL_PRN,
+		        SUM(CASE INT_AM WHEN 0 THEN 0 ELSE 1 END) AS INT_CNT,
+		        SUM(CASE INT_AM WHEN 0 THEN 0 ELSE INT_AM END) AS INT_AM
+		FROM    TBCSPNBK205L
+		WHERE   CNL_YN = 'N'
+		AND     LEND_DEAL_DT = #closingDt#
+		AND     LEND_KND_CD = '2'
+	]]>
+	</select>
+</sqlMap>

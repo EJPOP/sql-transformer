@@ -1,0 +1,461 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.com.dao.CommonCodeMapper">
+    
+    <select id="selectCurrentTime" resultType="java.util.HashMap">
+    /*kr.go.bai.eip.com.dao.CommonCodeMapper.selectCurrentTime*/
+         <![CDATA[
+            SELECT TO_CHAR(SYSDATE, 'YYYY') AS CURRENT_YEAR
+                 , TO_CHAR(SYSDATE, 'YYYYMMDD') AS CURRENT_DATE
+                 , TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') AS CURRENT_TIME
+                 , TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS') AS FORMAT_CURRENT_TIME
+                 , TO_CHAR(SYSDATE, 'D') AS CURRENT_YOIL
+            FROM DUAL
+        ]]>
+    </select>
+    
+    <select id="selectCodeYear" parameterType="paramMap" resultType="java.util.HashMap">
+    /*kr.go.bai.eip.com.dao.CommonCodeMapper.selectCodeYear*/
+        <![CDATA[
+            SELECT A.CMM_CD_DVSN_CD
+                 , A.CD
+                 , A.CD_NM
+         ]]>
+                 <if test="strCdDvsn == '1000007' ">
+                 , (SELECT B.CD_NM FROM TBDCMACM013C B WHERE B.CMM_CD_DVSN_CD = '1000739' AND B.CD = A.CD AND B.USE_YN = 'Y') AS CD_KND_NM
+                  </if>
+                 <if test="strCdDvsn != '1000007' ">
+                 , SUBSTR(A.CD_NM, 1, 2 ) AS CD_KND_NM
+                  </if>
+                  , A.OTPT_SEQ
+         <![CDATA[
+                 , #{strYear} AS YEAR
+                 , SUBSTR(A.CD, 3, 5) AS EMPTY_CD
+              FROM TBDCMACM013C A
+             WHERE 1=1
+               AND A.CMM_CD_DVSN_CD = #{strCdDvsn}
+               AND A.USE_YN  = NVL(#{strUseYn},'Y')
+               AND SUBSTR(A.CD,1,2)  LIKE SUBSTR(#{strYear},3,2)||'%'
+              ]]>
+              <if test="notCond1 != '' ">
+                 AND A.CD != SUBSTR(#{strYear},3,2)||#{notInCond1}
+                </if>
+                <if test="notCond2 != '' ">
+                 AND A.CD != SUBSTR(#{strYear},3,2)||#{notInCond2}
+                </if>
+               ORDER BY  A.OTPT_SEQ
+        
+    </select>
+    
+    <select id="selectCodeYearAll" parameterType="paramMap" resultType="java.util.HashMap">
+    /*kr.go.bai.eip.com.dao.CommonCodeMapper.selectCodeYearAll*/
+        <![CDATA[
+            SELECT CMM_CD_DVSN_CD
+                 , CD
+                 , CD_NM
+                 , #{strYear} AS YEAR
+                 , SUBSTR(CD, 3, 5) AS EMPTY_CD
+              FROM TBDCMACM013C
+             WHERE 1=1
+               AND CMM_CD_DVSN_CD = #{strCdDvsn}
+               AND SUBSTR(CD,1,2)  LIKE SUBSTR(#{strYear},3,2)||'%' 
+             ORDER BY  OTPT_SEQ
+        ]]>
+    </select>
+    
+     <select id="selectRprtCdList" parameterType="paramMap" resultType="java.util.HashMap">
+    /*kr.go.bai.eip.com.dao.CommonCodeMapper.selectRprtCdList*/
+        SELECT CD, CD_NM 
+            FROM TBDCMACM013C
+            WHERE CMM_CD_DVSN_CD = '1000786'
+            AND SUBSTR(CD,0,1) = 'A'
+            AND CD NOT IN ('A00000001')
+            <if test="cbbAudStep != null and cbbAudStep != ''">
+            AND SUBSTR(CD,1,5) = #{cbbAudStep}
+            </if>
+	</select>
+	
+    
+     <select id="selectRegiDvsnList" parameterType="paramMap" resultType="java.util.HashMap">
+    /*kr.go.bai.eip.com.dao.CommonCodeMapper.selectRegiDvsnList*/
+        SELECT DISTINCT CD, CD_NM
+          FROM (
+                SELECT 
+                    DISTINCT REGEXP_REPLACE(REGI_NO,'[0-9]') AS CD
+                    , REGEXP_REPLACE(REGI_NO,'[0-9]') AS CD_NM
+                  FROM TBBADDED112D
+                 WHERE REGEXP_REPLACE(REGI_NO,'[0-9]') IS NOT NULL
+                UNION ALL
+                SELECT 
+                    DISTINCT REGEXP_REPLACE(REGI_NO,'[0-9]') AS CD
+                    , REGEXP_REPLACE(REGI_NO,'[0-9]') AS CD_NM
+                  FROM TBBADFRE112D
+                 WHERE REGEXP_REPLACE(REGI_NO,'[0-9]') IS NOT NULL
+                )
+         ORDER BY CD
+    </select>
+    
+	<select id="selectRprtCdList2" parameterType="paramMap" resultType="java.util.HashMap">
+    /*kr.go.bai.eip.com.dao.CommonCodeMapper.selectRprtCdList2*/
+        <![CDATA[
+			SELECT 
+			   AUD_DOC_CD AS CD
+   			   , DECODE(AUD_DOC_CD, 'D10200300', '심사결정문 (위임)'
+				   					, 'D10300100', '부의 결정문'
+				   					, 'D10300610', '심의안 요약문 (보고자용)'
+				   					, 'D10300900', '부의안 (표지)'
+				   					, 'E10300300', '재심의청구 심의안 요약 (소위원회)'
+				   					, 'E10500200', '재심의청구 부의안 결정문 요약'
+				   					, 'E10500600', '재심의청구 부의안 요약문'
+				   					, 'E10600100', '시행문 (1안, 2안)', AGGR_CONCAT(DTIL_AUD_DOC_NM,',')) AS CD_NM
+			 FROM (
+			       SELECT 
+			           AUD_DOC_CD
+			           , DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1)) AS DTIL_AUD_DOC_NM
+			         FROM TBFDMADM002M
+		]]>
+					<if test="acpDvsnCd == 1"> 
+				        	WHERE SUBSTR(AUD_DOC_CD,0,1) = 'D'
+				        	AND AUD_DOC_CD NOT IN('D10100300','D10100001','D10100002','D10600100','D10600200','D10700100','D10700200')
+				        	GROUP BY AUD_DOC_CD, DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1))
+				        	UNION ALL SELECT 'D10400600' , '공개문' FROM DUAL
+				   	</if> 
+				    <if test="acpDvsnCd == 2"> 
+				        	WHERE SUBSTR(AUD_DOC_CD,0,1) = 'E'
+				        	AND AUD_DOC_CD NOT IN('E10100300','E10100001','E10100002','E10700100','E10702100','E10800100','E10800200')
+				        	GROUP BY AUD_DOC_CD, DECODE(INSTR(DTIL_AUD_DOC_NM,'('),0,DTIL_AUD_DOC_NM,SUBSTR(DTIL_AUD_DOC_NM,0,INSTR(DTIL_AUD_DOC_NM,'(')-1))
+				        	UNION ALL SELECT 'E10600300' , '공개문' FROM DUAL
+				   	</if> 
+			       )
+			GROUP BY AUD_DOC_CD
+	</select>
+
+    <select id="selectApvStaList" parameterType="paramMap" resultType="java.util.HashMap">
+    /*kr.go.bai.eip.com.dao.CommonCodeMapper.selectApvStaList*/
+        <![CDATA[
+			SELECT CD,CD_NM
+			  FROM TBDCMACM013C
+			 WHERE CMM_CD_DVSN_CD = '1000773'
+             AND CD <> '000000000'
+        ]]>
+    </select>
+    
+    <select id="selectCodeList" parameterType="paramMap" resultType="java.util.HashMap">
+    /*kr.go.bai.eip.com.dao.CommonCodeMapper.selectCodeList*/
+        <![CDATA[
+            SELECT  CMM_CD_DVSN_CD
+                  , CD
+                  , TSK_CAT_CD
+                  , FUNC_CAT_CD
+                  , CD_NM
+                  , USE_YN
+                  , PRD_USE_YN
+                  , STR_DT
+                  , END_DT
+                  , OTPT_SEQ
+                  , USR_DFN_TXT_1
+                  , USR_DFN_TXT_2
+                  , USR_DFN_TXT_3
+                  , USR_DFN_TXT_4
+                  , USR_DFN_TXT_5
+                  , BK_CD_DVSN_NM
+                  , BK_CD_NM    
+                  , CD_NM||'('||CD||')' AS CDNM_CD
+                  , '['||CD||']'||CD_NM AS CD_CD_NM
+              FROM TBDCMACM013C
+             WHERE 1=1 
+               AND CD <> '000000000'
+               AND CMM_CD_DVSN_CD = #{cmmCdDvsnCd}
+        ]]>
+        <if test="usrDfnTxt1 != null and usrDfnTxt1 != ''">
+            AND USR_DFN_TXT_1 = #{usrDfnTxt1}
+        </if>
+        <if test="usrDfnTxt2 != null and usrDfnTxt2 != ''">
+            AND USR_DFN_TXT_2 = #{usrDfnTxt2}
+        </if>
+            
+        <if test="usrDfnTxt3 != null and usrDfnTxt3 != ''">
+            AND USR_DFN_TXT_3 = #{usrDfnTxt3}
+        </if> 
+        <if test="usrDfnTxt4 != null and usrDfnTxt4 != ''">
+            AND USR_DFN_TXT_4 = #{usrDfnTxt4}
+        </if> 
+        <if test="usrDfnTxt5 != null and usrDfnTxt5 != ''">
+            AND USR_DFN_TXT_5 = #{usrDfnTxt5}
+        </if> 
+        <if test="useYn != null and useYn != ''">
+            AND USE_YN = #{useYn}
+        </if> 
+        <if test="cd != null and cd != ''">
+            AND CD = #{cd}
+        </if>
+        <if test="audKndCdType != null and audKndCdType != ''">
+            <if test="audKndCdType eq'A'.toString()">
+                AND CD IN ('00','01','02','03')
+            </if>
+            <if test="audKndCdType eq'B'.toString()">
+                AND CD IN ('11','12','13','17','18','19','20','21')
+            </if>
+            <if test="audKndCdType eq'C'.toString()">
+                AND USR_DFN_TXT_3 LIKE '1%'
+                AND USR_DFN_TXT_3 LIKE '%1'
+            </if>
+            <if test="audKndCdType eq'D'.toString()">
+                AND CD = '15' /*서면감사인 경우 확인출장(15)*/
+            </if>
+        </if>
+         <if test="sortDfnTxt1 == null or sortDfnTxt1 == ''">
+            ORDER BY CD
+        </if>
+         <if test="sortDfnTxt1 != null and sortDfnTxt1 != ''">
+            ORDER BY USR_DFN_TXT_1
+        </if>
+    </select>
+    
+    <select id="selectDeptBureauList" parameterType="paramMap" resultType="java.util.HashMap">
+    /*kr.go.bai.eip.com.dao.CommonCodeMapper.selectDeptBureauList*/
+    /*20170201 EUNOK 최승규수석 요청 ORDER BY DPT_CD -> DPT_SNO로 변경 */
+        <![CDATA[
+            SELECT DPT_CD AS CD, DPT_NM AS CD_NM, HIRK_DPT_CD
+              FROM TBDCMACM002M
+             WHERE 1=1
+        ]]>
+        <if test="strDptAuth != null and strDptAuth != ''">
+            AND DPT_CD IN ( SELECT SUBSTR(DPT_CD,'1','3')||'000' FROM TABLE(F_AUTH_DEPT(#{strCnb}, #{strDptAuth}, 'Y')))
+        </if>
+               AND DPT_CD  LIKE '%000'
+               AND USE_YN = 'Y'
+          ORDER BY DPT_SNO
+    </select>
+    
+    <select id="selectDeptBureauListByBsns" parameterType="paramMap" resultType="java.util.HashMap">
+    /*kr.go.bai.eip.com.dao.CommonCodeMapper.selectDeptBureauListByBsns*/
+        <![CDATA[
+        SELECT DPT_CD AS CD, DPT_NM AS CD_NM
+		FROM
+			(
+			  SELECT DPT_CD, DPT_NM, DPT_SNO
+			    FROM TBDCMACM002M
+			   WHERE 1=1
+			     AND USE_YN = 'Y'
+			     AND ORZT_DVSN_CD = '20'
+		  CONNECT BY PRIOR  DPT_CD = HIRK_DPT_CD 
+		  START WITH DPT_CD = #{strDptCd}
+		  
+		UNION
+			
+			 SELECT DPT_CD, DPT_NM, DPT_SNO
+			   FROM TBDCMACM002M
+			  WHERE 1=1
+			    AND USE_YN = 'Y'
+		        AND ORZT_DVSN_CD = '20'
+		 CONNECT BY PRIOR  HIRK_DPT_CD = DPT_CD
+		 START WITH DPT_CD = #{strDptCd}
+			)
+			ORDER BY DPT_SNO
+        ]]>
+    </select>
+    
+    <select id="selectDeptSectList" parameterType="paramMap" resultType="java.util.HashMap">
+    /*kr.go.bai.eip.com.dao.CommonCodeMapper.selectDeptSectList*/
+    /*20170201 EUNOK 최승규수석 요청 ORDER BY DPT_CD -> DPT_SNO로 변경 */
+        <![CDATA[
+            SELECT DPT_CD AS CD, DPT_NM AS CD_NM, HIRK_DPT_CD
+              FROM TBDCMACM002M
+             WHERE 1=1
+        ]]>
+        <if test="strDptAuth != null and strDptAuth != ''">
+               AND DPT_CD IN ( SELECT DPT_CD FROM TABLE(F_AUTH_DEPT(#{strCnb}, #{strDptAuth}, 'Y')))
+        </if>
+        <if test="strHrkDptCd != null and strHrkDptCd != ''">
+            <if test="strDptCd == null or strDptCd == ''">
+               AND SUBSTR(DPT_CD, 0, 3) = SUBSTR(#{strHrkDptCd}, 0, 3)
+            </if>
+            <if test="strDptCd != null and strDptCd != ''">
+                OR SUBSTR(DPT_CD, 0, 3) = SUBSTR(#{strHrkDptCd}, 0, 3)
+            </if>
+        </if>
+               AND DPT_CD NOT LIKE '%000'
+               AND USE_YN = 'Y'
+          ORDER BY DPT_SNO 
+    </select>
+    
+    <select id="selectDeptSectListByBzns" parameterType="paramMap" resultType="java.util.HashMap">
+    /*감사사항 선택 창의 관리 국 조회 본인이 속한국+겸직된 부서의 국 + 출장정보있는 부서의 국*/
+    /*kr.go.bai.eip.com.dao.CommonCodeMapper.selectDeptSectListByBzns*/
+        <![CDATA[
+           SELECT  DPT_CD AS CD, DPT_NM AS CD_NM
+            FROM TBDCMACM002M A
+           WHERE 1=1
+             AND A.USE_YN  = 'Y'
+             AND A.ORZT_DVSN_CD  IN ('20', '30')
+             AND A.DPT_CD  LIKE '%000'    
+                  ]]>
+              <if test=" searchChk != 'Y'.toString()  " >
+               AND A.DPT_CD NOT IN ('100100', '100000')
+              </if>
+              <if test=" adminYn == 'N'.toString()  and  enfYn != 'Y'.toString()  and  chiefYn == 'N'.toString()   " >
+            AND A.DPT_CD IN (SELECT T1.DPT_CD
+                                     FROM TBDCMACM002M T1
+                                    WHERE 1=1
+                                      AND T1.USE_YN = 'Y'
+                                    <if test="chiefYnLow == 'Y'.toString()">
+                                         CONNECT BY PRIOR  T1.DPT_CD  =T1.HIRK_DPT_CD  START WITH T1.DPT_CD IN (#{dptCd} ,#{subDptCd} )
+                                  </if>
+                                   <if test="chiefYnLow  == 'N'.toString() ">
+                                        CONNECT BY PRIOR  T1.HIRK_DPT_CD  =T1.DPT_CD  START WITH T1.DPT_CD IN (#{dptCd} ,#{subDptCd} )
+                                  </if>
+                                  
+                                 UNION 
+                                 SELECT (SELECT T1.HIRK_DPT_CD FROM TBDCMACM002M T1 WHERE T1.DPT_CD =  D1.MNG_DPT_CD AND T1.USE_YN = 'Y')
+                                   FROM TBBADDED001M D1 INNER JOIN  TBBADDED002M ST4 
+                                                                               ON D1.AUD_YR = ST4.REL_AUD_YR
+                                                                              AND D1.AUD_NO = ST4.REL_AUD_NO
+                                                                              <if test="schAudYrStrt != null and schAudYrStrt != ''">
+                                                                                  AND D1.AUD_YR <![CDATA[>=]]> #{schAudYrStrt}
+                                                                              </if>
+                                                                              <if test="schAudYrEnd != null and schAudYrEnd != ''">
+                                                                                  AND D1.AUD_YR <![CDATA[<=]]> #{schAudYrEnd}
+                                                                              </if>
+                                                                               <if test="menuId != 'EI_002_006_000_000' ">
+                                                                               <![CDATA[
+                                                                                    AND SUBSTR(D1.AUD_KND_CD, 3, 1) <> '5'
+                                                                                ]]>
+                                                                              </if>
+                                                                              <if test="menuId == 'EI_002_006_000_000' ">
+                                                                               <![CDATA[
+                                                                                    AND SUBSTR(D1.AUD_KND_CD, 3, 1) = '5'
+                                                                                ]]>
+                                                                              </if>
+                                                                    INNER JOIN TBBADDED005L ST5
+                                                                               ON ST4.BZT_YR = ST5.BZT_YR
+                                                                              AND ST4.BZT_SNO = ST5.BZT_SNO
+                                 WHERE ST5.PCT_CNB =  #{strCnb}   )
+             </if>
+             <![CDATA[
+              ORDER BY A.DPT_SNO
+             ]]>
+    </select>
+    
+     <select id="selectLowDeptSectListByBzns" parameterType="paramMap" resultType="java.util.HashMap">
+    /*감사사항 선택 창의 관리 국 조회 본인이 속한과+겸직된 부서의 과 + 출장정보있는 부서의 과*/
+    /*kr.go.bai.eip.com.dao.CommonCodeMapper.selectLowDeptSectListByBzns*/
+        <![CDATA[
+           SELECT  A.DPT_CD AS CD, A.DPT_NM AS CD_NM
+            FROM TBDCMACM002M A
+           WHERE 1=1
+             AND A.USE_YN  = 'Y'
+             AND A.ORZT_DVSN_CD IN ('30', '40')
+             AND A.DPT_CD NOT LIKE '%000'
+             AND A.HIRK_DPT_CD IS NOT NULL
+             
+           ]]>
+            <if test=" searchChk != 'Y'.toString()  " >
+               AND A.DPT_CD NOT IN ('100100', '100000')
+              </if>
+            <if test="schSpvBrdvCdPopup != null and schSpvBrdvCdPopup != ''">
+                 AND A.HIRK_DPT_CD = #{schSpvBrdvCdPopup}
+            </if>
+            <if test=" adminYn == 'N'.toString()  and  enfYn != 'Y'.toString()  and  chiefYn == 'N'.toString()   " >
+             AND A.DPT_CD IN (SELECT T1.DPT_CD
+                                     FROM TBDCMACM002M T1
+                                    WHERE 1=1
+                                      AND T1.USE_YN = 'Y'
+                                      AND T1.ORZT_DVSN_CD IN ('30', '40')
+                                      AND T1.DPT_CD NOT LIKE '%000'
+                                      AND T1.HIRK_DPT_CD IS NOT NULL
+                                      CONNECT BY PRIOR T1.DPT_CD = T1.HIRK_DPT_CD START WITH   T1.DPT_CD IN  (#{dptCd} ,#{subDptCd} )
+                                 UNION 
+                                 SELECT  D1.MNG_DPT_CD
+                                   FROM TBBADDED001M D1 INNER JOIN  TBBADDED002M ST4 
+                                                                               ON D1.AUD_YR = ST4.REL_AUD_YR
+                                                                              AND D1.AUD_NO = ST4.REL_AUD_NO
+                                                                              <if test="schAudYrStrt != null and schAudYrStrt != ''">
+                                                                                  AND D1.AUD_YR <![CDATA[>=]]> #{schAudYrStrt}
+                                                                              </if>
+                                                                              <if test="schAudYrEnd != null and schAudYrEnd != ''">
+                                                                                  AND D1.AUD_YR <![CDATA[<=]]> #{schAudYrEnd}
+                                                                              </if>
+                                                                              <if test="menuId != 'EI_002_006_000_000' ">
+                                                                               <![CDATA[
+                                                                                    AND SUBSTR(D1.AUD_KND_CD, 3, 1) <> '5'
+                                                                                ]]>
+                                                                              </if>
+                                                                              <if test="menuId == 'EI_002_006_000_000' ">
+                                                                               <![CDATA[
+                                                                                    AND SUBSTR(D1.AUD_KND_CD, 3, 1) = '5'
+                                                                                ]]>
+                                                                              </if>
+                                                                    INNER JOIN TBBADDED005L ST5
+                                                                               ON ST4.BZT_YR = ST5.BZT_YR
+                                                                               AND ST4.BZT_SNO = ST5.BZT_SNO
+                                 WHERE ST5.PCT_CNB =  #{strCnb}   )
+             </if>
+             <![CDATA[
+              ORDER BY A.DPT_SNO
+             ]]>
+    </select>
+    
+    <select id="countHoliday" parameterType="paramMap" resultType="java.util.HashMap">
+    /*kr.go.bai.eip.com.dao.CommonCodeMapper.countHoliday*/
+        <![CDATA[
+            SELECT COUNT(1) AS HOL_CNT 
+              FROM TBBADDED013B
+             WHERE 1=1
+               AND YE||MD BETWEEN #{strFromDt} AND #{strToDt}
+        ]]>
+    </select>
+    
+    <select id="selectPrssStepList" resultType="java.util.HashMap">
+    /*kr.go.bai.eip.com.dao.CommonCodeMapper.selectPrssStepList*/
+        SELECT  DISTINCT AUD_STEP_CD AS CD, CASE WHEN AUD_STEP_CD = '10' THEN '자료수집/확인출장'
+                                             ELSE AUD_STEP_NM END AS CD_NM
+         FROM TBBADDED101B
+    </select>
+    
+    <select id="selectPrssStepListByDoc" resultType="java.util.HashMap">
+    /*kr.go.bai.eip.com.dao.CommonCodeMapper.selectPrssStepList*/
+        SELECT  DISTINCT AUD_STEP_CD AS CD, CASE WHEN AUD_STEP_CD = '10' THEN '자료수집/확인출장'
+                                             ELSE AUD_STEP_NM END AS CD_NM
+         FROM TBBADDED101B
+       WHERE AUD_STEP_CD BETWEEN 'A1010' AND 'A1080'
+       UNION ALL
+       SELECT 'A1095' AS CD, '기타문서' AS CD_NM FROM DUAL
+    </select>
+    
+    <select id="selectMaintenanceRole" parameterType="paramMap" resultType="java.util.HashMap" >
+    <![CDATA[
+        SELECT CD_NM AS ROLE_NM
+          FROM TBDCMACM013C
+         WHERE CMM_CD_DVSN_CD = '1000842'
+           AND CD != '000000000'
+           AND USE_YN ='Y'
+           ]]>
+    </select>
+    
+    
+    
+    <select id="selectAudDocExamerList" parameterType="paramMap" resultType="java.util.HashMap" >
+    /*kr.go.bai.eip.com.dao.CommonCodeMapper.selectAudDocExamerList*/
+    <![CDATA[
+        SELECT CD_NM AS CD
+             , F_USR_INFO(CD_NM,'2') AS CD_NM 
+          FROM TBDCMACM013C
+         WHERE CMM_CD_DVSN_CD = #{strCdDvsn}
+           AND CD != '000000000'
+           AND USE_YN ='Y'
+           AND USR_DFN_TXT_1 = #{strUsrDfnTxt1}
+           ]]>
+    </select>
+    
+    <select id="selectMnpwrPolDptList" resultType="java.lang.String" >
+    /*kr.go.bai.eip.com.dao.CommonCodeMapper.selectMnpwrPolDptList*/
+    <![CDATA[
+        SELECT DPT_CD
+          FROM TBDCMACM002M
+         WHERE MANPOWER_POOL_SYE_YN = 'Y'
+           AND USE_YN = 'Y'
+           ]]>
+    </select>
+</mapper>

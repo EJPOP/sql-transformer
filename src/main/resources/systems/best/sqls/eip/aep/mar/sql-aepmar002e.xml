@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.mar.dao.AEPMAR002EMapper">
+
+		<select id="selectMajorAudDocListReadReq" parameterType="paramMap" resultType="egovMap">
+		/*kr.go.bai.eip.aep.mar.dao.AEPMAR001QMapper.selectMajorAudDocListReadReq*/
+		<![CDATA[
+			 SELECT F_CODE_NM('1000786',A.RPRT_CD) AS AUD_DOC_NM
+			     	 , A.RPRT_NM
+				 	 , A.RPRT_CD 
+			     	 , A.APV_STA_CD
+			     	 , A.APV_RQS_ID
+			     	 , A.DOC_ID
+			    	 , A.REF_ID
+			    	 , A.AUD_YR
+			     	 , A.AUD_NO
+			    	 , A.AUD_STEP_CD
+			     	 , CASE WHEN (SELECT COUNT(AUD_YR) 
+			     	 					FROM TBBADEAR002D D		/*처분요구가 한건도 없는 경우 열람 불가*/
+									   WHERE D.AUD_YR = A.AUD_YR
+										  AND D.AUD_NO = A.AUD_NO) < 1 THEN 'N'
+							  WHEN (SELECT COUNT(AUD_YR) 
+			     	 					FROM TBBADEAR002D D		/*시행일이 없는 처분요구가 한건이라도 있는 경우 열람 불가*/
+									   WHERE D.AUD_YR = A.AUD_YR
+										  AND D.AUD_NO = A.AUD_NO
+										  AND D.ENF_DT IS NULL) > 0 THEN 'N'										  
+				    		   ELSE 'Y'
+					    END AS REQ_POSSIBLE_YN
+					  , B.MNG_DPT_CD
+					  , F_DPT_INFO(B.MNG_DPT_CD,'1') AS MNG_DPT_NM
+			  FROM TBBADDED103M A
+	  INNER JOIN TBBADDED001M B
+			  	 ON A.AUD_YR = B.AUD_YR
+			   AND A.AUD_NO = B.AUD_NO			  
+			WHERE A.AUD_YR = #{audYr}
+			   AND A.AUD_NO =  #{audNo}
+			   AND A.RPRT_CD IN ('A10300100','A10500200','A10600200') /*감사실시계획서, 감사보고서, 실지감사 종료보고서*/
+			   AND A.APV_STA_CD = '30'
+		ORDER BY A.RPRT_CD 
+		]]>
+	</select>
+
+		<select id="selectMajorAudDocListReadReqBefEip" parameterType="paramMap" resultType="egovMap">
+		/*kr.go.bai.eip.aep.mar.dao.AEPMAR001QMapper.selectMajorAudDocListReadReqBefEip*/
+		<![CDATA[
+		   SELECT DECODE(A.DOC_TYP_CD,'AD-AR-002','실지감사계획서','AD-AR-003','실지감사종료보고','AD-AR-001','감사결과보고서') AS AUD_DOC_NM
+		   		  ,DECODE(A.DOC_TYP_CD,'AD-AR-002','A1030','AD-AR-003','A1050','AD-AR-001','A1060') AS AUD_STEP_CD
+		   		  ,'' AS DISP_APV_STA_NM
+		   		  , A.AUD_YR
+			      , A.AUD_NO
+		   		  ,C.FILE_NAME AS RPRT_NM
+			      ,A.DOC_TYP_CD AS RPRT_CD
+			      ,'' AS APV_RQS_ID
+			      ,'' AS APV_STA_CD
+			      ,A.DOC_ID
+			      , CASE WHEN (SELECT COUNT(AUD_YR) 
+			     	 				 FROM TBBADEAR002D D		/*처분요구가 한건도 없는 경우 열람 불가*/
+									WHERE D.AUD_YR = A.AUD_YR
+									   AND D.AUD_NO = A.AUD_NO) < 1 THEN 'N'
+						   WHEN (SELECT COUNT(AUD_YR) 
+			     	 				 FROM TBBADEAR002D D		/*시행일이 없는 처분요구가 한건이라도 있는 경우 열람 불가*/
+									WHERE D.AUD_YR = A.AUD_YR
+									   AND D.AUD_NO = A.AUD_NO
+									  AND D.ENF_DT IS NULL) > 0 THEN 'N'										  
+				    		 ELSE 'Y'
+					 END AS REQ_POSSIBLE_YN
+				   , B.MNG_DPT_CD
+				   , F_DPT_INFO(B.MNG_DPT_CD,'1') AS MNG_DPT_NM
+			 FROM TBBADDED021M A
+	   INNER JOIN TBBADDED001M B
+			  	 ON A.AUD_YR = B.AUD_YR
+			   AND A.AUD_NO = B.AUD_NO	
+	  INNER JOIN UBKERAPP.ECM_FILE_LIST_VIEW2 C
+			 	ON A.DOC_ID = C.DOC_ID
+			  AND A.AUD_YR = A.AUD_YR
+			  AND A.AUD_NO = A.AUD_NO	
+			WHERE 1=1
+			  AND A.AUD_YR = #{audYr}
+			  AND A.AUD_NO = #{audNo}
+			  AND A.DOC_TYP_CD IN ('AD-AR-003','AD-AR-001','AD-AR-002')
+			ORDER BY DECODE(A.DOC_TYP_CD,  'AD-AR-002', 1, 'AD-AR-003', 2,  'AD-AR-001', 3) 
+		]]>
+	</select>	
+	
+	<insert id="saveMajorAudDocReadReq">
+			/*kr.go.bai.eip.aep.mar.dao.AEPMAR001QMapper.saveMajorAudDocReadReq*/
+		   INSERT INTO TBAEPMAR001M
+		   	(	
+		   		 SRNO
+		   		,AUD_YR
+		   		,AUD_NO
+		   		,AUD_STEP_CD
+		   		,REF_DOC_ID
+		   		,PRSS_CD
+				,RQS_ID
+				,RQS_REGI_DT
+		   	)
+		   	VALUES
+		   	(
+		   		( SELECT NVL(MAX(SRNO), 0) + 1
+                     FROM TBAEPMAR001M)
+                ,#{audYr}
+                ,#{audNo}
+                ,#{audStepCd}
+		   		,#{docId}
+		   		,'10'
+		   		,#{usrId}
+		   		,SYSDATE
+		   	)
+	</insert>
+
+   <insert id="sendMajorAudDocReqMsg">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB001EMapper.sendMajorAudDocReqMsg */
+    <![CDATA[
+		 INSERT INTO TBDCMACM026L
+		            (
+			              MSG_SNO
+			            , TSK_CAT_CD
+			            , FUNC_CAT_CD
+			            , SEND_ID
+			            , MSG_TP_YN
+			            , MSG_TXT_2
+			            , RCNT_CNT
+			            , RCNT_HIS
+			            , MSG_REGI_DH
+			            , FRT_USR_ID
+			            , FNL_USR_ID
+			            , FNL_DEAL_DPT_CD
+			            , FNL_MNU_ID
+			            , FRT_REGI_DH
+			            , FNL_MDF_DH    
+		            )
+			VALUES
+		            (
+			              (SELECT NVL(MAX(MSG_SNO),'0')+1 AS MSG_SNO FROM TBDCMACM026L)
+			            , 'CM'
+			            , 'CM'
+			            , #{sendId}
+			            , '0'
+			            , #{sendMsg}
+			            , #{cnt}
+			            , (SELECT CNB FROM TBDCMACM001M WHERE DPT_CD = #{mngDptCd} AND PST_CD = '0013600')
+			            , SYSDATE 
+			            , #{usrId}
+			            , #{usrId}
+			            , #{dptCd}
+			            , 'AEPMAR002E'
+			            , SYSDATE
+			            , SYSDATE 
+		            )
+        ]]>
+    </insert>	
+	
+</mapper> 

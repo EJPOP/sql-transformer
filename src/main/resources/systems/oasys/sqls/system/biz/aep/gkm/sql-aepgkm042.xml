@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="aep/gkm/042" >
+	<select id="AEPGKM042Qtab1select" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT  A.CRE_USER_DEPT_CD
+		       ,A.CRE_USER_DEPT_NAME
+		       ,NVL(A.QST_SC, 0) AS QST_SC,NVL(A.ANS_SC, 0) AS ANS_SC,NVL(A.CMT_SC, 0) AS CMT_SC
+		       ,NVL(B.DBT_SC, 0) AS DBT_SC,NVL(B.REG_SC, 0) AS REG_SC,NVL(B.PTC_SC, 0) AS PTC_SC
+		       ,(NVL(A.QST_SC, 0) + NVL(A.ANS_SC, 0) + NVL(A.CMT_SC, 0) + NVL(B.DBT_SC, 0) + NVL(B.REG_SC, 0) + NVL(B.PTC_SC, 0)) AS TOT_SC
+		FROM    (
+		        SELECT  A.CRE_USER_DEPT_CD
+		               ,A.CRE_USER_DEPT_NAME
+		               ,A.BOARD_ID
+		               ,SUM(CASE WHEN PARENT_POST_SEQ IS NULL THEN 1 ELSE 0 END) AS QST_SC
+		               ,SUM(CASE WHEN PARENT_POST_SEQ IS NOT NULL THEN 1 ELSE 0 END) AS ANS_SC
+		               ,SUM(CASE WHEN CMMT_SEQ IS NOT NULL THEN 1 ELSE 0 END) AS CMT_SC
+		        FROM    (
+		                SELECT  A.CRE_USER_DEPT_CD
+		                       ,A.CRE_USER_DEPT_NAME
+		                       ,A.CRE_USER_ID
+		                       ,A.CRE_USER_NAME
+		                       ,A.BOARD_ID
+		                       ,A.POST_SEQ
+		                       ,A.PARENT_POST_SEQ
+		                       ,A.LAST_UPDATE
+		                       ,B.EVL_YR
+		                       ,B.EVL_DVSN_CD
+		                FROM    CTT_POST AS A
+		                       ,TBAEPGKM011M AS B
+		                WHERE   1=1
+		                <![CDATA[
+		                AND		A.LAST_UPDATE >= TO_DATE(B.EVL_ACTV_STR_DT)
+						AND		A.LAST_UPDATE <= TO_DATE(B.EVL_ACTV_END_DT) + .99999
+		                ]]>
+		                AND     A.BOARD_ID = #C_BOARD_ID#
+		                )AS A     /* 게시판 */
+		               ,TBDCMACM001M AS B /* 사용자 */
+		               ,(
+		                SELECT  A.CRE_USER_DEPT_CD
+		                       ,A.CRE_USER_DEPT_NAME
+		                       ,A.CRE_USER_ID
+		                       ,A.CRE_USER_NAME
+		                       ,A.BOARD_ID
+		                       ,A.POST_SEQ
+		                       ,A.CMMT_SEQ
+		                       ,A.CRE_DT
+		                       ,B.EVL_YR
+		                       ,B.EVL_DVSN_CD
+		                FROM    CTT_POST_CMMT AS A
+		                       ,TBAEPGKM011M AS B
+		                WHERE   1=1
+		                <![CDATA[
+		                AND     TO_DATE(A.CRE_DT, 'YYYYMMDDHH24MISS') >= TO_DATE(B.EVL_ACTV_STR_DT)
+		                AND     TO_DATE(A.CRE_DT, 'YYYYMMDDHH24MISS') <= TO_DATE(B.EVL_ACTV_END_DT) + .99999
+		                ]]>
+				        <isNotEmpty property="EVL_YR" prepend="AND">
+								B.EVL_YR = #EVL_YR#
+						</isNotEmpty>
+						<isNotEmpty property="EVL_DVSN_CD" prepend="AND">
+								B.EVL_DVSN_CD = #EVL_DVSN_CD#
+						</isNotEmpty>
+		                AND     A.BOARD_ID = #C_BOARD_ID#
+		                ) AS C
+		        WHERE   A.CRE_USER_ID = B.USR_ID
+		        AND     A.CRE_USER_ID = C.CRE_USER_ID (+)
+		        AND     A.BOARD_ID = C.BOARD_ID (+)
+		        AND     A.POST_SEQ = C.POST_SEQ (+)
+		        <isNotEmpty property="HIRK_DPT_CD" prepend="AND">
+						A.CRE_USER_DEPT_CD LIKE SUBSTR(#HIRK_DPT_CD#, 0, 3) || '%' 
+				</isNotEmpty>
+		        <isNotEmpty property="DPT_CD" prepend="AND">
+						A.CRE_USER_DEPT_CD = #DPT_CD#
+				</isNotEmpty>
+		        <isNotEmpty property="CNB" prepend="AND">
+						B.CNB = #CNB#
+				</isNotEmpty>
+		        GROUP BY A.CRE_USER_DEPT_CD, A.CRE_USER_DEPT_NAME, A.BOARD_ID
+		        ) AS A,
+		        (
+		        SELECT  A.CRE_USER_DEPT_CD
+		               ,A.CRE_USER_DEPT_NAME
+		               ,A.BOARD_ID
+		               ,SUM(CASE WHEN PARENT_POST_SEQ IS NULL THEN 1 ELSE 0 END) AS DBT_SC
+		               ,SUM(CASE WHEN PARENT_POST_SEQ IS NOT NULL THEN 1 ELSE 0 END) AS REG_SC
+		               ,SUM(CASE WHEN CMMT_SEQ IS NOT NULL THEN 1 ELSE 0 END) AS PTC_SC
+		        FROM    (
+		                SELECT  A.CRE_USER_DEPT_CD
+		                       ,A.CRE_USER_DEPT_NAME
+		                       ,A.CRE_USER_ID
+		                       ,A.CRE_USER_NAME
+		                       ,A.BOARD_ID
+		                       ,A.POST_SEQ
+		                       ,A.PARENT_POST_SEQ
+		                       ,A.LAST_UPDATE
+		                       ,B.EVL_YR
+		                       ,B.EVL_DVSN_CD
+		                FROM    CTT_POST AS A
+		                       ,TBAEPGKM011M AS B
+		                WHERE   1=1
+		                <![CDATA[
+		                AND		A.LAST_UPDATE >= TO_DATE(B.EVL_ACTV_STR_DT)
+						AND		A.LAST_UPDATE <= TO_DATE(B.EVL_ACTV_END_DT) + .99999
+		                ]]>
+		                AND     A.BOARD_ID = #D_BOARD_ID#
+		                )AS A     /* 게시판 */
+		               ,TBDCMACM001M AS B /* 사용자 */
+		               ,(
+		                SELECT  A.CRE_USER_DEPT_CD
+		                       ,A.CRE_USER_DEPT_NAME
+		                       ,A.CRE_USER_ID
+		                       ,A.CRE_USER_NAME
+		                       ,A.BOARD_ID
+		                       ,A.POST_SEQ
+		                       ,A.CMMT_SEQ
+		                       ,A.CRE_DT
+		                       ,B.EVL_YR
+		                       ,B.EVL_DVSN_CD
+		                FROM    CTT_POST_CMMT AS A
+		                       ,TBAEPGKM011M AS B
+		                WHERE   1=1
+		                <![CDATA[
+		                AND     TO_DATE(A.CRE_DT, 'YYYYMMDDHH24MISS') >= TO_DATE(B.EVL_ACTV_STR_DT)
+		                AND     TO_DATE(A.CRE_DT, 'YYYYMMDDHH24MISS') <= TO_DATE(B.EVL_ACTV_END_DT) + .99999
+		                ]]>
+				        <isNotEmpty property="EVL_YR" prepend="AND">
+								B.EVL_YR = #EVL_YR#
+						</isNotEmpty>
+						<isNotEmpty property="EVL_DVSN_CD" prepend="AND">
+								B.EVL_DVSN_CD = #EVL_DVSN_CD#
+						</isNotEmpty>
+		                AND     A.BOARD_ID = #D_BOARD_ID#
+		                ) AS C
+		        WHERE   A.CRE_USER_ID = B.USR_ID
+		        AND     A.CRE_USER_ID = C.CRE_USER_ID (+)
+		        AND     A.BOARD_ID = C.BOARD_ID (+)
+		        AND     A.POST_SEQ = C.POST_SEQ (+)
+		        <isNotEmpty property="HIRK_DPT_CD" prepend="AND">
+						A.CRE_USER_DEPT_CD LIKE SUBSTR(#HIRK_DPT_CD#, 0, 3) || '%' 
+				</isNotEmpty>
+		        <isNotEmpty property="DPT_CD" prepend="AND">
+						A.CRE_USER_DEPT_CD = #DPT_CD#
+				</isNotEmpty>
+		        <isNotEmpty property="CNB" prepend="AND">
+						B.CNB = #CNB#
+				</isNotEmpty>
+		        GROUP BY A.CRE_USER_DEPT_CD, A.CRE_USER_DEPT_NAME, A.BOARD_ID
+		        ) AS B
+		WHERE   A.CRE_USER_DEPT_CD = B.CRE_USER_DEPT_CD(+)
+		AND     A.CRE_USER_DEPT_NAME = B.CRE_USER_DEPT_NAME(+)
+		ORDER BY A.CRE_USER_DEPT_CD
+	</select>
+	
+	<select id="AEPGKM042Qtab2select" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT  A.CRE_USER_ID
+		       ,A.CRE_USER_NAME
+		       ,NVL(A.QST_SC, 0) AS QST_SC,NVL(A.ANS_SC, 0) AS ANS_SC,NVL(A.CMT_SC, 0) AS CMT_SC
+		       ,NVL(B.DBT_SC, 0) AS DBT_SC,NVL(B.REG_SC, 0) AS REG_SC,NVL(B.PTC_SC, 0) AS PTC_SC
+		       ,(NVL(A.QST_SC, 0) + NVL(A.ANS_SC, 0) + NVL(A.CMT_SC, 0) + NVL(B.DBT_SC, 0) + NVL(B.REG_SC, 0) + NVL(B.PTC_SC, 0)) AS TOT_SC
+		FROM    (
+		        SELECT  A.CRE_USER_ID
+		               ,A.CRE_USER_NAME
+		               ,A.BOARD_ID
+		               ,SUM(CASE WHEN PARENT_POST_SEQ IS NULL THEN 1 ELSE 0 END) AS QST_SC
+		               ,SUM(CASE WHEN PARENT_POST_SEQ IS NOT NULL THEN 1 ELSE 0 END) AS ANS_SC
+		               ,SUM(CASE WHEN CMMT_SEQ IS NOT NULL THEN 1 ELSE 0 END) AS CMT_SC
+		        FROM    (
+		                SELECT  A.CRE_USER_DEPT_CD
+		                       ,A.CRE_USER_DEPT_NAME
+		                       ,A.CRE_USER_ID
+		                       ,A.CRE_USER_NAME
+		                       ,A.BOARD_ID
+		                       ,A.POST_SEQ
+		                       ,A.PARENT_POST_SEQ
+		                       ,A.LAST_UPDATE
+		                       ,B.EVL_YR
+		                       ,B.EVL_DVSN_CD
+		                FROM    CTT_POST AS A
+		                       ,TBAEPGKM011M AS B
+		                WHERE   1=1
+		                <![CDATA[
+		                AND		A.LAST_UPDATE >= TO_DATE(B.EVL_ACTV_STR_DT)
+						AND		A.LAST_UPDATE <= TO_DATE(B.EVL_ACTV_END_DT) + .99999
+		                ]]>
+		                AND     A.BOARD_ID = #C_BOARD_ID#
+		                )AS A     /* 게시판 */
+		               ,TBDCMACM001M AS B /* 사용자 */
+		               ,(
+		                SELECT  A.CRE_USER_DEPT_CD
+		                       ,A.CRE_USER_DEPT_NAME
+		                       ,A.CRE_USER_ID
+		                       ,A.CRE_USER_NAME
+		                       ,A.BOARD_ID
+		                       ,A.POST_SEQ
+		                       ,A.CMMT_SEQ
+		                       ,A.CRE_DT
+		                       ,B.EVL_YR
+		                       ,B.EVL_DVSN_CD
+		                FROM    CTT_POST_CMMT AS A
+		                       ,TBAEPGKM011M AS B
+		                WHERE   1=1
+		                <![CDATA[
+		                AND     TO_DATE(A.CRE_DT, 'YYYYMMDDHH24MISS') >= TO_DATE(B.EVL_ACTV_STR_DT)
+		                AND     TO_DATE(A.CRE_DT, 'YYYYMMDDHH24MISS') <= TO_DATE(B.EVL_ACTV_END_DT) + .99999
+		                ]]>
+				        <isNotEmpty property="EVL_YR" prepend="AND">
+								B.EVL_YR = #EVL_YR#
+						</isNotEmpty>
+						<isNotEmpty property="EVL_DVSN_CD" prepend="AND">
+								B.EVL_DVSN_CD = #EVL_DVSN_CD#
+						</isNotEmpty>
+		                AND     A.BOARD_ID = #C_BOARD_ID#
+		                ) AS C
+		        WHERE   A.CRE_USER_ID = B.USR_ID
+		        AND     A.CRE_USER_ID = C.CRE_USER_ID (+)
+		        AND     A.BOARD_ID = C.BOARD_ID (+)
+		        AND     A.POST_SEQ = C.POST_SEQ (+)
+		        <isNotEmpty property="USR_NM" prepend="AND">
+						A.CRE_USER_NAME LIKE #USR_NM# || '%'
+				</isNotEmpty>
+		        GROUP BY A.CRE_USER_ID, A.CRE_USER_NAME, A.BOARD_ID
+		        ) AS A,
+		        (
+		        SELECT  A.CRE_USER_ID
+		               ,A.CRE_USER_NAME
+		               ,A.BOARD_ID
+		               ,SUM(CASE WHEN PARENT_POST_SEQ IS NULL THEN 1 ELSE 0 END) AS DBT_SC
+		               ,SUM(CASE WHEN PARENT_POST_SEQ IS NOT NULL THEN 1 ELSE 0 END) AS REG_SC
+		               ,SUM(CASE WHEN CMMT_SEQ IS NOT NULL THEN 1 ELSE 0 END) AS PTC_SC
+		        FROM    (
+		                SELECT  A.CRE_USER_DEPT_CD
+		                       ,A.CRE_USER_DEPT_NAME
+		                       ,A.CRE_USER_ID
+		                       ,A.CRE_USER_NAME
+		                       ,A.BOARD_ID
+		                       ,A.POST_SEQ
+		                       ,A.PARENT_POST_SEQ
+		                       ,A.LAST_UPDATE
+		                       ,B.EVL_YR
+		                       ,B.EVL_DVSN_CD
+		                FROM    CTT_POST AS A
+		                       ,TBAEPGKM011M AS B
+		                WHERE   1=1
+		                <![CDATA[
+		                AND		A.LAST_UPDATE >= TO_DATE(B.EVL_ACTV_STR_DT)
+						AND		A.LAST_UPDATE <= TO_DATE(B.EVL_ACTV_END_DT) + .99999
+		                ]]>
+		                AND     A.BOARD_ID = #D_BOARD_ID#
+		                )AS A     /* 게시판 */
+		               ,TBDCMACM001M AS B /* 사용자 */
+		               ,(
+		                SELECT  A.CRE_USER_DEPT_CD
+		                       ,A.CRE_USER_DEPT_NAME
+		                       ,A.CRE_USER_ID
+		                       ,A.CRE_USER_NAME
+		                       ,A.BOARD_ID
+		                       ,A.POST_SEQ
+		                       ,A.CMMT_SEQ
+		                       ,A.CRE_DT
+		                       ,B.EVL_YR
+		                       ,B.EVL_DVSN_CD
+		                FROM    CTT_POST_CMMT AS A
+		                       ,TBAEPGKM011M AS B
+		                WHERE   1=1
+		                <![CDATA[
+		                AND     TO_DATE(A.CRE_DT, 'YYYYMMDDHH24MISS') >= TO_DATE(B.EVL_ACTV_STR_DT)
+		                AND     TO_DATE(A.CRE_DT, 'YYYYMMDDHH24MISS') <= TO_DATE(B.EVL_ACTV_END_DT) + .99999
+		                ]]>
+				        <isNotEmpty property="EVL_YR" prepend="AND">
+								B.EVL_YR = #EVL_YR#
+						</isNotEmpty>
+						<isNotEmpty property="EVL_DVSN_CD" prepend="AND">
+								B.EVL_DVSN_CD = #EVL_DVSN_CD#
+						</isNotEmpty>
+		                AND     A.BOARD_ID = #D_BOARD_ID#
+		                ) AS C
+		        WHERE   A.CRE_USER_ID = B.USR_ID
+		        AND     A.CRE_USER_ID = C.CRE_USER_ID (+)
+		        AND     A.BOARD_ID = C.BOARD_ID (+)
+		        AND     A.POST_SEQ = C.POST_SEQ (+)
+		        <isNotEmpty property="USR_NM" prepend="AND">
+						A.CRE_USER_NAME LIKE #USR_NM# || '%'
+				</isNotEmpty>
+		        GROUP BY A.CRE_USER_ID, A.CRE_USER_NAME, A.BOARD_ID
+		        ) AS B
+		WHERE   A.CRE_USER_ID = B.CRE_USER_ID(+)
+		AND     A.CRE_USER_NAME = B.CRE_USER_NAME(+)
+		ORDER BY F_USR_INFO_BY_ID(A.CRE_USER_ID, '1')
+	</select>
+</sqlMap>
+

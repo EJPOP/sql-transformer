@@ -1,0 +1,342 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="csp/dcp/420">
+ 	
+ 	<select id="CSPDCP420PMainSelect" parameterClass="paramMap" resultClass="resultMap">
+ 		SELECT	D2.REQ_DVSN_CD
+ 				, D2.ACP_YR
+ 				, D2.CVPT_ACP_NO
+ 				, D2.SUC_REQ_DVSN_CD
+ 				, D2.SUC_ACP_YR
+ 				, D2.SUC_CVPT_ACP_NO
+ 				, D1.ACP_YR||'-민원-'||D1.RM_CVPT_ACP_NO AS ACP_NO
+ 				, D1.TIT_NM
+ 				, DECODE(D1.REQR_KND_CD,'1',D1.CVPTR_NM,'2',D1.RPST_PEN_NM,'3',D1.RPST_PEN_NM,'4',D1.CVPTR_NM) AS CVPTR_NM
+ 		FROM	TBCSPDCP101M D1
+ 				,TBCSPDCP105L D2
+ 		WHERE	D2.REQ_DVSN_CD = #strREQ_DVSN_CD#
+ 		AND		D2.ACP_YR = #strACP_YR#
+ 		AND		D2.CVPT_ACP_NO = #strCVPT_ACP_NO#
+ 		AND		D1.REQ_DVSN_CD = D2.SUC_REQ_DVSN_CD
+ 		AND		D1.ACP_YR = D2.SUC_ACP_YR
+ 		AND		D1.CVPT_ACP_NO = D2.SUC_CVPT_ACP_NO
+ 	</select>
+	
+	
+	<!-- 강제 취하 처리 한다. -->
+	<update id="CSPDCP420PWdwSaveUpdate" parameterClass="paramMap">
+		UPDATE	TBCSPDCP101M D1
+		SET		D1.CVPT_HNDL_STA_CD ='70'
+				,D1.CVPT_WDW_DH = SYSDATE
+				,D1.CVPT_WDW_RSN = '민원취하요청'
+				,D1.FNL_MDF_DH = SYSDATE
+				,D1.FNL_USR_ID = #FNL_USR_ID#
+				,D1.FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+				,D1.FNL_MNU_ID = #FNL_MNU_ID#
+		WHERE	D1.REQ_DVSN_CD = #strREQ_DVSN_CD#
+ 		AND		D1.ACP_YR = #strACP_YR#
+ 		AND		D1.CVPT_ACP_NO = #strCVPT_ACP_NO#
+	</update>
+	
+	<!-- 강제 취하 처리 한다. -->
+	<update id="CSPDCP420P201SaveUpdate" parameterClass="paramMap">
+		UPDATE	TBCSPDCP201M D1
+		SET		D1.FNL_HNDL_DH = SYSDATE
+				,D1.FNL_USR_ID = #FNL_USR_ID#
+				,D1.FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+				,D1.FNL_MNU_ID = #FNL_MNU_ID#
+		WHERE	D1.REQ_DVSN_CD = #strREQ_DVSN_CD#
+ 		AND		D1.ACP_YR = #strACP_YR#
+ 		AND		D1.CVPT_ACP_NO = #strCVPT_ACP_NO#
+	</update>
+	
+	
+	<!-- 합건 을 해지한다. -->
+	<delete id="CSPDCP420PSucDelete" parameterClass="paramMap">
+	<![CDATA[
+		DELETE	/*CSPDCP420PSucDelete*/
+		FROM	TBCSPDCP105L D1	
+		WHERE	D1.REQ_DVSN_CD = #strREQ_DVSN_CD#
+ 		AND		D1.ACP_YR = #strACP_YR#
+ 		AND		D1.CVPT_ACP_NO = #strCVPT_ACP_NO#
+	]]>
+	
+	</delete>
+	
+	<!-- 홈페이지로 전송할 데이터인지 체크한다. -->
+	<select id="CSPDCP420PHomeSendSelect" parameterClass="paramMap" resultClass="int">
+		<![CDATA[
+			SELECT	/*CSPDCP420PHomeSendSelect*/
+					COUNT(1)
+			FROM	TBCSPDCP101M D1
+			WHERE	D1.REQ_DVSN_CD = #strREQ_DVSN_CD#
+	 		AND		D1.ACP_YR = #strACP_YR#
+	 		AND		D1.CVPT_ACP_NO = #strCVPT_ACP_NO#
+	 		AND		D1.ACP_RUT_CD IN ('1','2','3','4','5','7')
+		]]>
+	</select>
+	
+	<!-- 신문고로 전송할 데이터인지 체크한다. -->
+	<select id="CSPDCP420PSmgSendSelect" parameterClass="paramMap" resultClass="int">
+		<![CDATA[
+			SELECT	/*CSPDCP420PSmgSendSelect*/
+					COUNT(1)
+			FROM	TBCSPDCP101M D1
+			WHERE	D1.REQ_DVSN_CD = #strREQ_DVSN_CD#
+	 		AND		D1.ACP_YR = #strACP_YR#
+	 		AND		D1.CVPT_ACP_NO = #strCVPT_ACP_NO#
+	 		AND		D1.ACP_RUT_CD = '8'
+		]]>
+	</select>
+	
+	<!-- 신문고로 전송한다. -->
+	<insert id="CSPDCP420PSmgInsert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO	T_IC_TARGET_SRC_INTERFACE
+						(	INTERFACE_KEY
+							,APP_ORGAN_CODE		/*최초 민원 신청 기관코드(GCC)*/
+							,PETI_NO			/*민원신청번호*/
+							,REC_SEQ			/*분류이력일련번호*/
+							,CIVIL_NO			/*민원접수번호*/
+							,PETI_GUBUN			/*민원구분 (500고정,담당자부서지정) */
+							,CANCEL_STATUS		/*민원취하여부(Default N)*/
+							,PCD_DEPT			/*GCC 부서코드 (접수부서코드)*/
+							,PCD_DEPT_NM		/*GCC 부서명 (접수부서명)*/
+							,PCD_DUTY_ID		/*접수자명*/
+							,PCD_EMAIL			/*접수 이메일 (대표이메일 사용, 감청국, 센터 로 분류)*/
+							,PCD_TEL			/*접수자 전화번호 (대표전화 사용: 감청국, 센터로 분류)*/
+							,PCD_CONTENTS		/*민원 처리결과 내용*/
+							,PCD_REG_DATE		/*처리일자*/
+							,PCD_CONTENTS_ATTACH_YN	/*민원처리결과첨부여부*/
+							,PCD_GUBUN			/*신문고민원 처리구분코드*/
+							,PCD_ORGAN_CODE 	/*실처리기관코드 (감사원 GCC 코드로 고정)*/
+							,SRCORGCD			/*소스기관코드 (감사원 GCC 코드로 고정)*/
+							,TGTORGCD			/*타겟기관코드 (신문고 GCC 코드로 고정)*/
+							,WRITE_TIME			/*등록일자*/
+							,SND_RCV_GUBUN		/*송수신구분 (1:송신, 2:수신)*/
+							,SND_RCV_TIME		/*송수신일자*/
+							,SEND_YN			/*송신여부 (N DEFAULT, EAI 가 송신후 Y로 변경함)*/
+						)
+				SELECT	TO_CHAR(SYSTIMESTAMP, 'YYYYMMDDHH24MISSFF2') || LPAD(ROUND(DBMS_RANDOM.VALUE(1, 999999999)), 9, '0')
+						,SMG_FRT_CVPT_APL_GCC_ORG_CD
+							,SMG_CVPT_APL_NO
+							,SMG_CAT_HST_SRNO
+							,SMG_CVPT_ACP_NO
+							,DECODE(SMG_FRT_HNDL_STA_CD, '161','181', '163','183')
+							,'N'
+							,F_DPT_INFO(#FNL_DEAL_DPT_CD#,'6')
+							,F_DPT_INFO(#FNL_DEAL_DPT_CD#,'7')
+							,F_USR_INFO(#S_CNB#,'2')
+							,''
+							,'02-2011-2191'
+							,'귀하께서 제출하신  감사요청사항을 취하하여 감사요청사항의 처리에 관한 규정 제14조제3항에 따라 회신하지 않습니다.'
+							,TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS' )
+							,'N'
+							,''
+							,'1040000'
+							,'1040000'
+							,'1140100'
+							,TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS' )
+							,'1'
+							,TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+							,'N'
+				FROM	TBCSPDCP101M
+				WHERE	REQ_DVSN_CD = #strREQ_DVSN_CD#
+				AND		ACP_YR = #strACP_YR#
+				AND		CVPT_ACP_NO = #strCVPT_ACP_NO#
+		]]>
+	</insert>
+	
+	<!-- 강제 취하 처리 한다. -->
+	<update id="CSPDCP420PWdwAllSaveUpdate" parameterClass="paramMap">
+		UPDATE	/*CSPDCP420PWdwAllSaveUpdate*/
+				TBCSPDCP101M D1
+		SET		D1.CVPT_HNDL_STA_CD ='70'
+				,D1.CVPT_WDW_DH = SYSDATE
+				,D1.CVPT_WDW_RSN = '민원취하요청'
+				,D1.FNL_MDF_DH = SYSDATE
+				,D1.FNL_USR_ID = #FNL_USR_ID#
+				,D1.FNL_DEAL_DPT_CD = #FNL_DEAL_DPT_CD#
+				,D1.FNL_MNU_ID = #FNL_MNU_ID#
+		WHERE	D1.REQ_DVSN_CD = #SUC_REQ_DVSN_CD#
+ 		AND		D1.ACP_YR = #SUC_ACP_YR#
+ 		AND		D1.CVPT_ACP_NO = #SUC_CVPT_ACP_NO#
+	</update>
+	
+	<!-- 홈페이지로 전송할 데이터인지 체크한다. -->
+	<select id="CSPDCP420PHomeAllSendSelect" parameterClass="paramMap" resultClass="int">
+		<![CDATA[
+			SELECT	/*CSPDCP420PHomeAllSendSelect*/
+					COUNT(1)
+			FROM	TBCSPDCP101M D1
+			WHERE	D1.REQ_DVSN_CD = #SUC_REQ_DVSN_CD#
+	 		AND		D1.ACP_YR = #SUC_ACP_YR#
+	 		AND		D1.CVPT_ACP_NO = #SUC_CVPT_ACP_NO#
+	 		AND		D1.ACP_RUT_CD IN ('1','2','3','4','5','7')
+		]]>
+	</select>
+	
+	<!-- 신문고로 전송할 데이터인지 체크한다. -->
+	<select id="CSPDCP420PSmgAllSendSelect" parameterClass="paramMap" resultClass="int">
+		<![CDATA[
+			SELECT	/*CSPDCP420PSmgAllSendSelect*/
+					COUNT(1)
+			FROM	TBCSPDCP101M D1
+			WHERE	D1.REQ_DVSN_CD = #SUC_REQ_DVSN_CD#
+	 		AND		D1.ACP_YR = #SUC_ACP_YR#
+	 		AND		D1.CVPT_ACP_NO = #SUC_CVPT_ACP_NO#
+	 		AND		D1.ACP_RUT_CD = '8'
+		]]>
+	</select>
+	
+	<!-- 신문고로 전송한다. -->
+	<insert id="CSPDCP420PSmgAllInsert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO	T_IC_TARGET_SRC_INTERFACE
+						(	INTERFACE_KEY
+							,APP_ORGAN_CODE		/*최초 민원 신청 기관코드(GCC)*/
+							,PETI_NO			/*민원신청번호*/
+							,REC_SEQ			/*분류이력일련번호*/
+							,CIVIL_NO			/*민원접수번호*/
+							,PETI_GUBUN			/*민원구분 (500고정,담당자부서지정) */
+							,CANCEL_STATUS		/*민원취하여부(Default N)*/
+							,PCD_DEPT			/*GCC 부서코드 (접수부서코드)*/
+							,PCD_DEPT_NM		/*GCC 부서명 (접수부서명)*/
+							,PCD_DUTY_ID		/*접수자명*/
+							,PCD_EMAIL			/*접수 이메일 (대표이메일 사용, 감청국, 센터 로 분류)*/
+							,PCD_TEL			/*접수자 전화번호 (대표전화 사용: 감청국, 센터로 분류)*/
+							,PCD_CONTENTS		/*민원 처리결과 내용*/
+							,PCD_REG_DATE		/*처리일자*/
+							,PCD_CONTENTS_ATTACH_YN	/*민원처리결과첨부여부*/
+							,PCD_GUBUN			/*신문고민원 처리구분코드*/
+							,PCD_ORGAN_CODE 	/*실처리기관코드 (감사원 GCC 코드로 고정)*/
+							,SRCORGCD			/*소스기관코드 (감사원 GCC 코드로 고정)*/
+							,TGTORGCD			/*타겟기관코드 (신문고 GCC 코드로 고정)*/
+							,WRITE_TIME			/*등록일자*/
+							,SND_RCV_GUBUN		/*송수신구분 (1:송신, 2:수신)*/
+							,SND_RCV_TIME		/*송수신일자*/
+							,SEND_YN			/*송신여부 (N DEFAULT, EAI 가 송신후 Y로 변경함)*/
+						)
+				SELECT	TO_CHAR(SYSTIMESTAMP, 'YYYYMMDDHH24MISSFF2') || LPAD(ROUND(DBMS_RANDOM.VALUE(1, 999999999)), 9, '0')
+						,SMG_FRT_CVPT_APL_GCC_ORG_CD
+							,SMG_CVPT_APL_NO
+							,SMG_CAT_HST_SRNO
+							,SMG_CVPT_ACP_NO
+							,DECODE(SMG_FRT_HNDL_STA_CD, '161','181', '163','183')
+							,'N'
+							,F_DPT_INFO(#FNL_DEAL_DPT_CD#,'6')
+							,F_DPT_INFO(#FNL_DEAL_DPT_CD#,'7')
+							,F_USR_INFO(#S_CNB#,'2')
+							,''
+							,'02-2011-2191'
+							,'귀하께서 제출하신  감사요청사항을 취하하여 감사요청사항의 처리에 관한 규정 제14조제3항에 따라 회신하지 않습니다.'
+							,TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS' )
+							,'N'
+							,''
+							,'1040000'
+							,'1040000'
+							,'1140100'
+							,TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS' )
+							,'1'
+							,TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+							,'N'
+				FROM	TBCSPDCP101M
+				WHERE	REQ_DVSN_CD = #SUC_REQ_DVSN_CD#
+				AND		ACP_YR = #SUC_ACP_YR#
+				AND		CVPT_ACP_NO = #SUC_CVPT_ACP_NO#
+		]]>
+	</insert>
+	
+	<insert id="CSPDCP420P202HInsert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO	TBCSPDCP202H
+        				(	REQ_DVSN_CD
+        					,ACP_YR
+        					,CVPT_ACP_NO
+        					,CVPT_DTB_HST_SRNO
+        					,DTB_DPT_CD
+        					,DTB_PEN_ID
+        					,CVPT_HNDL_STA_CD
+        					,HNDL_DPT_CD
+        					,HNDL_CHGR_ID
+        					,RDTB_RQS_RSN
+        					,FRT_USR_ID
+        					,FNL_USR_ID
+        					,FNL_DEAL_DPT_CD
+        					,FNL_MNU_ID
+        					,FRT_REGI_DH
+        					,FNL_MDF_DH
+        				)
+        		VALUES	(	#strREQ_DVSN_CD#
+							,#strACP_YR#
+							,#strCVPT_ACP_NO#
+							,(	SELECT NVL(MAX(CVPT_DTB_HST_SRNO),0)+1
+								  FROM TBCSPDCP202H
+								 WHERE 1=1
+							       AND REQ_DVSN_CD = #strREQ_DVSN_CD#
+							       AND ACP_YR = #strACP_YR#
+							       AND CVPT_ACP_NO = #strCVPT_ACP_NO#
+							 )
+							,F_USR_INFO(#S_CNB#,'5')
+							,F_USR_INFO(#S_CNB#,'1')
+							,'70'
+							,''
+							,''
+							,''
+							,F_USR_INFO(#S_CNB#,'1')
+							,#FNL_USR_ID#
+							,#FNL_DEAL_DPT_CD#
+							,#FNL_MNU_ID#
+							,SYSDATE
+							,SYSDATE
+						)
+		]]>
+	</insert>
+	
+	<insert id="CSPDCP420PSuc202HInsert" parameterClass="paramMap">
+		<![CDATA[
+			INSERT INTO	TBCSPDCP202H
+        				(	REQ_DVSN_CD
+        					,ACP_YR
+        					,CVPT_ACP_NO
+        					,CVPT_DTB_HST_SRNO
+        					,DTB_DPT_CD
+        					,DTB_PEN_ID
+        					,CVPT_HNDL_STA_CD
+        					,HNDL_DPT_CD
+        					,HNDL_CHGR_ID
+        					,RDTB_RQS_RSN
+        					,FRT_USR_ID
+        					,FNL_USR_ID
+        					,FNL_DEAL_DPT_CD
+        					,FNL_MNU_ID
+        					,FRT_REGI_DH
+        					,FNL_MDF_DH
+        				)
+        		VALUES	(	#SUC_REQ_DVSN_CD#
+							,#SUC_ACP_YR#
+							,#SUC_CVPT_ACP_NO#
+							,(	SELECT NVL(MAX(CVPT_DTB_HST_SRNO),0)+1
+								  FROM TBCSPDCP202H
+								 WHERE 1=1
+							       AND REQ_DVSN_CD = #SUC_REQ_DVSN_CD#
+							       AND ACP_YR = #SUC_ACP_YR#
+							       AND CVPT_ACP_NO = #SUC_CVPT_ACP_NO#
+							 )
+							,F_USR_INFO(#S_CNB#,'5')
+							,F_USR_INFO(#S_CNB#,'1')
+							,'70'
+							,''
+							,''
+							,''
+							,F_USR_INFO(#S_CNB#,'1')
+							,#FNL_USR_ID#
+							,#FNL_DEAL_DPT_CD#
+							,#FNL_MNU_ID#
+							,SYSDATE
+							,SYSDATE
+						)
+		]]>
+	</insert>
+</sqlMap> 

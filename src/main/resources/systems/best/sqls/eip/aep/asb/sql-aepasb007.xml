@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE mapper PUBLIC " -//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.go.bai.eip.aep.asb.dao.AEPASB007PMapper">
+
+    <select id="selectSendDoc" 
+        resultType="egovMap">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB007PMapper.selectSendDoc */
+        <![CDATA[
+            SELECT 
+                AUD_YR, 
+                AUD_NO, 
+                DOC_ID, 
+                A.AUD_KND_CD,
+                A.AUD_GRN_NO,
+                RPRT_CD, 
+                A.RPRT_NM, 
+                A.FRT_USR_ID AS WRIT_ID,
+                F_USR_INFO_BY_ID(A.FRT_USR_ID,'2')||'('||TO_CHAR(A.FRT_REGI_DH,'YYYY"-"MM"-"DD')||')' AS WRIT_NM,
+                CASE 
+                    WHEN DOC_STA_CD = 'S' THEN '발신'
+                    WHEN DOC_STA_CD = 'A' THEN '수신'
+                    WHEN DOC_STA_CD = 'R' THEN '접수'
+                    ELSE '발신대기'
+                END DOC_STA_NM, 
+                DOC_STA_CD,
+                CASE 
+                    WHEN SNDR_ID IS NULL THEN ''
+                    ELSE
+                        F_USR_INFO_BY_ID(SNDR_ID,'2')||'('||TO_CHAR(SND_DH,'YYYY"-"MM"-"DD')||')'
+                END SNDR_NM,
+                #{rcptDptCd} AS RCPT_DPT_CD,
+                F_DPT_INFO(#{rcptDptCd},'1') AS RCPT_DPT_NM,
+                SNDR_ID, 	
+                CASE 
+                    WHEN RCNT_ID IS NULL THEN ''
+                    ELSE
+                        F_USR_INFO_BY_ID(RCNT_ID,'2')||'('||TO_CHAR(RCPT_DH,'YYYY"-"MM"-"DD')||')' 
+                END RCNT_NM,
+                SR_DOC_SNO
+            FROM 
+                TBBADDED103M A 
+                LEFT JOIN  
+                (SELECT * FROM TBBADDED111M
+                WHERE AUD_YR = #{audYr}
+                AND AUD_NO = #{audNo}
+                AND RCPT_DPT_CD = #{rcptDptCd}
+                ]]>
+                <if test="sbcnSbjSno != null and sbcnSbjSno != ''">
+                    AND SBCN_SBJ_SNO = #{sbcnSbjSno}
+                </if>
+                <if test="rprtCd == 'EXP_REPORT' ">
+                    AND RPRT_CD in (#{rprtCd},'AUD_REPORT')
+                </if>
+                <if test="rprtCd != 'EXP_REPORT' ">
+                    AND RPRT_CD = #{rprtCd}
+                </if>
+                ) B
+                USING(AUD_YR, AUD_NO, DOC_ID, RPRT_CD)
+            WHERE 
+                AUD_YR = #{audYr}
+            AND AUD_NO = #{audNo}
+            <if test="sbcnSbjSno != null and sbcnSbjSno != ''">
+                    AND A.SBCN_SBJ_SNO = #{sbcnSbjSno}
+            </if>
+            <if test="rprtCd == 'EXP_REPORT' ">
+            AND RPRT_CD in (#{rprtCd},'AUD_REPORT')
+            </if>
+            <if test="rprtCd != 'EXP_REPORT' ">
+            AND RPRT_CD = #{rprtCd}
+            </if>
+            
+    </select>
+
+    <insert id="insertSendDoc">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB007PMapper.insertSendDoc */
+        <![CDATA[
+        INSERT INTO TBBADDED111M
+        (
+            AUD_YR,
+            AUD_NO,
+            AUD_STEP_CD,
+            DOC_ID,
+            SR_DOC_SNO,
+            AUD_KND_CD,
+            AUD_GRN_NO,
+            RPRT_NM,
+            RPRT_CD,
+            LINK_URL,
+            DOC_STA_CD,
+            SND_DPT_CD,
+            SNDR_ID,
+            SND_DH,
+            SBCN_SBJ_SNO,
+            RCPT_DPT_CD,
+            FRT_USR_ID,
+            FNL_USR_ID,
+            FNL_DEAL_DPT_CD,
+            FNL_MNU_ID,
+            FRT_REGI_DH,
+            FNL_MDF_DH
+        )
+        VALUES
+        (
+            #{audYr},
+            #{audNo},
+            '70',
+            #{docId},
+            (SELECT 
+            LPAD(NVL(MAX(TO_NUMBER(SR_DOC_SNO)),0)+1,3,0) 
+            FROM TBBADDED111M 
+            WHERE 
+            AUD_YR = #{audYr} 
+            AND AUD_NO =#{audNo}
+            AND    AUD_STEP_CD = '70'
+            AND    DOC_ID = #{docId} ),
+            #{audKndCd},
+            #{audGrnNo},
+            #{rprtNm},
+            #{rprtCd},
+            '',
+            'S',
+            #{sndDptCd},
+            #{usrId},
+            SYSDATE,
+            #{sbcnSbjSno},
+            #{rcptDptCd},
+            #{usrId},
+            #{usrId},
+            #{dptCd},
+            'AEPASB007P',
+            SYSDATE,
+            SYSDATE
+        )
+        ]]>
+    </insert>
+    
+    <update id="updateAudStep">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB007PMapper.updateAudStep */
+        <![CDATA[
+       UPDATE TBBADDED102M
+       SET CMPT_YN =  #{cmptYn}
+            , FNL_USR_ID = #{usrId}
+            , FNL_MNU_ID = 'AEPASB007P'
+            , FNL_MDF_DH = SYSDATE
+       WHERE
+            AUD_YR = #{audYr}
+       AND AUD_NO = #{audNo}
+       AND AUD_STEP_CD = '70'
+       AND AUD_MAIN_STEP_ID =  #{audMainStepId}
+       ]]>
+       <if test="audMainStepSno != null and audMainStepSno != ''">
+        AND AUD_MAIN_STEP_SNO =  #{audMainStepSno}
+        </if>
+        <if test="sbcnSbjSno != null and sbcnSbjSno != ''">
+        AND SBCN_SBJ_SNO =  #{sbcnSbjSno}
+        </if>
+    </update>
+    
+    <update id="cancelSendDoc">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB007PMapper.cancelSendDoc */
+        <![CDATA[
+        DELETE FROM TBBADDED111M
+        WHERE
+            AUD_YR = #{audYr}
+        AND AUD_NO = #{audNo}
+        AND AUD_STEP_CD = '70'
+        AND DOC_ID = #{docId}
+        AND SR_DOC_SNO = #{srDocSno}
+       ]]>
+    </update>
+    
+    <select id="getDocStaCd" 
+        resultType="egovMap">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB007PMapper.getDocStaCd */
+        <![CDATA[
+            SELECT 
+                DOC_STA_CD
+            FROM TBBADDED111M
+            WHERE
+                    AUD_YR = #{audYr}
+            AND AUD_NO = #{audNo}
+            AND AUD_STEP_CD = '70'
+            AND DOC_ID = #{docId}
+            AND SR_DOC_SNO = #{srDocSno}
+            ]]>
+    </select>
+    
+    <select id="getSendDocCnt" 
+        resultType="egovMap">
+        /* kr.go.bai.eip.aep.asb.dao.AEPASB007PMapper.getSendDocCnt */
+        <![CDATA[
+            SELECT 
+                COUNT(1) AS DOC_CNT
+            FROM TBBADDED111M
+            WHERE
+                    AUD_YR = #{audYr}
+            AND AUD_NO = #{audNo}
+            AND AUD_STEP_CD = '70'
+            AND RCPT_DPT_CD = #{rcptDptCd}
+            ]]>
+            <if test="sbcnSbjSno != null and sbcnSbjSno != ''">
+            AND SBCN_SBJ_SNO =  #{sbcnSbjSno}
+            </if>
+            <if test="rprtCd == 'EXP_REPORT' ">
+                AND RPRT_CD in (#{rprtCd},'AUD_REPORT')
+            </if>
+            <if test="rprtCd != 'EXP_REPORT' ">
+                AND RPRT_CD = #{rprtCd}
+            </if>
+    </select>
+    
+</mapper> 
