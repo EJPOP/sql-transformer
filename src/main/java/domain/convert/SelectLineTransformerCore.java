@@ -1,14 +1,11 @@
 package domain.convert;
 
-import java.util.Map;
-
-import java.util.Objects;
-
 import domain.mapping.ColumnMappingRegistry;
-
 import domain.model.ConversionContext;
-
 import domain.model.ConversionWarningSink;
+
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * Package-private orchestrator keeping the public entry-point small.
@@ -57,6 +54,23 @@ final class SelectLineTransformerCore {
         this.qualifiedColumnRefConverter = new QualifiedColumnRefConverter(this.registry);
     }
 
+    private static int readCommentCol() {
+        String v = System.getProperty("commentCol");
+        if (v == null || v.isBlank()) v = System.getProperty("comment.col");
+        int def = 30;
+
+        if (v == null || v.isBlank()) return def;
+
+        try {
+            int n = Integer.parseInt(v.trim());
+            if (n < 10) n = 10;
+            if (n > 200) n = 200;
+            return n;
+        } catch (Exception ignore) {
+            return def;
+        }
+    }
+
     String transformSelectBody(String selectBody, Map<String, String> aliasTableMap, AliasSqlGenerator.Mode mode) {
         String pre = qualifiedColumnRefConverter.convert(selectBody, aliasTableMap, null, ConversionWarningSink.none());
         return selectRenderer.transformSelectBody(pre, aliasTableMap, mode, null, ConversionWarningSink.none());
@@ -86,22 +100,5 @@ final class SelectLineTransformerCore {
     String annotateDml(String sql, Map<String, String> aliasTableMap) {
         String pre = qualifiedColumnRefConverter.convert(sql, aliasTableMap, null, ConversionWarningSink.none());
         return dmlAnnotator.annotateDml(pre, aliasTableMap);
-    }
-
-    private static int readCommentCol() {
-        String v = System.getProperty("commentCol");
-        if (v == null || v.isBlank()) v = System.getProperty("comment.col");
-        int def = 30;
-
-        if (v == null || v.isBlank()) return def;
-
-        try {
-            int n = Integer.parseInt(v.trim());
-            if (n < 10) n = 10;
-            if (n > 200) n = 200;
-            return n;
-        } catch (Exception ignore) {
-            return def;
-        }
     }
 }

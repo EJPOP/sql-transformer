@@ -1,18 +1,16 @@
 package infra.output;
 
 import domain.output.SqlFileNamePolicy;
-
 import domain.output.SqlOutputWriter;
 
 import java.nio.file.Files;
-
 import java.nio.file.Path;
 
 /**
  * {@link SqlOutputWriter} that stores generated SQL into files.
- *
+ * <p>
  * Output layout (NEW):
- *   <outDir>/<serviceClass>/<namespace>/<sqlId>.sql
+ * <outDir>/<serviceClass>/<namespace>/<sqlId>.sql
  */
 public final class FileSqlOutputWriter implements SqlOutputWriter {
 
@@ -21,25 +19,6 @@ public final class FileSqlOutputWriter implements SqlOutputWriter {
     // ✅ 기존 팩토리 시그니처 유지: new FileSqlOutputWriter(new AliasSqlFileWriter())
     public FileSqlOutputWriter(AliasSqlFileWriter delegate) {
         this.delegate = (delegate == null) ? new AliasSqlFileWriter() : delegate;
-    }
-
-    @Override
-    public void write(Path outDir, String serviceClass, String namespace, String sqlId, String sqlText) {
-        if (outDir == null) throw new IllegalArgumentException("outDir is null");
-
-        String svcDir = safeDir(simpleClassName(serviceClass), "unknownService");
-        // namespace는 폴더에 들어가므로 Mapper simpleName으로 정규화 (FQCN이면 뒤 토큰 사용)
-        String nsDir  = safeDir(SqlFileNamePolicy.extractMapperSimpleName(namespace), "UnknownMapper");
-        Path targetDir = outDir.resolve(svcDir).resolve(nsDir);
-
-        try {
-            Files.createDirectories(targetDir);
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to create output directory: " + targetDir, e);
-        }
-
-        // delegate 내부에서 파일명을 SqlFileNamePolicy로 생성함 (우리가 build를 sqlId.sql로 바꿀 예정)
-        delegate.write(targetDir, serviceClass, namespace, sqlId, sqlText);
     }
 
     private static String simpleClassName(String serviceClass) {
@@ -58,5 +37,25 @@ public final class FileSqlOutputWriter implements SqlOutputWriter {
         s = s.replaceAll("\\s+", "_");
         if (s.startsWith(".")) s = "_" + s.substring(1);
         return s;
+    }
+
+    @Override
+    public void write(Path outDir, String serviceClass, String namespace, String sqlId, String sqlText) {
+        if (outDir == null) throw new IllegalArgumentException("outDir is null");
+
+        String svcDir = safeDir(simpleClassName(serviceClass), "unknownService");
+        // namespace는 폴더에 들어가므로 Mapper simpleName으로 정규화 (FQCN이면 뒤 토큰 사용)
+        String nsDir = safeDir(SqlFileNamePolicy.extractMapperSimpleName(namespace), "UnknownMapper");
+        Path targetDir = outDir.resolve(svcDir)
+                .resolve(nsDir);
+
+        try {
+            Files.createDirectories(targetDir);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to create output directory: " + targetDir, e);
+        }
+
+        // delegate 내부에서 파일명을 SqlFileNamePolicy로 생성함 (우리가 build를 sqlId.sql로 바꿀 예정)
+        delegate.write(targetDir, serviceClass, namespace, sqlId, sqlText);
     }
 }

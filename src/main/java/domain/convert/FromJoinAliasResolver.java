@@ -1,9 +1,7 @@
 package domain.convert;
 
 import java.util.LinkedHashMap;
-
 import java.util.Locale;
-
 import java.util.Map;
 
 /**
@@ -20,7 +18,8 @@ import java.util.Map;
  */
 final class FromJoinAliasResolver {
 
-    private FromJoinAliasResolver() {}
+    private FromJoinAliasResolver() {
+    }
 
     static Map<String, String> resolve(String sql) {
         Map<String, String> aliasToTable = new LinkedHashMap<>();
@@ -34,14 +33,38 @@ final class FromJoinAliasResolver {
 
         while (st.hasNext()) {
             // preserve/skip (do not parse inside)
-            if (st.peekIsLineComment()) { st.readLineComment(); continue; }
-            if (st.peekIsBlockComment()) { st.readBlockComment(); continue; }
-            if (st.peekIsSingleQuotedString()) { st.readSingleQuotedString(); continue; }
-            if (st.peekIsDoubleQuotedString()) { st.readDoubleQuotedString(); continue; }
-            if (st.peekIsMyBatisParam()) { st.readMyBatisParam(); continue; }
-            if (st.peekIsHashToken()) { st.readHashToken(); continue; }
-            if (st.peekIsCdata()) { st.readCdata(); continue; }
-            if (st.peekIsXmlTag()) { st.readXmlTag(); continue; }
+            if (st.peekIsLineComment()) {
+                st.readLineComment();
+                continue;
+            }
+            if (st.peekIsBlockComment()) {
+                st.readBlockComment();
+                continue;
+            }
+            if (st.peekIsSingleQuotedString()) {
+                st.readSingleQuotedString();
+                continue;
+            }
+            if (st.peekIsDoubleQuotedString()) {
+                st.readDoubleQuotedString();
+                continue;
+            }
+            if (st.peekIsMyBatisParam()) {
+                st.readMyBatisParam();
+                continue;
+            }
+            if (st.peekIsHashToken()) {
+                st.readHashToken();
+                continue;
+            }
+            if (st.peekIsCdata()) {
+                st.readCdata();
+                continue;
+            }
+            if (st.peekIsXmlTag()) {
+                st.readXmlTag();
+                continue;
+            }
 
             // keywords
             if (st.peekWord("FROM")) {
@@ -70,7 +93,10 @@ final class FromJoinAliasResolver {
             // parse table identifier after FROM/JOIN
             if (expectFromTable || expectJoinTable) {
                 // whitespace
-                if (Character.isWhitespace(st.peek())) { st.readSpaces(); continue; }
+                if (Character.isWhitespace(st.peek())) {
+                    st.readSpaces();
+                    continue;
+                }
 
                 // subquery / derived table: FROM (SELECT ...) alias
                 if (st.peek() == '(') {

@@ -1,4 +1,5 @@
 package domain.model;
+
 /**
  * Per-SQL conversion context used for warning attribution.
  *
@@ -17,6 +18,10 @@ public final class ConversionContext {
         this.sqlId = safe(sqlId);
     }
 
+    private static String safe(String s) {
+        return s == null ? "" : s;
+    }
+
     public String getServiceClass() {
         return serviceClass;
     }
@@ -27,9 +32,5 @@ public final class ConversionContext {
 
     public String getSqlId() {
         return sqlId;
-    }
-
-    private static String safe(String s) {
-        return s == null ? "" : s;
     }
 }

@@ -1,7 +1,6 @@
 package infra.text;
 
 import domain.text.SqlTextProvider;
-
 import domain.text.SqlTextResolution;
 
 
@@ -14,8 +13,9 @@ public final class CsvOnlySqlTextProvider implements SqlTextProvider {
 
     @Override
     public SqlTextResolution resolve(String namespace, String sqlId, String csvSqlText) {
-        if (csvSqlText == null || csvSqlText.trim().isEmpty()) {
-            return SqlTextResolution.empty();
+        if (csvSqlText == null || csvSqlText.trim()
+                .isEmpty()) {
+            return SqlTextResolution.empty("CSV", "CSV_SQL_TEXT_EMPTY");
         }
         return SqlTextResolution.ofCsv(csvSqlText);
     }

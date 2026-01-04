@@ -1,4 +1,5 @@
 package domain.model;
+
 /**
  * Sink for conversion warnings.
  *
@@ -8,9 +9,9 @@ package domain.model;
  */
 public interface ConversionWarningSink {
 
-    void warn(ConversionWarning warning);
-
     static ConversionWarningSink none() {
         return NullConversionWarningSink.INSTANCE;
     }
+
+    void warn(ConversionWarning warning);
 }

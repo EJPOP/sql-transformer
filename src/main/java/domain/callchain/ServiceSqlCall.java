@@ -1,4 +1,5 @@
 package domain.callchain;
+
 public class ServiceSqlCall {
 
     private final String serviceClass;

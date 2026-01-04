@@ -1,42 +1,22 @@
 package app;
 
 import domain.callchain.ServiceSqlCall;
-
+import domain.convert.AliasSqlGenerator;
+import domain.mapping.ColumnMappingRegistry;
+import domain.output.ResultWriter;
+import domain.output.SqlOutputWriter;
+import domain.text.SqlTextProvider;
+import domain.text.SqlTextSource;
 import infra.callchain.ServiceSqlXrefLoader;
-
+import infra.output.*;
+import infra.text.CsvFirstSqlTextProvider;
+import infra.text.CsvOnlySqlTextProvider;
+import infra.text.XmlFirstSqlTextProvider;
+import infra.text.XmlOnlySqlTextProvider;
 import mybatis.SqlStatementRegistry;
 
 import java.nio.file.Path;
-
 import java.util.List;
-
-import domain.convert.AliasSqlGenerator;
-
-import domain.mapping.ColumnMappingRegistry;
-
-import domain.output.ResultWriter;
-
-import domain.output.SqlOutputWriter;
-
-import domain.text.SqlTextProvider;
-
-import infra.output.AliasSqlFileWriter;
-
-import infra.output.AliasSqlResultXlsxWriter;
-
-import infra.output.FileSqlOutputWriter;
-
-import infra.output.NullResultWriter;
-
-import infra.output.NullSqlOutputWriter;
-
-import infra.output.XlsxResultWriter;
-
-import mybatis.SqlStatementRegistry;
-
-import infra.text.CsvFirstSqlTextProvider;
-
-import infra.text.CsvOnlySqlTextProvider;
 
 /**
  * Object-assembly factory for {@link AliasSqlGenerateCliApp}.
@@ -53,9 +33,15 @@ final class AliasSqlGenerateComponentsFactory {
         return registry;
     }
 
-    SqlTextProvider createSqlTextProvider(SqlStatementRegistry registry, boolean enableFallback) {
-        if (!enableFallback) return new CsvOnlySqlTextProvider();
-        return new CsvFirstSqlTextProvider(registry);
+    SqlTextProvider createSqlTextProvider(SqlStatementRegistry registry, SqlTextSource source) {
+        if (source == null) source = SqlTextSource.CSV_FIRST;
+
+        return switch (source) {
+            case CSV -> new CsvOnlySqlTextProvider();
+            case CSV_FIRST -> new CsvFirstSqlTextProvider(registry);
+            case XML -> new XmlOnlySqlTextProvider(registry);
+            case XML_FIRST -> new XmlFirstSqlTextProvider(registry);
+        };
     }
 
     ColumnMappingRegistry createColumnMappingRegistry(Path mappingXlsxPath) {
@@ -73,13 +59,11 @@ final class AliasSqlGenerateComponentsFactory {
 
     SqlOutputWriter createSqlOutputWriter(boolean enable) {
         if (!enable) return new NullSqlOutputWriter();
-        // Wrap the existing concrete writer to keep behavior unchanged.
         return new FileSqlOutputWriter(new AliasSqlFileWriter());
     }
 
     ResultWriter createResultWriter(boolean enable) {
         if (!enable) return new NullResultWriter();
-        // Wrap the existing concrete writer to keep behavior unchanged.
         return new XlsxResultWriter(new AliasSqlResultXlsxWriter());
     }
 }

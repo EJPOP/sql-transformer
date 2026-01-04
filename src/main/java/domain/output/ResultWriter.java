@@ -1,18 +1,16 @@
 package domain.output;
 
-import java.nio.file.Path;
-
-import java.util.List;
-
 import domain.model.AliasSqlResult;
-
 import domain.model.ConversionWarning;
-
+import domain.model.TobeDmlParamRow;
 import domain.model.TobeSelectOutputRow;
 
-import domain.model.TobeDmlParamRow;
+import java.nio.file.Path;
+import java.util.List;
 
-/** 결과 리포트를 저장하는 책임. */
+/**
+ * 결과 리포트를 저장하는 책임.
+ */
 public interface ResultWriter {
 
     void write(

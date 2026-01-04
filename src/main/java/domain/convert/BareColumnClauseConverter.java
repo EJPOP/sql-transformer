@@ -1,26 +1,13 @@
 package domain.convert;
 
-import java.util.ArrayList;
-
-import java.util.Collections;
-
-import java.util.LinkedHashSet;
-
-import java.util.List;
-
-import java.util.Locale;
-
 import domain.mapping.ColumnMapping;
-
 import domain.mapping.ColumnMappingRegistry;
-
 import domain.model.ConversionContext;
-
 import domain.model.ConversionWarning;
-
 import domain.model.ConversionWarningSink;
-
 import domain.model.WarningCode;
+
+import java.util.*;
 
 /**
  * TOBE 모드에서만 적용되는 fallback 변환.
@@ -37,12 +24,46 @@ final class BareColumnClauseConverter {
         this.registry = registry;
     }
 
+    private static boolean isTargetClause(Clause c) {
+        return c == Clause.WHERE || c == Clause.ON || c == Clause.HAVING
+                || c == Clause.GROUP_BY || c == Clause.ORDER_BY || c == Clause.SET;
+    }
+
+    private static boolean isClauseBoundaryKeyword(String u) {
+        return "FROM".equals(u)
+                || "UNION".equals(u) || "INTERSECT".equals(u) || "EXCEPT".equals(u) || "MINUS".equals(u)
+                || "CONNECT".equals(u) || "START".equals(u) || "FETCH".equals(u) || "FOR".equals(u);
+    }
+
+    /**
+     * ASIS 컬럼ID처럼 보이는지(보수적)
+     * - 대문자/숫자/_ 로만 구성
+     * - '_' 포함
+     */
+    private static boolean looksLikeAsisColumnId(String s) {
+        if (s == null) return false;
+        String t = s.trim();
+        if (t.isEmpty()) return false;
+        if (t.length() > 80) return false;
+
+        if (t.indexOf('_') < 0) return false;
+
+        for (int i = 0; i < t.length(); i++) {
+            char c = t.charAt(i);
+            if (!(Character.isUpperCase(c) || Character.isDigit(c) || c == '_')) return false;
+        }
+        return true;
+    }
+
     String convertBareColumnsInClausesToTobe(String sql) {
         return convertBareColumnsInClausesToTobe(sql, null, ConversionWarningSink.none());
     }
 
     String convertBareColumnsInClausesToTobe(String sql, ConversionContext ctx, ConversionWarningSink sink) {
         if (sql == null || sql.isEmpty()) return sql;
+
+        ConversionWarningSink warnSink = (sink == null) ? ConversionWarningSink.none() : sink;
+
 
         // FROM/JOIN 기준 ASIS 테이블 후보 수집 (테이블명이 이미 tobe로 바뀌기 전 단계에서 수행)
         List<String> asisTables = collectAsisTableIds(sql);
@@ -59,14 +80,39 @@ final class BareColumnClauseConverter {
 
         while (st.hasNext()) {
             // preserve
-            if (st.peekIsLineComment()) { out.append(st.readLineComment()); continue; }
-            if (st.peekIsBlockComment()) { out.append(st.readBlockComment()); continue; }
-            if (st.peekIsSingleQuotedString()) { out.append(st.readSingleQuotedString()); continue; }
-            if (st.peekIsDoubleQuotedString()) { out.append(st.readDoubleQuotedString()); continue; }
-            if (st.peekIsCdata()) { out.append(st.readCdata()); continue; }
-            if (st.peekIsXmlTag()) { out.append(st.readXmlTag()); continue; }
-            if (st.peekIsMyBatisParam()) { out.append(st.readMyBatisParam()); continue; }
-            if (st.peekIsHashToken()) { out.append(st.readHashToken()); continue; }
+            if (st.peekIsLineComment()) {
+                out.append(st.readLineComment());
+                continue;
+            }
+            if (st.peekIsBlockComment()) {
+                out.append(st.readBlockComment());
+                continue;
+            }
+            if (st.peekIsSingleQuotedString()) {
+                out.append(st.readSingleQuotedString());
+                continue;
+            }
+            if (st.peekIsDoubleQuotedString()) {
+                out.append(st.readDoubleQuotedString());
+                continue;
+            }
+            if (st.peekIsCdata()) {
+                String raw = st.readCdata();
+                out.append(CdataUtil.transform(raw, inner -> convertBareColumnsInClausesToTobe(inner, ctx, warnSink)));
+                continue;
+            }
+            if (st.peekIsXmlTag()) {
+                out.append(st.readXmlTag());
+                continue;
+            }
+            if (st.peekIsMyBatisParam()) {
+                out.append(st.readMyBatisParam());
+                continue;
+            }
+            if (st.peekIsHashToken()) {
+                out.append(st.readHashToken());
+                continue;
+            }
 
             char ch = st.peek();
 
@@ -110,13 +156,37 @@ final class BareColumnClauseConverter {
 
                 // clause enter/exit (top-level에서만 안정적으로 전환)
                 if (depth == 0) {
-                    if ("WHERE".equals(u)) { clause = Clause.WHERE; out.append(word); continue; }
-                    if ("ON".equals(u)) { clause = Clause.ON; out.append(word); continue; }
-                    if ("HAVING".equals(u)) { clause = Clause.HAVING; out.append(word); continue; }
-                    if ("SET".equals(u)) { clause = Clause.SET; out.append(word); continue; }
+                    if ("WHERE".equals(u)) {
+                        clause = Clause.WHERE;
+                        out.append(word);
+                        continue;
+                    }
+                    if ("ON".equals(u)) {
+                        clause = Clause.ON;
+                        out.append(word);
+                        continue;
+                    }
+                    if ("HAVING".equals(u)) {
+                        clause = Clause.HAVING;
+                        out.append(word);
+                        continue;
+                    }
+                    if ("SET".equals(u)) {
+                        clause = Clause.SET;
+                        out.append(word);
+                        continue;
+                    }
 
-                    if ("GROUP".equals(u)) { pendingGroup = true; out.append(word); continue; }
-                    if ("ORDER".equals(u)) { pendingOrder = true; out.append(word); continue; }
+                    if ("GROUP".equals(u)) {
+                        pendingGroup = true;
+                        out.append(word);
+                        continue;
+                    }
+                    if ("ORDER".equals(u)) {
+                        pendingOrder = true;
+                        out.append(word);
+                        continue;
+                    }
 
                     // boundary: 새로운 큰 절로 넘어가면 clause 종료
                     if (isClauseBoundaryKeyword(u)) {
@@ -141,7 +211,7 @@ final class BareColumnClauseConverter {
 
                 // fallback 치환 대상
                 if (isTargetClause(clause) && looksLikeAsisColumnId(word)) {
-                    String mapped = resolveTobeColumnFromTables(asisTables, word, ctx, sink);
+                    String mapped = resolveTobeColumnFromTables(asisTables, word, ctx, warnSink);
                     if (mapped != null && !mapped.isBlank()) {
                         out.append(mapped);
                         continue;
@@ -158,46 +228,12 @@ final class BareColumnClauseConverter {
         return out.toString();
     }
 
-    private enum Clause {
-        NONE, WHERE, ON, HAVING, GROUP_BY, ORDER_BY, SET
-    }
-
-    private static boolean isTargetClause(Clause c) {
-        return c == Clause.WHERE || c == Clause.ON || c == Clause.HAVING
-                || c == Clause.GROUP_BY || c == Clause.ORDER_BY || c == Clause.SET;
-    }
-
-    private static boolean isClauseBoundaryKeyword(String u) {
-        return "FROM".equals(u)
-                || "UNION".equals(u) || "INTERSECT".equals(u) || "EXCEPT".equals(u) || "MINUS".equals(u)
-                || "CONNECT".equals(u) || "START".equals(u) || "FETCH".equals(u) || "FOR".equals(u);
-    }
-
-    /**
-     * ASIS 컬럼ID처럼 보이는지(보수적)
-     * - 대문자/숫자/_ 로만 구성
-     * - '_' 포함
-     */
-    private static boolean looksLikeAsisColumnId(String s) {
-        if (s == null) return false;
-        String t = s.trim();
-        if (t.isEmpty()) return false;
-        if (t.length() > 80) return false;
-
-        if (t.indexOf('_') < 0) return false;
-
-        for (int i = 0; i < t.length(); i++) {
-            char c = t.charAt(i);
-            if (!(Character.isUpperCase(c) || Character.isDigit(c) || c == '_')) return false;
-        }
-        return true;
-    }
-
     /**
      * 테이블 후보들 기준으로 컬럼 매핑이 유일할 때만 치환
      * - 이미 TOBE 컬럼으로 인식되는 경우(asisTable + tobeCol)면 안전하게 스킵
      */
-    private String resolveTobeColumnFromTables(List<String> asisTables, String asisCol, ConversionContext ctx, ConversionWarningSink sink) {
+    private String resolveTobeColumnFromTables(List<String> asisTables, String asisCol, ConversionContext ctx,
+                                               ConversionWarningSink sink) {
         if (asisTables == null || asisTables.isEmpty()) return null;
         if (asisCol == null || asisCol.isBlank()) return null;
 
@@ -285,7 +321,9 @@ final class BareColumnClauseConverter {
         return found;
     }
 
-    /** FROM/JOIN 기준 ASIS 테이블ID 후보 수집 (schema.table이면 table만) */
+    /**
+     * FROM/JOIN 기준 ASIS 테이블ID 후보 수집 (schema.table이면 table만)
+     */
     private List<String> collectAsisTableIds(String sql) {
         if (sql == null || sql.isEmpty()) return Collections.emptyList();
 
@@ -300,12 +338,32 @@ final class BareColumnClauseConverter {
         boolean seenMerge = false;
 
         while (st.hasNext()) {
-            if (st.peekIsLineComment()) { st.readLineComment(); continue; }
-            if (st.peekIsBlockComment()) { st.readBlockComment(); continue; }
-            if (st.peekIsSingleQuotedString()) { st.readSingleQuotedString(); continue; }
-            if (st.peekIsDoubleQuotedString()) { st.readDoubleQuotedString(); continue; }
-            if (st.peekIsCdata()) { st.readCdata(); continue; }
-            if (st.peekIsXmlTag()) { st.readXmlTag(); continue; }
+            if (st.peekIsLineComment()) {
+                st.readLineComment();
+                continue;
+            }
+            if (st.peekIsBlockComment()) {
+                st.readBlockComment();
+                continue;
+            }
+            if (st.peekIsSingleQuotedString()) {
+                st.readSingleQuotedString();
+                continue;
+            }
+            if (st.peekIsDoubleQuotedString()) {
+                st.readDoubleQuotedString();
+                continue;
+            }
+            if (st.peekIsCdata()) {
+                String raw = st.readCdata();
+                String inner = CdataUtil.innerOf(raw);
+                set.addAll(collectAsisTableIds(inner));
+                continue;
+            }
+            if (st.peekIsXmlTag()) {
+                st.readXmlTag();
+                continue;
+            }
 
             // DELETE FROM
             if (st.peekWord("DELETE")) {
@@ -423,5 +481,9 @@ final class BareColumnClauseConverter {
         }
 
         return new ArrayList<>(set);
+    }
+
+    private enum Clause {
+        NONE, WHERE, ON, HAVING, GROUP_BY, ORDER_BY, SET
     }
 }

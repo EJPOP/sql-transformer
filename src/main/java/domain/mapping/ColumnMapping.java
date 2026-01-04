@@ -1,4 +1,5 @@
 package domain.mapping;
+
 /**
  * Column mapping row model.
  *

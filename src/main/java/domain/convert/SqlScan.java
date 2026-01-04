@@ -1,15 +1,28 @@
 package domain.convert;
+
 final class SqlScan {
     final String s;
     int pos = 0;
 
-    SqlScan(String s) { this.s = (s == null) ? "" : s; }
+    SqlScan(String s) {
+        this.s = (s == null) ? "" : s;
+    }
 
-    boolean hasNext() { return pos < s.length(); }
+    private static boolean isWordChar(char c) {
+        return Character.isLetterOrDigit(c) || c == '_' || c == '$' || c == '#';
+    }
 
-    char peek() { return (pos < s.length()) ? s.charAt(pos) : '\0'; }
+    boolean hasNext() {
+        return pos < s.length();
+    }
 
-    char read() { return (pos < s.length()) ? s.charAt(pos++) : '\0'; }
+    char peek() {
+        return (pos < s.length()) ? s.charAt(pos) : '\0';
+    }
+
+    char read() {
+        return (pos < s.length()) ? s.charAt(pos++) : '\0';
+    }
 
     boolean peekWord(String kw) {
         int n = kw.length();
@@ -19,8 +32,7 @@ final class SqlScan {
         for (int i = 0; i < n; i++) {
             if (Character.toUpperCase(s.charAt(pos + i)) != Character.toUpperCase(kw.charAt(i))) return false;
         }
-        if (pos + n < s.length() && isWordChar(s.charAt(pos + n))) return false;
-        return true;
+        return pos + n >= s.length() || !isWordChar(s.charAt(pos + n));
     }
 
     // ✅ MERGE 경계: "WHEN MATCHED" / "WHEN NOT"만 종료로 인정 (CASE WHEN 보호)
@@ -91,8 +103,8 @@ final class SqlScan {
     /**
      * MyBatis XML tag (e.g. <if>, </if>, <choose>, <when>, <otherwise>, <foreach>, <trim>, <where>, <set>, <bind>, <include> ...).
      *
-     * <p>We treat tags as an atomic token so that conversion/pretty-print does not break them.
-     * This method is intentionally conservative to avoid misclassifying SQL operators like '<', '<=', '<>'.
+     * We treat tags as an atomic token so that conversion/pretty-print does not break them.
+     * Conservative to avoid misclassifying SQL operators like '<', '<=', '<>'.
      */
     boolean peekIsXmlTag() {
         if (pos >= s.length() || s.charAt(pos) != '<') return false;
@@ -100,6 +112,7 @@ final class SqlScan {
 
         if (pos + 1 >= s.length()) return false;
         char next = s.charAt(pos + 1);
+
         // likely SQL operators: <=, <> (not tags)
         if (next == '=' || next == '>') return false;
 
@@ -119,6 +132,7 @@ final class SqlScan {
         if (nameStart == p) return false;
 
         String name = s.substring(nameStart, p).toLowerCase();
+
         // common MyBatis dynamic tags + mapper tags
         return name.equals("if")
                 || name.equals("choose")
@@ -134,12 +148,13 @@ final class SqlScan {
                 || name.equals("select")
                 || name.equals("insert")
                 || name.equals("update")
-                || name.equals("delete")
-                || name.equals("case")
-                || name.equals("when")
-                || name.equals("otherwise");
+                || name.equals("delete");
     }
 
+    /**
+     * ✅ FIXED: quote-aware XML tag reader.
+     * Do NOT stop at '>' inside quoted attribute values (e.g. <if test="A > 0">).
+     */
     String readXmlTag() {
         if (peekIsCdata()) return readCdata();
         if (!peekIsXmlTag()) return "";
@@ -147,30 +162,41 @@ final class SqlScan {
         int start = pos;
         boolean inSingle = false;
         boolean inDouble = false;
+
         while (pos < s.length()) {
             char c = read();
-            if (c == '\'' && !inDouble) inSingle = !inSingle;
-            else if (c == '"' && !inSingle) inDouble = !inDouble;
-            else if (c == '>' && !inSingle && !inDouble) break;
+
+            if (c == '\'' && !inDouble) {
+                inSingle = !inSingle;
+                continue;
+            }
+            if (c == '"' && !inSingle) {
+                inDouble = !inDouble;
+                continue;
+            }
+
+            if (c == '>' && !inSingle && !inDouble) break;
         }
         return s.substring(start, Math.min(pos, s.length()));
     }
 
     /**
      * MyBatis legacy "#PARAM#" token (not "#{...}") used in 일부 SQL.
-     * This is distinct from {@link #peekIsMyBatisParam()}.
+     * Distinct from peekIsMyBatisParam().
      */
     boolean peekIsHashToken() {
         if (pos >= s.length()) return false;
         if (s.charAt(pos) != '#') return false;
+
         // exclude #{...}
         int q = pos + 1;
         if (q < s.length() && s.charAt(q) == '{') return false;
+
         int next = s.indexOf('#', q);
         return next > q;
     }
 
-    /** Backward-compat alias for older code ("hash param" == "#...#" token). */
+    // Backward-compat alias
     boolean peekIsHashParam() {
         return peekIsHashToken();
     }
@@ -226,7 +252,11 @@ final class SqlScan {
         while (pos < s.length()) {
             char c = s.charAt(pos++);
             if (c == '\'') {
-                if (pos < s.length() && s.charAt(pos) == '\'') { pos++; continue; }
+                // escaped ''
+                if (pos < s.length() && s.charAt(pos) == '\'') {
+                    pos++;
+                    continue;
+                }
                 break;
             }
         }
@@ -256,23 +286,22 @@ final class SqlScan {
         return s.substring(start, pos);
     }
 
-    /** Backward-compat alias for older code ("hash param" == "#...#" token). */
+    // Backward-compat alias
     String readHashParam() {
         return readHashToken();
     }
-
-    /** Backward-compat alias for older code ("hash param" == "#...#" token). */
-
 
     String readParenBlock() {
         if (peek() != '(') return "";
         int start = pos;
         int depth = 0;
+
         while (pos < s.length()) {
             if (peekIsLineComment()) { readLineComment(); continue; }
             if (peekIsBlockComment()) { readBlockComment(); continue; }
             if (peekIsSingleQuotedString()) { readSingleQuotedString(); continue; }
             if (peekIsMyBatisParam()) { readMyBatisParam(); continue; }
+            if (peekIsXmlTag()) { readXmlTag(); continue; } // ✅ 안전 추가
 
             char c = read();
             if (c == '(') depth++;
@@ -281,6 +310,7 @@ final class SqlScan {
                 if (depth == 0) break;
             }
         }
+
         return s.substring(start, pos);
     }
 
@@ -293,6 +323,7 @@ final class SqlScan {
             if (peekIsBlockComment()) { readBlockComment(); continue; }
             if (peekIsSingleQuotedString()) { readSingleQuotedString(); continue; }
             if (peekIsMyBatisParam()) { readMyBatisParam(); continue; }
+            if (peekIsXmlTag()) { readXmlTag(); continue; } // ✅ 안전 추가
 
             if (depth == 0) {
                 if (peekWord("WHERE") || peekWord("GROUP") || peekWord("ORDER") || peekWord("HAVING")) break;
@@ -307,33 +338,23 @@ final class SqlScan {
         return s.substring(start, pos);
     }
 
-    private static boolean isWordChar(char c) {
-        return Character.isLetterOrDigit(c) || c == '_' || c == '$' || c == '#';
-    }
-
     /**
-     * Look ahead: if the next non-space token is '(' and inside the parens the first
-     * non-space/comment token is SELECT, return true. Otherwise false.
-     *
-     * <p>This is used to distinguish "(SELECT ...)" subqueries from "( ... )" expression groups.</p>
+     * Look ahead: if next non-space token is '(' and inside the parens the first non-space/comment token is SELECT.
      */
     boolean peekParenStartsWithSelect() {
         int p0 = pos;
-
-        
         int n = s.length();
-// skip spaces/comments
+
+        // skip spaces/comments
         while (p0 < n) {
             char c = s.charAt(p0);
             if (Character.isWhitespace(c)) { p0++; continue; }
             if (c == '-' && p0 + 1 < n && s.charAt(p0 + 1) == '-') {
-                // line comment
                 p0 += 2;
                 while (p0 < n && s.charAt(p0) != '\n') p0++;
                 continue;
             }
             if (c == '/' && p0 + 1 < n && s.charAt(p0 + 1) == '*') {
-                // block comment
                 p0 += 2;
                 while (p0 + 1 < n) {
                     if (s.charAt(p0) == '*' && s.charAt(p0 + 1) == '/') { p0 += 2; break; }
@@ -345,7 +366,7 @@ final class SqlScan {
         }
 
         if (p0 >= n || s.charAt(p0) != '(') return false;
-        p0++; // after '('
+        p0++;
 
         // inside: skip spaces/comments again
         while (p0 < n) {
@@ -367,15 +388,91 @@ final class SqlScan {
             break;
         }
 
-        // read word
         int w0 = p0;
         while (p0 < n && (Character.isLetter(s.charAt(p0)) || s.charAt(p0) == '_')) p0++;
         if (w0 == p0) return false;
+
         String w = s.substring(w0, p0);
         return w.equalsIgnoreCase("SELECT");
     }
 
-    // Added for SqlPrettifier compatibility (alias of readSpaces)
-    void readWhileWhitespace() { readSpaces(); }
+    /**
+     * Look ahead: if next non-space token is '(' and inside the parens the first non-space/comment token is
+     * SELECT or WITH.
+     * <p>
+     * This is conservative and only skips whitespaces and SQL comments.
+     * Strings/MyBatis params/XML tags are not interpreted here because this is a look-ahead used by the
+     * prettifier only.
+     */
+    boolean peekParenStartsWithSelectOrWith() {
+        int p0 = pos;
+        int n = s.length();
 
+        // skip spaces/comments
+        while (p0 < n) {
+            char c = s.charAt(p0);
+            if (Character.isWhitespace(c)) {
+                p0++;
+                continue;
+            }
+            if (c == '-' && p0 + 1 < n && s.charAt(p0 + 1) == '-') {
+                p0 += 2;
+                while (p0 < n && s.charAt(p0) != '\n') p0++;
+                continue;
+            }
+            if (c == '/' && p0 + 1 < n && s.charAt(p0 + 1) == '*') {
+                p0 += 2;
+                while (p0 + 1 < n) {
+                    if (s.charAt(p0) == '*' && s.charAt(p0 + 1) == '/') {
+                        p0 += 2;
+                        break;
+                    }
+                    p0++;
+                }
+                continue;
+            }
+            break;
+        }
+
+        if (p0 >= n || s.charAt(p0) != '(') return false;
+        p0++;
+
+        // inside: skip spaces/comments again
+        while (p0 < n) {
+            char c = s.charAt(p0);
+            if (Character.isWhitespace(c)) {
+                p0++;
+                continue;
+            }
+            if (c == '-' && p0 + 1 < n && s.charAt(p0 + 1) == '-') {
+                p0 += 2;
+                while (p0 < n && s.charAt(p0) != '\n') p0++;
+                continue;
+            }
+            if (c == '/' && p0 + 1 < n && s.charAt(p0 + 1) == '*') {
+                p0 += 2;
+                while (p0 + 1 < n) {
+                    if (s.charAt(p0) == '*' && s.charAt(p0 + 1) == '/') {
+                        p0 += 2;
+                        break;
+                    }
+                    p0++;
+                }
+                continue;
+            }
+            break;
+        }
+
+        int w0 = p0;
+        while (p0 < n && (Character.isLetter(s.charAt(p0)) || s.charAt(p0) == '_')) p0++;
+        if (w0 == p0) return false;
+
+        String w = s.substring(w0, p0);
+        return w.equalsIgnoreCase("SELECT") || w.equalsIgnoreCase("WITH");
+    }
+
+    // Added for SqlPrettifier compatibility (alias of readSpaces)
+    void readWhileWhitespace() {
+        readSpaces();
+    }
 }

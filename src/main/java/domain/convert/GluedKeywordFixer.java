@@ -15,7 +15,43 @@ import java.util.Locale;
  */
 final class GluedKeywordFixer {
 
-    private GluedKeywordFixer() {}
+    private static final String[] GLUE_SAFE_PREFIXES_UPPER = new String[]{
+            "SYSDATE",
+            "SYSTIMESTAMP",
+            "LOCALTIMESTAMP",
+            "CURRENT_DATE",
+            "CURRENT_TIMESTAMP",
+            "CURRENT_TIME",
+            "NOW",
+            "GETDATE",
+            "END"
+    };
+    private static final String[] GLUE_KEYWORDS_UPPER_SORTED = new String[]{
+            "INTERSECT",
+            "RETURNING",
+            "HAVING",
+            "WHERE",
+            "GROUP",
+            "ORDER",
+            "UNION",
+            "EXCEPT",
+            "MINUS",
+            "FROM",
+            "VALUES",
+            "JOIN",
+            "INTO",
+            "WHEN",
+            "THEN",
+            "ELSE",
+            "SET",
+            "AND",
+            "OR",
+            "ON",
+            "BY"
+    };
+
+    private GluedKeywordFixer() {
+    }
 
     static String fixAfterSpecialTokens(String sql) {
         if (sql == null || sql.isEmpty()) return sql;
@@ -25,14 +61,38 @@ final class GluedKeywordFixer {
 
         while (st.hasNext()) {
             // preserve
-            if (st.peekIsLineComment()) { out.append(st.readLineComment()); continue; }
-            if (st.peekIsBlockComment()) { out.append(st.readBlockComment()); continue; }
-            if (st.peekIsSingleQuotedString()) { out.append(st.readSingleQuotedString()); continue; }
-            if (st.peekIsDoubleQuotedString()) { out.append(st.readDoubleQuotedString()); continue; }
-            if (st.peekIsMyBatisParam()) { out.append(st.readMyBatisParam()); continue; }
-            if (st.peekIsHashToken()) { out.append(st.readHashToken()); continue; }
-            if (st.peekIsCdata()) { out.append(st.readCdata()); continue; }
-            if (st.peekIsXmlTag()) { out.append(st.readXmlTag()); continue; }
+            if (st.peekIsLineComment()) {
+                out.append(st.readLineComment());
+                continue;
+            }
+            if (st.peekIsBlockComment()) {
+                out.append(st.readBlockComment());
+                continue;
+            }
+            if (st.peekIsSingleQuotedString()) {
+                out.append(st.readSingleQuotedString());
+                continue;
+            }
+            if (st.peekIsDoubleQuotedString()) {
+                out.append(st.readDoubleQuotedString());
+                continue;
+            }
+            if (st.peekIsMyBatisParam()) {
+                out.append(st.readMyBatisParam());
+                continue;
+            }
+            if (st.peekIsHashToken()) {
+                out.append(st.readHashToken());
+                continue;
+            }
+            if (st.peekIsCdata()) {
+                out.append(st.readCdata());
+                continue;
+            }
+            if (st.peekIsXmlTag()) {
+                out.append(st.readXmlTag());
+                continue;
+            }
 
             char ch = st.peek();
 
@@ -104,40 +164,4 @@ final class GluedKeywordFixer {
                 return false;
         }
     }
-
-    private static final String[] GLUE_SAFE_PREFIXES_UPPER = new String[] {
-            "SYSDATE",
-            "SYSTIMESTAMP",
-            "LOCALTIMESTAMP",
-            "CURRENT_DATE",
-            "CURRENT_TIMESTAMP",
-            "CURRENT_TIME",
-            "NOW",
-            "GETDATE",
-            "END"
-    };
-
-    private static final String[] GLUE_KEYWORDS_UPPER_SORTED = new String[] {
-            "INTERSECT",
-            "RETURNING",
-            "HAVING",
-            "WHERE",
-            "GROUP",
-            "ORDER",
-            "UNION",
-            "EXCEPT",
-            "MINUS",
-            "FROM",
-            "VALUES",
-            "JOIN",
-            "INTO",
-            "WHEN",
-            "THEN",
-            "ELSE",
-            "SET",
-            "AND",
-            "OR",
-            "ON",
-            "BY"
-    };
 }

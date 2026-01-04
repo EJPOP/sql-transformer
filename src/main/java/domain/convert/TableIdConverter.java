@@ -1,13 +1,9 @@
 package domain.convert;
 
 import domain.mapping.ColumnMappingRegistry;
-
 import domain.model.ConversionContext;
-
 import domain.model.ConversionWarning;
-
 import domain.model.ConversionWarningSink;
-
 import domain.model.WarningCode;
 
 
@@ -25,12 +21,27 @@ final class TableIdConverter {
         this.registry = registry;
     }
 
+    private static boolean looksLikeAsisTableId(String lastToken) {
+        if (lastToken == null) return false;
+        String t = lastToken.trim();
+        if (t.isEmpty()) return false;
+        // Typical naming: TB_..., PTL_..., etc.
+        String u = t.toUpperCase();
+        String[] prefixes = {"TB", "PTL", "IS", "CTT", "EH", "HE", "EN", "NE", "AM", "BAI", "IR"};
+        for (String p : prefixes) {
+            if (u.startsWith(p + "_")) return true;
+        }
+        return false;
+    }
+
     String convertTableIdsToTobe(String sql) {
         return convertTableIdsToTobe(sql, null, ConversionWarningSink.none());
     }
 
     String convertTableIdsToTobe(String sql, ConversionContext ctx, ConversionWarningSink sink) {
         if (sql == null || sql.isEmpty()) return sql;
+        ConversionWarningSink warnSink = (sink == null) ? ConversionWarningSink.none() : sink;
+
 
         StringBuilder out = new StringBuilder(sql.length() + 64);
         SqlScan st = new SqlScan(sql);
@@ -43,14 +54,39 @@ final class TableIdConverter {
         boolean seenMerge = false;
 
         while (st.hasNext()) {
-            if (st.peekIsLineComment()) { out.append(st.readLineComment()); continue; }
-            if (st.peekIsBlockComment()) { out.append(st.readBlockComment()); continue; }
-            if (st.peekIsSingleQuotedString()) { out.append(st.readSingleQuotedString()); continue; }
-            if (st.peekIsDoubleQuotedString()) { out.append(st.readDoubleQuotedString()); continue; }
-            if (st.peekIsMyBatisParam()) { out.append(st.readMyBatisParam()); continue; }
-            if (st.peekIsHashToken()) { out.append(st.readHashToken()); continue; }
-            if (st.peekIsCdata()) { out.append(st.readCdata()); continue; }
-            if (st.peekIsXmlTag()) { out.append(st.readXmlTag()); continue; }
+            if (st.peekIsLineComment()) {
+                out.append(st.readLineComment());
+                continue;
+            }
+            if (st.peekIsBlockComment()) {
+                out.append(st.readBlockComment());
+                continue;
+            }
+            if (st.peekIsSingleQuotedString()) {
+                out.append(st.readSingleQuotedString());
+                continue;
+            }
+            if (st.peekIsDoubleQuotedString()) {
+                out.append(st.readDoubleQuotedString());
+                continue;
+            }
+            if (st.peekIsMyBatisParam()) {
+                out.append(st.readMyBatisParam());
+                continue;
+            }
+            if (st.peekIsHashToken()) {
+                out.append(st.readHashToken());
+                continue;
+            }
+            if (st.peekIsCdata()) {
+                String raw = st.readCdata();
+                out.append(CdataUtil.transform(raw, inner -> convertTableIdsToTobe(inner, ctx, warnSink)));
+                continue;
+            }
+            if (st.peekIsXmlTag()) {
+                out.append(st.readXmlTag());
+                continue;
+            }
 
             // DELETE FROM
             if (st.peekWord("DELETE")) {
@@ -148,7 +184,7 @@ final class TableIdConverter {
 
                 if (SqlIdentifierUtil.isIdentStart(st.peek())) {
                     String tableToken = st.readIdentifier();
-                    out.append(replaceTableTokenToTobe(tableToken, ctx, sink));
+                    out.append(replaceTableTokenToTobe(tableToken, ctx, warnSink));
                     expectTable = false;
                     continue;
                 }
@@ -192,18 +228,5 @@ final class TableIdConverter {
         }
 
         return prefix + mapped;
-    }
-
-    private static boolean looksLikeAsisTableId(String lastToken) {
-        if (lastToken == null) return false;
-        String t = lastToken.trim();
-        if (t.isEmpty()) return false;
-        // Typical naming: TB_..., PTL_..., etc.
-        String u = t.toUpperCase();
-        String[] prefixes = {"TB", "PTL", "IS", "CTT", "EH", "HE", "EN", "NE", "AM", "BAI", "IR"};
-        for (String p : prefixes) {
-            if (u.startsWith(p + "_")) return true;
-        }
-        return false;
     }
 }

@@ -1,10 +1,11 @@
 package domain.convert;
 
-import java.util.*;
-
-/** Small identifier helpers shared by transformers. */
+/**
+ * Small identifier helpers shared by transformers.
+ */
 final class SqlIdentifierUtil {
-    private SqlIdentifierUtil() {}
+    private SqlIdentifierUtil() {
+    }
 
     static boolean isIdentStart(char c) {
         return Character.isLetterOrDigit(c) || c == '_' || c == '$';

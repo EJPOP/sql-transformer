@@ -1,12 +1,10 @@
 package domain.convert;
 
-import java.util.Map;
-
 import domain.mapping.ColumnMappingRegistry;
-
 import domain.model.ConversionContext;
-
 import domain.model.ConversionWarningSink;
+
+import java.util.Map;
 
 /**
  * Public entry-point.
@@ -32,10 +30,10 @@ public class SelectLineTransformer {
      * <p>This keeps the legacy method intact while enabling richer reporting in CLI/API layers.</p>
      */
     public String transformSelectBody(String selectBody,
-                                     Map<String, String> aliasTableMap,
-                                     AliasSqlGenerator.Mode mode,
-                                     ConversionContext ctx,
-                                     ConversionWarningSink sink) {
+                                      Map<String, String> aliasTableMap,
+                                      AliasSqlGenerator.Mode mode,
+                                      ConversionContext ctx,
+                                      ConversionWarningSink sink) {
         return core.transformSelectBody(selectBody, aliasTableMap, mode, ctx, sink);
     }
 

@@ -1,12 +1,10 @@
 package domain.convert;
 
 import domain.convert.AliasSqlGenerator.Mode;
+import domain.model.ConversionContext;
+import domain.model.ConversionWarningSink;
 
 import java.util.Map;
-
-import domain.model.ConversionContext;
-
-import domain.model.ConversionWarningSink;
 
 /**
  * Rewrites only SELECT-body parts for every SELECT statement found in the SQL string.
@@ -22,17 +20,21 @@ final class SqlSegmentTransformer {
         this.transformer = transformer;
     }
 
-    /** Legacy signature (no warnings). */
+    /**
+     * Legacy signature (no warnings).
+     */
     String transformAllSelectSegments(String sql, Mode mode, Map<String, String> paramRenameMap) {
         return transformSegment(sql, mode, paramRenameMap, null, ConversionWarningSink.none());
     }
 
-    /** Extended signature (Task3): pass-through context + warning sink into SELECT transformation. */
+    /**
+     * Extended signature (Task3): pass-through context + warning sink into SELECT transformation.
+     */
     String transformAllSelectSegments(String sql,
-                                     Mode mode,
-                                     Map<String, String> paramRenameMap,
-                                     ConversionContext ctx,
-                                     ConversionWarningSink sink) {
+                                      Mode mode,
+                                      Map<String, String> paramRenameMap,
+                                      ConversionContext ctx,
+                                      ConversionWarningSink sink) {
         return transformSegment(sql, mode, paramRenameMap, ctx, sink == null ? ConversionWarningSink.none() : sink);
     }
 
@@ -122,16 +124,6 @@ final class SqlSegmentTransformer {
     // SELECT boundary detection
     // ----------------------------
 
-    private static final class SelectHit {
-        final int selectStart;
-        final int depthAtSelect;
-
-        SelectHit(int selectStart, int depthAtSelect) {
-            this.selectStart = selectStart;
-            this.depthAtSelect = depthAtSelect;
-        }
-    }
-
     private SelectHit findNextSelect(String s, int start) {
         ScanState st = new ScanState();
 
@@ -200,13 +192,21 @@ final class SqlSegmentTransformer {
             if (Character.toUpperCase(a) != Character.toUpperCase(b)) return false;
         }
 
-        if (idx + n < s.length() && isWordChar(s.charAt(idx + n))) return false;
-
-        return true;
+        return idx + n >= s.length() || !isWordChar(s.charAt(idx + n));
     }
 
     private boolean isWordChar(char c) {
         return Character.isLetterOrDigit(c) || c == '_' || c == '$' || c == '#';
+    }
+
+    private static final class SelectHit {
+        final int selectStart;
+        final int depthAtSelect;
+
+        SelectHit(int selectStart, int depthAtSelect) {
+            this.selectStart = selectStart;
+            this.depthAtSelect = depthAtSelect;
+        }
     }
 
     // ----------------------------

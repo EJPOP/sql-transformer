@@ -14,16 +14,26 @@ import java.util.stream.Stream;
  *
  * <p>Resolution order:
  * <ol>
- *   <li>System property <b>oasys.migration.sqlsDir</b> (absolute or relative to baseDir)</li>
- *   <li>Default: <b>{baseDir}/systems/{system}/sqls</b></li>
- *   <li>Fallback for local dev: <b>{baseDir}/src/main/resources/sqls</b></li>
+ *   <li>System property <b>oasys.migration.sqlsDir</b> or <b>sqlsDir</b> (absolute or relative to baseDir)</li>
+ *   <li>Default candidates (first existing wins)
+ *     <ul>
+ *       <li><b>{baseDir}/src/main/resources/systems/{system}/sqls</b></li>
+ *       <li><b>{baseDir}/resources/systems/{system}/sqls</b></li>
+ *       <li><b>{baseDir}/systems/{system}/sqls</b></li>
+ *     </ul>
+ *   </li>
  * </ol>
  */
 final class SqlsDirectoryScanner {
 
+    // 기존(legacy) prefix + 현재 CLI에서 쓰는 짧은 키 모두 허용
     private static final String PROP_BASE_DIR = "oasys.migration.baseDir";
     private static final String PROP_SYSTEM = "oasys.migration.system";
     private static final String PROP_SQLS_DIR = "oasys.migration.sqlsDir";
+
+    private static final String PROP_BASE_DIR_SHORT = "baseDir";
+    private static final String PROP_SYSTEM_SHORT = "system";
+    private static final String PROP_SQLS_DIR_SHORT = "sqlsDir";
 
     private final Path resolvedBaseDir;
     private final Path resolvedSqlsDir;
@@ -34,7 +44,10 @@ final class SqlsDirectoryScanner {
     }
 
     private static Path resolveBaseDir() {
-        String bd = System.getProperty(PROP_BASE_DIR);
+        String bd = firstNonBlank(
+                System.getProperty(PROP_BASE_DIR),
+                System.getProperty(PROP_BASE_DIR_SHORT)
+        );
         Path p;
         if (bd != null && !bd.isBlank()) {
             p = Paths.get(bd.trim());
@@ -52,30 +65,54 @@ final class SqlsDirectoryScanner {
     }
 
     private static Path resolveSqlsDir(Path baseDir) {
-        String fromProp = System.getProperty(PROP_SQLS_DIR);
+        String fromProp = firstNonBlank(
+                System.getProperty(PROP_SQLS_DIR),
+                System.getProperty(PROP_SQLS_DIR_SHORT)
+        );
         if (fromProp != null && !fromProp.isBlank()) {
             return resolveAgainstBaseDir(baseDir, fromProp.trim());
         }
 
-        String system = System.getProperty(PROP_SYSTEM);
+        String system = firstNonBlank(
+                System.getProperty(PROP_SYSTEM),
+                System.getProperty(PROP_SYSTEM_SHORT)
+        );
         if (system == null || system.isBlank()) system = "oasys";
-        Path candidate = baseDir.resolve("systems")
-                .resolve(system)
-                .resolve("sqls")
-                .toAbsolutePath()
-                .normalize();
-        if (Files.exists(candidate)) return candidate;
 
-        // Dev fallback: allow running directly from the repo without an external systems/... folder.
+        // 1) repo/dev: src/main/resources/systems/<system>/sqls
         Path dev = baseDir.resolve("src")
                 .resolve("main")
                 .resolve("resources")
+                .resolve("systems")
+                .resolve(system)
                 .resolve("sqls")
                 .toAbsolutePath()
                 .normalize();
         if (Files.exists(dev)) return dev;
 
-        return candidate;
+        // 2) externalized resources: resources/systems/<system>/sqls
+        Path resources = baseDir.resolve("resources")
+                .resolve("systems")
+                .resolve(system)
+                .resolve("sqls")
+                .toAbsolutePath()
+                .normalize();
+        if (Files.exists(resources)) return resources;
+
+        // 3) legacy: systems/<system>/sqls
+        return baseDir.resolve("systems")
+                .resolve(system)
+                .resolve("sqls")
+                .toAbsolutePath()
+                .normalize();
+    }
+
+    private static String firstNonBlank(String... xs) {
+        if (xs == null) return null;
+        for (String x : xs) {
+            if (x != null && !x.isBlank()) return x;
+        }
+        return null;
     }
 
     private static Path resolveAgainstBaseDir(Path baseDir, String raw) {

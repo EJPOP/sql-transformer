@@ -1,48 +1,300 @@
 package infra.callchain;
 
+import domain.callchain.ServiceSqlCall;
 import org.apache.commons.csv.CSVFormat;
-
 import org.apache.commons.csv.CSVParser;
-
 import org.apache.commons.csv.CSVRecord;
 
 import java.io.BufferedInputStream;
-
 import java.io.IOException;
-
 import java.io.InputStream;
-
 import java.io.InputStreamReader;
-
 import java.lang.reflect.Constructor;
-
 import java.lang.reflect.RecordComponent;
-
 import java.nio.charset.StandardCharsets;
-
 import java.nio.file.Files;
-
 import java.nio.file.Path;
-
 import java.util.*;
-
-import domain.callchain.ServiceSqlCall;
 
 /**
  * service_sql_xref.csv 로더
- *
+ * <p>
  * ✅ 지원 포맷
  * 1) (기존) 정규 포맷 헤더:
- *    service, service_method, file, namespace, id, tag, sql_text ...
- *
+ * service, service_method, file, namespace, id, tag, sql_text ...
+ * <p>
  * 2) (BEST/엑셀) 한글/혼합 헤더 + 빈 헤더 다수:
- *    ?Controller, RequestMapping, ... , Sevice메소드, ... , Sql-mapperID, query, ...
- *    + 뒤에 빈 컬럼들이 콤마로 계속 이어지는 형태도 허용
- *
+ * ?Controller, RequestMapping, ... , Sevice메소드, ... , Sql-mapperID, query, ...
+ * + 뒤에 빈 컬럼들이 콤마로 계속 이어지는 형태도 허용
+ * <p>
  * ✅ 핵심: commons-csv의 withFirstRecordAsHeader()를 쓰지 않고,
- *        첫 row를 직접 헤더로 읽어 빈 헤더를 COL_n 으로 보정하여 파싱한다.
+ * 첫 row를 직접 헤더로 읽어 빈 헤더를 COL_n 으로 보정하여 파싱한다.
  */
 public class ServiceSqlXrefLoader {
+
+    // ------------------------------------------------------------
+    // Instantiate ServiceSqlCall safely (record/constructor variations)
+    // ------------------------------------------------------------
+    private static ServiceSqlCall newCall(String serviceClass,
+                                          String serviceMethod,
+                                          String mapperFile,
+                                          String namespace,
+                                          String tag,
+                                          String sqlId,
+                                          String sqlText) {
+
+        // 1) record면: record component 이름 기준으로 매핑 (가장 안전)
+        try {
+            if (ServiceSqlCall.class.isRecord()) {
+                RecordComponent[] comps = ServiceSqlCall.class.getRecordComponents();
+                Object[] args = new Object[comps.length];
+
+                for (int i = 0; i < comps.length; i++) {
+                    String n = comps[i].getName()
+                            .toLowerCase(Locale.ROOT);
+
+                    if (n.contains("service") && n.contains("class")) args[i] = serviceClass;
+                    else if (n.contains("service") && n.contains("method")) args[i] = serviceMethod;
+                    else if (n.contains("mapper") && n.contains("file")) args[i] = mapperFile;
+                    else if ((n.contains("mapper") && n.contains("namespace")) || n.equals("namespace"))
+                        args[i] = namespace;
+                    else if (n.equals("tag")) args[i] = tag;
+                    else if (n.equals("id") || n.equals("sqlid") || n.contains("sql") && n.contains("id"))
+                        args[i] = sqlId;
+                    else if (n.contains("sql") && n.contains("text")) args[i] = sqlText;
+                    else args[i] = null;
+                }
+
+                // canonical ctor
+                Class<?>[] types = Arrays.stream(comps)
+                        .map(RecordComponent::getType)
+                        .toArray(Class[]::new);
+                Constructor<ServiceSqlCall> ctor = ServiceSqlCall.class.getDeclaredConstructor(types);
+                ctor.setAccessible(true);
+                return ctor.newInstance(args);
+            }
+        } catch (Exception ignored) {
+        }
+
+        // 2) 일반 class: 흔한 String ctor 시그니처를 순서대로 시도
+        try {
+            // (serviceClass, serviceMethod, mapperFile, namespace, tag, id, sqlText)
+            Constructor<ServiceSqlCall> c7 = ServiceSqlCall.class.getConstructor(
+                    String.class, String.class, String.class, String.class, String.class, String.class, String.class);
+            return c7.newInstance(serviceClass, serviceMethod, mapperFile, namespace, tag, sqlId, sqlText);
+        } catch (Exception ignored) {
+        }
+
+        try {
+            // (serviceClass, serviceMethod, mapperFile, namespace, id)
+            Constructor<ServiceSqlCall> c5 = ServiceSqlCall.class.getConstructor(
+                    String.class, String.class, String.class, String.class, String.class);
+            return c5.newInstance(serviceClass, serviceMethod, mapperFile, namespace, sqlId);
+        } catch (Exception ignored) {
+        }
+
+        try {
+            // (serviceClass, serviceMethod, namespace, id)
+            Constructor<ServiceSqlCall> c4 = ServiceSqlCall.class.getConstructor(
+                    String.class, String.class, String.class, String.class);
+            return c4.newInstance(serviceClass, serviceMethod, namespace, sqlId);
+        } catch (Exception ignored) {
+        }
+
+        throw new IllegalStateException(
+                "Cannot instantiate ServiceSqlCall. Please check constructors/record components.");
+    }
+
+    private static ServiceParts parseServiceParts(String serviceClass, String serviceMethod, String serviceFull) {
+        String sc = safe(serviceClass).trim();
+        String sm = safe(serviceMethod).trim();
+        String sf = safe(serviceFull).trim();
+
+        if (!sf.isBlank()) {
+            // 예: com.xxx.AAABBBServiceImpl.selectList(...)  /  AAABBBServiceImpl.selectList
+            sf = sf.replace("(", ".")
+                    .replace(")", "");
+            int sharp = sf.lastIndexOf('#');
+            int dot = sf.lastIndexOf('.');
+            int cut = Math.max(sharp, dot);
+            if (cut > 0 && cut < sf.length() - 1) {
+                String left = sf.substring(0, cut)
+                        .trim();
+                String right = sf.substring(cut + 1)
+                        .trim();
+                if (sc.isBlank()) sc = left;
+                if (sm.isBlank()) sm = right;
+            } else {
+                if (sc.isBlank()) sc = sf;
+            }
+        }
+
+        // 메소드명에 "xxx()" 같은 꼬리 제거
+        if (sm.endsWith(")")) {
+            int p = sm.indexOf('(');
+            if (p > 0) sm = sm.substring(0, p);
+        }
+
+        return new ServiceParts(sc, sm);
+    }
+
+    private static NsId splitNamespaceAndId(String mapperId) {
+        String s = safe(mapperId).trim();
+
+        // 따옴표 제거
+        if ((s.startsWith("\"") && s.endsWith("\"")) || (s.startsWith("'") && s.endsWith("'"))) {
+            s = s.substring(1, s.length() - 1)
+                    .trim();
+        }
+
+        int dot = s.lastIndexOf('.');
+        int colon = s.lastIndexOf(':');
+        int cut = Math.max(dot, colon);
+
+        if (cut > 0 && cut < s.length() - 1) {
+            String ns = s.substring(0, cut)
+                    .trim();
+            String id = s.substring(cut + 1)
+                    .trim();
+            return new NsId(ns, id);
+        }
+
+        // 분리 실패: id만 있는 것으로 취급
+        return new NsId("", s);
+    }
+
+    private static boolean hasAnyHeader(Map<String, Integer> headerIndex, String... keys) {
+        for (String k : keys) {
+            if (headerIndex.containsKey(norm(k))) return true;
+        }
+        return false;
+    }
+
+    private static String firstNonBlank(CSVRecord r,
+                                        Map<String, Integer> headerIndex,
+                                        List<String> headers,
+                                        String... candidates) {
+        Integer idx = findIndex(headerIndex, headers, candidates);
+        if (idx == null) return "";
+        if (idx < 0 || idx >= r.size()) return "";
+        return safe(r.get(idx)).trim();
+    }
+
+    private static Integer findIndex(Map<String, Integer> headerIndex,
+                                     List<String> headers,
+                                     String... candidates) {
+        if (candidates == null) return null;
+
+        // 1) exact normalized match
+        for (String c : candidates) {
+            String k = norm(c);
+            Integer i = headerIndex.get(k);
+            if (i != null) return i;
+        }
+
+        // 2) contains match (BEST처럼 "Sql-mapperID" 등 변형 대비)
+        for (String c : candidates) {
+            String ck = norm(c);
+            for (int i = 0; i < headers.size(); i++) {
+                String hk = norm(headers.get(i));
+                if (hk.contains(ck) || ck.contains(hk)) {
+                    return i;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static String norm(String s) {
+        String t = stripBom(safe(s)).trim()
+                .toLowerCase(Locale.ROOT);
+        // 문자/숫자만 남김(하이픈/공백/특수문자/물음표 제거)
+        return t.replaceAll("[^\\p{L}\\p{Nd}]+", "");
+    }
+
+    // ------------------------------------------------------------
+    // BEST/레거시 CSV 정규화 유틸
+    // ------------------------------------------------------------
+    private static String normalizeNamespace(String namespace) {
+        String ns = safe(namespace).trim();
+        if (ns.isEmpty()) return "";
+
+        // 경로 표기(kr/go/...) → 패키지 표기(kr.go...)
+        // Java char 리터럴은 1글자만 허용하므로 '\\' 이어야 한다.
+        ns = ns.replace('\\', '.')
+                .replace('/', '.');
+        ns = ns.replaceAll("\\.+", ".");
+        if (ns.startsWith(".")) ns = ns.substring(1);
+        if (ns.endsWith(".")) ns = ns.substring(0, ns.length() - 1);
+        return ns;
+    }
+
+    /**
+     * namespace/id가 뒤섞인 BEST CSV 케이스를 정규화한다.
+     *
+     * <pre>
+     * 1) namespace=AEPADR001EMapper, id=kr....AEPADR001EMapper.insertX
+     *    => namespace=kr....AEPADR001EMapper, id=insertX
+     * 2) namespace=kr....AEPADR001EMapper, id=AEPADR001EMapper.selectX
+     *    => namespace=kr....AEPADR001EMapper, id=selectX
+     * 3) namespace=kr....AEPADR001EMapper, id=kr....AEPADR001EMapper.updateY
+     *    => namespace=kr....AEPADR001EMapper, id=updateY
+     * </pre>
+     */
+    private static NsId normalizeNamespaceAndId(String namespace, String sqlId) {
+        String ns = safe(namespace).trim();
+        String id = safe(sqlId).trim();
+        if (ns.isEmpty() && id.isEmpty()) return new NsId("", "");
+
+        // id가 이미 "namespace.id" 형태로 들어오면서 namespace도 존재하는 케이스
+        if (!ns.isEmpty()) {
+            String dotPrefix = ns + ".";
+            String colonPrefix = ns + ":";
+            if (id.startsWith(dotPrefix)) {
+                return new NsId(ns, id.substring(dotPrefix.length())
+                        .trim());
+            }
+            if (id.startsWith(colonPrefix)) {
+                return new NsId(ns, id.substring(colonPrefix.length())
+                        .trim());
+            }
+        }
+
+        // id 자체가 "namespace.id" 또는 "namespace:id" 형태면 분해
+        int dot = id.lastIndexOf('.');
+        int colon = id.lastIndexOf(':');
+        int cut = Math.max(dot, colon);
+        if (cut > 0 && cut < id.length() - 1) {
+            String left = id.substring(0, cut)
+                    .trim();
+            String right = id.substring(cut + 1)
+                    .trim();
+
+            if (!right.isEmpty()) {
+                // namespace가 짧게 들어온 경우(left가 더 정확) → namespace를 left로 교체
+                if (ns.isEmpty() || left.endsWith(ns)) {
+                    return new NsId(left, right);
+                }
+                // namespace가 더 길게(패키지 포함) 들어온 경우 → namespace 유지, id만 right로 교체
+                if (ns.endsWith(left) || ns.equals(left)) {
+                    return new NsId(ns, right);
+                }
+            }
+        }
+
+        return new NsId(ns, id);
+    }
+
+    private static String stripBom(String s) {
+        if (s == null) return "";
+        if (!s.isEmpty() && s.charAt(0) == '\uFEFF') return s.substring(1);
+        return s;
+    }
+
+    private static String safe(String s) {
+        return s == null ? "" : s;
+    }
 
     public List<ServiceSqlCall> load(String location) {
         if (location == null || location.isBlank()) {
@@ -138,6 +390,18 @@ public class ServiceSqlXrefLoader {
                     if (sqlId.isBlank()) sqlId = ni.sqlId;
                 }
 
+                // -------------------------------------------------
+                // ✅ BEST/레거시 CSV 방어
+                // 1) namespace에 / 또는 \ 가 섞인 경우 패키지 표기로 정규화
+                // 2) id가 "namespace.id"(FQCN 포함) 형태로 들어오는 경우 분해
+                //    - (ex) namespace=AEPADR001EMapper, id=kr....AEPADR001EMapper.insertX
+                //    - (ex) namespace=kr....AEPADR001EMapper, id=AEPADR001EMapper.selectX
+                // -------------------------------------------------
+                namespace = normalizeNamespace(namespace);
+                NsId normalized = normalizeNamespaceAndId(namespace, sqlId);
+                namespace = normalized.namespace;
+                sqlId = normalized.sqlId;
+
                 // 최소 요건: namespace + id가 있어야 의미 있음
                 if (namespace.isBlank() || sqlId.isBlank()) {
                     // BEST CSV 중 빈 row/헤더 꼬리 row 방어
@@ -159,208 +423,6 @@ public class ServiceSqlXrefLoader {
         } catch (IOException e) {
             throw new RuntimeException("Failed to load service_sql_xref.csv", e);
         }
-    }
-
-    // ------------------------------------------------------------
-    // Instantiate ServiceSqlCall safely (record/constructor variations)
-    // ------------------------------------------------------------
-    private static ServiceSqlCall newCall(String serviceClass,
-                                          String serviceMethod,
-                                          String mapperFile,
-                                          String namespace,
-                                          String tag,
-                                          String sqlId,
-                                          String sqlText) {
-
-        // 1) record면: record component 이름 기준으로 매핑 (가장 안전)
-        try {
-            if (ServiceSqlCall.class.isRecord()) {
-                RecordComponent[] comps = ServiceSqlCall.class.getRecordComponents();
-                Object[] args = new Object[comps.length];
-
-                for (int i = 0; i < comps.length; i++) {
-                    String n = comps[i].getName().toLowerCase(Locale.ROOT);
-
-                    if (n.contains("service") && n.contains("class")) args[i] = serviceClass;
-                    else if (n.contains("service") && n.contains("method")) args[i] = serviceMethod;
-                    else if (n.contains("mapper") && n.contains("file")) args[i] = mapperFile;
-                    else if ((n.contains("mapper") && n.contains("namespace")) || n.equals("namespace")) args[i] = namespace;
-                    else if (n.equals("tag")) args[i] = tag;
-                    else if (n.equals("id") || n.equals("sqlid") || n.contains("sql") && n.contains("id")) args[i] = sqlId;
-                    else if (n.contains("sql") && n.contains("text")) args[i] = sqlText;
-                    else args[i] = null;
-                }
-
-                // canonical ctor
-                Class<?>[] types = Arrays.stream(comps).map(RecordComponent::getType).toArray(Class[]::new);
-                Constructor<ServiceSqlCall> ctor = ServiceSqlCall.class.getDeclaredConstructor(types);
-                ctor.setAccessible(true);
-                return ctor.newInstance(args);
-            }
-        } catch (Exception ignored) {
-        }
-
-        // 2) 일반 class: 흔한 String ctor 시그니처를 순서대로 시도
-        try {
-            // (serviceClass, serviceMethod, mapperFile, namespace, tag, id, sqlText)
-            Constructor<ServiceSqlCall> c7 = ServiceSqlCall.class.getConstructor(
-                    String.class, String.class, String.class, String.class, String.class, String.class, String.class);
-            return c7.newInstance(serviceClass, serviceMethod, mapperFile, namespace, tag, sqlId, sqlText);
-        } catch (Exception ignored) {
-        }
-
-        try {
-            // (serviceClass, serviceMethod, mapperFile, namespace, id)
-            Constructor<ServiceSqlCall> c5 = ServiceSqlCall.class.getConstructor(
-                    String.class, String.class, String.class, String.class, String.class);
-            return c5.newInstance(serviceClass, serviceMethod, mapperFile, namespace, sqlId);
-        } catch (Exception ignored) {
-        }
-
-        try {
-            // (serviceClass, serviceMethod, namespace, id)
-            Constructor<ServiceSqlCall> c4 = ServiceSqlCall.class.getConstructor(
-                    String.class, String.class, String.class, String.class);
-            return c4.newInstance(serviceClass, serviceMethod, namespace, sqlId);
-        } catch (Exception ignored) {
-        }
-
-        throw new IllegalStateException(
-                "Cannot instantiate ServiceSqlCall. Please check constructors/record components.");
-    }
-
-    // ------------------------------------------------------------
-    // Parsing helpers
-    // ------------------------------------------------------------
-    private static final class ServiceParts {
-        final String serviceClass;
-        final String serviceMethod;
-
-        ServiceParts(String serviceClass, String serviceMethod) {
-            this.serviceClass = serviceClass == null ? "" : serviceClass;
-            this.serviceMethod = serviceMethod == null ? "" : serviceMethod;
-        }
-    }
-
-    private static ServiceParts parseServiceParts(String serviceClass, String serviceMethod, String serviceFull) {
-        String sc = safe(serviceClass).trim();
-        String sm = safe(serviceMethod).trim();
-        String sf = safe(serviceFull).trim();
-
-        if (!sf.isBlank()) {
-            // 예: com.xxx.AAABBBServiceImpl.selectList(...)  /  AAABBBServiceImpl.selectList
-            sf = sf.replace("(", ".").replace(")", "");
-            int sharp = sf.lastIndexOf('#');
-            int dot = sf.lastIndexOf('.');
-            int cut = Math.max(sharp, dot);
-            if (cut > 0 && cut < sf.length() - 1) {
-                String left = sf.substring(0, cut).trim();
-                String right = sf.substring(cut + 1).trim();
-                if (sc.isBlank()) sc = left;
-                if (sm.isBlank()) sm = right;
-            } else {
-                if (sc.isBlank()) sc = sf;
-            }
-        }
-
-        // 메소드명에 "xxx()" 같은 꼬리 제거
-        if (sm.endsWith(")")) {
-            int p = sm.indexOf('(');
-            if (p > 0) sm = sm.substring(0, p);
-        }
-
-        return new ServiceParts(sc, sm);
-    }
-
-    private static final class NsId {
-        final String namespace;
-        final String sqlId;
-
-        NsId(String namespace, String sqlId) {
-            this.namespace = namespace == null ? "" : namespace;
-            this.sqlId = sqlId == null ? "" : sqlId;
-        }
-    }
-
-    private static NsId splitNamespaceAndId(String mapperId) {
-        String s = safe(mapperId).trim();
-
-        // 따옴표 제거
-        if ((s.startsWith("\"") && s.endsWith("\"")) || (s.startsWith("'") && s.endsWith("'"))) {
-            s = s.substring(1, s.length() - 1).trim();
-        }
-
-        int dot = s.lastIndexOf('.');
-        int colon = s.lastIndexOf(':');
-        int cut = Math.max(dot, colon);
-
-        if (cut > 0 && cut < s.length() - 1) {
-            String ns = s.substring(0, cut).trim();
-            String id = s.substring(cut + 1).trim();
-            return new NsId(ns, id);
-        }
-
-        // 분리 실패: id만 있는 것으로 취급
-        return new NsId("", s);
-    }
-
-    private static boolean hasAnyHeader(Map<String, Integer> headerIndex, String... keys) {
-        for (String k : keys) {
-            if (headerIndex.containsKey(norm(k))) return true;
-        }
-        return false;
-    }
-
-    private static String firstNonBlank(CSVRecord r,
-                                        Map<String, Integer> headerIndex,
-                                        List<String> headers,
-                                        String... candidates) {
-        Integer idx = findIndex(headerIndex, headers, candidates);
-        if (idx == null) return "";
-        if (idx < 0 || idx >= r.size()) return "";
-        return safe(r.get(idx)).trim();
-    }
-
-    private static Integer findIndex(Map<String, Integer> headerIndex,
-                                     List<String> headers,
-                                     String... candidates) {
-        if (candidates == null) return null;
-
-        // 1) exact normalized match
-        for (String c : candidates) {
-            String k = norm(c);
-            Integer i = headerIndex.get(k);
-            if (i != null) return i;
-        }
-
-        // 2) contains match (BEST처럼 "Sql-mapperID" 등 변형 대비)
-        for (String c : candidates) {
-            String ck = norm(c);
-            for (int i = 0; i < headers.size(); i++) {
-                String hk = norm(headers.get(i));
-                if (hk.contains(ck) || ck.contains(hk)) {
-                    return i;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    private static String norm(String s) {
-        String t = stripBom(safe(s)).trim().toLowerCase(Locale.ROOT);
-        // 문자/숫자만 남김(하이픈/공백/특수문자/물음표 제거)
-        return t.replaceAll("[^\\p{L}\\p{Nd}]+", "");
-    }
-
-    private static String stripBom(String s) {
-        if (s == null) return "";
-        if (!s.isEmpty() && s.charAt(0) == '\uFEFF') return s.substring(1);
-        return s;
-    }
-
-    private static String safe(String s) {
-        return s == null ? "" : s;
     }
 
     // ------------------------------------------------------------
@@ -390,5 +452,28 @@ public class ServiceSqlXrefLoader {
         // 일반 경로
         Path p = Path.of(s);
         return new BufferedInputStream(Files.newInputStream(p));
+    }
+
+    // ------------------------------------------------------------
+    // Parsing helpers
+    // ------------------------------------------------------------
+    private static final class ServiceParts {
+        final String serviceClass;
+        final String serviceMethod;
+
+        ServiceParts(String serviceClass, String serviceMethod) {
+            this.serviceClass = serviceClass == null ? "" : serviceClass;
+            this.serviceMethod = serviceMethod == null ? "" : serviceMethod;
+        }
+    }
+
+    private static final class NsId {
+        final String namespace;
+        final String sqlId;
+
+        NsId(String namespace, String sqlId) {
+            this.namespace = namespace == null ? "" : namespace;
+            this.sqlId = sqlId == null ? "" : sqlId;
+        }
     }
 }

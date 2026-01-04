@@ -1,5 +1,8 @@
 package domain.model;
-/** No-op warning sink. */
+
+/**
+ * No-op warning sink.
+ */
 final class NullConversionWarningSink implements ConversionWarningSink {
 
     static final NullConversionWarningSink INSTANCE = new NullConversionWarningSink();

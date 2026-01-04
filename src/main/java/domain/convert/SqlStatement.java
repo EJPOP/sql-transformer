@@ -1,4 +1,5 @@
 package domain.convert;
+
 public class SqlStatement {
 
     private final String mapperFile;

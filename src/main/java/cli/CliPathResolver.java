@@ -1,40 +1,47 @@
 package cli;
 
 import java.nio.file.Files;
-
 import java.nio.file.Path;
-
 import java.nio.file.Paths;
-
 import java.util.Locale;
-
 import java.util.Map;
 
-/** CLI path/system resolver (baseDir / system / sqlsDir). */
+/**
+ * CLI path/system resolver (baseDir / system / sqlsDir).
+ */
 public final class CliPathResolver {
 
-    private CliPathResolver() {}
-
     public static final String PROP_BASE_DIR = "baseDir";
-    public static final String PROP_SYSTEM   = "system";
+    public static final String PROP_SYSTEM = "system";
     public static final String PROP_SQLS_DIR = "sqlsDir";
+    private CliPathResolver() {
+    }
+
     public static void applyBaseDirPropertyIfPresent(Map<String, String> argv) {
         String bd = (argv == null) ? null : argv.get("baseDir");
         if (bd == null || bd.isBlank()) return;
         System.setProperty(PROP_BASE_DIR, bd.trim());
     }
+
     public static Path resolveBaseDir() {
         String bd = System.getProperty(PROP_BASE_DIR);
         if (bd != null && !bd.isBlank()) {
-            return resolveAgainstUserDir(bd).toAbsolutePath().normalize();
+            return resolveAgainstUserDir(bd).toAbsolutePath()
+                    .normalize();
         }
-        return Paths.get(".").toAbsolutePath().normalize();
+        return Paths.get(".")
+                .toAbsolutePath()
+                .normalize();
     }
+
     public static void ensureBaseDirProperty(Path baseDir) {
         if (System.getProperty(PROP_BASE_DIR) == null) {
-            System.setProperty(PROP_BASE_DIR, baseDir.toAbsolutePath().normalize().toString());
+            System.setProperty(PROP_BASE_DIR, baseDir.toAbsolutePath()
+                    .normalize()
+                    .toString());
         }
     }
+
     public static String resolveSystem(Map<String, String> argv) {
         String sys = trimToNull(System.getProperty(PROP_SYSTEM));
         if (sys != null) return sys;
@@ -51,11 +58,13 @@ public final class CliPathResolver {
         );
         return (inferred != null) ? inferred : "oasys";
     }
+
     public static void ensureSystemProperty(String system) {
         if (System.getProperty(PROP_SYSTEM) == null && system != null && !system.isBlank()) {
             System.setProperty(PROP_SYSTEM, system.trim());
         }
     }
+
     public static Path resolveSqlsDir(Path baseDir, String system, Map<String, String> argv) {
         String fromProp = trimToNull(System.getProperty(PROP_SQLS_DIR));
         if (fromProp != null) return resolvePath(baseDir, fromProp);
@@ -63,18 +72,43 @@ public final class CliPathResolver {
         String fromArg = (argv == null) ? null : trimToNull(argv.get("sqlsDir"));
         if (fromArg != null) return resolvePath(baseDir, fromArg);
 
-        // default: baseDir/systems/<system>/sqls
+        // default candidates (first existing wins)
+        // 1) baseDir/src/main/resources/systems/<system>/sqls (repo/dev)
+        Path dev = baseDir.resolve("src")
+                .resolve("main")
+                .resolve("resources")
+                .resolve("systems")
+                .resolve(system)
+                .resolve("sqls")
+                .toAbsolutePath()
+                .normalize();
+        if (Files.exists(dev) && Files.isDirectory(dev)) return dev;
+
+        // 2) baseDir/resources/systems/<system>/sqls (jar 배포용 리소스 폴더를 외부로 풀어놓은 경우)
+        Path resources = baseDir.resolve("resources")
+                .resolve("systems")
+                .resolve(system)
+                .resolve("sqls")
+                .toAbsolutePath()
+                .normalize();
+        if (Files.exists(resources) && Files.isDirectory(resources)) return resources;
+
+        // 3) baseDir/systems/<system>/sqls (기존 기본 경로)
         return baseDir.resolve("systems")
                 .resolve(system)
                 .resolve("sqls")
                 .toAbsolutePath()
                 .normalize();
     }
+
     public static void ensureSqlsDirProperty(Path sqlsDir) {
         if (System.getProperty(PROP_SQLS_DIR) == null && sqlsDir != null) {
-            System.setProperty(PROP_SQLS_DIR, sqlsDir.toAbsolutePath().normalize().toString());
+            System.setProperty(PROP_SQLS_DIR, sqlsDir.toAbsolutePath()
+                    .normalize()
+                    .toString());
         }
     }
+
     public static Path resolvePath(Path baseDir, String input) {
         if (input == null || input.isBlank()) return null;
         Path p = Paths.get(input.trim());
@@ -82,14 +116,18 @@ public final class CliPathResolver {
             if (baseDir != null) p = baseDir.resolve(p);
             else p = resolveAgainstUserDir(input.trim());
         }
-        return p.toAbsolutePath().normalize();
+        return p.toAbsolutePath()
+                .normalize();
     }
+
     public static Path resolveAgainstUserDir(String raw) {
         if (raw == null || raw.isBlank()) return null;
         Path p = Paths.get(raw.trim());
         if (p.isAbsolute()) return p;
-        return Paths.get(System.getProperty("user.dir")).resolve(p);
+        return Paths.get(System.getProperty("user.dir"))
+                .resolve(p);
     }
+
     public static void validateFileExists(Path p, String label) {
         if (p == null) throw new IllegalArgumentException(label + " is null");
         if (!Files.exists(p)) throw new IllegalArgumentException(label + " not found: " + p);
@@ -104,10 +142,10 @@ public final class CliPathResolver {
      * </ul>
      */
     public static Path resolveCandidateFile(Path baseDir,
-                                           String rawArg,
-                                           Path defaultDir,
-                                           String label,
-                                           String... candidateFileNames) {
+                                            String rawArg,
+                                            Path defaultDir,
+                                            String label,
+                                            String... candidateFileNames) {
         Path root;
 
         if (rawArg == null || rawArg.isBlank()) {
@@ -122,7 +160,8 @@ public final class CliPathResolver {
 
         // If user points to a file, use it directly.
         if (Files.exists(root) && Files.isRegularFile(root)) {
-            return root.toAbsolutePath().normalize();
+            return root.toAbsolutePath()
+                    .normalize();
         }
 
         // Treat as directory (even if not yet exists) and search candidates.
@@ -130,13 +169,17 @@ public final class CliPathResolver {
         if (!Files.exists(dir)) {
             // allow missing dir: we still resolve a candidate path for clear error message
             if (candidateFileNames != null && candidateFileNames.length > 0) {
-                return dir.resolve(candidateFileNames[0]).toAbsolutePath().normalize();
+                return dir.resolve(candidateFileNames[0])
+                        .toAbsolutePath()
+                        .normalize();
             }
-            return dir.toAbsolutePath().normalize();
+            return dir.toAbsolutePath()
+                    .normalize();
         }
 
         if (!Files.isDirectory(dir)) {
-            return dir.toAbsolutePath().normalize();
+            return dir.toAbsolutePath()
+                    .normalize();
         }
 
         if (candidateFileNames != null) {
@@ -144,21 +187,30 @@ public final class CliPathResolver {
                 if (name == null || name.isBlank()) continue;
                 Path p = dir.resolve(name);
                 if (Files.exists(p) && Files.isRegularFile(p)) {
-                    return p.toAbsolutePath().normalize();
+                    return p.toAbsolutePath()
+                            .normalize();
                 }
             }
         }
 
         // not found -> return first candidate under dir (for consistent error message)
         if (candidateFileNames != null && candidateFileNames.length > 0) {
-            return dir.resolve(candidateFileNames[0]).toAbsolutePath().normalize();
+            return dir.resolve(candidateFileNames[0])
+                    .toAbsolutePath()
+                    .normalize();
         }
-        return dir.toAbsolutePath().normalize();
+        return dir.toAbsolutePath()
+                .normalize();
     }
+
     public static void mkdirs(Path p) {
         if (p == null) return;
-        try { Files.createDirectories(p); } catch (Exception ignored) {}
+        try {
+            Files.createDirectories(p);
+        } catch (Exception ignored) {
+        }
     }
+
     public static String inferSystemFromPaths(String... paths) {
         if (paths == null) return null;
         for (String p : paths) {
@@ -167,9 +219,11 @@ public final class CliPathResolver {
         }
         return null;
     }
+
     public static String inferSystemFromPath(String raw) {
         if (raw == null || raw.isBlank()) return null;
-        String t = raw.replace('\\', '/').toLowerCase(Locale.ROOT);
+        String t = raw.replace('\\', '/')
+                .toLowerCase(Locale.ROOT);
         // systems/<system>/... or .../<system>/sqls
         int idx = t.indexOf("systems/");
         if (idx >= 0) {
@@ -182,12 +236,15 @@ public final class CliPathResolver {
         }
         return null;
     }
+
     public static String trimToNull(String s) {
         if (s == null) return null;
         String t = s.trim();
         return t.isEmpty() ? null : t;
     }
+
     public static boolean isBlank(String s) {
-        return s == null || s.trim().isEmpty();
+        return s == null || s.trim()
+                .isEmpty();
     }
 }

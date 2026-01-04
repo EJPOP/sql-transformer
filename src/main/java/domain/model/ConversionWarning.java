@@ -1,4 +1,5 @@
 package domain.model;
+
 /**
  * A single warning emitted during conversion.
  *
@@ -40,6 +41,10 @@ public final class ConversionWarning {
         return new ConversionWarning(code, serviceClass, namespace, sqlId, message, "");
     }
 
+    private static String nullToEmpty(String s) {
+        return s == null ? "" : s;
+    }
+
     public WarningCode getCode() {
         return code;
     }
@@ -62,9 +67,5 @@ public final class ConversionWarning {
 
     public String getDetail() {
         return detail;
-    }
-
-    private static String nullToEmpty(String s) {
-        return s == null ? "" : s;
     }
 }

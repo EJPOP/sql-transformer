@@ -1,26 +1,58 @@
 package infra.mapping;
 
+import domain.mapping.ColumnMapping;
 import org.apache.poi.ss.usermodel.*;
-
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.io.InputStream;
-
 import java.net.URI;
-
 import java.nio.file.Files;
-
 import java.nio.file.Path;
-
 import java.util.HashMap;
-
 import java.util.Locale;
-
 import java.util.Map;
 
-import domain.mapping.ColumnMapping;
-
 public class ColumnMappingXlsxLoader {
+
+    private static Path resolveBaseDir() {
+
+        // 1) explicit override
+        String baseDir = System.getProperty("baseDir");
+        if (baseDir != null && !baseDir.isBlank()) {
+            try {
+                return Path.of(baseDir)
+                        .toAbsolutePath()
+                        .normalize();
+            } catch (Exception ignored) {
+            }
+        }
+
+        // 2) jar location (when running as jar / library)
+        try {
+            var cs = ColumnMappingXlsxLoader.class.getProtectionDomain()
+                    .getCodeSource();
+            if (cs != null && cs.getLocation() != null) {
+                Path codePath = Path.of(cs.getLocation()
+                                .toURI())
+                        .toAbsolutePath()
+                        .normalize();
+                String lower = codePath.toString()
+                        .toLowerCase(Locale.ROOT);
+
+                if (Files.isRegularFile(codePath) && lower.endsWith(".jar")) {
+                    Path parent = codePath.getParent();
+                    if (parent != null) return parent.toAbsolutePath()
+                            .normalize();
+                }
+            }
+        } catch (Exception ignored) {
+        }
+
+        // 3) fallback
+        return Path.of(System.getProperty("user.dir", "."))
+                .toAbsolutePath()
+                .normalize();
+    }
 
     /**
      * key = ASIS_TABLE_ID.ASIS_COLUMN_ID (대문자)
@@ -99,15 +131,20 @@ public class ColumnMappingXlsxLoader {
         // ✅ 상대경로면 baseDir 기준으로 먼저 찾는다
         if (!p.isAbsolute()) {
             Path baseDir = resolveBaseDir();
-            Path pb = baseDir.resolve(p).toAbsolutePath().normalize();
+            Path pb = baseDir.resolve(p)
+                    .toAbsolutePath()
+                    .normalize();
             if (Files.exists(pb)) {
                 return Files.newInputStream(pb);
             }
 
             // 호환: mapping/column_mapping.xlsx 로 왔지만 baseDir 루트에 파일이 있는 경우도 커버
-            String fn = p.getFileName() == null ? null : p.getFileName().toString();
+            String fn = p.getFileName() == null ? null : p.getFileName()
+                    .toString();
             if (fn != null && !fn.isBlank()) {
-                Path alt = baseDir.resolve(fn).toAbsolutePath().normalize();
+                Path alt = baseDir.resolve(fn)
+                        .toAbsolutePath()
+                        .normalize();
                 if (Files.exists(alt)) {
                     return Files.newInputStream(alt);
                 }
@@ -131,40 +168,11 @@ public class ColumnMappingXlsxLoader {
         return is;
     }
 
-    private static Path resolveBaseDir() {
-
-        // 1) explicit override
-        String baseDir = System.getProperty("baseDir");
-        if (baseDir != null && !baseDir.isBlank()) {
-            try {
-                return Path.of(baseDir).toAbsolutePath().normalize();
-            } catch (Exception ignored) {
-            }
-        }
-
-        // 2) jar location (when running as jar / library)
-        try {
-            var cs = ColumnMappingXlsxLoader.class.getProtectionDomain().getCodeSource();
-            if (cs != null && cs.getLocation() != null) {
-                Path codePath = Path.of(cs.getLocation().toURI()).toAbsolutePath().normalize();
-                String lower = codePath.toString().toLowerCase(Locale.ROOT);
-
-                if (Files.isRegularFile(codePath) && lower.endsWith(".jar")) {
-                    Path parent = codePath.getParent();
-                    if (parent != null) return parent.toAbsolutePath().normalize();
-                }
-            }
-        } catch (Exception ignored) {
-        }
-
-        // 3) fallback
-        return Path.of(System.getProperty("user.dir", ".")).toAbsolutePath().normalize();
-    }
-
     private String get(Row row, int idx) {
         Cell cell = row.getCell(idx);
         if (cell == null) return "";
         cell.setCellType(CellType.STRING);
-        return cell.getStringCellValue().trim();
+        return cell.getStringCellValue()
+                .trim();
     }
 }

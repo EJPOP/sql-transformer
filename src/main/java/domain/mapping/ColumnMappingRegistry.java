@@ -21,7 +21,7 @@ import infra.mapping.ColumnMappingXlsxLoader;
  * - Empty keys (blank column ids) are not indexed.
  *   This avoids accidental matches when a TOBE column is deleted (blank in XLSX).
  */
-public class ColumnMappingRegistry {
+public class ColumnMappingRegistry implements ColumnMappingLookup {
 
     // 원본 매핑: key = ASIS_TABLE.ASIS_COLUMN (UPPER)
     private final Map<String, ColumnMapping> mappingMap;
@@ -92,7 +92,7 @@ public class ColumnMappingRegistry {
             ));
 
             if (!asisTable.isEmpty() && !tobeTable.isEmpty()) {
-                asisToTobeTableId.putIfAbsent(asisTable, tobeTable);
+                registerTableMapping(asisTable, tobeTable);
             }
         }
 
@@ -135,7 +135,16 @@ public class ColumnMappingRegistry {
     /** 테이블 + 컬럼 기준 (ASIS_TABLE + ASIS_COLUMN) */
     public ColumnMapping find(String table, String column) {
         if (table == null || column == null) return null;
-        return mappingMap.get(upper(table) + "." + upper(column));
+        String col = upper(column);
+        if (col.isEmpty()) return null;
+
+        // 테이블 표기가 시스템별로 혼재(TBBADDED001M vs TB_BADDED001M)하여
+        // 키 변형을 몇 개 시도한다.
+        for (String t : tableVariantsUpper(table)) {
+            ColumnMapping m = mappingMap.get(t + "." + col);
+            if (m != null) return m;
+        }
+        return null;
     }
 
     /** 컬럼만 기준 (ASIS_COLUMN) - ✅ 유일할 때만 반환 */
@@ -186,9 +195,87 @@ public class ColumnMappingRegistry {
     }
 
     /** ✅ TOBE_SQL 모드에서 테이블 치환용: 현행테이블ID -> (TOBE)테이블ID */
+
+    private void registerTableMapping(String asisTableId, String tobeTableId) {
+        if (asisTableId == null || tobeTableId == null) return;
+        String a = asisTableId.trim().toUpperCase(Locale.ROOT);
+        String t = tobeTableId.trim().toUpperCase(Locale.ROOT);
+        if (a.isEmpty() || t.isEmpty()) return;
+
+        // exact
+        asisToTobeTableId.putIfAbsent(a, t);
+
+        // normalized variants (helps when SQL/table ids are written without underscores)
+        asisToTobeTableId.putIfAbsent(a.replace("_", ""), t);
+        asisToTobeTableId.putIfAbsent(a.replace("-", "").replace("_", ""), t);
+
+        // allow asking with TOBE id -> return itself (idempotent)
+        asisToTobeTableId.putIfAbsent(t, t);
+        asisToTobeTableId.putIfAbsent(t.replace("_", ""), t);
+    }
+
     public String findTobeTableId(String asisTableId) {
         if (asisTableId == null) return null;
-        return asisToTobeTableId.get(upper(asisTableId));
+        String key = upper(asisTableId);
+        if (key.isEmpty()) return null;
+
+        String v = asisToTobeTableId.get(key);
+        if (v != null) return v;
+
+        // 표기 변형(언더스코어 삽입/제거)로 한 번 더 시도
+        for (String t : tableVariantsUpper(key)) {
+            v = asisToTobeTableId.get(t);
+            if (v != null) return v;
+        }
+
+        // 마지막 fallback: 테이블 prefix + '_' + rest 형태로 자동 보정
+        // (예: TBBADDED001M -> TB_BADDED001M)
+        String heuristic = addUnderscoreAfterPrefix(key);
+        if (!heuristic.equals(key)) return heuristic;
+        return null;
+    }
+
+    private List<String> tableVariantsUpper(String tableRaw) {
+        String t = upper(tableRaw);
+        if (t.isEmpty()) return List.of();
+
+        LinkedHashSet<String> set = new LinkedHashSet<>();
+        set.add(t);
+
+        String underscored = addUnderscoreAfterPrefix(t);
+        set.add(underscored);
+
+        String deUnderscored = removeUnderscoreAfterPrefix(t);
+        set.add(deUnderscored);
+
+        // 정규화 후 중복 제거
+        return new ArrayList<>(set);
+    }
+
+    private static String addUnderscoreAfterPrefix(String tableUpper) {
+        if (tableUpper == null) return "";
+        String t = tableUpper;
+        for (String p : SqlIdentifierUtil.TABLE_PREFIXES) {
+            if (t.startsWith(p) && t.length() > p.length()) {
+                if (t.charAt(p.length()) != '_') {
+                    return p + "_" + t.substring(p.length());
+                }
+                return t;
+            }
+        }
+        return t;
+    }
+
+    private static String removeUnderscoreAfterPrefix(String tableUpper) {
+        if (tableUpper == null) return "";
+        String t = tableUpper;
+        for (String p : SqlIdentifierUtil.TABLE_PREFIXES) {
+            String with = p + "_";
+            if (t.startsWith(with) && t.length() > with.length()) {
+                return p + t.substring(with.length());
+            }
+        }
+        return t;
     }
 
     private String upper(String s) {

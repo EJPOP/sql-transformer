@@ -4,23 +4,26 @@ import java.util.Locale;
 
 /**
  * File naming policy for generated SQL.
- *
+ * <p>
  * (NEW Requirement)
- *   <sqlId>.sql
- *   e.g. AEPAFU001ChangeStaApvRqsIdByApvRqsId.sql
- *
+ * <sqlId>.sql
+ * e.g. AEPAFU001ChangeStaApvRqsIdByApvRqsId.sql
+ * <p>
  * NOTE:
  * - namespace는 폴더로 분리되므로 파일명에서 제거함
  * - namespace 폴더명은 구분자(/, \, _, 공백 등) 제거 후 붙여쓰기:
- *     aep/afu/001  -> aepafu001
- *     aep\afu\001  -> aepafu001
- *     aep_afu_001  -> aepafu001
+ * aep/afu/001  -> aepafu001
+ * aep\afu\001  -> aepafu001
+ * aep_afu_001  -> aepafu001
  */
 public final class SqlFileNamePolicy {
 
-    private SqlFileNamePolicy() {}
+    private SqlFileNamePolicy() {
+    }
 
-    /** Build output filename: <sqlId>.sql */
+    /**
+     * Build output filename: <sqlId>.sql
+     */
     public static String build(String namespace, String sqlId) {
         String id = safePart(sqlId, "unknownId");
         id = limit(id, 180);
@@ -53,7 +56,8 @@ public final class SqlFileNamePolicy {
     private static String safePart(String raw, String fallback) {
         String s = (raw == null) ? "" : raw.trim();
         if (s.isEmpty()) s = fallback;
-        s = s.replace('\n', '_').replace('\r', '_');
+        s = s.replace('\n', '_')
+                .replace('\r', '_');
 
         // Keep only filename-safe characters.
         s = s.replaceAll("[^a-zA-Z0-9._-]", "_");

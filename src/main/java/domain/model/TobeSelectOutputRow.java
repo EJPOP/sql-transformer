@@ -1,5 +1,8 @@
 package domain.model;
-/** Row model for TOBE SELECT output columns (reporting/analysis purpose). */
+
+/**
+ * Row model for TOBE SELECT output columns (reporting/analysis purpose).
+ */
 public final class TobeSelectOutputRow {
     public final String serviceClass;
     public final String namespace;

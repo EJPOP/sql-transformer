@@ -1,9 +1,7 @@
 package domain.convert;
 
 import domain.mapping.ColumnMappingRegistry;
-
 import domain.model.ConversionContext;
-
 import domain.model.ConversionWarningSink;
 
 
@@ -20,18 +18,15 @@ import domain.model.ConversionWarningSink;
  */
 public class AliasSqlGenerator {
 
-    public enum Mode {
-        ASIS,
-        TOBE
-    }
-
     private final AliasSqlGeneratorEngine engine;
 
     public AliasSqlGenerator(ColumnMappingRegistry registry) {
         this.engine = new AliasSqlGeneratorEngine(registry);
     }
 
-    /** Preserve public API */
+    /**
+     * Preserve public API
+     */
     public String generate(String sqlText, Mode mode) {
         return engine.generate(sqlText, mode);
     }
@@ -43,5 +38,10 @@ public class AliasSqlGenerator {
      */
     public String generate(String sqlText, Mode mode, ConversionContext ctx, ConversionWarningSink sink) {
         return engine.generate(sqlText, mode, ctx, sink == null ? ConversionWarningSink.none() : sink);
+    }
+
+    public enum Mode {
+        ASIS,
+        TOBE
     }
 }

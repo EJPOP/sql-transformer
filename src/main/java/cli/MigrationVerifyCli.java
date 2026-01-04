@@ -1,4 +1,5 @@
 package cli;
+
 /**
  * Placeholder CLI for future migration verification flows.
  *

@@ -1,20 +1,17 @@
 package infra.output;
 
-import java.nio.file.Path;
-
-import java.util.List;
-
 import domain.model.AliasSqlResult;
-
 import domain.model.ConversionWarning;
-
+import domain.model.TobeDmlParamRow;
+import domain.model.TobeSelectOutputRow;
 import domain.output.ResultWriter;
 
-import domain.model.TobeSelectOutputRow;
+import java.nio.file.Path;
+import java.util.List;
 
-import domain.model.TobeDmlParamRow;
-
-/** No-op implementation (feature toggle). */
+/**
+ * No-op implementation (feature toggle).
+ */
 public final class NullResultWriter implements ResultWriter {
     @Override
     public void write(

@@ -1,11 +1,8 @@
 package domain.output;
 
 import java.util.Locale;
-
 import java.util.Objects;
-
 import java.util.regex.Matcher;
-
 import java.util.regex.Pattern;
 
 /**
@@ -30,14 +27,6 @@ public final class ServicePackageUnit {
 
     private ServicePackageUnit(String key) {
         this.key = key;
-    }
-
-    public String key() {
-        return key;
-    }
-
-    public boolean isUnknown() {
-        return "unknown".equalsIgnoreCase(key);
     }
 
     /**
@@ -69,7 +58,8 @@ public final class ServicePackageUnit {
     private static String findToken9(String raw) {
         Matcher m = TOKEN_9.matcher(raw);
         if (m.find()) {
-            return m.group(1).toLowerCase(Locale.ROOT);
+            return m.group(1)
+                    .toLowerCase(Locale.ROOT);
         }
         return null;
     }
@@ -84,30 +74,16 @@ public final class ServicePackageUnit {
             String b = parts[i + 1];
             String c = parts[i + 2];
 
-            if (TOKEN_3LET.matcher(a).matches()
-                    && TOKEN_3LET.matcher(b).matches()
-                    && TOKEN_3DIG.matcher(c).matches()) {
+            if (TOKEN_3LET.matcher(a)
+                    .matches()
+                    && TOKEN_3LET.matcher(b)
+                    .matches()
+                    && TOKEN_3DIG.matcher(c)
+                    .matches()) {
                 return a + b + c;
             }
         }
         return null;
-    }
-
-    @Override
-    public String toString() {
-        return key;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof ServicePackageUnit that)) return false;
-        return Objects.equals(key, that.key);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(key);
     }
 
     /**
@@ -131,5 +107,30 @@ public final class ServicePackageUnit {
         String combined = (serviceClass == null ? "" : serviceClass) + " " + (namespace == null ? "" : namespace);
         ServicePackageUnit u3 = fromRaw(combined);
         return u3.key(); // unknown이면 unknown 그대로 반환
+    }
+
+    public String key() {
+        return key;
+    }
+
+    public boolean isUnknown() {
+        return "unknown".equalsIgnoreCase(key);
+    }
+
+    @Override
+    public String toString() {
+        return key;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof ServicePackageUnit that)) return false;
+        return Objects.equals(key, that.key);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(key);
     }
 }

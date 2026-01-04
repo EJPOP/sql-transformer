@@ -1,69 +1,36 @@
 package app;
 
+import cli.*;
 import domain.callchain.ServiceSqlCall;
-
+import domain.convert.AliasSqlGenerator;
+import domain.convert.AsisResidueValidator;
+import domain.convert.MybatisDynamicTagValidator;
+import domain.convert.TobeSqlAnalyzer;
+import domain.mapping.ColumnMappingRegistry;
+import domain.model.*;
+import domain.output.ResultWriter;
+import domain.output.SqlOutputWriter;
+import domain.text.SqlTextProvider;
+import domain.text.SqlTextResolution;
+import domain.text.SqlTextSource;
 import mybatis.SqlStatementRegistry;
 
 import java.nio.file.Files;
-
 import java.nio.file.Path;
-
 import java.util.ArrayList;
-
 import java.util.Collections;
-
 import java.util.List;
-
 import java.util.Map;
 
-import cli.AliasSqlGenerateCli;
-
-import cli.CliArgParser;
-
-import cli.CliPathResolver;
-
-import cli.CliProgressMonitor;
-
-import cli.CliReflectionUtil;
-
-import domain.convert.AliasSqlGenerator;
-
-import domain.convert.AsisResidueValidator;
-
-import domain.convert.TobeSqlAnalyzer;
-
-import domain.mapping.ColumnMappingRegistry;
-
-import domain.model.AliasSqlResult;
-
-import domain.model.ConversionContext;
-
-import domain.model.ConversionWarning;
-
-import domain.model.ConversionWarningSink;
-
-import domain.model.ListConversionWarningSink;
-
-import domain.model.WarningCode;
-
-import domain.output.ResultWriter;
-
-import domain.output.SqlOutputWriter;
-
-import domain.text.SqlTextProvider;
-
-import domain.text.SqlTextResolution;
-
-import domain.model.TobeSelectOutputRow;
-
-import domain.model.TobeDmlParamRow;
-
-/** CLI entry (invoked by {@link AliasSqlGenerateCli}). */
+/**
+ * CLI entry (invoked by {@link AliasSqlGenerateCli}).
+ */
 public final class AliasSqlGenerateCliApp {
 
     private static final String PROP_PRETTY = "pretty";
 
-    private AliasSqlGenerateCliApp() {}
+    private AliasSqlGenerateCliApp() {
+    }
 
     public static void main(String[] args) {
 
@@ -95,8 +62,12 @@ public final class AliasSqlGenerateCliApp {
 
         // Default mapping directory: systems/<system>/mapping
         Path mappingDir = preferExistingDir(
-                baseDir.resolve("src/main/resources/systems").resolve(system).resolve("mapping"),
-                baseDir.resolve("systems").resolve(system).resolve("mapping")
+                baseDir.resolve("src/main/resources/systems")
+                        .resolve(system)
+                        .resolve("mapping"),
+                baseDir.resolve("systems")
+                        .resolve(system)
+                        .resolve("mapping")
         );
 
         // callchain: file or dir (callchain.csv/xlsx). Backward compatible with service_sql_xref.csv
@@ -123,10 +94,10 @@ public final class AliasSqlGenerateCliApp {
         String columnMappingXlsx = (mappingPath == null) ? "" : mappingPath.toString();
 
         Path outputSqlDir = CliPathResolver.resolvePath(baseDir, argv.getOrDefault("out", defaultOut));
-        Path resultXlsx   = CliPathResolver.resolvePath(baseDir, argv.getOrDefault("result", defaultResult));
+        Path resultXlsx = CliPathResolver.resolvePath(baseDir, argv.getOrDefault("result", defaultResult));
 
         Path callchainCsvPath = CliPathResolver.resolvePath(baseDir, callchainCsv);
-        Path mappingXlsxPath  = CliPathResolver.resolvePath(baseDir, columnMappingXlsx);
+        Path mappingXlsxPath = CliPathResolver.resolvePath(baseDir, columnMappingXlsx);
 
         int max = CliArgParser.parseInt(argv.get("max"), -1);
         int logEvery = CliArgParser.parseInt(argv.get("logEvery"), 100);
@@ -134,12 +105,15 @@ public final class AliasSqlGenerateCliApp {
         boolean failFast = CliArgParser.parseBoolean(argv.get("failFast"), false);
         boolean logFallback = CliArgParser.parseBoolean(argv.get("logFallback"), false);
 
+        // sql text source (default: csv-first = 기존 동작)
+        SqlTextSource sqlTextSource = CliArgParser.parseSqlTextSource(argv.get("sqlTextSource"));
+
         // ------------------------------------------------------------
         // feature toggles (presence-style)
         // ------------------------------------------------------------
         boolean noFallback = CliArgParser.flag(argv, "noFallback") || CliArgParser.flag(argv, "noRegistryFallback");
-        boolean noSqlOut   = CliArgParser.flag(argv, "noSqlOut")   || CliArgParser.flag(argv, "noOut");
-        boolean noResult   = CliArgParser.flag(argv, "noResult")   || CliArgParser.flag(argv, "noXlsx");
+        boolean noSqlOut = CliArgParser.flag(argv, "noSqlOut") || CliArgParser.flag(argv, "noOut");
+        boolean noResult = CliArgParser.flag(argv, "noResult") || CliArgParser.flag(argv, "noXlsx");
 
         // SQL Prettier option (default ON)
         String prettyRaw = argv.containsKey("pretty")
@@ -164,9 +138,32 @@ public final class AliasSqlGenerateCliApp {
         System.out.println("[CONF] slowMs         = " + slowMs);
         System.out.println("[CONF] failFast       = " + failFast);
         System.out.println("[CONF] logFallback    = " + logFallback);
-        System.out.println("[CONF] enableFallback = " + (!noFallback) + " (use --noFallback)");
-        System.out.println("[CONF] enableSqlOut   = " + (!noSqlOut)   + " (use --noSqlOut)");
-        System.out.println("[CONF] enableResult   = " + (!noResult)   + " (use --noResult)");
+        if (noFallback) {
+            // noFallback은 "레거시: CSV_FIRST의 registry fallback"을 끄기 위한 용도였다.
+            // sqlTextSource가 CSV_FIRST인 경우에만 의미 있게 적용한다.
+            if (sqlTextSource == SqlTextSource.CSV_FIRST) {
+                sqlTextSource = SqlTextSource.CSV;
+            } else if (sqlTextSource == SqlTextSource.XML_FIRST) {
+                sqlTextSource = SqlTextSource.XML;
+            }
+        }
+
+        boolean enableRegistry = (sqlTextSource == SqlTextSource.CSV_FIRST
+                || sqlTextSource == SqlTextSource.XML
+                || sqlTextSource == SqlTextSource.XML_FIRST);
+
+        // reporting/validation options
+        boolean validateMybatisTags = CliArgParser.parseBoolean(argv.get("validateMybatisTags"), true);
+        boolean includeSkipReason = CliArgParser.parseBoolean(argv.get("skipReason"), true);
+        boolean includeSkipDetail = CliArgParser.parseBoolean(argv.get("skipDetail"), true);
+
+        System.out.println("[CONF] sqlTextSource  = " + sqlTextSource + " (use --sqlTextSource=csv|csv-first|xml|xml-first)");
+        System.out.println("[CONF] enableRegistry = " + enableRegistry + (noFallback ? " (noFallback applied)" : ""));
+        System.out.println("[CONF] enableSqlOut   = " + (!noSqlOut) + " (use --noSqlOut)");
+        System.out.println("[CONF] enableResult   = " + (!noResult) + " (use --noResult)");
+        System.out.println("[CONF] validateMybatisTags = " + validateMybatisTags + " (use --validateMybatisTags=false)");
+        System.out.println("[CONF] skipReason     = " + includeSkipReason + " (use --skipReason=false)");
+        System.out.println("[CONF] skipDetail     = " + includeSkipDetail + " (use --skipDetail=false)");
         System.out.println("==================================================");
 
         CliPathResolver.validateFileExists(callchainCsvPath, "xref callchain (--callchain)");
@@ -176,8 +173,8 @@ public final class AliasSqlGenerateCliApp {
         List<ConversionWarning> warnings = new ArrayList<>(128);
         ConversionWarningSink warningSink = new ListConversionWarningSink(warnings);
 
-        if (!noFallback) {
-            // fallback을 켠 경우에만 sqlsDir 경고가 의미 있다.
+        if (enableRegistry) {
+            // registry를 쓰는 경우에만 sqlsDir 경고가 의미 있다.
             if (!Files.exists(sqlsDir) || !Files.isDirectory(sqlsDir)) {
                 System.out.println("[WARN] sqlsDir not found or not a directory: " + sqlsDir.toAbsolutePath());
                 System.out.println("       - sqls 폴더에 MyBatis mapper *.xml 파일을 복사해 넣어주세요.");
@@ -185,7 +182,7 @@ public final class AliasSqlGenerateCliApp {
                 warningSink.warn(new ConversionWarning(
                         WarningCode.SQLS_DIR_MISSING, "", "", "",
                         "sqlsDir not found: " + sqlsDir.toAbsolutePath(),
-                        "enableFallback=true"
+                        "enableRegistry=true"
                 ));
             }
         }
@@ -202,17 +199,17 @@ public final class AliasSqlGenerateCliApp {
         // ------------------------------------------------------------
         AliasSqlGenerateComponentsFactory factory = new AliasSqlGenerateComponentsFactory();
 
-        // SQL registry (fallback용)
+        // SQL registry (XML mapper 인덱스)
         long tSqlIdx0 = System.nanoTime();
-        SqlStatementRegistry sqlRegistry = factory.createSqlRegistry(!noFallback);
-        if (!noFallback) {
+        SqlStatementRegistry sqlRegistry = factory.createSqlRegistry(enableRegistry);
+        if (enableRegistry) {
             System.out.println("[STEP1] SqlStatementRegistry.initialize() done. elapsed=" + ms(tSqlIdx0) + "ms");
         } else {
-            System.out.println("[STEP1] SqlStatementRegistry skipped (--noFallback). elapsed=" + ms(tSqlIdx0) + "ms");
+            System.out.println("[STEP1] SqlStatementRegistry skipped (sqlTextSource=" + sqlTextSource + "). elapsed=" + ms(tSqlIdx0) + "ms");
         }
 
         // SQL text provider
-        SqlTextProvider sqlTextProvider = factory.createSqlTextProvider(sqlRegistry, !noFallback);
+        SqlTextProvider sqlTextProvider = factory.createSqlTextProvider(sqlRegistry, sqlTextSource);
 
         // column mapping
         long tMap0 = System.nanoTime();
@@ -222,6 +219,9 @@ public final class AliasSqlGenerateCliApp {
 
         // ✅ AS-IS 잔존 검증기
         AsisResidueValidator residueValidator = new AsisResidueValidator(columnMappingRegistry);
+
+        // ✅ MyBatis 동적태그( <if> ... ) 유실/불균형 검증기
+        MybatisDynamicTagValidator mybatisTagValidator = new MybatisDynamicTagValidator();
 
         // xref csv
         long tCsv0 = System.nanoTime();
@@ -260,8 +260,8 @@ public final class AliasSqlGenerateCliApp {
             ServiceSqlCall call = calls.get(i);
 
             String svc = safe(CliReflectionUtil.invokeString(call, "getServiceClass"));
-            String ns  = safe(CliReflectionUtil.invokeString(call, "getMapperNamespace"));
-            String id  = safe(CliReflectionUtil.invokeString(call, "getSqlId"));
+            String ns = safe(CliReflectionUtil.invokeString(call, "getMapperNamespace"));
+            String id = safe(CliReflectionUtil.invokeString(call, "getSqlId"));
             String key = svc + " | " + ns + "." + id;
 
             CliProgressMonitor.setCurrent(key, i + 1);
@@ -285,7 +285,14 @@ public final class AliasSqlGenerateCliApp {
 
             if (sqlText == null || sqlText.isBlank()) {
                 skip++;
-                results.add(new AliasSqlResult("SKIP", svc, ns, id, "SQL_TEXT_EMPTY"));
+                String reason = safe(resolved.getEmptyReason());
+                if (reason.isBlank()) reason = "SQL_TEXT_EMPTY";
+                String msg = includeSkipReason ? reason : "";
+                String detail = includeSkipDetail ? buildSkipDetail(resolved, csvSqlText, sqlTextSource) : "";
+                results.add(new AliasSqlResult(
+                        "SKIP", svc, ns, id, msg,
+                        safe(resolved.getSource()), resolved.isFallbackUsed(), resolved.getFallbackSource(), detail
+                ));
 
                 // More specific warning when fallback is disabled.
                 if (noFallback && (csvSqlText == null || csvSqlText.isBlank())) {
@@ -295,7 +302,12 @@ public final class AliasSqlGenerateCliApp {
                             "CSV sql_text empty and fallback disabled"
                     ));
                 } else {
-                    warningSink.warn(ConversionWarning.of(WarningCode.SQL_TEXT_EMPTY, svc, ns, id, "SQL text empty"));
+                    warningSink.warn(new ConversionWarning(
+                            WarningCode.SQL_TEXT_EMPTY,
+                            svc, ns, id,
+                            "SQL text empty",
+                            reason
+                    ));
                 }
 
                 if ((i + 1) % logEvery == 0 || (i + 1) == total) {
@@ -308,6 +320,11 @@ public final class AliasSqlGenerateCliApp {
                 ConversionContext ctx = new ConversionContext(svc, ns, id);
                 String transformedSql = generator.generate(sqlText, mode, ctx, warningSink);
 
+                // ✅ VALIDATION: MyBatis dynamic tags should not be lost/broken
+                if (validateMybatisTags) {
+                    mybatisTagValidator.validate(sqlText, transformedSql, ctx, warningSink);
+                }
+
                 // ✅ POST-VALIDATION: AS-IS 잔존 검증(보존영역 제외)
                 residueValidator.validate(transformedSql, ctx, warningSink, failFast);
 
@@ -319,12 +336,19 @@ public final class AliasSqlGenerateCliApp {
                 }
 
                 success++;
-                results.add(new AliasSqlResult("SUCCESS", svc, ns, id, ""));
+                results.add(new AliasSqlResult(
+                        "SUCCESS", svc, ns, id, "",
+                        safe(resolved.getSource()), resolved.isFallbackUsed(), resolved.getFallbackSource(), ""
+                ));
 
             } catch (AsisResidueValidator.AsisResidueFailFastException e) {
                 // failFast=true인 경우 의도적으로 중단
                 skip++;
-                results.add(new AliasSqlResult("SKIP", svc, ns, id, "ASIS_REMAINING_FAILFAST"));
+                results.add(new AliasSqlResult(
+                        "SKIP", svc, ns, id, includeSkipReason ? "ASIS_REMAINING_FAILFAST" : "",
+                        safe(resolved.getSource()), resolved.isFallbackUsed(), resolved.getFallbackSource(),
+                        includeSkipDetail ? safe(e.getMessage()) : ""
+                ));
 
                 System.out.println("[FAILFAST] AS-IS residue detected: " + key);
                 System.out.println("          " + safe(e.getMessage()));
@@ -332,14 +356,22 @@ public final class AliasSqlGenerateCliApp {
 
             } catch (Exception e) {
                 skip++;
-                results.add(new AliasSqlResult("SKIP", svc, ns, id, e.getClass().getSimpleName()));
+                results.add(new AliasSqlResult(
+                        "SKIP", svc, ns, id,
+                        includeSkipReason ? e.getClass()
+                                .getSimpleName() : "",
+                        safe(resolved.getSource()), resolved.isFallbackUsed(), resolved.getFallbackSource(),
+                        includeSkipDetail ? safe(e.getMessage()) : ""
+                ));
                 warningSink.warn(new ConversionWarning(
                         WarningCode.TRANSFORM_ERROR, svc, ns, id,
-                        e.getClass().getSimpleName(), safe(e.getMessage())
+                        e.getClass()
+                                .getSimpleName(), safe(e.getMessage())
                 ));
 
                 System.out.println("[ERROR] transform/write failed: " + key);
-                System.out.println("        ex=" + e.getClass().getName() + ": " + safe(e.getMessage()));
+                System.out.println("        ex=" + e.getClass()
+                        .getName() + ": " + safe(e.getMessage()));
                 e.printStackTrace(System.out);
 
                 if (failFast) {
@@ -400,13 +432,14 @@ public final class AliasSqlGenerateCliApp {
     // --- helper: mode check (enum name independent) ----------------------------
     private static boolean isTobeMode(AliasSqlGenerator.Mode mode) {
         if (mode == null) return true; // default TOBE
-        String n = mode.name().toUpperCase();
+        String n = mode.name()
+                .toUpperCase();
         return n.contains("TOBE"); // TOBE / TOBE_SQL 등 모두 허용
     }
 
     // --- helper: file-or-dir resolver ------------------------------------------
-// signature MUST match compile error:
-// resolveFileOrDir(String, Path, String, String, String, String)
+    // signature MUST match compile error:
+    // resolveFileOrDir(String, Path, String, String, String, String)
     private static Path resolveFileOrDir(
             String raw,
             Path defaultDir,
@@ -422,7 +455,8 @@ public final class AliasSqlGenerateCliApp {
 
         Path p = Path.of(raw);
         // 상대경로면 현재 실행 디렉토리 기준으로 해석(보통 프로젝트 루트)
-        p = p.toAbsolutePath().normalize();
+        p = p.toAbsolutePath()
+                .normalize();
 
         // 2) raw가 디렉토리면 그 내부에서 파일 탐색
         if (Files.exists(p) && Files.isDirectory(p)) {
@@ -437,7 +471,8 @@ public final class AliasSqlGenerateCliApp {
         if (dir == null) {
             throw new IllegalArgumentException(label + " dir is null");
         }
-        Path d = dir.toAbsolutePath().normalize();
+        Path d = dir.toAbsolutePath()
+                .normalize();
         if (!Files.exists(d) || !Files.isDirectory(d)) {
             throw new IllegalArgumentException(label + " dir not found: " + d);
         }
@@ -453,7 +488,8 @@ public final class AliasSqlGenerateCliApp {
         try {
             List<String> files = Files.list(d)
                     .filter(Files::isRegularFile)
-                    .map(x -> x.getFileName().toString())
+                    .map(x -> x.getFileName()
+                            .toString())
                     .sorted()
                     .toList();
             throw new IllegalArgumentException(label + " file not found in dir: " + d
@@ -463,6 +499,29 @@ public final class AliasSqlGenerateCliApp {
             throw new IllegalArgumentException(label + " file not found in dir: " + d
                     + " | expected one of: " + preferred1 + ", " + preferred2 + ", " + legacyName, e);
         }
+    }
+
+    private static String buildSkipDetail(SqlTextResolution resolved, String csvSqlText, SqlTextSource sqlTextSource) {
+        StringBuilder sb = new StringBuilder(128);
+        sb.append("sqlTextSource=")
+                .append(sqlTextSource);
+        sb.append(", resolvedFrom=")
+                .append(safe(resolved == null ? null : resolved.getSource()));
+        sb.append(", csvSqlTextBlank=")
+                .append(csvSqlText == null || csvSqlText.isBlank());
+        if (resolved != null) {
+            if (resolved.isFallbackUsed()) {
+                sb.append(", fallbackUsed=true");
+                sb.append(", fallbackSource=")
+                        .append(safe(resolved.getFallbackSource()));
+            }
+            String reason = safe(resolved.getEmptyReason());
+            if (!reason.isBlank()) {
+                sb.append(", reason=")
+                        .append(reason);
+            }
+        }
+        return sb.toString();
     }
 
     private static Path preferExistingDir(Path p1, Path p2) {

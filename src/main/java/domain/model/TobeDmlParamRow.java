@@ -1,5 +1,8 @@
 package domain.model;
-/** Row model for TOBE DML parameters (reporting/analysis purpose). */
+
+/**
+ * Row model for TOBE DML parameters (reporting/analysis purpose).
+ */
 public final class TobeDmlParamRow {
     public final String serviceClass;
     public final String namespace;

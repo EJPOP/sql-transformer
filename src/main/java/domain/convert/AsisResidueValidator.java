@@ -1,22 +1,15 @@
 package domain.convert;
 
-import java.util.ArrayList;
-
-import java.util.HashSet;
-
-import java.util.List;
-
-import java.util.Set;
-
 import domain.mapping.ColumnMappingRegistry;
-
 import domain.model.ConversionContext;
-
 import domain.model.ConversionWarning;
-
 import domain.model.ConversionWarningSink;
-
 import domain.model.WarningCode;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * AS-IS residue validation.
@@ -32,44 +25,6 @@ public final class AsisResidueValidator {
 
     public AsisResidueValidator(ColumnMappingRegistry registry) {
         this.registry = registry;
-    }
-
-    public void validate(String convertedSql,
-                         ConversionContext ctx,
-                         ConversionWarningSink sink,
-                         boolean failFast) {
-        if (convertedSql == null || convertedSql.isBlank()) return;
-        if (registry == null) return;
-
-        String scrubbed = scrubPreservedRegions(convertedSql);
-        Set<String> tokens = extractIdentifierTokensUpper(scrubbed);
-
-        Set<String> asisTables = registry.getAsisTableIdsUpper();
-        Set<String> asisCols   = registry.getAsisColumnIdsUpper();
-
-        List<String> hitTables = new ArrayList<>(8);
-        List<String> hitCols   = new ArrayList<>(16);
-
-        for (String t : tokens) {
-            if (asisTables.contains(t)) hitTables.add(t);
-            if (asisCols.contains(t)) hitCols.add(t);
-        }
-
-        if (hitTables.isEmpty() && hitCols.isEmpty()) return;
-
-        String svc = (ctx == null) ? "" : ctx.getServiceClass();
-        String ns  = (ctx == null) ? "" : ctx.getNamespace();
-        String id  = (ctx == null) ? "" : ctx.getSqlId();
-
-        String msg = "AS-IS residue detected: tables=" + hitTables.size() + ", columns=" + hitCols.size();
-        String detail = "tables=" + summarize(hitTables, 20) + " | columns=" + summarize(hitCols, 30);
-
-        if (failFast) {
-            throw new IllegalStateException(msg + " (" + detail + ")");
-        }
-
-        ConversionWarningSink s = (sink == null) ? ConversionWarningSink.none() : sink;
-        s.warn(new ConversionWarning(WarningCode.ASIS_RESIDUE_DETECTED, svc, ns, id, msg, detail));
     }
 
     private static String summarize(List<String> list, int limit) {
@@ -228,7 +183,8 @@ public final class AsisResidueValidator {
                 while (j < sql.length() && isIdentChar(sql.charAt(j))) j++;
 
                 if (j - i >= 3) {
-                    String token = sql.substring(i, j).toUpperCase();
+                    String token = sql.substring(i, j)
+                            .toUpperCase();
                     out.add(token);
                 }
                 i = j;
@@ -244,6 +200,44 @@ public final class AsisResidueValidator {
                 || (c >= 'a' && c <= 'z')
                 || (c >= '0' && c <= '9')
                 || c == '_';
+    }
+
+    public void validate(String convertedSql,
+                         ConversionContext ctx,
+                         ConversionWarningSink sink,
+                         boolean failFast) {
+        if (convertedSql == null || convertedSql.isBlank()) return;
+        if (registry == null) return;
+
+        String scrubbed = scrubPreservedRegions(convertedSql);
+        Set<String> tokens = extractIdentifierTokensUpper(scrubbed);
+
+        Set<String> asisTables = registry.getAsisTableIdsUpper();
+        Set<String> asisCols = registry.getAsisColumnIdsUpper();
+
+        List<String> hitTables = new ArrayList<>(8);
+        List<String> hitCols = new ArrayList<>(16);
+
+        for (String t : tokens) {
+            if (asisTables.contains(t)) hitTables.add(t);
+            if (asisCols.contains(t)) hitCols.add(t);
+        }
+
+        if (hitTables.isEmpty() && hitCols.isEmpty()) return;
+
+        String svc = (ctx == null) ? "" : ctx.getServiceClass();
+        String ns = (ctx == null) ? "" : ctx.getNamespace();
+        String id = (ctx == null) ? "" : ctx.getSqlId();
+
+        String msg = "AS-IS residue detected: tables=" + hitTables.size() + ", columns=" + hitCols.size();
+        String detail = "tables=" + summarize(hitTables, 20) + " | columns=" + summarize(hitCols, 30);
+
+        if (failFast) {
+            throw new IllegalStateException(msg + " (" + detail + ")");
+        }
+
+        ConversionWarningSink s = (sink == null) ? ConversionWarningSink.none() : sink;
+        s.warn(new ConversionWarning(WarningCode.ASIS_RESIDUE_DETECTED, svc, ns, id, msg, detail));
     }
 
     public static final class AsisResidueFailFastException extends RuntimeException {
